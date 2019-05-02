@@ -11,10 +11,15 @@ Input file should contain coil parameters, for each coil:
 import numpy
 
 plotStuff = True
+
+# Torpex parameters
 Rmin = 0.9
 Rmax = 1.1
 Zmin = -.1
 Zmax = .1
+
+# Golden ratio
+oneOverPhi = 2./(1. + numpy.sqrt(5.))
 
 if plotStuff:
     from matplotlib import pyplot
@@ -69,11 +74,11 @@ def plotPotential(potential, npoints=100, ncontours=40):
             R, Z, potential(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
     pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
+def distance(p1, p2):
+    return numpy.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+
 def findMinimum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     # Golden-section search: https://en.wikipedia.org/wiki/Golden-section_search
-
-    # Golden ratio
-    oneOverPhi = 2./(1. + numpy.sqrt(5.))
 
     # coordinates of line between pos1 and pos2, parameterized by 0<=s<=1
     coords = lambda s: (pos1[0] + s*(pos2[0]-pos1[0]), (pos1[1] + s*(pos2[1]-pos1[1])))
@@ -152,16 +157,85 @@ def findMaximum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     return coords((sRight+sLeft)/2.)
 
 def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    distance = lambda p1, p2: numpy.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
-
     minpos = findMinimum_1d(pos1, pos2, f, rtol, atol)
 
     smallDistance = 10.*rtol*distance(pos1, pos2)
     if distance(pos1,minpos) > smallDistance and distance(pos2,minpos) > smallDistance:
         # minimum is not at either end of the interval
-        return minpos
+        return minpos, True
 
-    return findMaximum_1d(pos1, pos2, f, rtol, atol)
+    return findMaximum_1d(pos1, pos2, f, rtol, atol), False
+
+def findSaddlePoint(f, atol=2.e-14):
+    posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)
+    posBottom, minBottom = findExtremum_1d((Rmin, Zmin), (Rmax, Zmin), f)
+    posLeft, minLeft = findExtremum_1d((Rmin, Zmin), (Rmin, Zmax), f)
+    posRight, minRight = findExtremum_1d((Rmax, Zmin), (Rmax, Zmax), f)
+
+    assert minTop == minBottom
+    assert minLeft == minRight
+    assert minTop != minLeft
+
+    if minTop:
+        vertSearch = findMinimum_1d
+    else:
+        vertSearch = findMaximum_1d
+
+    if minLeft:
+        horizSearch = findMinimum_1d
+    else:
+        horizSearch = findMaximum_1d
+
+    def isAbove(p, pLeft, pRight):
+        # is p above the line connecting pLeft and pRight?
+
+        # Z at R=p[0]
+        Z = pLeft[1] + (p[0]-pLeft[0])/(pRight[0] - pLeft[0]) * (pRight[1] - pLeft[1])
+
+        return p[1] > Z
+
+    def isToRight(p, pBottom, pTop):
+        # is p to the right of the line connecting pBottom and pTop?
+
+        # R at Z=p[1]
+        R = pBottom[0] + (p[1]-pBottom[1])/(pTop[1] - pBottom[1]) * (pTop[0] - pBottom[0])
+
+        return p[0] > R
+
+    def checkLims(midpoint, p1, p2, atol):
+        # if the extremum is at p1 or p2, push that point away
+        if distance(midpoint, p1) < atol:
+            print('found end 1')
+            p1 = (2.*p1[0]-p2[0], 2.*p1[1]-p2[1])
+        if distance(midpoint, p2) < atol:
+            print('found end 2')
+            p2 = (2.*p2[0]-p1[0], 2.*p2[1]-p1[1])
+        return p1, p2
+
+    def updateFurther(midpoint, p1, p2):
+        # advance the further away of p1, p2 towards midpoint
+        if distance(midpoint, p1) > distance(midpoint, p2):
+            p1 = ( midpoint[0] - (midpoint[0] - p1[0])*oneOverPhi,
+                   midpoint[1] - (midpoint[1] - p1[1])*oneOverPhi )
+        else:
+            p2 = ( midpoint[0] - (midpoint[0] - p2[0])*oneOverPhi,
+                   midpoint[1] - (midpoint[1] - p2[1])*oneOverPhi )
+        return p1, p2
+
+    count = 0
+    while distance(posBottom, posTop) > atol or distance(posLeft, posRight) > atol:
+        print(count, distance(posBottom, posTop), distance(posLeft, posRight))
+        count = count+1
+
+        midpoint = vertSearch(posBottom, posTop, f, 1.e-9, 0.5*atol)
+        posBottom, posTop = checkLims(midpoint, posBottom, posTop, atol)
+        posLeft, posRight = updateFurther(midpoint, posLeft, posRight)
+
+        midpoint = horizSearch(posLeft, posRight, f, 1.e-3, 0.5*atol)
+        posLeft, posRight = checkLims(midpoint, posLeft, posRight, atol)
+        posBottom, posTop = updateFurther(midpoint, posBottom, posTop)
+
+    return ((posLeft[0]+posRight[0])/2., (posBottom[1]+posTop[1])/2.)
 
 if __name__ == '__main__':
     from sys import argv, exit
@@ -171,25 +245,17 @@ if __name__ == '__main__':
     # parse input file
     coils = parseInput(filename)
 
-    Ator = potentialFunction(coils)
+    A_toroidal = potentialFunction(coils)
 
-    # test extremum?
-    for pos1,pos2 in [((.9,-0.1), (.95,.1)), ((.9,0.), (1.1,.05))]:
-        R = numpy.linspace(pos1[0],pos2[0],50)
-        Z = numpy.linspace(pos1[1],pos2[1],50)
-        extremum = findExtremum_1d(pos1, pos2, Ator)
-        pyplot.plot(R,Ator(R,Z))
-        pyplot.xlabel('R')
-        pyplot.axvline(extremum[0], c='r')
-        pyplot.figure()
-        pyplot.plot(Z,Ator(R,Z))
-        pyplot.xlabel('Z')
-        pyplot.axvline(extremum[1], c='r')
-        pyplot.show()
-    exit(0)
+    R = numpy.linspace(Rmin, Rmax, 50)
+    Z = numpy.linspace(Zmin, Zmax, 50)
+    AtorArray = A_toroidal(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T
+
+    xpoint = findSaddlePoint(A_toroidal)
 
     if plotStuff:
-        plotPotential(Ator)
+        plotPotential(A_toroidal)
+        pyplot.plot(*xpoint, 'rx')
         pyplot.show()
 
     exit(0)

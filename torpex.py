@@ -93,7 +93,6 @@ def findMinimum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     newfLeft = f(*coords(newsLeft))
     newfRight = f(*coords(newsRight))
     while sRight - sLeft > rtol and realdist(sLeft, sRight) > atol:
-        print('findmin',newsLeft,newfLeft,newsRight,newfRight)
         if newfLeft < newfRight:
             sRight = newsRight
             fRight = newfRight
@@ -135,7 +134,6 @@ def findMaximum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     newfLeft = f(*coords(newsLeft))
     newfRight = f(*coords(newsRight))
     while sRight - sLeft > rtol and realdist(sLeft, sRight) > atol:
-        print('findmax',newsLeft,newfLeft,newsRight,newfRight)
         if newfLeft > newfRight:
             sRight = newsRight
             fRight = newfRight
@@ -153,6 +151,18 @@ def findMaximum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
 
     return coords((sRight+sLeft)/2.)
 
+def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
+    distance = lambda p1, p2: numpy.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+
+    minpos = findMinimum_1d(pos1, pos2, f, rtol, atol)
+
+    smallDistance = 10.*rtol*distance(pos1, pos2)
+    if distance(pos1,minpos) > smallDistance and distance(pos2,minpos) > smallDistance:
+        # minimum is not at either end of the interval
+        return minpos
+
+    return findMaximum_1d(pos1, pos2, f, rtol, atol)
+
 if __name__ == '__main__':
     from sys import argv, exit
 
@@ -164,22 +174,18 @@ if __name__ == '__main__':
     Ator = potentialFunction(coils)
 
     # test extremum?
-    pos1 = (.9,-0.1)
-    pos2 = (.95,.1)
-    R = numpy.linspace(pos1[0],pos2[0],50)
-    Z = numpy.linspace(pos1[1],pos2[1],50)
-    minpoint = findMinimum_1d(pos1, pos2, Ator)
-    maxpoint = findMaximum_1d(pos1, pos2, Ator)
-    pyplot.plot(R,Ator(R,Z))
-    pyplot.xlabel('R')
-    pyplot.axvline(minpoint[0], c='r')
-    pyplot.axvline(maxpoint[0], c='k')
-    pyplot.figure()
-    pyplot.plot(Z,Ator(R,Z))
-    pyplot.xlabel('Z')
-    pyplot.axvline(minpoint[1], c='r')
-    pyplot.axvline(maxpoint[1], c='k')
-    pyplot.show()
+    for pos1,pos2 in [((.9,-0.1), (.95,.1)), ((.9,0.), (1.1,.05))]:
+        R = numpy.linspace(pos1[0],pos2[0],50)
+        Z = numpy.linspace(pos1[1],pos2[1],50)
+        extremum = findExtremum_1d(pos1, pos2, Ator)
+        pyplot.plot(R,Ator(R,Z))
+        pyplot.xlabel('R')
+        pyplot.axvline(extremum[0], c='r')
+        pyplot.figure()
+        pyplot.plot(Z,Ator(R,Z))
+        pyplot.xlabel('Z')
+        pyplot.axvline(extremum[1], c='r')
+        pyplot.show()
     exit(0)
 
     if plotStuff:

@@ -108,7 +108,7 @@ def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
 
     raise ValueError("Neither minimum nor maximum found in interval")
 
-def findSaddlePoint(f, atol=2.e-14):
+def findSaddlePoint(f, atol=5.e-8):
     posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)
     posBottom, minBottom = findExtremum_1d((Rmin, Zmin), (Rmax, Zmin), f)
     posLeft, minLeft = findExtremum_1d((Rmin, Zmin), (Rmin, Zmax), f)

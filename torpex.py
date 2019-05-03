@@ -13,14 +13,29 @@ import numpy
 plotStuff = True
 
 # Torpex parameters
-Rmin = 0.9
-Rmax = 1.1
-Zmin = -.1
-Zmax = .1
+Rmin = 0.8
+Rmax = 1.2
+Zmin = -.2
+Zmax = .2
 
 from scipy.optimize import minimize_scalar
 if plotStuff:
     from matplotlib import pyplot
+
+def TORPEX_wall(theta):
+    """
+    Return the location of the TORPEX wall parameterized by the angle theta
+    anticlockwise around the centre of the vacuum vessel
+    """
+    # TORPEX wall is a circle radius 0.2 m around (1 m, 0 m)
+    awall = 0.2
+    Rcentre = 1.
+    Zcentre = 0.
+    return (Rcentre + awall*numpy.cos(theta), Zcentre + awall*numpy.sin(theta))
+
+def addWallToPlot(npoints=100):
+    theta = numpy.linspace(0., 2.*numpy.pi, npoints+1, endpoint=True)
+    pyplot.plot(*TORPEX_wall(theta))
 
 def parseInput(filename):
     import yaml
@@ -163,7 +178,10 @@ if __name__ == '__main__':
     xpoint = findSaddlePoint(A_toroidal)
 
     if plotStuff:
-        plotPotential(A_toroidal)
+        #plotPotential(A_toroidal)
+        plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
+        pyplot.axes().set_aspect('equal')
+        addWallToPlot()
         pyplot.plot(*xpoint, 'rx')
         pyplot.show()
 

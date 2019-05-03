@@ -98,17 +98,23 @@ class MeshContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    def __init__(self, points):
+    def __init__(self, points, Aval):
         self.points = points
+
+        # Value of vector potential on this contour
+        self.Aval = Aval
 
     def __iter__(self):
         return self.points.__iter__()
 
+    def __getitem__(self, key):
+        return self.points.__getitem__(key)
+
     def append(self, point):
         self.points.append(point)
 
-    def getRefined(self, A_target, width=.2, atol=2.e-8):
-        f = lambda R,Z: A_toroidal(R, Z) - A_target
+    def getRefined(self, width=.2, atol=2.e-8):
+        f = lambda R,Z: A_toroidal(R, Z) - self.Aval
 
         def perpLine(p, tangent, w):
             # p - point through which to draw perpLine
@@ -149,7 +155,7 @@ class MeshContour:
             newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
         newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
-        return MeshContour(newpoints)
+        return MeshContour(newpoints, self.Aval)
 
 def parseInput(filename):
     import yaml
@@ -329,8 +335,8 @@ def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
     for point in boundaryPoints:
         legR = xpoint.R + s*(point.R - xpoint.R)
         legZ = xpoint.Z + s*(point.Z - xpoint.Z)
-        leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)])
-        leg = leg.getRefined(A_x, atol=atol)
+        leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], A_x)
+        leg = leg.getRefined(atol=atol)
         legs.append(leg)
 
     return legs

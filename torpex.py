@@ -21,6 +21,7 @@ Zmax = .1
 # Golden ratio
 oneOverPhi = 2./(1. + numpy.sqrt(5.))
 
+from scipy.optimize import minimize_scalar
 if plotStuff:
     from matplotlib import pyplot
 
@@ -64,7 +65,7 @@ def potentialFunction(coils):
     potential *= mu0/sympy.pi
     print(potential)
 
-    return numpy.vectorize(sympy.lambdify([R,Z], potential, 'sympy'))
+    return numpy.vectorize(sympy.lambdify([R,Z], potential, 'mpmath'))
 
 def plotPotential(potential, npoints=100, ncontours=40):
     pyplot.figure()
@@ -77,94 +78,34 @@ def plotPotential(potential, npoints=100, ncontours=40):
 def distance(p1, p2):
     return numpy.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
 
-def findMinimum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    # Golden-section search: https://en.wikipedia.org/wiki/Golden-section_search
-
-    # coordinates of line between pos1 and pos2, parameterized by 0<=s<=1
+def findMinimum_1d(pos1, pos2, f, atol=1.e-14):
     coords = lambda s: (pos1[0] + s*(pos2[0]-pos1[0]), (pos1[1] + s*(pos2[1]-pos1[1])))
-    def realdist(s1, s2):
-        R1,Z1 = coords(s1)
-        R2,Z2 = coords(s2)
-        return numpy.sqrt((R2-R1)**2 + (Z2-Z1)**2)
+    result = minimize_scalar(lambda s: f(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
+    if result.success:
+        return coords(result.x)
+    else:
+        print('findMinimum_1d failed?')
+        return coords(result.x)
 
-    # extremum is in an interval rtol times smaller than the distance between pos1 and
-    # pos2
-    sLeft = 0.
-    sRight = 1.
-    fLeft = f(*coords(sLeft))
-    fRight = f(*coords(sRight))
-    newsLeft = sRight - (sRight - sLeft)*oneOverPhi
-    newsRight = sLeft + (sRight - sLeft)*oneOverPhi
-    newfLeft = f(*coords(newsLeft))
-    newfRight = f(*coords(newsRight))
-    while sRight - sLeft > rtol and realdist(sLeft, sRight) > atol:
-        if newfLeft < newfRight:
-            sRight = newsRight
-            fRight = newfRight
-            newsRight = newsLeft
-            newfRight = newfLeft
-            newsLeft = sRight - (sRight - sLeft)*oneOverPhi
-            newfLeft = f(*coords(newsLeft))
-        else:
-            sLeft = newsLeft
-            fLeft = newsLeft
-            newsLeft = newsRight
-            newfLeft = newfRight
-            newsRight = sLeft + (sRight - sLeft)*oneOverPhi
-            newfRight = f(*coords(newsRight))
-
-    return coords((sRight+sLeft)/2.)
-
-def findMaximum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    # Golden-section search: https://en.wikipedia.org/wiki/Golden-section_search
-
-    # Golden ratio
-    oneOverPhi = 2./(1. + numpy.sqrt(5.))
-
-    # coordinates of line between pos1 and pos2, parameterized by 0<=s<=1
+def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
     coords = lambda s: (pos1[0] + s*(pos2[0]-pos1[0]), (pos1[1] + s*(pos2[1]-pos1[1])))
-    def realdist(s1, s2):
-        R1,Z1 = coords(s1)
-        R2,Z2 = coords(s2)
-        return numpy.sqrt((R2-R1)**2 + (Z2-Z1)**2)
-
-    # extremum is in an interval rtol times smaller than the distance between pos1 and
-    # pos2
-    sLeft = 0.
-    sRight = 1.
-    fLeft = f(*coords(sLeft))
-    fRight = f(*coords(sRight))
-    newsLeft = sRight - (sRight - sLeft)*oneOverPhi
-    newsRight = sLeft + (sRight - sLeft)*oneOverPhi
-    newfLeft = f(*coords(newsLeft))
-    newfRight = f(*coords(newsRight))
-    while sRight - sLeft > rtol and realdist(sLeft, sRight) > atol:
-        if newfLeft > newfRight:
-            sRight = newsRight
-            fRight = newfRight
-            newsRight = newsLeft
-            newfRight = newfLeft
-            newsLeft = sRight - (sRight - sLeft)*oneOverPhi
-            newfLeft = f(*coords(newsLeft))
-        else:
-            sLeft = newsLeft
-            fLeft = newsLeft
-            newsLeft = newsRight
-            newfLeft = newfRight
-            newsRight = sLeft + (sRight - sLeft)*oneOverPhi
-            newfRight = f(*coords(newsRight))
-
-    return coords((sRight+sLeft)/2.)
+    # minimize -f to find maximum
+    result = minimize_scalar(lambda s: -f(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
+    if result.success:
+        return coords(result.x)
+    else:
+        print('findMaximum_1d failed?')
+        return coords(result.x)
 
 def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    minpos = findMinimum_1d(pos1, pos2, f, rtol, atol)
+    minpos = findMinimum_1d(pos1, pos2, f, atol)
 
     smallDistance = 10.*rtol*distance(pos1, pos2)
     if distance(pos1,minpos) > smallDistance and distance(pos2,minpos) > smallDistance:
         # minimum is not at either end of the interval
         return minpos, True
 
-    return findMaximum_1d(pos1, pos2, f, rtol, atol), False
+    return findMaximum_1d(pos1, pos2, f, atol), False
 
 def findSaddlePoint(f, atol=2.e-14):
     posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)
@@ -227,11 +168,11 @@ def findSaddlePoint(f, atol=2.e-14):
         print(count, distance(posBottom, posTop), distance(posLeft, posRight))
         count = count+1
 
-        midpoint = vertSearch(posBottom, posTop, f, 1.e-9, 0.5*atol)
+        midpoint = vertSearch(posBottom, posTop, f, 0.5*atol)
         posBottom, posTop = checkLims(midpoint, posBottom, posTop, atol)
         posLeft, posRight = updateFurther(midpoint, posLeft, posRight)
 
-        midpoint = horizSearch(posLeft, posRight, f, 1.e-3, 0.5*atol)
+        midpoint = horizSearch(posLeft, posRight, f, 0.5*atol)
         posLeft, posRight = checkLims(midpoint, posLeft, posRight, atol)
         posBottom, posTop = updateFurther(midpoint, posBottom, posTop)
 

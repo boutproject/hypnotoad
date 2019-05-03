@@ -18,9 +18,6 @@ Rmax = 1.1
 Zmin = -.1
 Zmax = .1
 
-# Golden ratio
-oneOverPhi = 2./(1. + numpy.sqrt(5.))
-
 from scipy.optimize import minimize_scalar
 if plotStuff:
     from matplotlib import pyplot
@@ -131,56 +128,26 @@ def findSaddlePoint(f, atol=2.e-14):
     else:
         horizSearch = findinximum_1d
 
-    def isAbove(p, pLeft, pRight):
-        # is p above the line connecting pLeft and pRight?
+    underrelax = 0.
+    updateUnderrelax = lambda new, old: (1.-underrelax)*new + underrelax*old
 
-        # Z at R=p[0]
-        Z = pLeft[1] + (p[0]-pLeft[0])/(pRight[0] - pLeft[0]) * (pRight[1] - pLeft[1])
-
-        return p[1] > Z
-
-    def isToRight(p, pBottom, pTop):
-        # is p to the right of the line connecting pBottom and pTop?
-
-        # R at Z=p[1]
-        R = pBottom[0] + (p[1]-pBottom[1])/(pTop[1] - pBottom[1]) * (pTop[0] - pBottom[0])
-
-        return p[0] > R
-
-    def checkLims(midpoint, p1, p2, atol):
-        # if the extremum is at p1 or p2, push that point away
-        if distance(midpoint, p1) < atol:
-            print('found end 1')
-            p1 = (2.*p1[0]-p2[0], 2.*p1[1]-p2[1])
-        if distance(midpoint, p2) < atol:
-            print('found end 2')
-            p2 = (2.*p2[0]-p1[0], 2.*p2[1]-p1[1])
-        return p1, p2
-
-    def updateFurther(midpoint, p1, p2):
-        # advance the further away of p1, p2 towards midpoint
-        if distance(midpoint, p1) > distance(midpoint, p2):
-            p1 = ( midpoint[0] - (midpoint[0] - p1[0])*oneOverPhi,
-                   midpoint[1] - (midpoint[1] - p1[1])*oneOverPhi )
-        else:
-            p2 = ( midpoint[0] - (midpoint[0] - p2[0])*oneOverPhi,
-                   midpoint[1] - (midpoint[1] - p2[1])*oneOverPhi )
-        return p1, p2
+    extremumVert = (Rmin, Zmin)
+    extremumHoriz = (Rmax, Zmax)
 
     count = 0
-    while distance(posBottom, posTop) > atol or distance(posLeft, posRight) > atol:
-        print(count, distance(posBottom, posTop), distance(posLeft, posRight))
+    while distance(extremumVert, extremumHoriz) > atol:
+        print(count, extremumVert, extremumHoriz, distance(extremumVert, extremumHoriz))
         count = count+1
 
-        midpoint = vertSearch(posBottom, posTop, f, 0.5*atol)
-        posBottom, posTop = checkLims(midpoint, posBottom, posTop, atol)
-        posLeft, posRight = updateFurther(midpoint, posLeft, posRight)
+        extremumVert = vertSearch(posBottom, posTop, f, 0.5*atol)
+        posLeft = (posLeft[0], updateUnderrelax(extremumVert[1], posLeft[1]))
+        posRight = (posRight[0], updateUnderrelax(extremumVert[1], posRight[1]))
 
-        midpoint = horizSearch(posLeft, posRight, f, 0.5*atol)
-        posLeft, posRight = checkLims(midpoint, posLeft, posRight, atol)
-        posBottom, posTop = updateFurther(midpoint, posBottom, posTop)
+        extremumHoriz = horizSearch(posLeft, posRight, f, 0.5*atol)
+        posBottom = (updateUnderrelax(extremumHoriz[0], posBottom[0]), posBottom[1])
+        posTop = (updateUnderrelax(extremumHoriz[0], posTop[0]), posTop[1])
 
-    return ((posLeft[0]+posRight[0])/2., (posBottom[1]+posTop[1])/2.)
+    return ((extremumVert[0]+extremumHoriz[0])/2., (extremumVert[1]+extremumHoriz[1])/2.)
 
 if __name__ == '__main__':
     from sys import argv, exit

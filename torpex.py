@@ -36,11 +36,61 @@ def TORPEX_wall(theta):
     awall = 0.2
     Rcentre = 1.
     Zcentre = 0.
-    return (Rcentre + awall*numpy.cos(theta), Zcentre + awall*numpy.sin(theta))
+    return Point2D(Rcentre + awall*numpy.cos(theta), Zcentre + awall*numpy.sin(theta))
 
 def addWallToPlot(npoints=100):
     theta = numpy.linspace(0., 2.*numpy.pi, npoints+1, endpoint=True)
     pyplot.plot(*TORPEX_wall(theta))
+
+class Point2D:
+    """
+    A point in 2d space.
+    Can be added, subtracted, multiplied by scalar
+    """
+    def __init__(self, R, Z):
+        self.R = R
+        self.Z = Z
+
+    def __add__(self, other):
+        return Point2D(self.R+other.R, self.Z+other.Z)
+
+    def __sub__(self, other):
+        return Point2D(self.R-other.R, self.Z-other.Z)
+
+    def __mul__(self, other):
+        return Point2D(self.R*other, self.Z*other)
+
+    def __rmul__(self, other):
+        return Point2D(self.R*other, self.Z*other)
+
+    def __truediv__(self, other):
+        return Point2D(self.R/other, self.Z/other)
+
+    def __iter__(self):
+        """
+        Along with __next__() allows Point2D class to be treated like a tuple, e.g.
+        p = Point2D(1., 0.)
+        val = f(*p)
+        where f is a function that takes two arguments
+        """
+        self.iterStep = 0
+        return self
+
+    def __next__(self):
+        if self.iterStep == 0:
+            self.iterStep = 1
+            return self.R
+        elif self.iterStep == 1:
+            self.iterStep = 2
+            return self.Z
+        else:
+            raise StopIteration
+
+    def __repr__(self):
+        """
+        Allow Point2D to be printed
+        """
+        return 'Point2D('+str(self.R)+','+str(self.Z)+')'
 
 def parseInput(filename):
     import yaml
@@ -92,10 +142,11 @@ def plotPotential(potential, npoints=100, ncontours=40):
     pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
 def distance(p1, p2):
-    return numpy.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+    d = p2 - p1
+    return numpy.sqrt(d.R**2 + d.Z**2)
 
 def findMinimum_1d(pos1, pos2, f, atol=1.e-14):
-    coords = lambda s: (pos1[0] + s*(pos2[0]-pos1[0]), (pos1[1] + s*(pos2[1]-pos1[1])))
+    coords = lambda s: pos1 + s*(pos2-pos1)
     result = minimize_scalar(lambda s: f(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
     if result.success:
         return coords(result.x)
@@ -104,7 +155,7 @@ def findMinimum_1d(pos1, pos2, f, atol=1.e-14):
         return coords(result.x)
 
 def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
-    coords = lambda s: (pos1[0] + s*(pos2[0]-pos1[0]), (pos1[1] + s*(pos2[1]-pos1[1])))
+    coords = lambda s: pos1 + s*(pos2-pos1)
     # minimize -f to find maximum
     result = minimize_scalar(lambda s: -f(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
     if result.success:
@@ -128,10 +179,10 @@ def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     raise ValueError("Neither minimum nor maximum found in interval")
 
 def findSaddlePoint(f, atol=2.e-8):
-    posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)
-    posBottom, minBottom = findExtremum_1d((Rmin, Zmin), (Rmax, Zmin), f)
-    posLeft, minLeft = findExtremum_1d((Rmin, Zmin), (Rmin, Zmax), f)
-    posRight, minRight = findExtremum_1d((Rmax, Zmin), (Rmax, Zmax), f)
+    posTop, minTop = findExtremum_1d(Point2D(Rmin, Zmax), Point2D(Rmax, Zmax), f)
+    posBottom, minBottom = findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmax, Zmin), f)
+    posLeft, minLeft = findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmin, Zmax), f)
+    posRight, minRight = findExtremum_1d(Point2D(Rmax, Zmin), Point2D(Rmax, Zmax), f)
 
     assert minTop == minBottom
     assert minLeft == minRight
@@ -147,24 +198,24 @@ def findSaddlePoint(f, atol=2.e-8):
     else:
         horizSearch = findinximum_1d
 
-    extremumVert = (Rmin, Zmin)
-    extremumHoriz = (Rmax, Zmax)
+    extremumVert = Point2D(Rmin, Zmin)
+    extremumHoriz = Point2D(Rmax, Zmax)
 
     count = 0
     while distance(extremumVert, extremumHoriz) > atol:
         count = count+1
 
         extremumVert = vertSearch(posBottom, posTop, f, 0.5*atol)
-        posLeft = (posLeft[0], extremumVert[1])
-        posRight = (posRight[0], extremumVert[1])
+        posLeft.Z = extremumVert.Z
+        posRight.Z = extremumVert.Z
 
         extremumHoriz = horizSearch(posLeft, posRight, f, 0.5*atol)
-        posBottom = (extremumHoriz[0], posBottom[1])
-        posTop = (extremumHoriz[0], posTop[1])
+        posBottom.R = extremumHoriz.R
+        posTop.R = extremumHoriz.R
 
     print('findSaddlePoint took',count,'iterations to converge')
 
-    return ((extremumVert[0]+extremumHoriz[0])/2., (extremumVert[1]+extremumHoriz[1])/2.)
+    return (extremumVert+extremumHoriz)/2.
 
 def findRoots_1d(f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024):
     """
@@ -212,10 +263,9 @@ def refineContour(points, A_target, width=.2, atol=2.e-8):
         # p - point through which to draw perpLine
         # tangent - vector tangent to original curve, result will be perpendicular to this
         # w - width on either side of p to draw the perpLine to
-        modTangent = numpy.sqrt(tangent[0]**2 + tangent[1]**2)
-        perpIdentityVector = (tangent[1]/modTangent, -tangent[0]/modTangent)
-        return lambda s: (p[0]+2.*(s-0.5)*w*perpIdentityVector[0],
-                          p[1]+2.*(s-0.5)*w*perpIdentityVector[1])
+        modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
+        perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
+        return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
 
     def refinePoint(p, tangent):
         converged = False
@@ -243,13 +293,10 @@ def refineContour(points, A_target, width=.2, atol=2.e-8):
         return pline(snew)
 
     newpoints = []
-    newpoints.append(refinePoint(points[0], (points[1][0]-points[0][0],
-        points[1][1]-points[0][1])))
+    newpoints.append(refinePoint(points[0], points[1] - points[0]))
     for i,p in enumerate(points[1:-1]):
-        newpoints.append(refinePoint(p, (points[i+1][0]-points[i-1][0],
-            points[i+1][1]-points[i-1][1])))
-    newpoints.append(refinePoint(points[-1], (points[-1][0]-points[-2][0],
-        points[-1][1]-points[-2][1])))
+        newpoints.append(refinePoint(p, points[i+1] - points[i-1]))
+    newpoints.append(refinePoint(points[-1], points[-1] - points[-2]))
 
     return newpoints
 
@@ -265,9 +312,9 @@ def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
     legs = []
     s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
     for point in boundaryPoints:
-        legR = xpoint[0] + s*(point[0] - xpoint[0])
-        legZ = xpoint[1] + s*(point[1] - xpoint[1])
-        leg = list(zip(legR, legZ))
+        legR = xpoint.R + s*(point.R - xpoint.R)
+        legZ = xpoint.Z + s*(point.Z - xpoint.Z)
+        leg = [Point2D(R,Z) for R,Z in zip(legR, legZ)]
         leg = refineContour(leg, A_x, atol=atol)
         legs.append(leg)
 
@@ -300,7 +347,7 @@ if __name__ == '__main__':
         addWallToPlot()
         pyplot.plot(*xpoint, 'rx')
         for l in separatrixLegs:
-            pyplot.plot([x[0] for x in l], [x[1] for x in l])
+            pyplot.plot([x.R for x in l], [x.Z for x in l])
         pyplot.show()
 
     exit(0)

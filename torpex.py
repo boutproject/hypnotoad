@@ -98,14 +98,18 @@ def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
         return coords(result.x)
 
 def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    minpos = findMinimum_1d(pos1, pos2, f, atol)
-
     smallDistance = 10.*rtol*distance(pos1, pos2)
+
+    minpos = findMinimum_1d(pos1, pos2, f, atol)
     if distance(pos1,minpos) > smallDistance and distance(pos2,minpos) > smallDistance:
         # minimum is not at either end of the interval
         return minpos, True
 
-    return findMaximum_1d(pos1, pos2, f, atol), False
+    maxpos = findMaximum_1d(pos1, pos2, f, atol)
+    if distance(pos1,maxpos) > smallDistance and distance(pos2,maxpos) > smallDistance:
+        return maxpos, False
+
+    raise ValueError("Neither minimum nor maximum found in interval")
 
 def findSaddlePoint(f, atol=2.e-14):
     posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)

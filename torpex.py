@@ -92,6 +92,65 @@ class Point2D:
         """
         return 'Point2D('+str(self.R)+','+str(self.Z)+')'
 
+class MeshContour:
+    """
+    Represents a contour as a collection of points.
+    Includes methods for interpolation.
+    Mostly behaves like a list
+    """
+    def __init__(self, points):
+        self.points = points
+
+    def __iter__(self):
+        return self.points.__iter__()
+
+    def append(self, point):
+        self.points.append(point)
+
+    def getRefined(self, A_target, width=.2, atol=2.e-8):
+        f = lambda R,Z: A_toroidal(R, Z) - A_target
+
+        def perpLine(p, tangent, w):
+            # p - point through which to draw perpLine
+            # tangent - vector tangent to original curve, result will be perpendicular to this
+            # w - width on either side of p to draw the perpLine to
+            modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
+            perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
+            return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
+
+        def refinePoint(p, tangent):
+            converged = False
+            w = width
+            sp = []
+            ep = []
+            while not converged:
+                try:
+                    pline = perpLine(p, tangent, w)
+                    sp.append(pline(0.))
+                    ep.append(pline(1.))
+                    snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
+                    converged = info.converged
+                except ValueError:
+                    pass
+                w /= 2.
+                if w < atol:
+                    if numpy.abs(f(*pline(0.))) < atol*typical_A and numpy.abs(f(*pline(1.))) < atol*typical_A:
+                        # f is already so close to 0 that the point does not need refining
+                        snew = 0.5
+                        pass
+                    else:
+                        raise ValueError("Could not find interval to refine point")
+
+            return pline(snew)
+
+        newpoints = []
+        newpoints.append(refinePoint(self.points[0], self.points[1] - self.points[0]))
+        for i,p in enumerate(self.points[1:-1]):
+            newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
+        newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
+
+        return MeshContour(newpoints)
+
 def parseInput(filename):
     import yaml
     from collections import namedtuple
@@ -256,50 +315,6 @@ def findRoots_1d(f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024
 
     return roots
 
-def refineContour(points, A_target, width=.2, atol=2.e-8):
-    f = lambda R,Z: A_toroidal(R, Z) - A_target
-
-    def perpLine(p, tangent, w):
-        # p - point through which to draw perpLine
-        # tangent - vector tangent to original curve, result will be perpendicular to this
-        # w - width on either side of p to draw the perpLine to
-        modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
-        perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
-        return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
-
-    def refinePoint(p, tangent):
-        converged = False
-        w = width
-        sp = []
-        ep = []
-        while not converged:
-            try:
-                pline = perpLine(p, tangent, w)
-                sp.append(pline(0.))
-                ep.append(pline(1.))
-                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
-                converged = info.converged
-            except ValueError:
-                pass
-            w /= 2.
-            if w < atol:
-                if numpy.abs(f(*pline(0.))) < atol*typical_A and numpy.abs(f(*pline(1.))) < atol*typical_A:
-                    # f is already so close to 0 that the point does not need refining
-                    snew = 0.5
-                    pass
-                else:
-                    raise ValueError("Could not find interval to refine point")
-
-        return pline(snew)
-
-    newpoints = []
-    newpoints.append(refinePoint(points[0], points[1] - points[0]))
-    for i,p in enumerate(points[1:-1]):
-        newpoints.append(refinePoint(p, points[i+1] - points[i-1]))
-    newpoints.append(refinePoint(points[-1], points[-1] - points[-2]))
-
-    return newpoints
-
 def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
     """
     Follow 4 legs away from the x-point, starting with a rough guess and then refining to
@@ -314,8 +329,8 @@ def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
     for point in boundaryPoints:
         legR = xpoint.R + s*(point.R - xpoint.R)
         legZ = xpoint.Z + s*(point.Z - xpoint.Z)
-        leg = [Point2D(R,Z) for R,Z in zip(legR, legZ)]
-        leg = refineContour(leg, A_x, atol=atol)
+        leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)])
+        leg = leg.getRefined(A_x, atol=atol)
         legs.append(leg)
 
     return legs

@@ -118,14 +118,14 @@ def findSaddlePoint(f, atol=2.e-14):
     assert minTop != minLeft
 
     if minTop:
-        vertSearch = findMinimum_1d
-    else:
         vertSearch = findMaximum_1d
+    else:
+        vertSearch = findMinimum_1d
 
     if minLeft:
-        horizSearch = findMinimum_1d
-    else:
         horizSearch = findMaximum_1d
+    else:
+        horizSearch = findinximum_1d
 
     def isAbove(p, pLeft, pRight):
         # is p above the line connecting pLeft and pRight?

@@ -128,9 +128,6 @@ def findSaddlePoint(f, atol=5.e-8):
     else:
         horizSearch = findinximum_1d
 
-    underrelax = 0.
-    updateUnderrelax = lambda new, old: (1.-underrelax)*new + underrelax*old
-
     extremumVert = (Rmin, Zmin)
     extremumHoriz = (Rmax, Zmax)
 
@@ -140,12 +137,12 @@ def findSaddlePoint(f, atol=5.e-8):
         count = count+1
 
         extremumVert = vertSearch(posBottom, posTop, f, 0.5*atol)
-        posLeft = (posLeft[0], updateUnderrelax(extremumVert[1], posLeft[1]))
-        posRight = (posRight[0], updateUnderrelax(extremumVert[1], posRight[1]))
+        posLeft = (posLeft[0], extremumVert[1])
+        posRight = (posRight[0], extremumVert[1])
 
         extremumHoriz = horizSearch(posLeft, posRight, f, 0.5*atol)
-        posBottom = (updateUnderrelax(extremumHoriz[0], posBottom[0]), posBottom[1])
-        posTop = (updateUnderrelax(extremumHoriz[0], posTop[0]), posTop[1])
+        posBottom = (extremumHoriz[0], posBottom[1])
+        posTop = (extremumHoriz[0], posTop[1])
 
     return ((extremumVert[0]+extremumHoriz[0])/2., (extremumVert[1]+extremumHoriz[1])/2.)
 

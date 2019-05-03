@@ -18,7 +18,12 @@ Rmax = 1.2
 Zmin = -.2
 Zmax = .2
 
-from scipy.optimize import minimize_scalar
+# Could try to calculate this from range of A_toroidal in the domain or something, but
+# easier just to eyeball it from contour plots.
+# Only used to calculate some relative tolerances
+typical_A = 1.e-7
+
+from scipy.optimize import minimize_scalar, brentq, root
 if plotStuff:
     from matplotlib import pyplot
 
@@ -75,7 +80,6 @@ def potentialFunction(coils):
 
     # multiply by costant pre-factor
     potential *= mu0/sympy.pi
-    print(potential)
 
     return numpy.vectorize(sympy.lambdify([R,Z], potential, 'mpmath'))
 
@@ -123,7 +127,7 @@ def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
 
     raise ValueError("Neither minimum nor maximum found in interval")
 
-def findSaddlePoint(f, atol=5.e-8):
+def findSaddlePoint(f, atol=2.e-8):
     posTop, minTop = findExtremum_1d((Rmin, Zmax), (Rmax, Zmax), f)
     posBottom, minBottom = findExtremum_1d((Rmin, Zmin), (Rmax, Zmin), f)
     posLeft, minLeft = findExtremum_1d((Rmin, Zmin), (Rmin, Zmax), f)
@@ -148,7 +152,6 @@ def findSaddlePoint(f, atol=5.e-8):
 
     count = 0
     while distance(extremumVert, extremumHoriz) > atol:
-        print(count, extremumVert, extremumHoriz, distance(extremumVert, extremumHoriz))
         count = count+1
 
         extremumVert = vertSearch(posBottom, posTop, f, 0.5*atol)
@@ -159,7 +162,154 @@ def findSaddlePoint(f, atol=5.e-8):
         posBottom = (extremumHoriz[0], posBottom[1])
         posTop = (extremumHoriz[0], posTop[1])
 
+    print('findSaddlePoint took',count,'iterations to converge')
+
     return ((extremumVert[0]+extremumHoriz[0])/2., (extremumVert[1]+extremumHoriz[1])/2.)
+
+def findRoots_1d(f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024):
+    """
+    Find n roots of a scalar function f(x) in the range xmin<=x<=xmax
+    Assume they're not too close to each other - exclude a small region around each found
+    root when searching for more.
+    """
+    smallDistance = rtol * (xmax - xmin)
+    foundRoots = 0
+    roots = []
+    n_intervals = n
+    while True:
+        interval_points = numpy.linspace(xmin, xmax, n_intervals+1, endpoint=True)
+        interval_f = f(interval_points)
+        lucky_roots = numpy.where(interval_f == 0.)
+        if len(lucky_roots[0]) > 0:
+            raise NotImplementedError("Don't handle interval points that happen to land "
+                    "on a root yet!")
+        intervals_with_roots = numpy.where(numpy.sign(interval_f[:-1]) !=
+                                           numpy.sign(interval_f[1:]))[0]
+        if len(intervals_with_roots) >= n:
+            break
+        n_intervals *= 2
+        if n_intervals > maxintervals:
+            raise ValueError("Could not find", n, "roots when checking", maxintervals,
+                             "intervals")
+
+    # find roots in the intervals
+    for i in intervals_with_roots:
+        root, info = brentq(f, interval_points[i], interval_points[i+1], xtol=atol,
+                full_output=True)
+        if not info.converged:
+            raise ValueError("Root finding failed in {" + str(interval_points[i]) + "," +
+                    str(interval_points[i+1]) + "} with end values {" + str(interval_f[i])
+                    + "," + str(interval_f[i+1]))
+        roots.append(root)
+        foundRoots += 1
+
+    return roots
+
+def refineContour(points, A_target, width=.2, atol=2.e-8):
+    f = lambda R,Z: A_toroidal(R, Z) - A_target
+
+    def perpLine(p, tangent, w):
+        # p - point through which to draw perpLine
+        # tangent - vector tangent to original curve, result will be perpendicular to this
+        # w - width on either side of p to draw the perpLine to
+        modTangent = numpy.sqrt(tangent[0]**2 + tangent[1]**2)
+        perpIdentityVector = (tangent[1]/modTangent, -tangent[0]/modTangent)
+        return lambda s: (p[0]+2.*(s-0.5)*w*perpIdentityVector[0],
+                          p[1]+2.*(s-0.5)*w*perpIdentityVector[1])
+
+    def refinePoint(p, tangent):
+        converged = False
+        w = width
+        sp = []
+        ep = []
+        while not converged:
+            try:
+                pline = perpLine(p, tangent, w)
+                sp.append(pline(0.))
+                ep.append(pline(1.))
+                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
+                converged = info.converged
+            except ValueError:
+                pass
+            w /= 2.
+            if w < atol:
+                if numpy.abs(f(*pline(0.))) < atol*typical_A and numpy.abs(f(*pline(1.))) < atol*typical_A:
+                    # f is already so close to 0 that the point does not need refining
+                    snew = 0.5
+                    pass
+                else:
+                    #pyplot.contour(R,Z,f(R[None,:],Z[:,None]),100)
+                    #pyplot.axes().set_aspect('equal')
+                    #print('failing, but ',f(*sp[-1]),f(*ep[-1]))
+                    #pyplot.plot([x[0] for x in sp],[x[1] for x in sp],'x')
+                    #pyplot.plot([x[0] for x in ep],[x[1] for x in ep],'x')
+                    #pyplot.show()
+                    raise ValueError("Could not find interval to refine point")
+
+        return pline(snew)
+
+    #pyplot.plot([x[0] for x in points], [x[1] for x in points])
+    #pyplot.axes().set_aspect('equal')
+    #pyplot.xlim([.97,.99])
+    #pyplot.ylim([-.01,.01])
+
+    #p = points[0]
+    #pline = perpLine(p, (points[1][0]-p[0], points[1][1]-p[1]))
+
+    #print(0,p,pline(0.),pline(1.),f(*pline(0.)), f(*pline(1.)))
+    #pyplot.contour(R,Z,f(R[None,:],Z[:,None]),100)
+    #pyplot.plot(*pline(0.),'x')
+    #pyplot.plot(*pline(1.),'x')
+    #pyplot.show()
+
+    #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
+    #points[0] = pline(snew)
+    newpoints = []
+    newpoints.append(refinePoint(points[0], (points[1][0]-points[0][0],
+        points[1][1]-points[0][1])))
+    for i,p in enumerate(points[1:-1]):
+        #pline = perpLine(p,
+                         #(points[i+1][0]-points[i-1][0], points[i+1][1]-points[i-1][1]))
+        #print(i,f(*pline(0.)), f(*pline(1.)))
+        #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
+        #points[i] = pline(snew)
+        print(i,p)
+        newpoints.append(refinePoint(p, (points[i+1][0]-points[i-1][0],
+            points[i+1][1]-points[i-1][1])))
+        print(p,newpoints[i])
+        #except:
+            #pyplot.plot([x[0] for x in points], [x[1] for x in points])
+            #pyplot.axes().set_aspect('equal')
+            #pline = perpLine(p, (points[i+1][0]-points[i-1][0],
+                #points[i+1][1]-points[i-1][1]), width)
+
+    #pline = perpLine(p, (p[0]-points[-2][0], p[1]-points[-2][1]))
+    #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
+    #points[-1] = pline(snew)
+    newpoints.append(refinePoint(points[-1], (points[-1][0]-points[-2][0],
+        points[-1][1]-points[-2][1])))
+
+    return newpoints
+
+def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
+    """
+    Follow 4 legs away from the x-point, starting with a rough guess and then refining to
+    the separatrix value of A_toroidal.
+    """
+    boundaryThetas = findRoots_1d(lambda theta: A_toroidal(*TORPEX_wall(theta)) - A_x, 4,
+            0., 2.*numpy.pi)
+    boundaryPoints = tuple(TORPEX_wall(theta) for theta in boundaryThetas)
+
+    legs = []
+    s = numpy.linspace(atol, 1., npoints, endpoint=True)
+    for point in boundaryPoints:
+        legR = xpoint[0] + s*(point[0] - xpoint[0])
+        legZ = xpoint[1] + s*(point[1] - xpoint[1])
+        leg = list(zip(legR, legZ))
+        leg = refineContour(leg, A_x, atol=atol)
+        legs.append(leg)
+
+    return legs
 
 if __name__ == '__main__':
     from sys import argv, exit
@@ -173,9 +323,14 @@ if __name__ == '__main__':
 
     R = numpy.linspace(Rmin, Rmax, 50)
     Z = numpy.linspace(Zmin, Zmax, 50)
-    AtorArray = A_toroidal(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T
+    #R = numpy.linspace(.97, .99, 50)
+    #Z = numpy.linspace(-.01, .01, 50)
 
     xpoint = findSaddlePoint(A_toroidal)
+    A_xpoint = A_toroidal(*xpoint)
+    print('X-point',xpoint,'with A_toroidal='+str(A_xpoint))
+
+    separatrixLegs = findSeparatrix(xpoint, A_xpoint)
 
     if plotStuff:
         #plotPotential(A_toroidal)
@@ -183,6 +338,8 @@ if __name__ == '__main__':
         pyplot.axes().set_aspect('equal')
         addWallToPlot()
         pyplot.plot(*xpoint, 'rx')
+        for l in separatrixLegs:
+            pyplot.plot([x[0] for x in l], [x[1] for x in l])
         pyplot.show()
 
     exit(0)

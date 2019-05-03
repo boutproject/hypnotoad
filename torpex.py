@@ -238,54 +238,16 @@ def refineContour(points, A_target, width=.2, atol=2.e-8):
                     snew = 0.5
                     pass
                 else:
-                    #pyplot.contour(R,Z,f(R[None,:],Z[:,None]),100)
-                    #pyplot.axes().set_aspect('equal')
-                    #print('failing, but ',f(*sp[-1]),f(*ep[-1]))
-                    #pyplot.plot([x[0] for x in sp],[x[1] for x in sp],'x')
-                    #pyplot.plot([x[0] for x in ep],[x[1] for x in ep],'x')
-                    #pyplot.show()
                     raise ValueError("Could not find interval to refine point")
 
         return pline(snew)
 
-    #pyplot.plot([x[0] for x in points], [x[1] for x in points])
-    #pyplot.axes().set_aspect('equal')
-    #pyplot.xlim([.97,.99])
-    #pyplot.ylim([-.01,.01])
-
-    #p = points[0]
-    #pline = perpLine(p, (points[1][0]-p[0], points[1][1]-p[1]))
-
-    #print(0,p,pline(0.),pline(1.),f(*pline(0.)), f(*pline(1.)))
-    #pyplot.contour(R,Z,f(R[None,:],Z[:,None]),100)
-    #pyplot.plot(*pline(0.),'x')
-    #pyplot.plot(*pline(1.),'x')
-    #pyplot.show()
-
-    #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
-    #points[0] = pline(snew)
     newpoints = []
     newpoints.append(refinePoint(points[0], (points[1][0]-points[0][0],
         points[1][1]-points[0][1])))
     for i,p in enumerate(points[1:-1]):
-        #pline = perpLine(p,
-                         #(points[i+1][0]-points[i-1][0], points[i+1][1]-points[i-1][1]))
-        #print(i,f(*pline(0.)), f(*pline(1.)))
-        #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
-        #points[i] = pline(snew)
-        print(i,p)
         newpoints.append(refinePoint(p, (points[i+1][0]-points[i-1][0],
             points[i+1][1]-points[i-1][1])))
-        print(p,newpoints[i])
-        #except:
-            #pyplot.plot([x[0] for x in points], [x[1] for x in points])
-            #pyplot.axes().set_aspect('equal')
-            #pline = perpLine(p, (points[i+1][0]-points[i-1][0],
-                #points[i+1][1]-points[i-1][1]), width)
-
-    #pline = perpLine(p, (p[0]-points[-2][0], p[1]-points[-2][1]))
-    #snew = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol)
-    #points[-1] = pline(snew)
     newpoints.append(refinePoint(points[-1], (points[-1][0]-points[-2][0],
         points[-1][1]-points[-2][1])))
 
@@ -321,15 +283,14 @@ if __name__ == '__main__':
 
     A_toroidal = potentialFunction(coils)
 
-    R = numpy.linspace(Rmin, Rmax, 50)
-    Z = numpy.linspace(Zmin, Zmax, 50)
-    #R = numpy.linspace(.97, .99, 50)
-    #Z = numpy.linspace(-.01, .01, 50)
+    #R = numpy.linspace(Rmin, Rmax, 50)
+    #Z = numpy.linspace(Zmin, Zmax, 50)
 
     xpoint = findSaddlePoint(A_toroidal)
     A_xpoint = A_toroidal(*xpoint)
     print('X-point',xpoint,'with A_toroidal='+str(A_xpoint))
 
+    # note legs are ordered in theta
     separatrixLegs = findSeparatrix(xpoint, A_xpoint)
 
     if plotStuff:

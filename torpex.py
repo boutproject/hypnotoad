@@ -24,6 +24,7 @@ Zmax = .2
 typical_A = 1.e-7
 
 from scipy.optimize import minimize_scalar, brentq, root
+from scipy.interpolate import interp1d
 if plotStuff:
     from matplotlib import pyplot
 
@@ -101,6 +102,11 @@ class MeshContour:
     def __init__(self, points, Aval):
         self.points = points
 
+        self.distance = [0.]
+        for i in range(1,len(self.points)):
+            self.distance.append(
+                    self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
+
         # Value of vector potential on this contour
         self.Aval = Aval
 
@@ -112,6 +118,8 @@ class MeshContour:
 
     def append(self, point):
         self.points.append(point)
+        self.distance.append(
+                self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
 
     def getRefined(self, width=.2, atol=2.e-8):
         f = lambda R,Z: A_toroidal(R, Z) - self.Aval
@@ -156,6 +164,27 @@ class MeshContour:
         newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
         return MeshContour(newpoints, self.Aval)
+
+    def interpFunction(self):
+        distance = numpy.array(numpy.float64(self.distance))
+        R = numpy.array(numpy.float64([p.R for p in self.points]))
+        Z = numpy.array(numpy.float64([p.Z for p in self.points]))
+        interpR = interp1d(distance, R, kind='cubic',
+                           assume_sorted=True)
+        interpZ = interp1d(distance, Z, kind='cubic',
+                           assume_sorted=True)
+        total_distance = distance[-1]
+        return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
+
+    def getRegridded(self, npoints, width=1.e-4, atol=2.e-8):
+        """
+        Interpolate onto an evenly spaced set of npoints points, then refine positions.
+        Returns a new MeshContour.
+        """
+        s = numpy.linspace(0., 1., npoints, endpoint=True)
+        interp = self.interpFunction()
+        new_contour = MeshContour([interp(x) for x in s], self.Aval)
+        return new_contour.getRefined(width, atol)
 
 def parseInput(filename):
     import yaml
@@ -206,7 +235,7 @@ def plotPotential(potential, npoints=100, ncontours=40):
             R, Z, potential(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
     pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
-def distance(p1, p2):
+def calc_distance(p1, p2):
     d = p2 - p1
     return numpy.sqrt(d.R**2 + d.Z**2)
 
@@ -230,15 +259,15 @@ def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
         return coords(result.x)
 
 def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
-    smallDistance = 10.*rtol*distance(pos1, pos2)
+    smallDistance = 10.*rtol*calc_distance(pos1, pos2)
 
     minpos = findMinimum_1d(pos1, pos2, f, atol)
-    if distance(pos1,minpos) > smallDistance and distance(pos2,minpos) > smallDistance:
+    if calc_distance(pos1,minpos) > smallDistance and calc_distance(pos2,minpos) > smallDistance:
         # minimum is not at either end of the interval
         return minpos, True
 
     maxpos = findMaximum_1d(pos1, pos2, f, atol)
-    if distance(pos1,maxpos) > smallDistance and distance(pos2,maxpos) > smallDistance:
+    if calc_distance(pos1,maxpos) > smallDistance and calc_distance(pos2,maxpos) > smallDistance:
         return maxpos, False
 
     raise ValueError("Neither minimum nor maximum found in interval")
@@ -267,7 +296,7 @@ def findSaddlePoint(f, atol=2.e-8):
     extremumHoriz = Point2D(Rmax, Zmax)
 
     count = 0
-    while distance(extremumVert, extremumHoriz) > atol:
+    while calc_distance(extremumVert, extremumHoriz) > atol:
         count = count+1
 
         extremumVert = vertSearch(posBottom, posTop, f, 0.5*atol)

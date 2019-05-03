@@ -263,7 +263,7 @@ def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
     boundaryPoints = tuple(TORPEX_wall(theta) for theta in boundaryThetas)
 
     legs = []
-    s = numpy.linspace(atol, 1., npoints, endpoint=True)
+    s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
     for point in boundaryPoints:
         legR = xpoint[0] + s*(point[0] - xpoint[0])
         legZ = xpoint[1] + s*(point[1] - xpoint[1])

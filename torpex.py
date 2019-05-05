@@ -117,6 +117,9 @@ class MeshContour:
     def __iter__(self):
         return self.points.__iter__()
 
+    def __str__(self):
+        return self.points.__str__()
+
     def __getitem__(self, key):
         return self.points.__getitem__(key)
 
@@ -204,14 +207,14 @@ class Mesh:
     Mesh quantities to be written to a grid file for BOUT++
     """
     def __init__(self, meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs):
-        nx = meshOptions['nx']
-        ny = meshOptions['ny']
-        ixseps = meshOptions['ixseps']
-        jyseps1 = meshOptions['jyseps1']
-        jyseps2 = meshOptions['jyseps2']
-        ny_inner = meshOptions['ny_inner']
-        psi_inner = meshOptions['psi_inner']
-        psi_outer = meshOptions['psi_outer']
+        self.nx = meshOptions['nx']
+        self.ny = meshOptions['ny']
+        self.ixseps = meshOptions['ixseps']
+        self.jyseps1 = meshOptions['jyseps1']
+        self.jyseps2 = meshOptions['jyseps2']
+        self.ny_inner = meshOptions['ny_inner']
+        self.psi_inner = meshOptions['psi_inner']
+        self.psi_outer = meshOptions['psi_outer']
 
         self.A_toroidal = A_toroidal
         self.f_R = f_R
@@ -220,48 +223,55 @@ class Mesh:
         self.A_xpoint = A_xpoint
 
         # number of points along each leg
-        npol_leg = []
-        npol_leg.append(jyseps1+1)
-        npol_leg.append(ny_inner - (jyseps1+1))
-        npol_leg.append(jyseps2+1 - ny_inner)
-        npol_leg.append(ny - (jyseps2+1))
+        self.npol_leg = []
+        self.npol_leg.append(self.jyseps1+1)
+        self.npol_leg.append(self.ny_inner - (self.jyseps1+1))
+        self.npol_leg.append(self.jyseps2+1 - self.ny_inner)
+        self.npol_leg.append(self.ny - (self.jyseps2+1))
 
         # number of radial points 'inside' separatrix for each leg
-        nrad_pf = ixseps
+        self.nrad_pf = self.ixseps
 
         # number of radial points 'outside' separatrix for each leg
-        nrad_sol = nx - ixseps
+        self.nrad_sol = self.nx - self.ixseps
 
         # generate points for cell centres and faces
         print('Mesh: regrid separatrix')
         self.separatrixLegs = [leg.getRegridded(2*np+1)
-                               for leg,np in zip(separatrixLegs, npol_leg)]
+                               for leg,np in zip(separatrixLegs, self.npol_leg)]
         for leg in self.separatrixLegs:
             leg[0] = xpoint
 
         print('Mesh: calculate psi values')
-        dpsi_inner = numpy.abs(A_xpoint - psi_inner)/float(nrad_pf)
-        dpsi_outer = numpy.abs(psi_outer - A_xpoint)/float(nrad_sol)
+        dpsi_inner = numpy.abs(A_xpoint - self.psi_inner)/float(self.nrad_pf)
+        dpsi_outer = numpy.abs(self.psi_outer - A_xpoint)/float(self.nrad_sol)
         # make grid spacing (dpsi_inner+dpsi_outer)/2. at separatrix
-        # linearly varying grid spacing for now
-        # dpsi/di|inner = (dpsi_outer-dpsi_inner)*(i/nrad_pf-1/2) + dpsi_inner
-        #               = (dpsi_outer-dpsi_inner)*i/nrad_pf + 3/2*dpsi_inner - 1/2*dpsi_outer
-        # psi(i)|inner = (dpsi_outer-dpsi_inner)*i**2/(2*nrad_pf) + (3/2*dpsi_inner-1/2*dpsi_outer)*i + psi_sep - dpsi_inner*nrad
-        #
-        # dpsi/di|outer = (dpsi_outer-dpsi_inner)*(i/nrad_sol-1/2) + dpsi_outer
-        #               = (dpsi_outer-dpsi_inner)*i/nrad_sol + 1/2*dpsi_inner + 1/2*dpsi_outer
-        # psi(i)|outer = (dpsi_outer-dpsi_inner)*i**2/(2*nrad_sol) + (1/2*dpsi_inner+1/2*dpsi_outer)*i + psi_sep
-        psi_face_vals_inner = [(dpsi_outer - dpsi_inner)*float(i)**2/(2.*float(nrad_pf))
-                               + (1.5*dpsi_inner - 0.5*dpsi_outer)*float(i)
-                               + A_xpoint - dpsi_inner*float(nrad_pf)
-                               for i in range(nrad_pf+1)]
-        psi_face_vals_outer = [(dpsi_outer - dpsi_inner)*float(i)**2/(2.*float(nrad_sol))
-                               + 0.5*(dpsi_inner + dpsi_outer)*float(i) + A_xpoint
-                               for i in range(nrad_sol+1)]
+        # in index space for indices of cell faces, psi needs to go through psi_inner at
+        # 0, A_xpoint at ixseps and psi_outer at nx+1
+        # for now use quadratic fit, leave grid refinement for later...
+        # psi(i) = c + b*i + a*i^2
+        # psi(0) = c = psi_inner
+        # psi(ixseps) = A_xpoint
+        #   A_xpoint - psi_inner = ixseps(b + a*ixseps)
+        #   (A_xpoint - psi_inner)/ixseps = b + a*ixseps
+        # psi(nx+1) = psi_outer
+        #   psi_outer - psi_inner = (nx+1)*(b + a*(nx+1))
+        #   (psi_outer - psi_inner)/(nx+1) = b + a*(nx+1)
+        # a*(nx+1-ixseps) = (psi_outer-psi_inner)/(nx+1) - (A_xpoint-psi_inner)/ixseps
+        # a = ((psi_outer-psi_inner)/(nx+1) - (A_xpoint-psi_inner)/ixseps) / (nx+1-ixseps)
+        # b = ( (psi_outer-psi_inner)/(nx+1)**2 - (A_xpoint-psi_inner)/ixseps**2 ) / (1/(nx+1) - 1/ixseps)
+        a = ((self.psi_outer-self.psi_inner)/(self.nx+1) -
+                (self.A_xpoint-self.psi_inner)/self.ixseps) / (self.nx+1-self.ixseps)
+        b = ( (self.psi_outer-self.psi_inner)/(self.nx+1)**2 -
+                (self.A_xpoint-self.psi_inner)/self.ixseps**2 ) / (1./(self.nx+1) - 1./self.ixseps)
+        c = self.psi_inner
+        psi_index = lambda i: a*i**2 + b*i + c
+        psi_face_vals_inner = [psi_index(i) for i in range(self.nrad_pf+1)]
+        psi_face_vals_outer = [psi_index(i) for i in range(self.ixseps+1, self.nx+2)]
         self.psi_vals_inner = []
         self.psi_vals_outer = []
-        self.dx = numpy.zeros(2*nx+1)
-        for i in range(nrad_pf):
+        self.dx = numpy.zeros(2*self.nx+1)
+        for i in range(self.nrad_pf):
             psi_m = psi_face_vals_inner[i]
             psi_p = psi_face_vals_inner[i+1]
             self.psi_vals_inner.append(psi_m)
@@ -272,29 +282,29 @@ class Mesh:
                 self.dx[2*i] = numpy.abs(psi_p - psi_m)
             self.dx[2*i+1] = numpy.abs(psi_p - psi_m)
         self.psi_vals_inner.append(psi_face_vals_inner[-1])
-        self.dx[2*nrad_pf+2] = numpy.abs(0.5*(psi_face_vals_outer[1] -
+        self.dx[2*self.nrad_pf+2] = numpy.abs(0.5*(psi_face_vals_outer[1] -
                                     psi_face_vals_inner[-2]))
-        for i in range(nrad_sol):
+        for i in range(self.nrad_sol):
             psi_m = psi_face_vals_outer[i]
             psi_p = psi_face_vals_outer[i+1]
             self.psi_vals_outer.append(psi_m)
             self.psi_vals_outer.append(0.5*(psi_m + psi_p))
             if i > 0:
-                self.dx[2*nrad_pf+2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_outer[i-1]))
-            self.dx[2*nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
+                self.dx[2*self.nrad_pf+2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_outer[i-1]))
+            self.dx[2*self.nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
         self.psi_vals_outer.append(psi_face_vals_outer[-1])
-        self.dx[2*nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
-        print('nrad_pf',nrad_pf)
-        print('nrad_sol',nrad_sol)
+        self.dx[2*self.nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
+        print('nrad_pf',self.nrad_pf)
+        print('nrad_sol',self.nrad_sol)
         print('psi_inner',self.psi_vals_inner)
-        print(self.dx[1:2*nrad_pf:2])
+        print(self.dx[1:2*self.nrad_pf:2])
         print('psi_outer',self.psi_vals_outer)
         print('psi_face',psi_face_vals_outer)
-        print(self.dx[2*nrad_pf+1:-1:2])
+        print(self.dx[2*self.nrad_pf+1:-1:2])
 
         print('Mesh get points')
-        self.contours_pf = [[]]*4
-        self.contours_sol = [[]]*4
+        self.contours_pf = [[] for i in range(4)]
+        self.contours_sol = [[] for i in range(4)]
 
         for i,leg in enumerate(self.separatrixLegs):
             print('leg',i,'...')
@@ -360,6 +370,7 @@ def potentialFunction(coils):
     """
     import sympy
     from sympy.functions.special.elliptic_integrals import elliptic_k, elliptic_e
+    import scipy.special
 
     R,Z = sympy.symbols('R Z')
     mu0 = 4.e-7*sympy.pi
@@ -387,12 +398,13 @@ def potentialFunction(coils):
     dAdZ = sympy.diff(potential, Z)
     modGradASquared = dAdR**2 + dAdZ**2
 
-    A_func = sympy.lambdify([R,Z], potential, 'mpmath')
-    f_R_func = sympy.lambdify([R,Z], dAdR/modGradASquared, 'mpmath')
-    f_Z_func = sympy.lambdify([R,Z], dAdZ/modGradASquared, 'mpmath')
-    return (numpy.vectorize(lambda R,Z: numpy.float64(A_func(R,Z))),
-            numpy.vectorize(lambda R,Z: numpy.float64(f_R_func(R,Z))),
-            numpy.vectorize(lambda R,Z: numpy.float64(f_Z_func(R,Z))))
+    A_func = sympy.lambdify([R,Z], potential, modules=['numpy',
+        {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+    f_R_func = sympy.lambdify([R,Z], dAdR/modGradASquared, modules=['numpy',
+        {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+    f_Z_func = sympy.lambdify([R,Z], dAdZ/modGradASquared, modules=['numpy',
+        {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+    return (A_func, f_R_func, f_Z_func)
 
 def plotPotential(potential, npoints=100, ncontours=40):
     pyplot.figure()
@@ -401,6 +413,7 @@ def plotPotential(potential, npoints=100, ncontours=40):
     contours = pyplot.contour(
             R, Z, potential(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
     pyplot.clabel(contours, inline=False, fmt='%1.3g')
+    pyplot.axes().set_aspect('equal')
 
 def calc_distance(p1, p2):
     d = p2 - p1
@@ -551,7 +564,8 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])
     print('  Arange',Arange,'Avals',Avals)
-    solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol)
+    solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
+            vectorized=True)
 
     return [Point2D(*p) for p in solution.y.T]
 
@@ -589,15 +603,14 @@ if __name__ == '__main__':
 
     if plotStuff:
         print('plotting potential')
-        plotPotential(A_toroidal)
+        plotPotential(mesh.A_toroidal)
         #plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
-        pyplot.axes().set_aspect('equal')
         print('adding wall')
         addWallToPlot()
-        pyplot.plot(*xpoint, 'rx')
+        pyplot.plot(*mesh.xpoint, 'rx')
         print('plotting separatrix')
-        for l in separatrixLegs:
-            l.plot()
+        for l in mesh.separatrixLegs:
+            l.plot('1')
         for contours in mesh.contours_pf:
             for contour in contours:
                 contour.plot('x')

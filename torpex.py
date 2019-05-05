@@ -6,9 +6,10 @@ Input file should contain coil parameters, for each coil:
     R: major radius in metres
     Z: major radius in metres
     I: anti-clockwise current in Amps
-"""
 
-import numpy
+Note: positions of cell corners are generated first, grid points are then put in the
+centre of the cell.
+"""
 
 plotStuff = True
 
@@ -23,6 +24,7 @@ Zmax = .2
 # Only used to calculate some relative tolerances
 typical_A = 1.e-7
 
+import numpy
 from scipy.optimize import minimize_scalar, brentq, root
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp

@@ -189,12 +189,14 @@ class MeshContour:
         total_distance = distance[-1]
         return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
 
-    def getRegridded(self, npoints, width=1.e-4, atol=2.e-8):
+    def getRegridded(self, npoints, width=1.e-4, atol=2.e-8, sfunc=None):
         """
         Interpolate onto an evenly spaced set of npoints points, then refine positions.
         Returns a new MeshContour.
         """
         s = numpy.linspace(0., 1., npoints, endpoint=True)
+        if sfunc is not None:
+            s = sfunc(s)
         interp = self.interpFunction()
         new_contour = MeshContour([interp(x) for x in s], self.A_toroidal, self.Aval)
         return new_contour.getRefined(width, atol)
@@ -240,7 +242,10 @@ class Mesh:
 
         # generate points for cell centres and faces
         print('Mesh: regrid separatrix')
-        self.separatrixLegs = [leg.getRegridded(2*np+1)
+        # wider poloidal spacing along separatrix near X-point, so orthogonal grid does
+        # not get too squashed
+        sfunc = lambda s: s**0.5
+        self.separatrixLegs = [leg.getRegridded(2*np+1, sfunc=sfunc)
                                for leg,np in zip(separatrixLegs, self.npol_leg)]
 
         print('Mesh: calculate psi values')

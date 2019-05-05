@@ -43,7 +43,7 @@ def TORPEX_wall(theta):
     return Point2D(Rcentre + awall*numpy.cos(theta), Zcentre + awall*numpy.sin(theta))
 
 def addWallToPlot(npoints=100):
-    theta = numpy.linspace(0., 2.*numpy.pi, npoints+1, endpoint=True)
+    theta = numpy.linspace(0., 2.*numpy.pi, npoints+1)
     pyplot.plot(*TORPEX_wall(theta))
 
 class Point2D:
@@ -193,10 +193,12 @@ class MeshContour:
 
     def getRegridded(self, npoints, width=1.e-4, atol=2.e-8, sfunc=None):
         """
-        Interpolate onto an evenly spaced set of npoints points, then refine positions.
+        Interpolate onto set of npoints points, then refine positions.
+        By default points are uniformly spaced, this can be changed by passing 'sfunc'
+        which replaces the uniform interval 's' with 's=sfunc(s)'.
         Returns a new MeshContour.
         """
-        s = numpy.linspace(0., 1., npoints, endpoint=True)
+        s = numpy.linspace(0., 1., npoints)
         if sfunc is not None:
             s = sfunc(s)
         interp = self.interpFunction()
@@ -485,7 +487,7 @@ def findRoots_1d(f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024
     roots = []
     n_intervals = n
     while True:
-        interval_points = numpy.linspace(xmin, xmax, n_intervals+1, endpoint=True)
+        interval_points = numpy.linspace(xmin, xmax, n_intervals+1)
         interval_f = f(interval_points)
         lucky_roots = numpy.where(interval_f == 0.)
         if len(lucky_roots[0]) > 0:
@@ -527,7 +529,7 @@ def findSeparatrix(A_toroidal, xpoint, A_x, atol = 2.e-8, npoints=100):
     boundaryPoints = tuple(TORPEX_wall(theta) for theta in boundaryThetas)
 
     legs = []
-    s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
+    s = numpy.linspace(10.*atol, 1., npoints)
     for point in boundaryPoints:
         legR = xpoint.R + s*(point.R - xpoint.R)
         legZ = xpoint.Z + s*(point.Z - xpoint.Z)

@@ -185,20 +185,21 @@ class MeshContour:
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
         interpR = interp1d(distance, R, kind='cubic',
-                           assume_sorted=True)
+                           assume_sorted=True, fill_value='extrapolate')
         interpZ = interp1d(distance, Z, kind='cubic',
-                           assume_sorted=True)
+                           assume_sorted=True, fill_value='extrapolate')
         total_distance = distance[-1]
         return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
 
-    def getRegridded(self, npoints, width=1.e-4, atol=2.e-8, sfunc=None):
+    def getRegridded(self, npoints, width=1.e-4, atol=2.e-8, sfunc=None, extend=0):
         """
         Interpolate onto set of npoints points, then refine positions.
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
         which replaces the uniform interval 's' with 's=sfunc(s)'.
+        'extend' extends the contour past its existing end by a number of points
         Returns a new MeshContour.
         """
-        s = numpy.linspace(0., 1., npoints)
+        s = numpy.linspace(0., (npoints-1+extend)/(npoints-1), npoints+extend)
         if sfunc is not None:
             s = sfunc(s)
         interp = self.interpFunction()
@@ -222,6 +223,7 @@ class Mesh:
         self.ny_inner = meshOptions['ny_inner']
         self.psi_inner = meshOptions['psi_inner']
         self.psi_outer = meshOptions['psi_outer']
+        self.y_boundary_guards = meshOptions['y_boundary_guards']
 
         self.A_toroidal = A_toroidal
         self.f_R = f_R
@@ -248,7 +250,8 @@ class Mesh:
         # wider poloidal spacing along separatrix near X-point, so orthogonal grid does
         # not get too squashed
         sfunc = lambda s: s**0.5
-        self.separatrixLegs = [leg.getRegridded(2*np+1, sfunc=sfunc)
+        self.separatrixLegs = [leg.getRegridded(2*np+1, sfunc=sfunc,
+                                                extend=2*self.y_boundary_guards)
                                for leg,np in zip(separatrixLegs, self.npol_leg)]
 
         dpsi_inner = numpy.abs(A_xpoint - self.psi_inner)/float(self.nrad_pf)

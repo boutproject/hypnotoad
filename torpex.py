@@ -342,6 +342,152 @@ class Mesh:
 
             leg.refine(width=1.e-5)
 
+    def geometry(self):
+        """
+        Calculate geometrical quantities for BOUT++
+        """
+
+        self.x_regions = [0, self.ixseps, self.nx]
+        self.y_regions = [0,
+                     self.jyseps1 + 1 + self.y_boundary_guards,
+                     self.ny_inner + 2*self.y_boundary_guards,
+                     self.jyseps2 + 1 + 3*self.y_boundary_guards,
+                     self.ny + 4*self.y_boundary_guards
+                    ]
+        self.Rxy = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
+        self.Rxy_ylow = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
+        self.Zxy = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
+        self.Zxy_ylow = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
+
+        self.Rcorners = numpy.zeros([self.nx + 1, self.ny + 4*self.y_boundary_guards + 1])
+        self.Zcorners = numpy.zeros([self.nx + 1, self.ny + 4*self.y_boundary_guards + 1])
+
+        # these store the corner positions at the end of the upper left divertor guard
+        # cells which would otherwise be missed because they would need to be in the same
+        # place in the arrays as the upper right divertor positions
+        self.Rcorners_extra = numpy.zeros(self.nx+1)
+        self.Zcorners_extra = numpy.zeros(self.nx+1)
+
+        for i,contours in enumerate(self.contours_pf):
+            if i == 3:
+                y_extra = 1
+                yup = None
+            else:
+                y_extra = 0
+                yup = -1
+
+            self.Rxy[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.R for p in contour[1::2]] for contour in contours[1::2]]
+
+            self.Rxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.R for p in contour[0:-1:2]] for contour in contours[1::2]]
+
+            self.Zxy[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.Z for p in contour[1::2]] for contour in contours[1::2]]
+
+            self.Zxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.Z for p in contour[0:-1:2]] for contour in contours[1::2]]
+
+            sep = list(self.separatrixLegs[i])
+            if i%2 == 0:
+                sep.reverse()
+            print('here',self.y_regions[i],self.y_regions[i+1]+y_extra, 0,yup)
+            print([[p.Z for p in contour[0:3:2]] for contour in contours[0::2]])
+            self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
+                    [[p.R for p in contour[0:yup:2]] for contour in contours[0::2]]
+            self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
+                    [[p.Z for p in contour[0:yup:2]] for contour in contours[0::2]]
+            print('at',i,'Zcorners[:,10]',self.Zcorners[:,10])
+
+            if i==1:
+                self.Rcorners_extra[self.x_regions[0]:self.x_regions[1]+1] = \
+                        [contour[-1].R for contour in contours[0::2]+[sep]]
+                self.Zcorners_extra[self.x_regions[0]:self.x_regions[1]+1] = \
+                        [contour[-1].Z for contour in contours[0::2]+[sep]]
+
+        for i,contours in enumerate(self.contours_sol):
+            if i == 3:
+                y_extra = 1
+                yup = None
+            else:
+                y_extra = 0
+                yup = -1
+
+            self.Rxy[self.x_regions[1]:self.x_regions[2], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.R for p in contour[1::2]] for contour in contours[1::2]]
+
+            self.Rxy_ylow[self.x_regions[1]:self.x_regions[2], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.R for p in contour[0:-1:2]] for contour in contours[1::2]]
+
+            self.Zxy[self.x_regions[1]:self.x_regions[2], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.Z for p in contour[1::2]] for contour in contours[1::2]]
+
+            self.Zxy_ylow[self.x_regions[1]:self.x_regions[2], self.y_regions[i]:self.y_regions[i+1]] = \
+                    [[p.Z for p in contour[0:-1:2]] for contour in contours[1::2]]
+
+            sep = list(self.separatrixLegs[i])
+            if i%2 == 0:
+                sep.reverse()
+            self.Rcorners[self.x_regions[1]:self.x_regions[2]+1, self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
+                    [[p.R for p in contour[0:yup:2]] for contour in [sep]+contours[0::2]]
+            self.Zcorners[self.x_regions[1]:self.x_regions[2]+1, self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
+                    [[p.Z for p in contour[0:yup:2]] for contour in [sep]+contours[0::2]]
+            print('at',i,'Zcorners[:,10]',self.Zcorners[:,10])
+
+            if i==1:
+                self.Rcorners_extra[self.x_regions[1]:self.x_regions[2]+1] = \
+                        [contour[-1].R for contour in [sep]+contours[0::2]]
+                self.Zcorners_extra[self.x_regions[1]:self.x_regions[2]+1] = \
+                        [contour[-1].Z for contour in [sep]+contours[0::2]]
+
+    def writeGridfile(self, filename):
+        from boututils.datafile import DataFile
+
+        with DataFile(filename, create=True) as f:
+            f.write('nx', self.nx)
+            f.write('ny', self.ny)
+            f.write('y_boundary_guards', self.y_boundary_guards)
+            f.write('Rxy', self.Rxy)
+            f.write('Rxy_ylow', self.Rxy_ylow)
+
+    def plot2D(self, f, title=None, ylow=False):
+        try:
+            vmin = f.min()
+            vmax = f.max()
+
+            # leg 0
+            R = self.Rcorners[:, self.y_regions[0]:self.y_regions[1]+1].copy()
+            Z = self.Zcorners[:, self.y_regions[0]:self.y_regions[1]+1].copy()
+            # fix upper PF region corners
+            R[self.x_regions[0]:self.x_regions[1], -1] = self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
+            Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
+            pyplot.pcolor(R, Z, f[:, self.y_regions[0]:self.y_regions[1]], vmin=vmin, vmax=vmax)
+
+            # leg 1
+            R = self.Rcorners[:, self.y_regions[1]:self.y_regions[2]+1].copy()
+            Z = self.Zcorners[:, self.y_regions[1]:self.y_regions[2]+1].copy()
+            # fix upper corners
+            R[:, -1] = self.Rcorners_extra
+            Z[:, -1] = self.Zcorners_extra
+            pyplot.pcolor(R, Z, f[:, self.y_regions[1]:self.y_regions[2]], vmin=vmin, vmax=vmax)
+
+            # leg 2
+            R = self.Rcorners[:, self.y_regions[2]:self.y_regions[3]+1].copy()
+            Z = self.Zcorners[:, self.y_regions[2]:self.y_regions[3]+1].copy()
+            # fix upper PF region corners
+            R[self.x_regions[0]:self.x_regions[1], -1] = self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
+            Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
+            pyplot.pcolor(R, Z, f[:, self.y_regions[2]:self.y_regions[3]], vmin=vmin, vmax=vmax)
+
+            # leg 3
+            R = self.Rcorners[:, self.y_regions[3]:self.y_regions[4]+1].copy()
+            Z = self.Zcorners[:, self.y_regions[3]:self.y_regions[4]+1].copy()
+            pyplot.pcolor(R, Z, f[:, self.y_regions[3]:self.y_regions[4]], vmin=vmin, vmax=vmax)
+
+            pyplot.colorbar()
+        except NameError:
+            raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
+
 def parseInput(filename):
     import yaml
     from collections import namedtuple

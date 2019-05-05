@@ -213,7 +213,8 @@ class Mesh:
     """
     Mesh quantities to be written to a grid file for BOUT++
     """
-    def __init__(self, meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs):
+    def __init__(self, meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, xpoint, A_xpoint,
+                 separatrixLegs):
         self.orthogonal = meshOptions['orthogonal']
         self.nx = meshOptions['nx']
         self.ny = meshOptions['ny']
@@ -228,6 +229,12 @@ class Mesh:
         self.A_toroidal = A_toroidal
         self.f_R = f_R
         self.f_Z = f_Z
+        self.Bp_R = Bp_R
+        self.Bp_Z = Bp_Z
+
+        # poloidal current function, gives B_toroidal
+        self.fpol = fpol
+
         self.xpoint = xpoint
         self.A_xpoint = A_xpoint
 
@@ -281,19 +288,19 @@ class Mesh:
         psi_face_vals_outer = [psi_index(i) for i in range(self.ixseps, self.nx+2)]
         self.psi_vals_inner = []
         self.psi_vals_outer = []
-        self.dx = numpy.zeros(2*self.nx+1)
+        self.dx_list = numpy.zeros(2*self.nx+1)
         for i in range(self.nrad_pf):
             psi_m = psi_face_vals_inner[i]
             psi_p = psi_face_vals_inner[i+1]
             self.psi_vals_inner.append(psi_m)
             self.psi_vals_inner.append(0.5*(psi_m + psi_p))
             if i > 0:
-                self.dx[2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_inner[i-1]))
+                self.dx_list[2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_inner[i-1]))
             else:
-                self.dx[2*i] = numpy.abs(psi_p - psi_m)
-            self.dx[2*i+1] = numpy.abs(psi_p - psi_m)
+                self.dx_list[2*i] = numpy.abs(psi_p - psi_m)
+            self.dx_list[2*i+1] = numpy.abs(psi_p - psi_m)
         self.psi_vals_inner.append(psi_face_vals_inner[-1])
-        self.dx[2*self.nrad_pf+2] = numpy.abs(0.5*(psi_face_vals_outer[1] -
+        self.dx_list[2*self.nrad_pf+2] = numpy.abs(0.5*(psi_face_vals_outer[1] -
                                     psi_face_vals_inner[-2]))
         for i in range(self.nrad_sol):
             psi_m = psi_face_vals_outer[i]
@@ -301,10 +308,10 @@ class Mesh:
             self.psi_vals_outer.append(psi_m)
             self.psi_vals_outer.append(0.5*(psi_m + psi_p))
             if i > 0:
-                self.dx[2*self.nrad_pf+2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_outer[i-1]))
-            self.dx[2*self.nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
+                self.dx_list[2*self.nrad_pf+2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_outer[i-1]))
+            self.dx_list[2*self.nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
         self.psi_vals_outer.append(psi_face_vals_outer[-1])
-        self.dx[2*self.nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
+        self.dx_list[2*self.nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
 
         print('Mesh get points')
         self.contours_pf = [[] for i in range(4)]
@@ -440,6 +447,60 @@ class Mesh:
                 self.Zcorners_extra[self.x_regions[1]:self.x_regions[2]+1] = \
                         [contour[-1].Z for contour in [sep]+contours[0::2]]
 
+        self.psixy = self.A_toroidal(self.Rxy, self.Zxy)
+        self.psixy_ylow = self.A_toroidal(self.Rxy_ylow, self.Zxy_ylow)
+        self.dx = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        self.dx[:] = numpy.array(self.dx_list[1::2])[:, numpy.newaxis]
+        self.dx_ylow = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        self.dx_ylow[:] = numpy.array(self.dx_list[0:-1:2])[:, numpy.newaxis]
+        if self.psi_inner > self.psi_outer:
+            # x-coordinate is -psixy so x always increases radially across grid
+            self.bpsign = -1.
+            self.xcoord = -self.psixy
+        else:
+            self.bpsign = 1.
+            self.xcoord = self.psixy
+
+        self.dy = 2.*numpy.pi/float(self.ny) * numpy.ones([self.nx, self.ny + 2*self.y_boundary_guards])
+        self.dy_ylow = 2.*numpy.pi/float(self.ny) * numpy.ones([self.nx, self.ny + 2*self.y_boundary_guards])
+
+        self.Brxy = self.Bp_R(self.Rxy, self.Zxy)
+        self.Brxy_ylow = self.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
+        self.Bzxy = self.Bp_Z(self.Rxy, self.Zxy)
+        self.Bzxy_ylow = self.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
+        self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
+        self.Bpxy_ylow = numpy.sqrt(self.Brxy_ylow**2 + self.Bzxy_ylow**2)
+        # determine direction - dot Bp with Grad(y) vector
+        # evaluate in 'sol' at outer radial boundary
+        Bp_dot_grady = self.Brxy[-1, self.jyseps2+1]*(self.Rxy[-1, self.jyseps2+2] - self.Rxy[-1, self.jyseps2]) +\
+                       self.Bzxy[-1, self.jyseps2+1]*(self.Zxy[-1, self.jyseps2+2] - self.Zxy[-1, self.jyseps2])
+        if Bp_dot_grady < 0.:
+            print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
+            self.Bpxy = -self.Bpxy
+            self.Bpxy_ylow = -self.Bpxy_ylow
+            if self.bpsign > 0.:
+                raise ValueError("Sign of Bp should be negative?")
+        else:
+            if self.bpsign < 0.:
+                raise ValueError("Sign of Bp should be positive?")
+
+        # Get toroidal field from poloidal current function fpol
+        self.Btxy = self.fpol / self.Rxy
+        self.Btxy_ylow = self.fpol / self.Rxy_ylow
+
+        self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
+        self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
+
+        # poloidal arc-length between points
+        self.hthe, self.hthe_ylow = self.get_hthe()
+
+    def DDX(self, f):
+        result = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        result[1:-1, :] = (f[2:, :] - f[:-2, :]) / (2.*self.dx[1:-1])
+        result[0, :] = (-1.5*f[0, :] + 2.*f[1,:] - 0.5*f[2, :]) / self.dx[0]
+        result[-1, :] = (1.5*f[-1, :] - 2.*f[-2,:] + 0.5*f[-3, :]) / self.dx[-1]
+        return result
+
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
 
@@ -449,6 +510,22 @@ class Mesh:
             f.write('y_boundary_guards', self.y_boundary_guards)
             f.write('Rxy', self.Rxy)
             f.write('Rxy_ylow', self.Rxy_ylow)
+            f.write('Zxy', self.Zxy)
+            f.write('Zxy_ylow', self.Zxy_ylow)
+            f.write('psixy', self.psixy)
+            f.write('psixy_ylow', self.psixy_ylow)
+            f.write('dx', self.dx)
+            f.write('dx_ylow', self.dx_ylow)
+            f.write('dy', self.dy)
+            f.write('dy_ylow', self.dy_ylow)
+            f.write('Bpxy', self.Bpxy)
+            f.write('Bpxy_ylow', self.Bpxy_ylow)
+            f.write('Btxy', self.Btxy)
+            f.write('Btxy_ylow', self.Btxy_ylow)
+            f.write('Bxy', self.Bxy)
+            f.write('Bxy_ylow', self.hthe_ylow)
+            f.write('hthe', self.Bxy)
+            f.write('hthe_ylow', self.hthe_ylow)
 
     def plot2D(self, f, title=None, ylow=False):
         try:
@@ -488,6 +565,97 @@ class Mesh:
         except NameError:
             raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
 
+    def get_hthe(self):
+        """
+        Get poloidal arc length on grid.
+        Similar logic to plot2D in terms of R,Z on grid needed
+        """
+        hthe = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+
+        # leg 0
+        R = self.Rxy_ylow[:, self.y_regions[0]:self.y_regions[1]+1].copy()
+        Z = self.Zxy_ylow[:, self.y_regions[0]:self.y_regions[1]+1].copy()
+        # fix upper PF region points
+        R[self.x_regions[0]:self.x_regions[1], -1] = self.Rxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
+        hthe[:, self.y_regions[0]:self.y_regions[1]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        # now for ylow
+        R = numpy.zeros([self.nx, self.y_regions[1]+1])
+        Z = numpy.zeros([self.nx, self.y_regions[1]+1])
+        R[:, 1:] = self.Rxy[:, self.y_regions[0]:self.y_regions[1]]
+        Z[:, 1:] = self.Zxy[:, self.y_regions[0]:self.y_regions[1]]
+        # 'fix' lower points
+        R[:, 0] = self.Rxy_ylow[:, self.y_regions[0]]
+        Z[:, 0] = self.Zxy_ylow[:, self.y_regions[0]]
+        hthe_ylow[:, self.y_regions[0]:self.y_regions[1]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        hthe_ylow[:, self.y_regions[0]] *= 2. # double because only used distance from ylow point to next cell centre
+
+        # leg 1
+        R = self.Rxy_ylow[:, self.y_regions[1]:self.y_regions[2]+1].copy()
+        Z = self.Zxy_ylow[:, self.y_regions[1]:self.y_regions[2]+1].copy()
+        # fix upper points
+        contours = self.contours_pf[1]
+        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        contours = self.contours_sol[1]
+        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
+        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        hthe[:, self.y_regions[1]:self.y_regions[2]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        # now for ylow
+        R = self.Rxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
+        Z = self.Zxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
+        # fix PF lower points
+        R[self.x_regions[0]:self.x_regions[1],0] = \
+                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[2]]
+        hthe_ylow[:, self.y_regions[1]:self.y_regions[2]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+
+        # leg 2
+        R = self.Rxy_ylow[:, self.y_regions[2]:self.y_regions[3]+1].copy()
+        Z = self.Zxy_ylow[:, self.y_regions[2]:self.y_regions[3]+1].copy()
+        # fix upper PF region points
+        R[self.x_regions[0]:self.x_regions[1], -1] = self.Rxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
+        hthe[:, self.y_regions[2]:self.y_regions[3]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        # now for ylow
+        R = self.Rxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
+        Z = self.Zxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
+        # 'fix' lower points
+        R[:, 0] = self.Rxy_ylow[:, self.y_regions[2]]
+        Z[:, 0] = self.Zxy_ylow[:, self.y_regions[2]]
+        hthe_ylow[:, self.y_regions[2]:self.y_regions[3]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        hthe_ylow[:, self.y_regions[2]] *= 2. # double because only used distance from ylow point to next cell centre
+
+        # leg 3
+        R = numpy.zeros([self.nx, self.y_regions[4]-self.y_regions[3]+1])
+        Z = numpy.zeros([self.nx, self.y_regions[4]-self.y_regions[3]+1])
+        R[:,:-1] = self.Rxy_ylow[:, self.y_regions[3]:self.y_regions[4]]
+        Z[:,:-1] = self.Zxy_ylow[:, self.y_regions[3]:self.y_regions[4]]
+        # fix upper points
+        contours = self.contours_pf[3]
+        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        contours = self.contours_sol[3]
+        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
+        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        hthe[:, self.y_regions[3]:self.y_regions[4]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        # now for ylow
+        R = self.Rxy[:, self.y_regions[3]-1:self.y_regions[4]].copy()
+        Z = self.Zxy[:, self.y_regions[3]-1:self.y_regions[4]].copy()
+        # fix PF lower points
+        R[self.x_regions[0]:self.x_regions[1],0] = \
+                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[0]]
+        hthe_ylow[:, self.y_regions[1]:self.y_regions[2]] = \
+                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+
+        return hthe, hthe_ylow
+
 def parseInput(filename):
     import yaml
     from collections import namedtuple
@@ -497,9 +665,9 @@ def parseInput(filename):
     print('Coils:',coil_inputs['Coils'])
     
     Coil = namedtuple('Coil', 'R, Z, I')
-    return [Coil(**c) for c in coil_inputs['Coils']], mesh_inputs['Mesh']
+    return [Coil(**c) for c in coil_inputs['Coils']], coil_inputs['Bt_axis'], mesh_inputs['Mesh']
 
-def potentialFunction(coils):
+def magneticFunctions(coils):
     """
     Calculate toroidal (anticlockwise) component of magnetic vector potential due to coils
     See for example http://physics.usask.ca/~hirose/p812/notes/Ch3.pdf
@@ -540,7 +708,11 @@ def potentialFunction(coils):
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
     f_Z_func = sympy.lambdify([R,Z], dAdZ/modGradASquared, modules=['numpy',
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-    return (A_func, f_R_func, f_Z_func)
+    Bp_R_func = sympy.lambdify([R,Z], -dAdZ, modules=['numpy',
+        {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+    Bp_Z_func = sympy.lambdify([R,Z], 1/R * sympy.diff(R*potential, R), modules=['numpy',
+        {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+    return (A_func, f_R_func, f_Z_func, Bp_R_func, Bp_Z_func)
 
 def plotPotential(potential, npoints=100, ncontours=40):
     pyplot.figure()
@@ -702,9 +874,9 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
 
 def createMesh(filename):
     # parse input file
-    coils, meshOptions = parseInput(filename)
+    coils, Bt_axis, meshOptions = parseInput(filename)
 
-    A_toroidal, f_R, f_Z = potentialFunction(coils)
+    A_toroidal, f_R, f_Z, Bp_R, Bp_Z = magneticFunctions(coils)
 
     xpoint = findSaddlePoint(A_toroidal)
     A_xpoint = A_toroidal(*xpoint)
@@ -713,13 +885,16 @@ def createMesh(filename):
     # note legs are ordered in theta
     separatrixLegs = findSeparatrix(A_toroidal, xpoint, A_xpoint)
 
-    return Mesh(meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs)
+    fpol = Bt_axis / 1. # Major radius of TORPEX axis is 1m
+
+    return Mesh(meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, xpoint, A_xpoint, separatrixLegs)
 
 
 if __name__ == '__main__':
     from sys import argv, exit
 
     filename = argv[1]
+    gridname = 'torpex.grd.nc'
 
     mesh = createMesh(filename)
 
@@ -737,5 +912,7 @@ if __name__ == '__main__':
             for contour in contours:
                 contour.plot('+')
         pyplot.show()
+
+    mesh.write(gridname)
 
     exit(0)

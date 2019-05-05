@@ -5,7 +5,7 @@ Create a BOUT++ grid for TORPEX from an input file giving coil currents and posi
 Input file should contain coil parameters, for each coil:
     R: major radius in metres
     Z: major radius in metres
-    I: anti-clockwise current in Amps
+    I: clockwise current in Amps
 
 Note: positions of cell corners are generated first, grid points are then put in the
 centre of the cell.
@@ -690,7 +690,7 @@ def magneticFunctions(coils):
         r = sympy.sqrt(rSquared)
         sinTheta = R / r
         kSquared = 4*coil.R*r*sinTheta / (rSquared + coil.R**2 + 2*coil.R*r*sinTheta)
-        potential += (
+        potential += -(
           coil.I*coil.R / sympy.sqrt(r**2 + coil.R**2 + 2*coil.R*r*sinTheta) / kSquared
           * ( (2-kSquared)*elliptic_k(kSquared) - 2*elliptic_e(kSquared) )
           )
@@ -708,9 +708,9 @@ def magneticFunctions(coils):
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
     f_Z_func = sympy.lambdify([R,Z], dAdZ/modGradASquared, modules=['numpy',
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-    Bp_R_func = sympy.lambdify([R,Z], -dAdZ, modules=['numpy',
+    Bp_R_func = sympy.lambdify([R,Z], dAdZ, modules=['numpy',
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-    Bp_Z_func = sympy.lambdify([R,Z], 1/R * sympy.diff(R*potential, R), modules=['numpy',
+    Bp_Z_func = sympy.lambdify([R,Z], -1/R * sympy.diff(R*potential, R), modules=['numpy',
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
     return (A_func, f_R_func, f_Z_func, Bp_R_func, Bp_Z_func)
 

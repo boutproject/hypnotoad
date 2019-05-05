@@ -241,14 +241,12 @@ class Mesh:
         self.nrad_sol = self.nx - self.ixseps
 
         # generate points for cell centres and faces
-        print('Mesh: regrid separatrix')
         # wider poloidal spacing along separatrix near X-point, so orthogonal grid does
         # not get too squashed
         sfunc = lambda s: s**0.5
         self.separatrixLegs = [leg.getRegridded(2*np+1, sfunc=sfunc)
                                for leg,np in zip(separatrixLegs, self.npol_leg)]
 
-        print('Mesh: calculate psi values')
         dpsi_inner = numpy.abs(A_xpoint - self.psi_inner)/float(self.nrad_pf)
         dpsi_outer = numpy.abs(self.psi_outer - A_xpoint)/float(self.nrad_sol)
         # make grid spacing (dpsi_inner+dpsi_outer)/2. at separatrix
@@ -300,13 +298,6 @@ class Mesh:
             self.dx[2*self.nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
         self.psi_vals_outer.append(psi_face_vals_outer[-1])
         self.dx[2*self.nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
-        print('nrad_pf',self.nrad_pf)
-        print('nrad_sol',self.nrad_sol)
-        print('psi_inner',self.psi_vals_inner)
-        print(self.dx[1:2*self.nrad_pf:2])
-        print('psi_outer',self.psi_vals_outer)
-        print('psi_face',psi_face_vals_outer)
-        print(self.dx[2*self.nrad_pf+1:-1:2])
 
         print('Mesh get points')
         self.contours_pf = [[] for i in range(4)]
@@ -318,39 +309,27 @@ class Mesh:
             if i%2 == 0:
                 sep_points.reverse()
 
-            print('follow inner 0')
-            print(sep_points[0], self.psi_vals_inner[:-1])
             perp_points_inner = followPerpendicular(self.f_R, self.f_Z, sep_points[0],
                     self.A_xpoint, self.psi_vals_inner[-2::-1])
-            print('done')
             perp_points_inner.reverse()
-            print('perp_points_inner',perp_points_inner)
             for j,point in enumerate(perp_points_inner):
                 self.contours_pf[i].append(MeshContour([point], self.A_toroidal, self.psi_vals_inner[j]))
 
-            print('follow outer 0')
-            print(sep_points[0], self.psi_vals_outer[1:])
             perp_points_outer = followPerpendicular(self.f_R, self.f_Z, sep_points[0],
                     self.A_xpoint, self.psi_vals_outer[1:])
-            print('done')
-            print('perp_points_outer',perp_points_outer)
             for j,point in enumerate(perp_points_outer):
                 self.contours_sol[i].append(MeshContour([point], self.A_toroidal, self.psi_vals_outer[j+1]))
 
-            for p in sep_points[1:]:
-                print('point',p)
-                print('follow inner')
+            for count,p in enumerate(sep_points[1:]):
+                print('point',count)
                 perp_points_inner = followPerpendicular(self.f_R, self.f_Z, p,
                         self.A_xpoint, self.psi_vals_inner[-2::-1])
-                print('done')
                 perp_points_inner.reverse()
                 for j,point in enumerate(perp_points_inner):
                     self.contours_pf[i][j].append(point)
 
-                print('follow outer')
                 perp_points_outer = followPerpendicular(self.f_R, self.f_Z, p,
                         self.A_xpoint, self.psi_vals_outer[1:])
-                print('done')
                 for j,point in enumerate(perp_points_outer):
                     self.contours_sol[i][j].append(point)
 
@@ -362,7 +341,7 @@ def parseInput(filename):
 
     with open(filename, 'r') as inputfile:
         coil_inputs, mesh_inputs = yaml.safe_load_all(inputfile)
-    print(coil_inputs['Coils'])
+    print('Coils:',coil_inputs['Coils'])
     
     Coil = namedtuple('Coil', 'R, Z, I')
     return [Coil(**c) for c in coil_inputs['Coils']], mesh_inputs['Mesh']
@@ -565,7 +544,6 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     """
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])
-    print('  Arange',Arange,'Avals',Avals)
     solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
             vectorized=True)
 
@@ -575,22 +553,15 @@ def createMesh(filename):
     # parse input file
     coils, meshOptions = parseInput(filename)
 
-    print('making potential function')
     A_toroidal, f_R, f_Z = potentialFunction(coils)
 
-    #R = numpy.linspace(Rmin, Rmax, 50)
-    #Z = numpy.linspace(Zmin, Zmax, 50)
-
-    print('finding X-point')
     xpoint = findSaddlePoint(A_toroidal)
     A_xpoint = A_toroidal(*xpoint)
     print('X-point',xpoint,'with A_toroidal='+str(A_xpoint))
 
-    print('getting separatrix')
     # note legs are ordered in theta
     separatrixLegs = findSeparatrix(A_toroidal, xpoint, A_xpoint)
 
-    print('making mesh')
     return Mesh(meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs)
 
 
@@ -602,13 +573,10 @@ if __name__ == '__main__':
     mesh = createMesh(filename)
 
     if plotStuff:
-        print('plotting potential')
         plotPotential(mesh.A_toroidal)
         #plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
-        print('adding wall')
         addWallToPlot()
         pyplot.plot(*mesh.xpoint, 'rx')
-        print('plotting separatrix')
         for l in mesh.separatrixLegs:
             l.plot('1')
         for contours in mesh.contours_pf:

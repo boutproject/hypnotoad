@@ -25,6 +25,7 @@ typical_A = 1.e-7
 
 from scipy.optimize import minimize_scalar, brentq, root
 from scipy.interpolate import interp1d
+from scipy.integrate import solve_ivp
 if plotStuff:
     from matplotlib import pyplot
 
@@ -99,13 +100,16 @@ class MeshContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    def __init__(self, points, Aval):
+    def __init__(self, points, A_toroidal, Aval):
         self.points = points
 
         self.distance = [0.]
         for i in range(1,len(self.points)):
             self.distance.append(
                     self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
+
+        # Function that evaluates the vector potential at R,Z
+        self.A_toroidal = A_toroidal
 
         # Value of vector potential on this contour
         self.Aval = Aval
@@ -116,13 +120,19 @@ class MeshContour:
     def __getitem__(self, key):
         return self.points.__getitem__(key)
 
+    def __setitem__(self, key, value):
+        return self.points.__setitem__(key, value)
+
     def append(self, point):
         self.points.append(point)
         self.distance.append(
                 self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
 
+    def refine(self, *args, **kwargs):
+        self = self.getRefined(*args, **kwargs)
+
     def getRefined(self, width=.2, atol=2.e-8):
-        f = lambda R,Z: A_toroidal(R, Z) - self.Aval
+        f = lambda R,Z: self.A_toroidal(R, Z) - self.Aval
 
         def perpLine(p, tangent, w):
             # p - point through which to draw perpLine
@@ -163,7 +173,7 @@ class MeshContour:
             newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
         newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
-        return MeshContour(newpoints, self.Aval)
+        return MeshContour(newpoints, self.A_toroidal, self.Aval)
 
     def interpFunction(self):
         distance = numpy.array(numpy.float64(self.distance))
@@ -183,24 +193,170 @@ class MeshContour:
         """
         s = numpy.linspace(0., 1., npoints, endpoint=True)
         interp = self.interpFunction()
-        new_contour = MeshContour([interp(x) for x in s], self.Aval)
+        new_contour = MeshContour([interp(x) for x in s], self.A_toroidal, self.Aval)
         return new_contour.getRefined(width, atol)
+
+    def plot(self, *args, **kwargs):
+        pyplot.plot([x.R for x in self], [x.Z for x in self], *args, **kwargs)
+
+class Mesh:
+    """
+    Mesh quantities to be written to a grid file for BOUT++
+    """
+    def __init__(self, meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs):
+        nx = meshOptions['nx']
+        ny = meshOptions['ny']
+        ixseps = meshOptions['ixseps']
+        jyseps1 = meshOptions['jyseps1']
+        jyseps2 = meshOptions['jyseps2']
+        ny_inner = meshOptions['ny_inner']
+        psi_inner = meshOptions['psi_inner']
+        psi_outer = meshOptions['psi_outer']
+
+        self.A_toroidal = A_toroidal
+        self.f_R = f_R
+        self.f_Z = f_Z
+        self.xpoint = xpoint
+        self.A_xpoint = A_xpoint
+
+        # number of points along each leg
+        npol_leg = []
+        npol_leg.append(jyseps1+1)
+        npol_leg.append(ny_inner - (jyseps1+1))
+        npol_leg.append(jyseps2+1 - ny_inner)
+        npol_leg.append(ny - (jyseps2+1))
+
+        # number of radial points 'inside' separatrix for each leg
+        nrad_pf = ixseps
+
+        # number of radial points 'outside' separatrix for each leg
+        nrad_sol = nx - ixseps
+
+        # generate points for cell centres and faces
+        print('Mesh: regrid separatrix')
+        self.separatrixLegs = [leg.getRegridded(2*np+1)
+                               for leg,np in zip(separatrixLegs, npol_leg)]
+        for leg in self.separatrixLegs:
+            leg[0] = xpoint
+
+        print('Mesh: calculate psi values')
+        dpsi_inner = numpy.abs(A_xpoint - psi_inner)/float(nrad_pf)
+        dpsi_outer = numpy.abs(psi_outer - A_xpoint)/float(nrad_sol)
+        # make grid spacing (dpsi_inner+dpsi_outer)/2. at separatrix
+        # linearly varying grid spacing for now
+        # dpsi/di|inner = (dpsi_outer-dpsi_inner)*(i/nrad_pf-1/2) + dpsi_inner
+        #               = (dpsi_outer-dpsi_inner)*i/nrad_pf + 3/2*dpsi_inner - 1/2*dpsi_outer
+        # psi(i)|inner = (dpsi_outer-dpsi_inner)*i**2/(2*nrad_pf) + (3/2*dpsi_inner-1/2*dpsi_outer)*i + psi_sep - dpsi_inner*nrad
+        #
+        # dpsi/di|outer = (dpsi_outer-dpsi_inner)*(i/nrad_sol-1/2) + dpsi_outer
+        #               = (dpsi_outer-dpsi_inner)*i/nrad_sol + 1/2*dpsi_inner + 1/2*dpsi_outer
+        # psi(i)|outer = (dpsi_outer-dpsi_inner)*i**2/(2*nrad_sol) + (1/2*dpsi_inner+1/2*dpsi_outer)*i + psi_sep
+        psi_face_vals_inner = [(dpsi_outer - dpsi_inner)*float(i)**2/(2.*float(nrad_pf))
+                               + (1.5*dpsi_inner - 0.5*dpsi_outer)*float(i)
+                               + A_xpoint - dpsi_inner*float(nrad_pf)
+                               for i in range(nrad_pf+1)]
+        psi_face_vals_outer = [(dpsi_outer - dpsi_inner)*float(i)**2/(2.*float(nrad_sol))
+                               + 0.5*(dpsi_inner + dpsi_outer)*float(i) + A_xpoint
+                               for i in range(nrad_sol+1)]
+        self.psi_vals_inner = []
+        self.psi_vals_outer = []
+        self.dx = numpy.zeros(2*nx+1)
+        for i in range(nrad_pf):
+            psi_m = psi_face_vals_inner[i]
+            psi_p = psi_face_vals_inner[i+1]
+            self.psi_vals_inner.append(psi_m)
+            self.psi_vals_inner.append(0.5*(psi_m + psi_p))
+            if i > 0:
+                self.dx[2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_inner[i-1]))
+            else:
+                self.dx[2*i] = numpy.abs(psi_p - psi_m)
+            self.dx[2*i+1] = numpy.abs(psi_p - psi_m)
+        self.psi_vals_inner.append(psi_face_vals_inner[-1])
+        self.dx[2*nrad_pf+2] = numpy.abs(0.5*(psi_face_vals_outer[1] -
+                                    psi_face_vals_inner[-2]))
+        for i in range(nrad_sol):
+            psi_m = psi_face_vals_outer[i]
+            psi_p = psi_face_vals_outer[i+1]
+            self.psi_vals_outer.append(psi_m)
+            self.psi_vals_outer.append(0.5*(psi_m + psi_p))
+            if i > 0:
+                self.dx[2*nrad_pf+2*i] = numpy.abs(0.5*(psi_p - psi_face_vals_outer[i-1]))
+            self.dx[2*nrad_pf+2*i+1] = numpy.abs(psi_p - psi_m)
+        self.psi_vals_outer.append(psi_face_vals_outer[-1])
+        self.dx[2*nx] = numpy.abs(psi_face_vals_outer[-1] - psi_face_vals_outer[-2])
+        print('nrad_pf',nrad_pf)
+        print('nrad_sol',nrad_sol)
+        print('psi_inner',self.psi_vals_inner)
+        print(self.dx[1:2*nrad_pf:2])
+        print('psi_outer',self.psi_vals_outer)
+        print('psi_face',psi_face_vals_outer)
+        print(self.dx[2*nrad_pf+1:-1:2])
+
+        print('Mesh get points')
+        self.contours_pf = [[]]*4
+        self.contours_sol = [[]]*4
+
+        for i,leg in enumerate(self.separatrixLegs):
+            print('leg',i,'...')
+            sep_points = list(leg)
+            if i%2 == 0:
+                sep_points.reverse()
+
+            print('follow inner 0')
+            print(sep_points[0], self.psi_vals_inner[:-1])
+            perp_points_inner = followPerpendicular(self.f_R, self.f_Z, sep_points[0],
+                    self.A_xpoint, self.psi_vals_inner[-2::-1])
+            print('done')
+            perp_points_inner.reverse()
+            print('perp_points_inner',perp_points_inner)
+            for j,point in enumerate(perp_points_inner):
+                self.contours_pf[i].append(MeshContour([point], self.A_toroidal, self.psi_vals_inner[j]))
+
+            print('follow outer 0')
+            print(sep_points[0], self.psi_vals_outer[1:])
+            perp_points_outer = followPerpendicular(self.f_R, self.f_Z, sep_points[0],
+                    self.A_xpoint, self.psi_vals_outer[1:])
+            print('done')
+            print('perp_points_outer',perp_points_outer)
+            for j,point in enumerate(perp_points_outer):
+                self.contours_sol[i].append(MeshContour([point], self.A_toroidal, self.psi_vals_outer[j+1]))
+
+            for p in sep_points[1:]:
+                print('point',p)
+                print('follow inner')
+                perp_points_inner = followPerpendicular(self.f_R, self.f_Z, p,
+                        self.A_xpoint, self.psi_vals_inner[-2::-1])
+                print('done')
+                perp_points_inner.reverse()
+                for j,point in enumerate(perp_points_inner):
+                    self.contours_pf[i][j].append(point)
+
+                print('follow outer')
+                perp_points_outer = followPerpendicular(self.f_R, self.f_Z, p,
+                        self.A_xpoint, self.psi_vals_outer[1:])
+                print('done')
+                for j,point in enumerate(perp_points_outer):
+                    self.contours_sol[i][j].append(point)
+
+            leg.refine(width=1.e-5)
 
 def parseInput(filename):
     import yaml
     from collections import namedtuple
 
     with open(filename, 'r') as inputfile:
-        inputs = yaml.safe_load(inputfile)
-    print(inputs['Coils'])
+        coil_inputs, mesh_inputs = yaml.safe_load_all(inputfile)
+    print(coil_inputs['Coils'])
     
     Coil = namedtuple('Coil', 'R, Z, I')
-    return [Coil(**c) for c in inputs['Coils']]
+    return [Coil(**c) for c in coil_inputs['Coils']], mesh_inputs['Mesh']
 
 def potentialFunction(coils):
     """
     Calculate toroidal (anticlockwise) component of magnetic vector potential due to coils
     See for example http://physics.usask.ca/~hirose/p812/notes/Ch3.pdf
+
+    Note e_R x e_phi = e_Z
     """
     import sympy
     from sympy.functions.special.elliptic_integrals import elliptic_k, elliptic_e
@@ -225,7 +381,18 @@ def potentialFunction(coils):
     # multiply by costant pre-factor
     potential *= mu0/sympy.pi
 
-    return numpy.vectorize(sympy.lambdify([R,Z], potential, 'mpmath'))
+    #dAdR = sympy.simplify( sympy.diff(potential, R) )
+    #dAdZ = sympy.simplify( sympy.diff(potential, Z) )
+    dAdR = sympy.diff(potential, R)
+    dAdZ = sympy.diff(potential, Z)
+    modGradASquared = dAdR**2 + dAdZ**2
+
+    A_func = sympy.lambdify([R,Z], potential, 'mpmath')
+    f_R_func = sympy.lambdify([R,Z], dAdR/modGradASquared, 'mpmath')
+    f_Z_func = sympy.lambdify([R,Z], dAdZ/modGradASquared, 'mpmath')
+    return (numpy.vectorize(lambda R,Z: numpy.float64(A_func(R,Z))),
+            numpy.vectorize(lambda R,Z: numpy.float64(f_R_func(R,Z))),
+            numpy.vectorize(lambda R,Z: numpy.float64(f_Z_func(R,Z))))
 
 def plotPotential(potential, npoints=100, ncontours=40):
     pyplot.figure()
@@ -350,54 +517,93 @@ def findRoots_1d(f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024
 
     return roots
 
-def findSeparatrix(xpoint, A_x, atol = 2.e-8, npoints=100):
+def findSeparatrix(A_toroidal, xpoint, A_x, atol = 2.e-8, npoints=100):
     """
     Follow 4 legs away from the x-point, starting with a rough guess and then refining to
     the separatrix value of A_toroidal.
     """
     boundaryThetas = findRoots_1d(lambda theta: A_toroidal(*TORPEX_wall(theta)) - A_x, 4,
             0., 2.*numpy.pi)
+
+    # put lower left leg first in list, go clockwise
+    boundaryThetas = boundaryThetas[2::-1] + [boundaryThetas[3]]
+
     boundaryPoints = tuple(TORPEX_wall(theta) for theta in boundaryThetas)
 
     legs = []
-    s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
+    #s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
+    s = numpy.linspace(0., 1., npoints, endpoint=True)
     for point in boundaryPoints:
         legR = xpoint.R + s*(point.R - xpoint.R)
         legZ = xpoint.Z + s*(point.Z - xpoint.Z)
-        leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], A_x)
+        leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], A_toroidal, A_x)
         leg = leg.getRefined(atol=atol)
+        leg[0] = xpoint # didn't need to refine the input x-point
         legs.append(leg)
 
     return legs
+
+def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
+    """
+    Follow a line perpendicular to Bp from point p0 until magnetic potential A_target is
+    reached.
+    """
+    f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
+    Arange = (A0, Avals[-1])
+    print('  Arange',Arange,'Avals',Avals)
+    solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol)
+
+    return [Point2D(*p) for p in solution.y.T]
+
+def createMesh(filename):
+    # parse input file
+    coils, meshOptions = parseInput(filename)
+
+    print('making potential function')
+    A_toroidal, f_R, f_Z = potentialFunction(coils)
+
+    #R = numpy.linspace(Rmin, Rmax, 50)
+    #Z = numpy.linspace(Zmin, Zmax, 50)
+
+    print('finding X-point')
+    xpoint = findSaddlePoint(A_toroidal)
+    A_xpoint = A_toroidal(*xpoint)
+    print('X-point',xpoint,'with A_toroidal='+str(A_xpoint))
+
+    print('getting separatrix')
+    # note legs are ordered in theta
+    separatrixLegs = findSeparatrix(A_toroidal, xpoint, A_xpoint)
+    for leg in separatrixLegs:
+        leg[0] = xpoint
+
+    print('making mesh')
+    return Mesh(meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs)
+
 
 if __name__ == '__main__':
     from sys import argv, exit
 
     filename = argv[1]
 
-    # parse input file
-    coils = parseInput(filename)
-
-    A_toroidal = potentialFunction(coils)
-
-    #R = numpy.linspace(Rmin, Rmax, 50)
-    #Z = numpy.linspace(Zmin, Zmax, 50)
-
-    xpoint = findSaddlePoint(A_toroidal)
-    A_xpoint = A_toroidal(*xpoint)
-    print('X-point',xpoint,'with A_toroidal='+str(A_xpoint))
-
-    # note legs are ordered in theta
-    separatrixLegs = findSeparatrix(xpoint, A_xpoint)
+    mesh = createMesh(filename)
 
     if plotStuff:
-        #plotPotential(A_toroidal)
-        plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
+        print('plotting potential')
+        plotPotential(A_toroidal)
+        #plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
         pyplot.axes().set_aspect('equal')
+        print('adding wall')
         addWallToPlot()
         pyplot.plot(*xpoint, 'rx')
+        print('plotting separatrix')
         for l in separatrixLegs:
-            pyplot.plot([x.R for x in l], [x.Z for x in l])
+            l.plot()
+        for contours in mesh.contours_pf:
+            for contour in contours:
+                contour.plot('x')
+        for contours in mesh.contours_sol:
+            for contour in contours:
+                contour.plot('+')
         pyplot.show()
 
     exit(0)

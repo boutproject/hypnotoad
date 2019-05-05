@@ -273,7 +273,7 @@ class Mesh:
         c = self.psi_inner
         psi_index = lambda i: a*i**2 + b*i + c
         psi_face_vals_inner = [psi_index(i) for i in range(self.nrad_pf+1)]
-        psi_face_vals_outer = [psi_index(i) for i in range(self.ixseps+1, self.nx+2)]
+        psi_face_vals_outer = [psi_index(i) for i in range(self.ixseps, self.nx+2)]
         self.psi_vals_inner = []
         self.psi_vals_outer = []
         self.dx = numpy.zeros(2*self.nx+1)

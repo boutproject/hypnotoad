@@ -408,8 +408,7 @@ def findMinimum_1d(pos1, pos2, f, atol=1.e-14):
     if result.success:
         return coords(result.x)
     else:
-        print('findMinimum_1d failed?')
-        return coords(result.x)
+        raise ValueError('findMinimum_1d failed')
 
 def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
     coords = lambda s: pos1 + s*(pos2-pos1)
@@ -418,8 +417,7 @@ def findMaximum_1d(pos1, pos2, f, atol=1.e-14):
     if result.success:
         return coords(result.x)
     else:
-        print('findMaximum_1d failed?')
-        return coords(result.x)
+        raise ValueError('findMaximum_1d failed')
 
 def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
     smallDistance = 10.*rtol*calc_distance(pos1, pos2)

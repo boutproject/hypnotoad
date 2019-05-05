@@ -239,8 +239,6 @@ class Mesh:
         print('Mesh: regrid separatrix')
         self.separatrixLegs = [leg.getRegridded(2*np+1)
                                for leg,np in zip(separatrixLegs, self.npol_leg)]
-        for leg in self.separatrixLegs:
-            leg[0] = xpoint
 
         print('Mesh: calculate psi values')
         dpsi_inner = numpy.abs(A_xpoint - self.psi_inner)/float(self.nrad_pf)
@@ -392,8 +390,6 @@ def potentialFunction(coils):
     # multiply by costant pre-factor
     potential *= mu0/sympy.pi
 
-    #dAdR = sympy.simplify( sympy.diff(potential, R) )
-    #dAdZ = sympy.simplify( sympy.diff(potential, Z) )
     dAdR = sympy.diff(potential, R)
     dAdZ = sympy.diff(potential, Z)
     modGradASquared = dAdR**2 + dAdZ**2
@@ -544,14 +540,12 @@ def findSeparatrix(A_toroidal, xpoint, A_x, atol = 2.e-8, npoints=100):
     boundaryPoints = tuple(TORPEX_wall(theta) for theta in boundaryThetas)
 
     legs = []
-    #s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
-    s = numpy.linspace(0., 1., npoints, endpoint=True)
+    s = numpy.linspace(10.*atol, 1., npoints, endpoint=True)
     for point in boundaryPoints:
         legR = xpoint.R + s*(point.R - xpoint.R)
         legZ = xpoint.Z + s*(point.Z - xpoint.Z)
         leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], A_toroidal, A_x)
         leg = leg.getRefined(atol=atol)
-        leg[0] = xpoint # didn't need to refine the input x-point
         legs.append(leg)
 
     return legs
@@ -587,8 +581,6 @@ def createMesh(filename):
     print('getting separatrix')
     # note legs are ordered in theta
     separatrixLegs = findSeparatrix(A_toroidal, xpoint, A_xpoint)
-    for leg in separatrixLegs:
-        leg[0] = xpoint
 
     print('making mesh')
     return Mesh(meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs)

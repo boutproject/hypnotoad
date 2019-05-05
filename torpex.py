@@ -207,6 +207,7 @@ class Mesh:
     Mesh quantities to be written to a grid file for BOUT++
     """
     def __init__(self, meshOptions, A_toroidal, f_R, f_Z, xpoint, A_xpoint, separatrixLegs):
+        self.orthogonal = meshOptions['orthogonal']
         self.nx = meshOptions['nx']
         self.ny = meshOptions['ny']
         self.ixseps = meshOptions['ixseps']
@@ -221,6 +222,8 @@ class Mesh:
         self.f_Z = f_Z
         self.xpoint = xpoint
         self.A_xpoint = A_xpoint
+
+        assert self.orthogonal # non-orthogonal not implelemented yet
 
         # number of points along each leg
         self.npol_leg = []

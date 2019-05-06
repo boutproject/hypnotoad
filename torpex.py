@@ -398,13 +398,10 @@ class Mesh:
             sep = list(self.separatrixLegs[i])
             if i%2 == 0:
                 sep.reverse()
-            print('here',self.y_regions[i],self.y_regions[i+1]+y_extra, 0,yup)
-            print([[p.Z for p in contour[0:3:2]] for contour in contours[0::2]])
             self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
                     [[p.R for p in contour[0:yup:2]] for contour in contours[0::2]]
             self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
                     [[p.Z for p in contour[0:yup:2]] for contour in contours[0::2]]
-            print('at',i,'Zcorners[:,10]',self.Zcorners[:,10])
 
             if i==1:
                 self.Rcorners_extra[self.x_regions[0]:self.x_regions[1]+1] = \
@@ -439,7 +436,6 @@ class Mesh:
                     [[p.R for p in contour[0:yup:2]] for contour in [sep]+contours[0::2]]
             self.Zcorners[self.x_regions[1]:self.x_regions[2]+1, self.y_regions[i]:self.y_regions[i+1]+y_extra] = \
                     [[p.Z for p in contour[0:yup:2]] for contour in [sep]+contours[0::2]]
-            print('at',i,'Zcorners[:,10]',self.Zcorners[:,10])
 
             if i==1:
                 self.Rcorners_extra[self.x_regions[1]:self.x_regions[2]+1] = \
@@ -570,7 +566,8 @@ class Mesh:
         Get poloidal arc length on grid.
         Similar logic to plot2D in terms of R,Z on grid needed
         """
-        hthe = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        hthe = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
+        hthe_ylow = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
 
         # leg 0
         R = self.Rxy_ylow[:, self.y_regions[0]:self.y_regions[1]+1].copy()
@@ -597,11 +594,11 @@ class Mesh:
         Z = self.Zxy_ylow[:, self.y_regions[1]:self.y_regions[2]+1].copy()
         # fix upper points
         contours = self.contours_pf[1]
-        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]]
         contours = self.contours_sol[1]
-        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
-        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]]
+        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]]
         hthe[:, self.y_regions[1]:self.y_regions[2]] = \
                 numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
         # now for ylow
@@ -609,7 +606,9 @@ class Mesh:
         Z = self.Zxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
         # fix PF lower points
         R[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[2]]
+                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[3]-1]
+        Z[self.x_regions[0]:self.x_regions[1],0] = \
+                self.Zxy[self.x_regions[0]:self.x_regions[1],self.y_regions[3]-1]
         hthe_ylow[:, self.y_regions[1]:self.y_regions[2]] = \
                 numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
@@ -622,8 +621,8 @@ class Mesh:
         hthe[:, self.y_regions[2]:self.y_regions[3]] = \
                 numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
         # now for ylow
-        R = self.Rxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
-        Z = self.Zxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
+        R = self.Rxy[:, self.y_regions[2]-1:self.y_regions[3]].copy()
+        Z = self.Zxy[:, self.y_regions[2]-1:self.y_regions[3]].copy()
         # 'fix' lower points
         R[:, 0] = self.Rxy_ylow[:, self.y_regions[2]]
         Z[:, 0] = self.Zxy_ylow[:, self.y_regions[2]]
@@ -638,11 +637,11 @@ class Mesh:
         Z[:,:-1] = self.Zxy_ylow[:, self.y_regions[3]:self.y_regions[4]]
         # fix upper points
         contours = self.contours_pf[3]
-        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]]
+        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]]
         contours = self.contours_sol[3]
-        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]+[sep]]
-        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]+[sep]]
+        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]]
+        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]]
         hthe[:, self.y_regions[3]:self.y_regions[4]] = \
                 numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
         # now for ylow
@@ -650,8 +649,10 @@ class Mesh:
         Z = self.Zxy[:, self.y_regions[3]-1:self.y_regions[4]].copy()
         # fix PF lower points
         R[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[0]]
-        hthe_ylow[:, self.y_regions[1]:self.y_regions[2]] = \
+                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[1]-1]
+        Z[self.x_regions[0]:self.x_regions[1],0] = \
+                self.Zxy[self.x_regions[0]:self.x_regions[1],self.y_regions[1]-1]
+        hthe_ylow[:, self.y_regions[3]:self.y_regions[4]] = \
                 numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
         return hthe, hthe_ylow

@@ -761,8 +761,8 @@ def findExtremum_1d(pos1, pos2, f, rtol=1.e-5, atol=1.e-14):
 def findSaddlePoint(f, atol=2.e-8):
     posTop, minTop = findExtremum_1d(Point2D(Rmin, Zmax), Point2D(Rmax, Zmax), f)
     posBottom, minBottom = findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmax, Zmin), f)
-    posLeft, minLeft = findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmin, Zmax), f)
-    posRight, minRight = findExtremum_1d(Point2D(Rmax, Zmin), Point2D(Rmax, Zmax), f)
+    posLeft, minLeft = findExtremum_1d(Point2D(Rmin, .8*Zmin), Point2D(Rmin, .8*Zmax), f)
+    posRight, minRight = findExtremum_1d(Point2D(Rmax, .8*Zmin), Point2D(Rmax, .8*Zmax), f)
 
     assert minTop == minBottom
     assert minLeft == minRight
@@ -776,7 +776,7 @@ def findSaddlePoint(f, atol=2.e-8):
     if minLeft:
         horizSearch = findMaximum_1d
     else:
-        horizSearch = findinximum_1d
+        horizSearch = findMinimum_1d
 
     extremumVert = Point2D(Rmin, Zmin)
     extremumHoriz = Point2D(Rmax, Zmax)
@@ -913,6 +913,7 @@ if __name__ == '__main__':
                 contour.plot('+')
         pyplot.show()
 
-    mesh.write(gridname)
+    mesh.geometry()
+    mesh.writeGridFile(gridname)
 
     exit(0)

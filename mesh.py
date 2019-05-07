@@ -437,14 +437,23 @@ class Mesh:
                         1./self.nx_core)
         c = self.psi_inner
         psi_index = lambda i: a*i**2 + b*i + c
-        psi_face_vals_inner = numpy.array(psi_index(i) for i in range(self.nx_core+1))
-        psi_face_vals_between = numpy.array(psi_index(i) for i in
-                range(self.nx_core+1, self.nx_core+self.nx_between+1))
-        psi_face_vals_outer = numpy.array(psi_index(i) for i in
-                range(self.nx_core+self.nx_between+1, self.nx_core+self.nx_between+self.nx_sol+2))
-        self.psi_vals_inner = numpy.zeros(2*self.nx_core+1)
-        self.psi_vals_between = numpy.zeros(2*self.nx_between+1)
-        self.psi_vals_outer = numpy.zeros(2*self.nx_sol+1)
+        psi_face_vals_inner = numpy.array([psi_index(i) for i in range(self.nx_core+1)])
+        psi_face_vals_between = numpy.array([psi_index(i) for i in
+                range(self.nx_core+1, self.nx_core+self.nx_between+1)])
+        psi_face_vals_outer = numpy.array([psi_index(i) for i in
+                range(self.nx_core+self.nx_between+1, self.nx_core+self.nx_between+self.nx_sol+2)])
+        if self.nx_core > 0:
+            self.psi_vals_inner = numpy.zeros(2*self.nx_core+1)
+        else:
+            self.psi_vals_inner = numpy.zeros(0)
+        if self.nx_between > 0:
+            self.psi_vals_between = numpy.zeros(2*self.nx_between+1)
+        else:
+            self.psi_vals_between = numpy.zeros(0)
+        if self.nx_sol > 0:
+            self.psi_vals_outer = numpy.zeros(2*self.nx_sol+1)
+        else:
+            self.psi_vals_outer = numpy.zeros(0)
         self.psi_vals_inner[0::2] = psi_face_vals_inner
         self.psi_vals_inner[1::2] = 0.5*(psi_face_vals_inner[:-1] + psi_face_vals_inner[1:])
         self.psi_vals_between[0::2] = psi_face_vals_between

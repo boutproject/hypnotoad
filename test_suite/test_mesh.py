@@ -47,8 +47,8 @@ class TestPoints:
 class TestContour:
     @pytest.fixture
     def testcontour(self):
-        Afunc = lambda R,Z: R*Z
-        A_xpoint = 0.
+        psifunc = lambda R,Z: R**2 + Z**4
+        psi_xpoint = 0.
 
         # make a circle, not centred on origin
         class returnObject:
@@ -59,7 +59,7 @@ class TestContour:
             theta = numpy.linspace(0.,2.*numpy.pi,npoints)
             R = R0 + r*numpy.cos(theta)
             Z = Z0 + r*numpy.sin(theta)
-            c = MeshContour([Point2D(R,Z) for R,Z in zip(R,Z)], Afunc, A_xpoint)
+            c = MeshContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, psi_xpoint)
 
         return returnObject()
 
@@ -98,3 +98,13 @@ class TestContour:
             assert orig[n-1-i].R == tight_approx(c[i].R)
             assert orig[n-1-i].Z == tight_approx(c[i].Z)
             assert total_d - orig.distance[n-1-i] == tight_approx(c.distance[i])
+
+    def test_refine(self, testcontour):
+        # MeshContour.refine just calls MeshContour.getRefined, so this tests both
+
+        c = testcontour.c
+        c.psival = .7
+        # c does not start close to a contour of psi_func, so need to use a large width
+        c.refine(width=2., atol=1.e-13)
+        for p in c:
+            assert c.psi(p.R, p.Z) == tight_approx(.7)

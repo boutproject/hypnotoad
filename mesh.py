@@ -104,7 +104,9 @@ class MeshContour:
         self.distance = [self.distance[0] - d for d in self.distance]
 
     def refine(self, *args, **kwargs):
-        self = self.getRefined(*args, **kwargs)
+        new = self.getRefined(*args, **kwargs)
+        self.points = new.points
+        self.distance = new.distance
 
     def getRefined(self, width=.2, atol=2.e-8):
         f = lambda R,Z: self.psi(R, Z) - self.psival

@@ -108,7 +108,7 @@ class MeshContour:
         self.points = new.points
         self.distance = new.distance
 
-    def getRefined(self, width=.2, atol=2.e-8):
+    def getRefined(self, width=1.e-5, atol=2.e-8):
         f = lambda R,Z: self.psi(R, Z) - self.psival
 
         def perpLine(p, tangent, w):

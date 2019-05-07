@@ -874,6 +874,55 @@ class Mesh:
         """
         Calculate geometrical quantities for BOUT++
         """
+        def addFromRegion(f, f_region, regionID):
+            f[self.region_indices[regionID]] = f_region
+
+        self.Rxy = numpy.zeros([self.nx, self.ny])
+        self.Rxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Zxy = numpy.zeros([self.nx, self.ny])
+        self.Zxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.psixy = numpy.zeros([self.nx, self.ny])
+        self.psixy_ylow = numpy.zeros([self.nx, self.ny])
+        self.dx = numpy.zeros([self.nx, self.ny])
+        self.dx_ylow = numpy.zeros([self.nx, self.ny])
+        self.dy = numpy.zeros([self.nx, self.ny])
+        self.dy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Brxy = numpy.zeros([self.nx, self.ny])
+        self.Brxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Bzxy = numpy.zeros([self.nx, self.ny])
+        self.Bzxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Bpxy = numpy.zeros([self.nx, self.ny])
+        self.Bpxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Btxy = numpy.zeros([self.nx, self.ny])
+        self.Btxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Bxy = numpy.zeros([self.nx, self.ny])
+        self.Bxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.hthe = numpy.zeros([self.nx, self.ny])
+        self.hthe_ylow = numpy.zeros([self.nx, self.ny])
+
+        for region in self.regions:
+            addFromRegion(self.Rxy, region.Rxy, region.myID)
+            addFromRegion(self.Rxy_ylow, region.Rxy_ylow, region.myID)
+            addFromRegion(self.Zxy, region.Zxy, region.myID)
+            addFromRegion(self.Zxy_ylow, region.Zxy_ylow, region.myID)
+            addFromRegion(self.psixy, region.psixy, region.myID)
+            addFromRegion(self.psixy_ylow, region.psixy_ylow, region.myID)
+            addFromRegion(self.dx, region.dx, region.myID)
+            addFromRegion(self.dx_ylow, region.dx_ylow, region.myID)
+            addFromRegion(self.dy, region.dy, region.myID)
+            addFromRegion(self.dy_ylow, region.dy_ylow, region.myID)
+            addFromRegion(self.Brxy, region.Brxy, region.myID)
+            addFromRegion(self.Brxy_ylow, region.Brxy_ylow, region.myID)
+            addFromRegion(self.Bzxy, region.Bzxy, region.myID)
+            addFromRegion(self.Bzxy_ylow, region.Bzxy_ylow, region.myID)
+            addFromRegion(self.Bpxy, region.Bpxy, region.myID)
+            addFromRegion(self.Bpxy_ylow, region.Bpxy_ylow, region.myID)
+            addFromRegion(self.Btxy, region.Btxy, region.myID)
+            addFromRegion(self.Btxy_ylow, region.Btxy_ylow, region.myID)
+            addFromRegion(self.Bxy, region.Bxy, region.myID)
+            addFromRegion(self.Bxy_ylow, region.Bxy_ylow, region.myID)
+            addFromRegion(self.hthe, region.hthe, region.myID)
+            addFromRegion(self.hthe_ylow, region.hthe_ylow, region.myID)
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile

@@ -399,21 +399,6 @@ class Mesh:
             raise ValueError("nx_between > 0 - there are 2 separatrices - need to find psi-value of second separatrix")
         assert self.orthogonal # non-orthogonal not implelemented yet
 
-        # number of points along each leg
-        self.npol_leg = []
-        self.npol_leg.append(self.jyseps1+1)
-        self.npol_leg.append(self.ny_inner - (self.jyseps1+1))
-        self.npol_leg.append(self.jyseps2+1 - self.ny_inner)
-        self.npol_leg.append(self.ny - (self.jyseps2+1))
-
-        # generate points for cell centres and faces
-        # wider poloidal spacing along separatrix near X-point, so orthogonal grid does
-        # not get too squashed
-        sfunc = lambda s: s**0.5
-        self.separatrixLegs = [leg.getRegridded(2*np+1, sfunc=sfunc,
-                                                extend=2*self.y_boundary_guards)
-                               for leg,np in zip(separatrixLegs, self.npol_leg)]
-
         # in index space for indices of cell faces, psi needs to go through psi_inner at
         # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1
         # for now use quadratic fit, leave grid refinement for later...

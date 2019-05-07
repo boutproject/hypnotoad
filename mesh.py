@@ -335,107 +335,29 @@ class MeshRegion:
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
 
-        self.hthe, self.hthe_ylow = self.get_hthe()
+        self.hthe = numpy.sqrt((Rxy_ylow[:,1:] - Rxy_ylow[:,:-1])**2
+                               + (Zxy_ylow[:,1:] - Zxy_ylow[:,:-1])**2)
+        # for hthe_ylow, need R, Z values from below the lower face of this region
+        R = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        R[:, 1:] = self.Rxy
+        Z = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        Z[:, 1:] = self.Zxy
+        if self.connections['lower'] is not None:
+            R[:, 0] = self.getNeighbour('lower').Rxy[:, -1]
+            Z[:, 0] = self.getNeighbour('lower').Zxy[:, -1]
+        else:
+            # dumb extrapolation, but should not need the affected guard cell value (the
+            # corresponding value at the upper boundary does not even exist, since we
+            # stagger to YLOW)
+            R[:, 0] = 2.*self.Rxy_ylow[:, 0] - self.Rxy[:, 0]
+            Z[:, 0] = 2.*self.Zxy_ylow[:, 0] - self.Zxy[:, 0]
+        self.hthe_ylow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
-    def get_hthe(self):
-        """
-        Get poloidal arc length on grid.
-        Similar logic to plot2D in terms of R,Z on grid needed
-        """
-        hthe = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
-        hthe_ylow = numpy.zeros([self.nx, self.ny + 4*self.y_boundary_guards])
-
-        # leg 0
-        R = self.Rxy_ylow[:, self.y_regions[0]:self.y_regions[1]+1].copy()
-        Z = self.Zxy_ylow[:, self.y_regions[0]:self.y_regions[1]+1].copy()
-        # fix upper PF region points
-        R[self.x_regions[0]:self.x_regions[1], -1] = self.Rxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
-        hthe[:, self.y_regions[0]:self.y_regions[1]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        # now for ylow
-        R = numpy.zeros([self.nx, self.y_regions[1]+1])
-        Z = numpy.zeros([self.nx, self.y_regions[1]+1])
-        R[:, 1:] = self.Rxy[:, self.y_regions[0]:self.y_regions[1]]
-        Z[:, 1:] = self.Zxy[:, self.y_regions[0]:self.y_regions[1]]
-        # 'fix' lower points
-        R[:, 0] = self.Rxy_ylow[:, self.y_regions[0]]
-        Z[:, 0] = self.Zxy_ylow[:, self.y_regions[0]]
-        hthe_ylow[:, self.y_regions[0]:self.y_regions[1]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        hthe_ylow[:, self.y_regions[0]] *= 2. # double because only used distance from ylow point to next cell centre
-
-        # leg 1
-        R = self.Rxy_ylow[:, self.y_regions[1]:self.y_regions[2]+1].copy()
-        Z = self.Zxy_ylow[:, self.y_regions[1]:self.y_regions[2]+1].copy()
-        # fix upper points
-        contours = self.contours_pf[1]
-        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]]
-        contours = self.contours_sol[1]
-        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]]
-        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]]
-        hthe[:, self.y_regions[1]:self.y_regions[2]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        # now for ylow
-        R = self.Rxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
-        Z = self.Zxy[:, self.y_regions[1]-1:self.y_regions[2]].copy()
-        # fix PF lower points
-        R[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[3]-1]
-        Z[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Zxy[self.x_regions[0]:self.x_regions[1],self.y_regions[3]-1]
-        print(R[:,:2])
-        print(Z[:,:2])
-        hthe_ylow[:, self.y_regions[1]:self.y_regions[2]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-
-        # leg 2
-        R = self.Rxy_ylow[:, self.y_regions[2]:self.y_regions[3]+1].copy()
-        Z = self.Zxy_ylow[:, self.y_regions[2]:self.y_regions[3]+1].copy()
-        # fix upper PF region points
-        R[self.x_regions[0]:self.x_regions[1], -1] = self.Rxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zxy_ylow[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
-        hthe[:, self.y_regions[2]:self.y_regions[3]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        # now for ylow
-        R = self.Rxy[:, self.y_regions[2]-1:self.y_regions[3]].copy()
-        Z = self.Zxy[:, self.y_regions[2]-1:self.y_regions[3]].copy()
-        # 'fix' lower points
-        R[:, 0] = self.Rxy_ylow[:, self.y_regions[2]]
-        Z[:, 0] = self.Zxy_ylow[:, self.y_regions[2]]
-        hthe_ylow[:, self.y_regions[2]:self.y_regions[3]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        hthe_ylow[:, self.y_regions[2]] *= 2. # double because only used distance from ylow point to next cell centre
-
-        # leg 3
-        R = numpy.zeros([self.nx, self.y_regions[4]-self.y_regions[3]+1])
-        Z = numpy.zeros([self.nx, self.y_regions[4]-self.y_regions[3]+1])
-        R[:,:-1] = self.Rxy_ylow[:, self.y_regions[3]:self.y_regions[4]]
-        Z[:,:-1] = self.Zxy_ylow[:, self.y_regions[3]:self.y_regions[4]]
-        # fix upper points
-        contours = self.contours_pf[3]
-        R[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].R for contour in contours[0::2]]
-        Z[self.x_regions[0]:self.x_regions[1], -1] = [contour[-1].Z for contour in contours[0::2]]
-        contours = self.contours_sol[3]
-        R[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].R for contour in contours[0::2]]
-        Z[self.x_regions[1]:self.x_regions[2], -1] = [contour[-1].Z for contour in contours[0::2]]
-        hthe[:, self.y_regions[3]:self.y_regions[4]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-        # now for ylow
-        R = self.Rxy[:, self.y_regions[3]-1:self.y_regions[4]].copy()
-        Z = self.Zxy[:, self.y_regions[3]-1:self.y_regions[4]].copy()
-        # fix PF lower points
-        R[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Rxy[self.x_regions[0]:self.x_regions[1],self.y_regions[1]-1]
-        Z[self.x_regions[0]:self.x_regions[1],0] = \
-                self.Zxy[self.x_regions[0]:self.x_regions[1],self.y_regions[1]-1]
-        hthe_ylow[:, self.y_regions[3]:self.y_regions[4]] = \
-                numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
-
-        return hthe, hthe_ylow
+    def getNeighbour(self, face):
+        return self.MeshParent.regions[self.connections[face]]
 
     def DDX(self, f):
+        raise ValueError('not implemented for MeshRegion yet')
         result = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
         result[1:-1, :] = (f[2:, :] - f[:-2, :]) / (2.*self.dx[1:-1])
         result[0, :] = (-1.5*f[0, :] + 2.*f[1,:] - 0.5*f[2, :]) / self.dx[0]

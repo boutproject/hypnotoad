@@ -592,10 +592,11 @@ class Mesh:
 
         # Region 7 - inner upper SOL
         # Region 8 - inner upper PF
+        nx_upper_pf = self.nx_between + self.nx_core
         if self.ny_inner_upper_divertor > 0:
             sep = separatrix['inner_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
                                                                   sfunc=sfunc)
-            if self.nx_core > 0:
+            if nx_upper_pf > 0:
                 connections = {}
                 connections['inner'] = None
                 if self.nx_sol > 0:
@@ -607,12 +608,12 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[7] = MeshRegion(self, 7, self.nx_core,
+                self.regions[7] = MeshRegion(self, 7, nx_upper_pf,
                         self.ny_inner_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
             if self.nx_sol > 0:
                 connections = {}
-                if self.nx_core > 0:
+                if nx_upper_pf > 0:
                     connections['inner'] = 7 # outer upper PF
                 else:
                     connections['inner'] = None
@@ -634,7 +635,7 @@ class Mesh:
             sep = separatrix['outer_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
                                                                   sfunc=sfunc)
             sep.reverse()
-            if self.nx_core > 0:
+            if nx_upper_pf > 0:
                 connections = {}
                 connections['inner'] = None
                 if self.nx_sol > 0:
@@ -646,7 +647,7 @@ class Mesh:
                     connections['upper'] = 8 # inner upper PF
                 else:
                     connections['upper'] = None
-                self.regions[9] = MeshRegion(self, 9, self.nx_core,
+                self.regions[9] = MeshRegion(self, 9, nx_upper_pf,
                         self.ny_outer_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
             if self.nx_sol > 0:
@@ -658,7 +659,7 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                if self.nx_core > 0:
+                if nx_upper_pf > 0:
                     connections['inner'] = 9 # outer upper PF
                 else:
                     connections['inner'] = None

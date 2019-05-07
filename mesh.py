@@ -194,9 +194,6 @@ class MeshRegion:
             connections, isInner):
         print('creating region ', myID)
 
-        # MeshContour objects containing the points in this region
-        self.contours = contours
-
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
 
@@ -240,19 +237,19 @@ class MeshRegion:
                 self.separatrix[0], meshParent.psi_sep, temp_psi_vals)
         if isInner:
             perp_points.reverse()
-        for i,point in enumerate(perp_points_inner):
-            self.contours.append(MeshContour([point], mesh_parent.psi,
+        for i,point in enumerate(perp_points):
+            self.contours.append(MeshContour([point], meshParent.psi,
                 self.psi_vals[i]))
-        for p in sep[1:]:
+        for p in separatrix[1:]:
             perp_points = followPerpendicular(meshParent.f_R, meshParent.f_Z, p,
                     meshParent.psi_sep, temp_psi_vals)
             if isInner:
                 perp_points.reverse()
-            for i,point in enumerate(perp_points_inner):
-                self.contours_pf[i].append(point)
+            for i,point in enumerate(perp_points):
+                self.contours[i].append(point)
 
         # refine the contours to make sure they are at exactly the right psi-value
-        for contour in contours:
+        for contour in self.contours:
             contour.refine()
 
     def geometry(self):
@@ -369,7 +366,7 @@ class Mesh:
     Mesh quantities to be written to a grid file for BOUT++
     """
     def __init__(self, meshOptions, psi, f_R, f_Z, Bp_R, Bp_Z, fpol, psi_sep,
-                 separatrixLegs):
+                 separatrix):
         self.orthogonal = meshOptions['orthogonal']
         self.nx_core = meshOptions['nx_core']
         self.nx_between = meshOptions['nx_between']
@@ -479,8 +476,8 @@ class Mesh:
                    self.ny_outer_core,
                    self.ny_outer_lower_divertor + self.y_boundary_guards]
         y_startinds = numpy.cumsum(y_sizes)
-        y_regions = (slice(y_startinds[i], y_startinds[i+1], None)
-                     for i in range(len(y_startinds-1)))
+        y_regions = tuple(slice(y_startinds[i], y_startinds[i+1], None)
+                     for i in range(len(y_startinds)-1))
 
         # functions that set poloidal grid spacing:
         # - to use in divertor legs - sqrt of arc length in poloidal plane
@@ -710,6 +707,11 @@ class Mesh:
                 self.region_indices[9] = (numpy.index_exp[:nx_upper_pf, y_regions[3]])
             if self.nx_sol > 0:
                 connections = {}
+                if nx_upper_pf > 0:
+                    connections['inner'] = 9 # outer upper PF
+                else:
+                    connections['inner'] = None
+                connections['outer'] = None
                 connections['lower'] = None
                 if self.ny_outer_core > 0:
                     connections['upper'] = 13 # outer SOL
@@ -717,11 +719,6 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                if nx_upper_pf > 0:
-                    connections['inner'] = 9 # outer upper PF
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
                 self.regions[10] = MeshRegion(self, 10, self.nx_sol,
                         self.ny_outer_upper_divertor, sep, self.psi_vals_outer,
                         connections, False)
@@ -824,6 +821,7 @@ class Mesh:
                     connections['lower'] = 1 # inner lower PF
                 else:
                     connections['lower'] = None
+                connections['upper'] = None
                 self.regions[14] = MeshRegion(self, 14, self.nx_core,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_inner,
                         connections, True)
@@ -846,6 +844,7 @@ class Mesh:
                     connections['lower'] = 2 # inner lower between separatrix region
                 else:
                     connections['lower'] = None
+                connections['upper'] = None
                 self.regions[15] = MeshRegion(self, 15, self.nx_between,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_between,
                         connections, False)

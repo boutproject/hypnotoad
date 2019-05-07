@@ -120,14 +120,14 @@ def createMesh(filename):
     # note legs are ordered in theta
     separatrixLegs = findSeparatrix(A_toroidal, lambda s: TORPEX_wall(s*2.*numpy.pi), xpoint, A_xpoint)
 
-    separatrix = {'inner_lower': separatrixLegs[0],
-                  'inner_upper': separatrixLegs[1],
-                  'outer_upper': separatrixLegs[2],
-                  'outer_lower': separatrixLegs[3]}
+    separatrix = {'inner_lower_divertor': separatrixLegs[0],
+                  'inner_upper_divertor': separatrixLegs[1],
+                  'outer_upper_divertor': separatrixLegs[2],
+                  'outer_lower_divertor': separatrixLegs[3]}
 
     fpol = Bt_axis / 1. # Major radius of TORPEX axis is 1m
 
-    return Mesh(meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, A_xpoint, separatrixLegs)
+    return Mesh(meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, A_xpoint, separatrix)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 import numpy
 import pytest
+from copy import deepcopy
 from mesh import *
 
 def tight_approx(b):
@@ -66,8 +67,34 @@ class TestContour:
         segment_length = 2.*testcontour.r*numpy.sin(2.*numpy.pi/(testcontour.npoints-1)/2.)
         assert testcontour.c.distance == tight_approx(segment_length*numpy.arange(23))
 
+
+    def test_iter(self, testcontour):
+        clist = list(testcontour.c)
+
+        for i,item in enumerate(clist):
+            assert item.R == tight_approx(testcontour.R[i])
+            assert item.Z == tight_approx(testcontour.Z[i])
+
+    def test_getitem(self, testcontour):
+        p = testcontour.c[5]
+        assert p.R == tight_approx(testcontour.R[5])
+        assert p.Z == tight_approx(testcontour.Z[5])
+
     def test_append(self, testcontour):
         c = testcontour.c
         expected_distance = c.distance[-1] + numpy.sqrt((1.-c[-1].R)**2 + (1.-c[-1].Z)**2)
         c.append(Point2D(1.,1.))
         assert c.distance[-1] == tight_approx(expected_distance)
+
+    def test_reverse(self, testcontour):
+        c = testcontour.c
+        orig = deepcopy(c)
+
+        c.reverse()
+
+        n = len(orig)
+        total_d = orig.distance[-1]
+        for i in range(n):
+            assert orig[n-1-i].R == tight_approx(c[i].R)
+            assert orig[n-1-i].Z == tight_approx(c[i].Z)
+            assert total_d - orig.distance[n-1-i] == tight_approx(c.distance[i])

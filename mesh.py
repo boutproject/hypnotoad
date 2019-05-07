@@ -133,12 +133,7 @@ class MeshContour:
                     pass
                 w /= 2.
                 if w < atol:
-                    if numpy.abs(f(*pline(0.))) < atol*self.A_xpoint and numpy.abs(f(*pline(1.))) < atol*self.A_xpoint:
-                        # f is already so close to 0 that the point does not need refining
-                        snew = 0.5
-                        pass
-                    else:
-                        raise ValueError("Could not find interval to refine point")
+                    raise ValueError("Could not find interval to refine point")
 
             return pline(snew)
 

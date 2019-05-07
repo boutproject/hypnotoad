@@ -1,6 +1,5 @@
 import numpy
 import pytest
-from copy import deepcopy
 from mesh import *
 
 def tight_approx(b):
@@ -45,15 +44,30 @@ class TestPoints:
         assert calc_distance(self.p0, self.p1) == tight_approx(2.*numpy.sqrt(2.))
 
 class TestContour:
-    Afunc = lambda R,Z: R*Z
-    A_xpoint = 0.
-    c = MeshContour([Point2D(R,Z) for R,Z in [Point2D(0.,0.), Point2D(1.,0.),
-        Point2D(1.,1.), Point2D(0.,1.)]], Afunc, A_xpoint)
+    @pytest.fixture
+    def testcontour(self):
+        Afunc = lambda R,Z: R*Z
+        A_xpoint = 0.
 
-    def test_append(self):
-        copy = deepcopy(self.c)
-        copy.append(Point2D(0.,0.))
-        assert copy.distance[-1] == tight_approx(4.)
+        # make a circle, not centred on origin
+        class returnObject:
+            npoints = 23
+            r = 1.
+            R0 = .2
+            Z0 = .3
+            theta = numpy.linspace(0.,2.*numpy.pi,npoints)
+            R = R0 + r*numpy.cos(theta)
+            Z = Z0 + r*numpy.sin(theta)
+            c = MeshContour([Point2D(R,Z) for R,Z in zip(R,Z)], Afunc, A_xpoint)
 
-    def test_distance(self):
-        assert self.c.distance == tight_approx(numpy.arange(4))
+        return returnObject()
+
+    def test_distance(self, testcontour):
+        segment_length = 2.*testcontour.r*numpy.sin(2.*numpy.pi/(testcontour.npoints-1)/2.)
+        assert testcontour.c.distance == tight_approx(segment_length*numpy.arange(23))
+
+    def test_append(self, testcontour):
+        c = testcontour.c
+        expected_distance = c.distance[-1] + numpy.sqrt((1.-c[-1].R)**2 + (1.-c[-1].Z)**2)
+        c.append(Point2D(1.,1.))
+        assert c.distance[-1] == tight_approx(expected_distance)

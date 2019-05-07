@@ -224,8 +224,8 @@ class MeshRegion:
 
         # include guard cells in contours (note, does not change passed-in separatrix
         # object)
-        self.separatrix = separatrix.getRegridded(2*self.ny,
-                extend_lower=self.y_guards_lower, extend_upper=self.y_guards_upper)
+        self.separatrix = separatrix.getRegridded(2*self.ny+1,
+                extend_lower=2*self.y_guards_lower, extend_upper=2*self.y_guards_upper)
 
         # get points in this region
         self.contours = []
@@ -240,7 +240,7 @@ class MeshRegion:
         for i,point in enumerate(perp_points):
             self.contours.append(MeshContour([point], meshParent.psi,
                 self.psi_vals[i]))
-        for p in separatrix[1:]:
+        for p in self.separatrix[1:]:
             perp_points = followPerpendicular(meshParent.f_R, meshParent.f_Z, p,
                     meshParent.psi_sep, temp_psi_vals)
             if isInner:
@@ -252,9 +252,9 @@ class MeshRegion:
         for contour in self.contours:
             contour.refine()
 
-    def geometry(self):
+    def fillRZ(self):
         """
-        Calculate geometrical quantities for this region
+        Fill the Rxy, Rxy_ylow and Zxy, Zxy_ylow arrays for this region
         """
 
         self.Rcorners = numpy.zeros([self.nx + 1,
@@ -263,28 +263,41 @@ class MeshRegion:
             self.ny + self.y_guards_lower + self.y_guards_upper + 1])
 
         self.Rxy = numpy.array([[p.R for p in contour[1::2]]
-            for contour in contours[1::2]])
+            for contour in self.contours[1::2]])
 
         self.Rxy_ylow = numpy.array([[p.R for p in contour[0:-1:2]]
-            for contour in contours[1::2]])
+            for contour in self.contours[1::2]])
+
+        self.Rxy_extra_upper = numpy.array([contour[-1].R
+            for contour in self.contours[1::2]])
 
         self.Zxy = numpy.array( [[p.Z for p in contour[1::2]]
-            for contour in contours[1::2]])
+            for contour in self.contours[1::2]])
 
         self.Zxy_ylow = numpy.array( [[p.Z for p in contour[0:-1:2]]
-            for contour in contours[1::2]])
+            for contour in self.contours[1::2]])
+
+        self.Zxy_extra_upper = numpy.array([contour[-1].Z
+            for contour in self.contours[1::2]])
 
         self.Rcorners = numpy.array( [[p.R for p in contour[0::2]]
-            for contour in contours[0::2]])
+            for contour in self.contours[0::2]])
         self.Zcorners = numpy.array( [[p.Z for p in contour[0::2]]
-            for contour in contours[0::2]])
+            for contour in self.contours[0::2]])
 
-        self.psixy = self.psi(self.Rxy, self.Zxy)
-        self.psixy_ylow = self.psi(self.Rxy_ylow, self.Zxy_ylow)
+    def geometry(self):
+        """
+        Calculate geometrical quantities for this region
+        """
 
-        self.dx = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        self.psixy = self.meshParent.psi(self.Rxy, self.Zxy)
+        self.psixy_ylow = self.meshParent.psi(self.Rxy_ylow, self.Zxy_ylow)
+
+        self.dx = numpy.zeros([self.nx, self.ny + self.y_guards_lower +
+                                        self.y_guards_upper])
         self.dx[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx_ylow = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
+        self.dx_ylow = numpy.zeros([self.nx, self.ny + self.y_guards_lower +
+                                             self.y_guards_upper])
         self.dx_ylow[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
@@ -295,26 +308,26 @@ class MeshRegion:
             self.bpsign = 1.
             self.xcoord = self.psixy
 
-        self.dy = meshParent.dy * numpy.ones([self.nx, self.ny + self.y_guards_lower
-                                              + self.y_guards_upper])
-        self.dy_ylow = meshParent.dy * numpy.ones([self.nx, self.ny + self.y_guards_lower
-                                                   + self.y_guards_upper])
+        self.dy = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny + self.y_guards_lower
+                                                                   + self.y_guards_upper])
+        self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny + self.y_guards_lower
+                                                                        + self.y_guards_upper])
 
-        self.Brxy = meshParent.Bp_R(self.Rxy, self.Zxy)
-        self.Brxy_ylow = meshParent.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
-        self.Bzxy = meshParent.Bp_Z(self.Rxy, self.Zxy)
-        self.Bzxy_ylow = meshParent.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
+        self.Brxy = self.meshParent.Bp_R(self.Rxy, self.Zxy)
+        self.Brxy_ylow = self.meshParent.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
+        self.Bzxy = self.meshParent.Bp_Z(self.Rxy, self.Zxy)
+        self.Bzxy_ylow = self.meshParent.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
         self.Bpxy_ylow = numpy.sqrt(self.Brxy_ylow**2 + self.Bzxy_ylow**2)
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = (
-            self.Brxy[-1, self.ny/2 + self.y_guards_lower]
-            *(self.Rxy[-1, self.ny/2 + self.y_guards_lower + 1]
-                - self.Rxy[-1, self.ny/2 + self.y_guards_lower - 1])
-            + self.Bzxy[-1, self.ny/2 + self.y_guards_lower]
-              *(self.Zxy[-1, self.ny/2 + self.y_guards_lower + 1]
-                  - self.Zxy[-1, self.ny/2 + self.y_guards_lower - 1]) )
+            self.Brxy[-1, self.ny//2 + self.y_guards_lower]
+            *(self.Rxy[-1, self.ny//2 + self.y_guards_lower + 1]
+                - self.Rxy[-1, self.ny//2 + self.y_guards_lower - 1])
+            + self.Bzxy[-1, self.ny//2 + self.y_guards_lower]
+              *(self.Zxy[-1, self.ny//2 + self.y_guards_lower + 1]
+                  - self.Zxy[-1, self.ny//2 + self.y_guards_lower - 1]) )
         if Bp_dot_grady < 0.:
             print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
             self.Bpxy = -self.Bpxy
@@ -326,14 +339,20 @@ class MeshRegion:
                 raise ValueError("Sign of Bp should be positive?")
 
         # Get toroidal field from poloidal current function fpol
-        self.Btxy = meshParent.fpol / self.Rxy
-        self.Btxy_ylow = meshParent.fpol / self.Rxy_ylow
+        self.Btxy = self.meshParent.fpol / self.Rxy
+        self.Btxy_ylow = self.meshParent.fpol / self.Rxy_ylow
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
 
-        self.hthe = numpy.sqrt((Rxy_ylow[:,1:] - Rxy_ylow[:,:-1])**2
-                               + (Zxy_ylow[:,1:] - Zxy_ylow[:,:-1])**2)
+        R = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        R[:, :-1] = self.Rxy
+        R[:, -1] = self.Rxy_extra_upper
+        Z = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        Z[:, :-1] = self.Zxy
+        Z[:, -1] = self.Zxy_extra_upper
+        self.hthe = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+
         # for hthe_ylow, need R, Z values from below the lower face of this region
         R = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
         R[:, 1:] = self.Rxy
@@ -351,7 +370,7 @@ class MeshRegion:
         self.hthe_ylow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
     def getNeighbour(self, face):
-        return self.MeshParent.regions[self.connections[face]]
+        return self.meshParent.regions[self.connections[face]]
 
     def DDX(self, f):
         raise ValueError('not implemented for MeshRegion yet')
@@ -881,14 +900,17 @@ class Mesh:
                 self.region_indices[16] = (numpy.index_exp[x_regions[2], y_regions[5]])
 
         # constant spacing in y for now
-        self.dy = 2.*numpy.pi / (self.ny_inner_lower_divertor + self.ny_inner_core +
-                self.ny_inner_upper_divertor + self.ny_outer_upper_divertor +
-                self.ny_outer_core + self.ny_outer_lower_divertor)
+        self.dy_scalar = 2.*numpy.pi / (self.ny_inner_lower_divertor + self.ny_inner_core
+                + self.ny_inner_upper_divertor + self.ny_outer_upper_divertor
+                + self.ny_outer_core + self.ny_outer_lower_divertor)
 
     def geometry(self):
         """
         Calculate geometrical quantities for BOUT++
         """
+        for region in self.regions.values():
+            region.fillRZ()
+
         def addFromRegion(f, f_region, regionID):
             f[self.region_indices[regionID]] = f_region
 
@@ -915,7 +937,9 @@ class Mesh:
         self.hthe = numpy.zeros([self.nx, self.ny])
         self.hthe_ylow = numpy.zeros([self.nx, self.ny])
 
-        for region in self.regions:
+        for region in self.regions.values():
+            region.geometry()
+
             addFromRegion(self.Rxy, region.Rxy, region.myID)
             addFromRegion(self.Rxy_ylow, region.Rxy_ylow, region.myID)
             addFromRegion(self.Zxy, region.Zxy, region.myID)

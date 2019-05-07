@@ -991,44 +991,36 @@ class Mesh:
             f.write('hthe', self.Bxy)
             f.write('hthe_ylow', self.hthe_ylow)
 
-    def plot2D(self, f, title=None, ylow=False):
+    def plot2D(self, f, title=None):
         from matplotlib import pyplot
+
         try:
             vmin = f.min()
             vmax = f.max()
 
-            # leg 0
-            R = self.Rcorners[:, self.y_regions[0]:self.y_regions[1]+1].copy()
-            Z = self.Zcorners[:, self.y_regions[0]:self.y_regions[1]+1].copy()
-            # fix upper PF region corners
-            R[self.x_regions[0]:self.x_regions[1], -1] = self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
-            Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[3]]
-            pyplot.pcolor(R, Z, f[:, self.y_regions[0]:self.y_regions[1]], vmin=vmin, vmax=vmax)
-
-            # leg 1
-            R = self.Rcorners[:, self.y_regions[1]:self.y_regions[2]+1].copy()
-            Z = self.Zcorners[:, self.y_regions[1]:self.y_regions[2]+1].copy()
-            # fix upper corners
-            R[:, -1] = self.Rcorners_extra
-            Z[:, -1] = self.Zcorners_extra
-            pyplot.pcolor(R, Z, f[:, self.y_regions[1]:self.y_regions[2]], vmin=vmin, vmax=vmax)
-
-            # leg 2
-            R = self.Rcorners[:, self.y_regions[2]:self.y_regions[3]+1].copy()
-            Z = self.Zcorners[:, self.y_regions[2]:self.y_regions[3]+1].copy()
-            # fix upper PF region corners
-            R[self.x_regions[0]:self.x_regions[1], -1] = self.Rcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
-            Z[self.x_regions[0]:self.x_regions[1], -1] = self.Zcorners[self.x_regions[0]:self.x_regions[1], self.y_regions[1]]
-            pyplot.pcolor(R, Z, f[:, self.y_regions[2]:self.y_regions[3]], vmin=vmin, vmax=vmax)
-
-            # leg 3
-            R = self.Rcorners[:, self.y_regions[3]:self.y_regions[4]+1].copy()
-            Z = self.Zcorners[:, self.y_regions[3]:self.y_regions[4]+1].copy()
-            pyplot.pcolor(R, Z, f[:, self.y_regions[3]:self.y_regions[4]], vmin=vmin, vmax=vmax)
+            for region, indices in zip(self.regions.values(), self.region_indices):
+                pyplot.pcolor(region.Rcorners, region.Zcorners, f[indices],
+                              vmin=vmin, vmax=vmax)
 
             pyplot.colorbar()
         except NameError:
             raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
+
+    def plotPotential(self, Rmin, Rmax, Zmin, Zmax, npoints=100, ncontours=40):
+        from matplotlib import pyplot
+
+        R = numpy.linspace(Rmin, Rmax, npoints)
+        Z = numpy.linspace(Zmin, Zmax, npoints)
+        contours = pyplot.contour(
+                R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
+        pyplot.clabel(contours, inline=False, fmt='%1.3g')
+        pyplot.axes().set_aspect('equal')
+
+    def plotPoints(self):
+        from matplotlib import pyplot
+
+        for region in self.regions.values():
+            pyplot.scatter(region.Rxy, region.Zxy, marker='x')
 
 def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     """

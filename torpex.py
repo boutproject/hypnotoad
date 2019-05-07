@@ -98,15 +98,6 @@ def magneticFunctions(coils):
         {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
     return (A_func, f_R_func, f_Z_func, Bp_R_func, Bp_Z_func)
 
-def plotPotential(potential, npoints=100, ncontours=40):
-    pyplot.figure()
-    R = numpy.linspace(Rmin, Rmax, npoints)
-    Z = numpy.linspace(Zmin, Zmax, npoints)
-    contours = pyplot.contour(
-            R, Z, potential(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
-    pyplot.clabel(contours, inline=False, fmt='%1.3g')
-    pyplot.axes().set_aspect('equal')
-
 def createMesh(filename):
     # parse input file
     coils, Bt_axis, meshOptions = parseInput(filename)
@@ -127,8 +118,9 @@ def createMesh(filename):
 
     fpol = Bt_axis / 1. # Major radius of TORPEX axis is 1m
 
-    return Mesh(meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, A_xpoint, separatrix)
-
+    return (Mesh(meshOptions, A_toroidal, f_R, f_Z, Bp_R, Bp_Z, fpol, A_xpoint,
+                 separatrix),
+            {'xpoint':xpoint})
 
 if __name__ == '__main__':
     from sys import argv, exit
@@ -136,24 +128,17 @@ if __name__ == '__main__':
     filename = argv[1]
     gridname = 'torpex.grd.nc'
 
-    mesh = createMesh(filename)
-
-    if plotStuff:
-        plotPotential(mesh.A_toroidal)
-        #plotPotential(lambda R,Z: A_toroidal(R,Z)-A_xpoint)
-        addWallToPlot()
-        pyplot.plot(*mesh.xpoint, 'rx')
-        for l in mesh.separatrixLegs:
-            l.plot('1')
-        for contours in mesh.contours_pf:
-            for contour in contours:
-                contour.plot('x')
-        for contours in mesh.contours_sol:
-            for contour in contours:
-                contour.plot('+')
-        pyplot.show()
+    mesh, info = createMesh(filename)
 
     mesh.geometry()
+
+    if plotStuff:
+        mesh.plotPotential(Rmin, Rmax, Zmin, Zmax)
+        addWallToPlot()
+        pyplot.plot(*info['xpoint'], 'rx')
+        mesh.plotPoints()
+        pyplot.show()
+
     mesh.writeGridfile(gridname)
 
     exit(0)

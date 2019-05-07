@@ -399,6 +399,22 @@ class Mesh:
             raise ValueError("nx_between > 0 - there are 2 separatrices - need to find psi-value of second separatrix")
         assert self.orthogonal # non-orthogonal not implelemented yet
 
+        # nx, ny both include boundary guard cells
+        self.nx = self.nx_core + self.nx_between + self.nx_sol
+
+        if ( (self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0)
+                and (self.ny_inner_lower_divertor > 0 or self.ny_inner_core > 0
+                     or self.ny_outer_core > 0 or self.ny_outer_lower_divertor > 0) ):
+            # there are two distinct divertor/limiter targets
+            #  - the upper divertor legs are not empty, and also the other regions are not
+            #    all empty
+            self.upper_target_y_boundary_guards = self.y_boundary_guards
+
+        self.ny = (self.ny_inner_lower_divertor + self.ny_inner_core
+                   + self.ny_inner_upper_divertor + self.ny_outer_upper_divertor
+                   + self.ny_outer_core + self.ny_outer_lower_divertor
+                   + 2*self.y_boundary_guards + 2*self.upper_target_y_boundary_guards)
+
         # in index space for indices of cell faces, psi needs to go through psi_inner at
         # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1
         # for now use quadratic fit, leave grid refinement for later...
@@ -440,6 +456,23 @@ class Mesh:
         # For region numbers see figure in 'BOUT++ Topology' section of BOUT++ manual
         self.regions = {}
 
+        # Keep ranges of global indices for each region separately, because we don't want
+        # MeshRegion objects to depend on global indices
+        self.region_indices = {}
+        x_regions = (slice(None, self.nx_core, None),
+                     slice(self.nx_core, self.nx_core + self.nx_between, None),
+                     slice(self.nx_core + self.nx_between, None, None))
+        y_sizes = [0,
+                   self.ny_inner_lower_divertor + self.y_boundary_guards,
+                   self.ny_inner_core,
+                   self.ny_inner_upper_divertor + self.upper_target_y_boundary_guards,
+                   self.ny_outer_upper_divertor + self.upper_target_y_boundary_guards,
+                   self.ny_outer_core,
+                   self.ny_outer_lower_divertor + self.y_boundary_guards]
+        y_startinds = numpy.cumsum(y_sizes)
+        y_regions = (slice(y_startinds[i], y_startinds[i+1], None)
+                     for i in range(len(y_startinds-1)))
+
         # Region 1 - inner lower PF
         # Region 2 - inner lower between separatrices
         # Region 3 - inner lower SOL
@@ -464,6 +497,7 @@ class Mesh:
                 self.regions[1] = MeshRegion(self, 1, self.nx_core,
                         self.ny_inner_lower_divertor, sep, self.psi_vals_inner,
                         connections, True)
+                self.region_indices[1] = (numpy.index_exp[x_regions[0], y_regions[0]])
             if self.nx_between > 0:
                 connections = {}
                 if self.nx_core > 0:
@@ -486,6 +520,7 @@ class Mesh:
                 self.regions[2] = MeshRegion(self, 2, self.nx_between,
                         self.ny_inner_lower_divertor, sep, self.psi_vals_between,
                         connections, False)
+                self.region_indices[2] = (numpy.index_exp[x_regions[1], y_regions[0]])
             if self.nx_sol > 0:
                 connections = {}
                 if self.nx_between > 0:
@@ -515,6 +550,7 @@ class Mesh:
                 self.regions[3] = MeshRegion(self, 3, self.nx_sol,
                         self.ny_inner_lower_divertor, sep, self.psi_vals_outer,
                         connections, False)
+                self.region_indices[3] = (numpy.index_exp[x_regions[2], y_regions[0]])
 
         # Region 4 - inner core
         # Region 5 - inner between separatrices
@@ -538,6 +574,7 @@ class Mesh:
                     connections['upper'] = 4 # periodic inner core
                 self.regions[4] = MeshRegion(self, 4, self.nx_core,
                         self.ny_inner_core, sep, self.psi_vals_inner, connections, True)
+                self.region_indices[4] = (numpy.index_exp[x_regions[0], y_regions[1]])
             if self.nx_between > 0:
                 connections = {}
                 if self.nx_core > 0:
@@ -560,6 +597,7 @@ class Mesh:
                     connections['upper'] = None
                 self.regions[5] = MeshRegion(self, 5, self.nx_between,
                         self.ny_inner_core, sep, self.psi_vals_between, connections, False)
+                self.region_indices[5] = (numpy.index_exp[x_regions[1], y_regions[1]])
             if self.nx_sol > 0:
                 connections = {}
                 if self.nx_between > 0:
@@ -589,6 +627,7 @@ class Mesh:
                     connections['upper'] = None
                 self.regions[6] = MeshRegion(self, 6, self.nx_sol,
                         self.ny_inner_core, sep, self.psi_vals_outer, connections, False)
+                self.region_indices[6] = (numpy.index_exp[x_regions[2], y_regions[1]])
 
         # Region 7 - inner upper SOL
         # Region 8 - inner upper PF
@@ -611,6 +650,7 @@ class Mesh:
                 self.regions[7] = MeshRegion(self, 7, nx_upper_pf,
                         self.ny_inner_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
+                self.region_indices[7] = (numpy.index_exp[:nx_upper_pf, y_regions[2]])
             if self.nx_sol > 0:
                 connections = {}
                 if nx_upper_pf > 0:
@@ -628,6 +668,7 @@ class Mesh:
                 self.regions[8] = MeshRegion(self, 8, self.nx_sol,
                         self.ny_inner_upper_divertor, sep, self.psi_vals_outer,
                         connections, False)
+                self.region_indices[8] = (numpy.index_exp[nx_upper_pf:, y_regions[2]])
 
         # Region 9 - outer upper PF
         # Region 10 - outer upper SOL
@@ -650,6 +691,7 @@ class Mesh:
                 self.regions[9] = MeshRegion(self, 9, nx_upper_pf,
                         self.ny_outer_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
+                self.region_indices[9] = (numpy.index_exp[:nx_upper_pf, y_regions[3]])
             if self.nx_sol > 0:
                 connections = {}
                 connections['lower'] = None
@@ -667,6 +709,7 @@ class Mesh:
                 self.regions[10] = MeshRegion(self, 10, self.nx_sol,
                         self.ny_outer_upper_divertor, sep, self.psi_vals_outer,
                         connections, False)
+                self.region_indices[10] = (numpy.index_exp[nx_upper_pf:, y_regions[3]])
 
         # Region 11 - outer core
         # Region 12 - outer between separatrices
@@ -691,6 +734,7 @@ class Mesh:
                     connections['upper'] = 11 # outer core
                 self.regions[11] = MeshRegion(self, 11, self.nx_core,
                         self.ny_outer_core, sep, self.psi_vals_inner, connections, True)
+                self.region_indices[11] = (numpy.index_exp[x_regions[0], y_regions[4]])
             if self.nx_between > 0:
                 connections = {}
                 if self.nx_core > 0:
@@ -713,6 +757,7 @@ class Mesh:
                     connections['upper'] = None
                 self.regions[12] = MeshRegion(self, 12, self.nx_between,
                         self.ny_outer_core, sep, self.psi_vals_between, connections, False)
+                self.region_indices[12] = (numpy.index_exp[x_regions[1], y_regions[4]])
             if self.nx_sol > 0:
                 connections = {}
                 if self.nx_between > 0:
@@ -742,6 +787,7 @@ class Mesh:
                     connections['upper'] = None
                 self.regions[13] = MeshRegion(self, 13, self.nx_sol,
                         self.ny_outer_core, sep, self.psi_vals_outer, connections, False)
+                self.region_indices[13] = (numpy.index_exp[x_regions[2], y_regions[4]])
 
         # Region 14 - outer lower PF
         # Region 15 - outer lower between separatrices
@@ -765,6 +811,7 @@ class Mesh:
                 self.regions[14] = MeshRegion(self, 14, self.nx_core,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_inner,
                         connections, True)
+                self.region_indices[14] = (numpy.index_exp[x_regions[0], y_regions[5]])
             if self.nx_between > 0:
                 connections = {}
                 if self.nx_core > 0:
@@ -786,6 +833,7 @@ class Mesh:
                 self.regions[15] = MeshRegion(self, 15, self.nx_between,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_between,
                         connections, False)
+                self.region_indices[15] = (numpy.index_exp[x_regions[1], y_regions[5]])
             if self.nx_sol > 0:
                 connections = {}
                 if self.nx_between > 0:
@@ -815,6 +863,7 @@ class Mesh:
                 self.regions[16] = MeshRegion(self, 16, self.nx_sol,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_outer,
                         connections, False)
+                self.region_indices[16] = (numpy.index_exp[x_regions[2], y_regions[5]])
 
         # constant spacing in y for now
         self.dy = 2.*numpy.pi / (self.ny_inner_lower_divertor + self.ny_inner_core +

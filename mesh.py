@@ -929,7 +929,9 @@ class Mesh:
 
         with DataFile(filename, create=True) as f:
             f.write('nx', self.nx)
-            f.write('ny', self.ny)
+            # ny for BOUT++ excludes boundary guard cells
+            f.write('ny', self.ny - 2*self.y_boundary_guards -
+                          2*self.upper_target_y_boundary_guards)
             f.write('y_boundary_guards', self.y_boundary_guards)
             f.write('Rxy', self.Rxy)
             f.write('Rxy_ylow', self.Rxy_ylow)

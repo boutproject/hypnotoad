@@ -136,7 +136,7 @@ if __name__ == '__main__':
         mesh.plotPotential(Rmin, Rmax, Zmin, Zmax)
         addWallToPlot()
         pyplot.plot(*info['xpoint'], 'rx')
-        mesh.plotPoints()
+        mesh.plotPoints(ylow=True, corners=True)
         pyplot.show()
 
     mesh.writeGridfile(gridname)

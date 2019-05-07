@@ -1041,11 +1041,18 @@ class Mesh:
         pyplot.clabel(contours, inline=False, fmt='%1.3g')
         pyplot.axes().set_aspect('equal')
 
-    def plotPoints(self):
+    def plotPoints(self, ylow=False, corners=False):
         from matplotlib import pyplot
+        from cycler import cycle
 
+        colors = cycle(pyplot.rcParams['axes.prop_cycle'].by_key()['color'])
         for region in self.regions.values():
-            pyplot.scatter(region.Rxy, region.Zxy, marker='x')
+            c = next(colors)
+            pyplot.scatter(region.Rxy, region.Zxy, marker='x', c=c)
+            if ylow:
+                pyplot.scatter(region.Rxy_ylow, region.Zxy_ylow, marker='1', c=c)
+            if corners:
+                pyplot.scatter(region.Rcorners, region.Zcorners, marker='+', c=c)
 
 def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     """

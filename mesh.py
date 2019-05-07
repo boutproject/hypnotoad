@@ -482,12 +482,18 @@ class Mesh:
         y_regions = (slice(y_startinds[i], y_startinds[i+1], None)
                      for i in range(len(y_startinds-1)))
 
+        # functions that set poloidal grid spacing:
+        # - to use in divertor legs - sqrt of arc length in poloidal plane
+        sfunc_leg = lambda s: s**0.5
+        # - to use in core regions
+        sfunc_core = lambda s: 0.5*(s**0.5 + 1.-(1.-s)**0.5)
+
         # Region 1 - inner lower PF
         # Region 2 - inner lower between separatrices
         # Region 3 - inner lower SOL
-        if self.ny_lower_inner_divertor > 0:
-            sep = separatrix['inner_lower'].getRegridded(2*self.ny_inner_lower_divertor+1,
-                                                         sfunc=sfunc)
+        if self.ny_inner_lower_divertor > 0:
+            sep = separatrix['inner_lower_divertor'].getRegridded(2*self.ny_inner_lower_divertor+1,
+                                                                  sfunc=sfunc_leg)
             sep.reverse()
             if self.nx_core > 0:
                 connections = {}
@@ -565,7 +571,8 @@ class Mesh:
         # Region 5 - inner between separatrices
         # Region 6 - inner SOL
         if self.ny_inner_core > 0:
-            sep = separatrix['inner_core'].getRegridded(2*self.ny_inner_core+1, sfunc=sfunc)
+            sep = separatrix['inner_core'].getRegridded(2*self.ny_inner_core+1,
+                                                        sfunc=sfunc_core)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -643,7 +650,7 @@ class Mesh:
         nx_upper_pf = self.nx_between + self.nx_core
         if self.ny_inner_upper_divertor > 0:
             sep = separatrix['inner_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
-                                                                  sfunc=sfunc)
+                                                                  sfunc=sfunc_leg)
             if nx_upper_pf > 0:
                 connections = {}
                 connections['inner'] = None
@@ -683,7 +690,7 @@ class Mesh:
         # Region 10 - outer upper SOL
         if self.ny_outer_upper_divertor > 0:
             sep = separatrix['outer_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
-                                                                  sfunc=sfunc)
+                                                                  sfunc=sfunc_leg)
             sep.reverse()
             if nx_upper_pf > 0:
                 connections = {}
@@ -725,7 +732,7 @@ class Mesh:
         # Region 13 - outer SOL
         if self.ny_outer_core > 0:
             sep = separatrix['outer_core'].getRegridded(2*self.ny_outer_core+1,
-                                                        sfunc=sfunc)
+                                                        sfunc=sfunc_core)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -802,8 +809,8 @@ class Mesh:
         # Region 15 - outer lower between separatrices
         # Region 16 - outer lower SOL
         if self.ny_outer_lower_divertor > 0:
-            sep = separatrix['outer_lower'].getRegridded(2*self.ny_outer_lower_divertor+1,
-                                                         sfunc=sfunc)
+            sep = separatrix['outer_lower_divertor'].getRegridded(2*self.ny_outer_lower_divertor+1,
+                                                                  sfunc=sfunc_leg)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None

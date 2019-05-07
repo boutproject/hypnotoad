@@ -167,7 +167,8 @@ class MeshContour:
         Interpolate onto set of npoints points, then refine positions.
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
         which replaces the uniform interval 's' with 's=sfunc(s)'.
-        'extend' extends the contour past its existing end by a number of points
+        'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
+        number of points.
         Returns a new MeshContour.
         """
         s = numpy.linspace(-extend_lower/(npoints-1),
@@ -206,9 +207,6 @@ class MeshRegion:
         self.nx = localnx
         self.ny = localny
 
-        # separatrix contour
-        self.separatrix = separatrix
-
         # psi values for radial grid
         self.psi_vals = psi_vals
 
@@ -216,6 +214,8 @@ class MeshRegion:
         # is an actual boundary
         self.connections = connections
 
+        # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
+        # connected to another region
         if connections['lower'] is None:
             self.y_guards_lower = meshParent.y_boundary_guards
         else:
@@ -224,6 +224,11 @@ class MeshRegion:
             self.y_guards_upper = meshParent.y_boundary_guards
         else:
             self.y_guards_upper = 0
+
+        # include guard cells in contours (note, does not change passed-in separatrix
+        # object)
+        self.separatrix = separatrix.getRegridded(2*self.ny,
+                extend_lower=self.y_guards_lower, extend_upper=self.y_guards_upper)
 
         # get points in this region
         self.contours = []
@@ -246,11 +251,9 @@ class MeshRegion:
             for i,point in enumerate(perp_points_inner):
                 self.contours_pf[i].append(point)
 
-        # extend the contours if y-boundary guard cells are needed
-        # also refines the contours to make sure they are at exactly the right psi-value
+        # refine the contours to make sure they are at exactly the right psi-value
         for contour in contours:
-            contour.getRegridded(2*self.ny, extend_lower=2*self.y_guards_lower,
-                    extend_upper=2*self.y_guards_upper)
+            contour.refine()
 
     def geometry(self):
         """
@@ -533,72 +536,72 @@ class Mesh:
         # Region 1 - inner lower PF
         # Region 2 - inner lower between separatrices
         # Region 3 - inner lower SOL
-        if ny_lower_inner_divertor > 0:
-            sep = separatrix['inner_lower'].getRegridded(2*ny_inner_lower_divertor+1,
-                    sfunc=sfunc, extend = 2*self.y_boundary_guards+1)
+        if self.ny_lower_inner_divertor > 0:
+            sep = separatrix['inner_lower'].getRegridded(2*self.ny_inner_lower_divertor+1,
+                                                         sfunc=sfunc)
             sep.reverse()
-            if nx_core > 0:
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['outer'] = 2 # inner lower between separatrix region
-                elif nx_sol > 0:
+                elif self.nx_sol > 0:
                     connections['outer'] = 3 # inner lower SOL
                 else:
                     connections['outer'] = None
                 connections['lower'] = None
-                if ny_outer_lower_divertor > 0:
+                if self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 14 # outer lower PF
                 else:
                     connections['upper'] = None
                 self.regions[1] = MeshRegion(self, 1, self.nx_core,
                         self.ny_inner_lower_divertor, sep, self.psi_vals_inner,
                         connections, True)
-            if nx_between > 0:
+            if self.nx_between > 0:
                 connections = {}
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 1 # inner lower PF
                 else:
                     connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 3 # inner lower SOL
                 else:
                     connections['outer'] = None
                 connections['lower'] = None
-                if ny_inner_core > 0:
+                if self.ny_inner_core > 0:
                     connections['upper'] = 5 # inner between separatrix region
-                elif ny_outer_core > 0:
+                elif self.ny_outer_core > 0:
                     connections['upper'] = 12 # outer between separatrix region
-                elif ny_outer_lower_divertor > 0:
+                elif self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
                 self.regions[2] = MeshRegion(self, 2, self.nx_between,
                         self.ny_inner_lower_divertor, sep, self.psi_vals_between,
                         connections, False)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['inner'] = 2 # inner lower between separatrix region
-                elif nx_core > 0:
+                elif self.nx_core > 0:
                     connections['inner'] = 1 # inner lower PF
                 else:
                     connections['inner'] = None
                 connections['outer'] = None
                 connections['lower'] = None
-                if ny_inner_core > 0:
+                if self.ny_inner_core > 0:
                     connections['upper'] = 6 # inner SOL
-                elif ny_inner_upper_divertor > 0:
+                elif self.ny_inner_upper_divertor > 0:
                     connections['upper'] = 7 # inner upper SOL
-                elif ny_outer_upper_divertor > 0:
+                elif self.ny_outer_upper_divertor > 0:
                     # this probably shouldn't happen, but if there is no upper inner leg,
                     # but there is an upper outer leg, we can't connect to the outer SOL,
                     # so there must be a limiter/divertor plate going right up to the
                     # upper X-point
                     connections['upper'] = None
-                elif ny_outer_core > 0:
+                elif self.ny_outer_core > 0:
                     connections['upper'] = 13 # outer SOL
-                elif ny_lower_outer_divertor > 0:
+                elif self.ny_lower_outer_divertor > 0:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
@@ -609,18 +612,18 @@ class Mesh:
         # Region 4 - inner core
         # Region 5 - inner between separatrices
         # Region 6 - inner SOL
-        if ny_inner_core > 0:
-            sep = separatrix['inner_core'].getRegridded(2*ny_inner_core+1, sfunc=sfunc)
-            if nx_core > 0:
+        if self.ny_inner_core > 0:
+            sep = separatrix['inner_core'].getRegridded(2*self.ny_inner_core+1, sfunc=sfunc)
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['outer'] = 5 # inner between separatrix region
-                elif nx_sol > 0:
+                elif self.nx_sol > 0:
                     connections['outer'] = 6 # inner SOL
                 else:
                     connections['outer'] = None
-                if ny_outer_core > 0:
+                if self.ny_outer_core > 0:
                     connections['lower'] = 11 # outer core
                     connections['upper'] = 11 # outer core
                 else:
@@ -628,52 +631,52 @@ class Mesh:
                     connections['upper'] = 4 # periodic inner core
                 self.regions[4] = MeshRegion(self, 4, self.nx_core,
                         self.ny_inner_core, sep, self.psi_vals_inner, connections, True)
-            if nx_between > 0:
+            if self.nx_between > 0:
                 connections = {}
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 4 # inner core
                 else:
                     connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 6 # inner SOL
                 else:
                     connections['outer'] = None
-                if ny_inner_lower_divertor > 0:
+                if self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 2 # inner lower between separatrix region
                 else:
                     connections['lower'] = None
-                if ny_outer_core > 0:
+                if self.ny_outer_core > 0:
                     connections['upper'] = 12 # outer between separatrix region
-                elif ny_outer_lower_divertor > 0:
+                elif self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
                 self.regions[5] = MeshRegion(self, 5, self.nx_between,
                         self.ny_inner_core, sep, self.psi_vals_between, connections, False)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['inner'] = 5 # inner between separatrix region
-                elif nx_core > 0:
+                elif self.nx_core > 0:
                     connections['inner'] = 4 # inner core
                 else:
                     connections['inner'] = None
                 connections['outer'] = None
-                if ny_inner_lower_divertor > 0:
+                if self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 3 # inner lower SOL
                 else:
                     connections['lower'] = None
-                if ny_inner_upper_divertor > 0:
+                if self.ny_inner_upper_divertor > 0:
                     connections['upper'] = 7 # inner upper SOL
-                elif ny_outer_upper_divertor > 0:
+                elif self.ny_outer_upper_divertor > 0:
                     # this probably shouldn't happen, but if there is no upper inner leg,
                     # but there is an upper outer leg, we can't connect to the outer SOL,
                     # so there must be a limiter/divertor plate going right up to the
                     # upper X-point
                     connections['upper'] = None
-                elif ny_outer_core > 0:
+                elif self.ny_outer_core > 0:
                     connections['upper'] = 13 # outer SOL
-                elif ny_outer_lower_divertor > 0:
+                elif self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
@@ -682,17 +685,17 @@ class Mesh:
 
         # Region 7 - inner upper SOL
         # Region 8 - inner upper PF
-        if ny_inner_upper_divertor > 0:
-            sep = separatrix['inner_upper_divertor'].getRegridded(2*ny_inner_upper_divertor+1,
-                    sfunc=sfunc, extend = 2*self.y_boundary_guards+1)
-            if nx_core > 0:
+        if self.ny_inner_upper_divertor > 0:
+            sep = separatrix['inner_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
+                                                                  sfunc=sfunc)
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 7 # inner upper SOL
                 else:
                     connections['outer'] = None
-                if ny_outer_upper_divertor > 0:
+                if self.ny_outer_upper_divertor > 0:
                     connections['lower'] = 9 # outer upper PF
                 else:
                     connections['lower'] = None
@@ -700,16 +703,16 @@ class Mesh:
                 self.regions[7] = MeshRegion(self, 7, self.nx_core,
                         self.ny_inner_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 7 # outer upper PF
                 else:
                     connections['inner'] = None
                 connections['outer'] = None
-                if ny_inner_core > 0:
+                if self.ny_inner_core > 0:
                     connections['lower'] = 6 # inner SOL
-                elif ny_inner_lower_divertor > 0:
+                elif self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 3 # inner lower SOL
                 else:
                     connections['lower'] = None
@@ -720,35 +723,35 @@ class Mesh:
 
         # Region 9 - outer upper PF
         # Region 10 - outer upper SOL
-        if ny_outer_upper_divertor > 0:
-            sep = separatrix['outer_upper_divertor'].getRegridded(2*ny_inner_upper_divertor+1,
-                    sfunc=sfunc, extend = 2*self.y_boundary_guards+1)
+        if self.ny_outer_upper_divertor > 0:
+            sep = separatrix['outer_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
+                                                                  sfunc=sfunc)
             sep.reverse()
-            if nx_core > 0:
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 10 # outer upper SOL
                 else:
                     connections['outer'] = None
                 connections['lower'] = None
-                if ny_outer_upper_divertor > 0:
+                if self.ny_outer_upper_divertor > 0:
                     connections['upper'] = 8 # inner upper PF
                 else:
                     connections['upper'] = None
                 self.regions[9] = MeshRegion(self, 9, self.nx_core,
                         self.ny_outer_upper_divertor, sep, self.psi_vals_inner,
                         connections, True)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
                 connections['lower'] = None
-                if ny_outer_core > 0:
+                if self.ny_outer_core > 0:
                     connections['upper'] = 13 # outer SOL
-                elif ny_outer_lower_divertor > 0:
+                elif self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 9 # outer upper PF
                 else:
                     connections['inner'] = None
@@ -760,18 +763,19 @@ class Mesh:
         # Region 11 - outer core
         # Region 12 - outer between separatrices
         # Region 13 - outer SOL
-        if ny_outer_core > 0:
-            sep = separatrix['outer_core'].getRegridded(2*ny_outer_core+1, sfunc=sfunc)
-            if nx_core > 0:
+        if self.ny_outer_core > 0:
+            sep = separatrix['outer_core'].getRegridded(2*self.ny_outer_core+1,
+                                                        sfunc=sfunc)
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['outer'] = 12 # outer between separatrix region
-                elif nx_sol > 0:
+                elif self.nx_sol > 0:
                     connections['outer'] = 13 # outer SOL region
                 else:
                     connections['outer'] = None
-                if ny_inner_core > 0:
+                if self.ny_inner_core > 0:
                     connections['lower'] = 4 # inner core
                     connections['upper'] = 4 # inner core
                 else:
@@ -779,52 +783,52 @@ class Mesh:
                     connections['upper'] = 11 # outer core
                 self.regions[11] = MeshRegion(self, 11, self.nx_core,
                         self.ny_outer_core, sep, self.psi_vals_inner, connections, True)
-            if nx_between > 0:
+            if self.nx_between > 0:
                 connections = {}
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 11 # outer core
                 else:
                     connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 13 # outer SOL region
                 else:
                     connections['outer'] = None
-                if ny_inner_core > 0:
+                if self.ny_inner_core > 0:
                     connections['lower'] = 5 # inner between separatrix region
-                elif ny_inner_lower_divertor > 0:
+                elif self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 2 # inner lower between separatrix region
                 else:
                     connections['lower'] = None
-                if ny_outer_lower_divertor > 0:
+                if self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
                 self.regions[12] = MeshRegion(self, 12, self.nx_between,
                         self.ny_outer_core, sep, self.psi_vals_between, connections, False)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['inner'] = 12 # outer between separatrix region
-                elif nx_core > 0:
+                elif self.nx_core > 0:
                     connections['inner'] = 11 # outer core
                 else:
                     connections['inner'] = None
                 connections['outer'] = None
-                if ny_outer_upper_divertor > 0:
+                if self.ny_outer_upper_divertor > 0:
                     connections['lower'] = 10
-                elif ny_inner_upper_divertor > 0:
+                elif self.ny_inner_upper_divertor > 0:
                     # this probably shouldn't happen, but if there is no upper outer leg,
                     # but there is an upper inner leg, we can't connect to the inner SOL,
                     # so there must be a limiter/divertor plate going right up to the
                     # upper X-point
                     connections['lower'] = None
-                elif ny_inner_core > 0:
+                elif self.ny_inner_core > 0:
                     connections['lower'] = 6 # inner SOL
-                elif ny_inner_lower_divertor > 0:
+                elif self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 3 # inner lower SOL
                 else:
                     connections['lower'] = None
-                if ny_outer_lower_divertor > 0:
+                if self.ny_outer_lower_divertor > 0:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
@@ -834,68 +838,68 @@ class Mesh:
         # Region 14 - outer lower PF
         # Region 15 - outer lower between separatrices
         # Region 16 - outer lower SOL
-        if ny_outer_lower_divertor > 0:
-            sep = separatrix['outer_lower'].getRegridded(2*ny_outer_lower_divertor+1,
-                    sfunc=sfunc, extend = 2*self.y_boundary_guards+1)
-            if nx_core > 0:
+        if self.ny_outer_lower_divertor > 0:
+            sep = separatrix['outer_lower'].getRegridded(2*self.ny_outer_lower_divertor+1,
+                                                         sfunc=sfunc)
+            if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['outer'] = 15 # outer lower between separatrix region
-                elif nx_sol > 0:
+                elif self.nx_sol > 0:
                     connections['outer'] = 16 # outer lower SOL
                 else:
                     connections['outer'] = None
-                if ny_inner_lower_divertor > 0:
+                if self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 1 # inner lower PF
                 else:
                     connections['lower'] = None
                 self.regions[14] = MeshRegion(self, 14, self.nx_core,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_inner,
                         connections, True)
-            if nx_between > 0:
+            if self.nx_between > 0:
                 connections = {}
-                if nx_core > 0:
+                if self.nx_core > 0:
                     connections['inner'] = 14 # outer lower PF
                 else:
                     connections['inner'] = None
-                if nx_sol > 0:
+                if self.nx_sol > 0:
                     connections['outer'] = 16 # outer lower SOL
                 else:
                     connections['outer'] = None
-                if ny_outer_core > 0:
+                if self.ny_outer_core > 0:
                     connections['lower'] = 12 # outer between separatrix region
-                elif ny_inner_core > 0:
+                elif self.ny_inner_core > 0:
                     connections['lower'] = 5 # inner between separatrix region
-                elif ny_inner_lower_divertor > 0:
+                elif self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 2 # inner lower between separatrix region
                 else:
                     connections['lower'] = None
                 self.regions[15] = MeshRegion(self, 15, self.nx_between,
                         self.ny_outer_lower_divertor, sep, self.psi_vals_between,
                         connections, False)
-            if nx_sol > 0:
+            if self.nx_sol > 0:
                 connections = {}
-                if nx_between > 0:
+                if self.nx_between > 0:
                     connections['inner'] = 15 # outer lower between separatrix region
-                elif nx_core > 0:
+                elif self.nx_core > 0:
                     connections['inner'] = 14 # outer lower PF
                 else:
                     connections['inner'] = None
                 connections['outer'] = None
-                if ny_outer_core > 0:
+                if self.ny_outer_core > 0:
                     connections['lower'] = 13 # outer SOL
-                elif ny_outer_upper_divertor > 0:
+                elif self.ny_outer_upper_divertor > 0:
                     connections['lower'] = 10 # outer upper SOL
-                elif ny_inner_upper_divertor > 0:
+                elif self.ny_inner_upper_divertor > 0:
                     # this probably shouldn't happen, but if there is no upper outer leg,
                     # but there is an upper inner leg, we can't connect to the inner SOL,
                     # so there must be a limiter/divertor plate going right up to the
                     # upper X-point
                     connections['lower'] = None
-                elif ny_inner_core > 0:
+                elif self.ny_inner_core > 0:
                     connections['lower'] = 6 # inner SOL
-                elif ny_inner_lower_divertor > 0:
+                elif self.ny_inner_lower_divertor > 0:
                     connections['lower'] = 3 # inner lower SOL
                 else:
                     connections['lower'] = None

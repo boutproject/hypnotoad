@@ -185,7 +185,7 @@ class MeshRegion:
     Note that these regions include cell face and boundary points, so there are
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
-    def __init__(self, meshParent, myID, localnx, localny, separatrix, psi_vals,
+    def __init__(self, meshParent, myID, localNx, localNy, separatrix, psi_vals,
             connections, isInner):
         print('creating region ', myID)
 
@@ -195,12 +195,15 @@ class MeshRegion:
         # ID that Mesh uses to keep track of its MeshRegions
         self.myID = myID
 
-        # sizes of the grid in this MeshRegion
-        self.nx = localnx
-        self.ny = localny
+        # sizes of the grid in this MeshRegion, include boundary guard cells
+        self.nx = localNx
+        self.ny = localNy
 
         # psi values for radial grid
         self.psi_vals = psi_vals
+
+        # MeshContour representing the separatrix segment associated with this region
+        self.separatrix = separatrix
 
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
@@ -216,11 +219,6 @@ class MeshRegion:
             self.y_guards_upper = meshParent.y_boundary_guards
         else:
             self.y_guards_upper = 0
-
-        # include guard cells in contours (note, does not change passed-in separatrix
-        # object)
-        self.separatrix = separatrix.getRegridded(2*self.ny+1,
-                extend_lower=2*self.y_guards_lower, extend_upper=2*self.y_guards_upper)
 
         # get points in this region
         self.contours = []
@@ -252,10 +250,8 @@ class MeshRegion:
         Fill the Rxy, Rxy_ylow and Zxy, Zxy_ylow arrays for this region
         """
 
-        self.Rcorners = numpy.zeros([self.nx + 1,
-            self.ny + self.y_guards_lower + self.y_guards_upper + 1])
-        self.Zcorners = numpy.zeros([self.nx + 1,
-            self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        self.Rcorners = numpy.zeros([self.nx + 1, self.ny + 1])
+        self.Zcorners = numpy.zeros([self.nx + 1, self.ny + 1])
 
         self.Rxy = numpy.array([[p.R for p in contour[1::2]]
             for contour in self.contours[1::2]])
@@ -288,11 +284,9 @@ class MeshRegion:
         self.psixy = self.meshParent.psi(self.Rxy, self.Zxy)
         self.psixy_ylow = self.meshParent.psi(self.Rxy_ylow, self.Zxy_ylow)
 
-        self.dx = numpy.zeros([self.nx, self.ny + self.y_guards_lower +
-                                        self.y_guards_upper])
+        self.dx = numpy.zeros([self.nx, self.ny])
         self.dx[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx_ylow = numpy.zeros([self.nx, self.ny + self.y_guards_lower +
-                                             self.y_guards_upper])
+        self.dx_ylow = numpy.zeros([self.nx, self.ny])
         self.dx_ylow[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
@@ -303,10 +297,8 @@ class MeshRegion:
             self.bpsign = 1.
             self.xcoord = self.psixy
 
-        self.dy = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny + self.y_guards_lower
-                                                                   + self.y_guards_upper])
-        self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny + self.y_guards_lower
-                                                                        + self.y_guards_upper])
+        self.dy = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
+        self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
 
         self.Brxy = self.meshParent.Bp_R(self.Rxy, self.Zxy)
         self.Brxy_ylow = self.meshParent.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
@@ -317,12 +309,10 @@ class MeshRegion:
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = (
-            self.Brxy[-1, self.ny//2 + self.y_guards_lower]
-            *(self.Rxy[-1, self.ny//2 + self.y_guards_lower + 1]
-                - self.Rxy[-1, self.ny//2 + self.y_guards_lower - 1])
-            + self.Bzxy[-1, self.ny//2 + self.y_guards_lower]
-              *(self.Zxy[-1, self.ny//2 + self.y_guards_lower + 1]
-                  - self.Zxy[-1, self.ny//2 + self.y_guards_lower - 1]) )
+            self.Brxy[-1, self.ny//2]
+            *(self.Rxy[-1, self.ny//2 + 1] - self.Rxy[-1, self.ny//2 - 1])
+            + self.Bzxy[-1, self.ny//2]
+              *(self.Zxy[-1, self.ny//2 + 1] - self.Zxy[-1, self.ny//2 - 1]) )
         if Bp_dot_grady < 0.:
             print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
             self.Bpxy = -self.Bpxy
@@ -340,18 +330,18 @@ class MeshRegion:
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
 
-        R = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        R = numpy.zeros([self.nx, self.ny + 1])
         R[:, :-1] = self.Rxy
         R[:, -1] = self.Rxy_extra_upper
-        Z = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        Z = numpy.zeros([self.nx, self.ny + 1])
         Z[:, :-1] = self.Zxy
         Z[:, -1] = self.Zxy_extra_upper
         self.hthe = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
         # for hthe_ylow, need R, Z values from below the lower face of this region
-        R = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        R = numpy.zeros([self.nx, self.ny + 1])
         R[:, 1:] = self.Rxy
-        Z = numpy.zeros([self.nx, self.ny + self.y_guards_lower + self.y_guards_upper + 1])
+        Z = numpy.zeros([self.nx, self.ny + 1])
         Z[:, 1:] = self.Zxy
         if self.connections['lower'] is not None:
             R[:, 0] = self.getNeighbour('lower').Rxy[:, -1]
@@ -502,10 +492,37 @@ class Mesh:
         # Region 1 - inner lower PF
         # Region 2 - inner lower between separatrices
         # Region 3 - inner lower SOL
+        def get_sep(sepname, ny, connections, sfunc, reverse):
+            """
+            Utility function to wrap up adding guard cells to separatrix when necessary.
+            """
+            if reverse:
+                # going to reverse the separatrix section after extending, so need to pass
+                # lower/upper guards 'backwards'
+                if connections['lower'] is None:
+                    upper_guards = self.y_boundary_guards
+                else:
+                    upper_guards = 0
+                if connections['upper'] is None:
+                    lower_guards = self.y_boundary_guards
+                else:
+                    lower_guards = 0
+            else:
+                if connections['lower'] is None:
+                    lower_guards = self.y_boundary_guards
+                else:
+                    lower_guards = 0
+                if connections['upper'] is None:
+                    upper_guards = self.y_boundary_guards
+                else:
+                    upper_guards = 0
+            sep = separatrix[sepname].getRegridded(2*ny+1, extend_lower=2*lower_guards,
+                                                 extend_upper=2*upper_guards, sfunc=sfunc)
+            if reverse:
+                sep.reverse()
+            return sep, ny + lower_guards + upper_guards
+
         if self.ny_inner_lower_divertor > 0:
-            sep = separatrix['inner_lower_divertor'].getRegridded(2*self.ny_inner_lower_divertor+1,
-                                                                  sfunc=sfunc_leg)
-            sep.reverse()
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -520,9 +537,10 @@ class Mesh:
                     connections['upper'] = 14 # outer lower PF
                 else:
                     connections['upper'] = None
-                self.regions[1] = MeshRegion(self, 1, self.nx_core,
-                        self.ny_inner_lower_divertor, sep, self.psi_vals_inner,
-                        connections, True)
+                sep, localNy = get_sep('inner_lower_divertor',
+                        self.ny_inner_lower_divertor, connections, sfunc_leg, True)
+                self.regions[1] = MeshRegion(self, 1, self.nx_core, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[1] = (numpy.index_exp[x_regions[0], y_regions[0]])
             if self.nx_between > 0:
                 connections = {}
@@ -543,9 +561,10 @@ class Mesh:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
-                self.regions[2] = MeshRegion(self, 2, self.nx_between,
-                        self.ny_inner_lower_divertor, sep, self.psi_vals_between,
-                        connections, False)
+                sep, localNy = get_sep('inner_lower_divertor',
+                        self.ny_inner_lower_divertor, connections, sfunc_leg, True)
+                self.regions[2] = MeshRegion(self, 2, self.nx_between, localNy, sep,
+                        self.psi_vals_between, connections, False)
                 self.region_indices[2] = (numpy.index_exp[x_regions[1], y_regions[0]])
             if self.nx_sol > 0:
                 connections = {}
@@ -573,17 +592,16 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                self.regions[3] = MeshRegion(self, 3, self.nx_sol,
-                        self.ny_inner_lower_divertor, sep, self.psi_vals_outer,
-                        connections, False)
+                sep, localNy = get_sep('inner_lower_divertor',
+                        self.ny_inner_lower_divertor, connections, sfunc_leg, True)
+                self.regions[3] = MeshRegion(self, 3, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[3] = (numpy.index_exp[x_regions[2], y_regions[0]])
 
         # Region 4 - inner core
         # Region 5 - inner between separatrices
         # Region 6 - inner SOL
         if self.ny_inner_core > 0:
-            sep = separatrix['inner_core'].getRegridded(2*self.ny_inner_core+1,
-                                                        sfunc=sfunc_core)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -599,8 +617,10 @@ class Mesh:
                 else:
                     connections['lower'] = 4 # periodic inner core
                     connections['upper'] = 4 # periodic inner core
-                self.regions[4] = MeshRegion(self, 4, self.nx_core,
-                        self.ny_inner_core, sep, self.psi_vals_inner, connections, True)
+                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
+                        sfunc_core, False)
+                self.regions[4] = MeshRegion(self, 4, self.nx_core, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[4] = (numpy.index_exp[x_regions[0], y_regions[1]])
             if self.nx_between > 0:
                 connections = {}
@@ -622,8 +642,10 @@ class Mesh:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
-                self.regions[5] = MeshRegion(self, 5, self.nx_between,
-                        self.ny_inner_core, sep, self.psi_vals_between, connections, False)
+                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
+                        sfunc_core, False)
+                self.regions[5] = MeshRegion(self, 5, self.nx_between, localNy, sep,
+                        self.psi_vals_between, connections, False)
                 self.region_indices[5] = (numpy.index_exp[x_regions[1], y_regions[1]])
             if self.nx_sol > 0:
                 connections = {}
@@ -652,16 +674,16 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                self.regions[6] = MeshRegion(self, 6, self.nx_sol,
-                        self.ny_inner_core, sep, self.psi_vals_outer, connections, False)
+                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
+                        sfunc_core, False)
+                self.regions[6] = MeshRegion(self, 6, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[6] = (numpy.index_exp[x_regions[2], y_regions[1]])
 
         # Region 7 - inner upper SOL
         # Region 8 - inner upper PF
         nx_upper_pf = self.nx_between + self.nx_core
         if self.ny_inner_upper_divertor > 0:
-            sep = separatrix['inner_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
-                                                                  sfunc=sfunc_leg)
             if nx_upper_pf > 0:
                 connections = {}
                 connections['inner'] = None
@@ -674,9 +696,10 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[7] = MeshRegion(self, 7, nx_upper_pf,
-                        self.ny_inner_upper_divertor, sep, self.psi_vals_inner,
-                        connections, True)
+                sep, localNy = get_sep('inner_upper_divertor',
+                        self.ny_inner_upper_divertor, connections, sfunc_leg, False)
+                self.regions[7] = MeshRegion(self, 7, nx_upper_pf, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[7] = (numpy.index_exp[:nx_upper_pf, y_regions[2]])
             if self.nx_sol > 0:
                 connections = {}
@@ -692,17 +715,15 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[8] = MeshRegion(self, 8, self.nx_sol,
-                        self.ny_inner_upper_divertor, sep, self.psi_vals_outer,
-                        connections, False)
+                sep, localNy = get_sep('inner_upper_divertor',
+                        self.ny_inner_upper_divertor, connections, sfunc_leg, False)
+                self.regions[8] = MeshRegion(self, 8, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[8] = (numpy.index_exp[nx_upper_pf:, y_regions[2]])
 
         # Region 9 - outer upper PF
         # Region 10 - outer upper SOL
         if self.ny_outer_upper_divertor > 0:
-            sep = separatrix['outer_upper_divertor'].getRegridded(2*self.ny_inner_upper_divertor+1,
-                                                                  sfunc=sfunc_leg)
-            sep.reverse()
             if nx_upper_pf > 0:
                 connections = {}
                 connections['inner'] = None
@@ -715,9 +736,10 @@ class Mesh:
                     connections['upper'] = 8 # inner upper PF
                 else:
                     connections['upper'] = None
-                self.regions[9] = MeshRegion(self, 9, nx_upper_pf,
-                        self.ny_outer_upper_divertor, sep, self.psi_vals_inner,
-                        connections, True)
+                sep, localNy = get_sep('outer_upper_divertor',
+                        self.ny_outer_upper_divertor, connections, sfunc_leg, True)
+                self.regions[9] = MeshRegion(self, 9, nx_upper_pf, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[9] = (numpy.index_exp[:nx_upper_pf, y_regions[3]])
             if self.nx_sol > 0:
                 connections = {}
@@ -733,17 +755,16 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                self.regions[10] = MeshRegion(self, 10, self.nx_sol,
-                        self.ny_outer_upper_divertor, sep, self.psi_vals_outer,
-                        connections, False)
+                sep, localNy = get_sep('outer_upper_divertor',
+                        self.ny_outer_upper_divertor, connections, sfunc_leg, True)
+                self.regions[10] = MeshRegion(self, 10, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[10] = (numpy.index_exp[nx_upper_pf:, y_regions[3]])
 
         # Region 11 - outer core
         # Region 12 - outer between separatrices
         # Region 13 - outer SOL
         if self.ny_outer_core > 0:
-            sep = separatrix['outer_core'].getRegridded(2*self.ny_outer_core+1,
-                                                        sfunc=sfunc_core)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -759,8 +780,10 @@ class Mesh:
                 else:
                     connections['lower'] = 11 # outer core
                     connections['upper'] = 11 # outer core
-                self.regions[11] = MeshRegion(self, 11, self.nx_core,
-                        self.ny_outer_core, sep, self.psi_vals_inner, connections, True)
+                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
+                        sfunc_core, False)
+                self.regions[11] = MeshRegion(self, 11, self.nx_core, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[11] = (numpy.index_exp[x_regions[0], y_regions[4]])
             if self.nx_between > 0:
                 connections = {}
@@ -782,8 +805,10 @@ class Mesh:
                     connections['upper'] = 15 # outer lower between separatrix region
                 else:
                     connections['upper'] = None
-                self.regions[12] = MeshRegion(self, 12, self.nx_between,
-                        self.ny_outer_core, sep, self.psi_vals_between, connections, False)
+                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
+                        sfunc_core, False)
+                self.regions[12] = MeshRegion(self, 12, self.nx_between, localNy, sep,
+                        self.psi_vals_between, connections, False)
                 self.region_indices[12] = (numpy.index_exp[x_regions[1], y_regions[4]])
             if self.nx_sol > 0:
                 connections = {}
@@ -812,16 +837,16 @@ class Mesh:
                     connections['upper'] = 16 # outer lower SOL
                 else:
                     connections['upper'] = None
-                self.regions[13] = MeshRegion(self, 13, self.nx_sol,
-                        self.ny_outer_core, sep, self.psi_vals_outer, connections, False)
+                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
+                        sfunc_core, False)
+                self.regions[13] = MeshRegion(self, 13, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[13] = (numpy.index_exp[x_regions[2], y_regions[4]])
 
         # Region 14 - outer lower PF
         # Region 15 - outer lower between separatrices
         # Region 16 - outer lower SOL
         if self.ny_outer_lower_divertor > 0:
-            sep = separatrix['outer_lower_divertor'].getRegridded(2*self.ny_outer_lower_divertor+1,
-                                                                  sfunc=sfunc_leg)
             if self.nx_core > 0:
                 connections = {}
                 connections['inner'] = None
@@ -836,9 +861,10 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[14] = MeshRegion(self, 14, self.nx_core,
-                        self.ny_outer_lower_divertor, sep, self.psi_vals_inner,
-                        connections, True)
+                sep, localNy = get_sep('outer_lower_divertor',
+                        self.ny_outer_lower_divertor, connections, sfunc_leg, False)
+                self.regions[14] = MeshRegion(self, 14, self.nx_core, localNy, sep,
+                        self.psi_vals_inner, connections, True)
                 self.region_indices[14] = (numpy.index_exp[x_regions[0], y_regions[5]])
             if self.nx_between > 0:
                 connections = {}
@@ -859,9 +885,10 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[15] = MeshRegion(self, 15, self.nx_between,
-                        self.ny_outer_lower_divertor, sep, self.psi_vals_between,
-                        connections, False)
+                sep, localNy = get_sep('outer_lower_divertor',
+                        self.ny_outer_lower_divertor, connections, sfunc_leg, False)
+                self.regions[15] = MeshRegion(self, 15, self.nx_between, localNy, sep,
+                        self.psi_vals_between, connections, False)
                 self.region_indices[15] = (numpy.index_exp[x_regions[1], y_regions[5]])
             if self.nx_sol > 0:
                 connections = {}
@@ -889,9 +916,10 @@ class Mesh:
                 else:
                     connections['lower'] = None
                 connections['upper'] = None
-                self.regions[16] = MeshRegion(self, 16, self.nx_sol,
-                        self.ny_outer_lower_divertor, sep, self.psi_vals_outer,
-                        connections, False)
+                sep, localNy = get_sep('outer_lower_divertor',
+                        self.ny_outer_lower_divertor, connections, sfunc_leg, False)
+                self.regions[16] = MeshRegion(self, 16, self.nx_sol, localNy, sep,
+                        self.psi_vals_outer, connections, False)
                 self.region_indices[16] = (numpy.index_exp[x_regions[2], y_regions[5]])
 
         # constant spacing in y for now

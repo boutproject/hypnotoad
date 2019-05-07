@@ -67,7 +67,7 @@ class MeshContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    def __init__(self, points, psi, Aval):
+    def __init__(self, points, psi, psival):
         self.points = points
 
         self.distance = [0.]
@@ -79,7 +79,7 @@ class MeshContour:
         self.psi = psi
 
         # Value of vector potential on this contour
-        self.Aval = Aval
+        self.psival = psival
 
     def __iter__(self):
         return self.points.__iter__()
@@ -107,7 +107,7 @@ class MeshContour:
         self = self.getRefined(*args, **kwargs)
 
     def getRefined(self, width=.2, atol=2.e-8):
-        f = lambda R,Z: self.psi(R, Z) - self.Aval
+        f = lambda R,Z: self.psi(R, Z) - self.psival
 
         def perpLine(p, tangent, w):
             # p - point through which to draw perpLine
@@ -148,7 +148,7 @@ class MeshContour:
             newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
         newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
-        return MeshContour(newpoints, self.psi, self.Aval)
+        return MeshContour(newpoints, self.psi, self.psival)
 
     def interpFunction(self):
         distance = numpy.array(numpy.float64(self.distance))
@@ -176,7 +176,7 @@ class MeshContour:
         if sfunc is not None:
             s = sfunc(s)
         interp = self.interpFunction()
-        new_contour = MeshContour([interp(x) for x in s], self.psi, self.Aval)
+        new_contour = MeshContour([interp(x) for x in s], self.psi, self.psival)
         return new_contour.getRefined(width, atol)
 
     def plot(self, *args, **kwargs):

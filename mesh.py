@@ -90,9 +90,6 @@ class MeshContour:
     def __getitem__(self, key):
         return self.points.__getitem__(key)
 
-    def __setitem__(self, key, value):
-        return self.points.__setitem__(key, value)
-
     def append(self, point):
         self.points.append(point)
         self.distance.append(

@@ -357,7 +357,10 @@ class MeshRegion:
         self.hthe_ylow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
     def getNeighbour(self, face):
-        return self.meshParent.regions[self.connections[face]]
+        if self.connections[face] is None:
+            return None
+        else:
+            return self.meshParent.regions[self.connections[face]]
 
     def DDX(self, f):
         raise ValueError('not implemented for MeshRegion yet')
@@ -690,7 +693,7 @@ class Mesh:
                 connections = {}
                 connections['inner'] = None
                 if self.nx_sol > 0:
-                    connections['outer'] = 7 # inner upper SOL
+                    connections['outer'] = 8 # inner upper SOL
                 else:
                     connections['outer'] = None
                 if self.ny_outer_upper_divertor > 0:
@@ -929,6 +932,43 @@ class Mesh:
                 + self.ny_inner_upper_divertor + self.ny_outer_upper_divertor
                 + self.ny_outer_core + self.ny_outer_lower_divertor)
 
+        # create groups that connect in x
+        self.x_groups = []
+        region_set = set(self.regions.values())
+        while region_set:
+            for region in region_set:
+                if region.connections['inner'] is None:
+                    break
+            group = []
+            while True:
+                group.append(region)
+                region_set.remove(region)
+                region = region.getNeighbour('outer')
+                if region is None or group.count(region) > 0:
+                    # reached boundary or have all regions in a periodic group
+                    break
+            self.x_groups.append(group)
+
+        # create groups that connect in y
+        self.y_groups = []
+        region_set = set(self.regions.values())
+        while region_set:
+            for region in region_set:
+                if region.connections['lower'] is None:
+                    break
+                # note, if no region with connections['lower']=None is found, then some
+                # arbitrary region will be 'region' after this loop. This is OK, as this
+                # region must be part of a periodic group, which we will handle.
+            group = []
+            while True:
+                group.append(region)
+                region_set.remove(region)
+                region = region.getNeighbour('upper')
+                if region is None or group.count(region) > 0:
+                    # reached boundary or have all regions in a periodic group
+                    break
+            self.y_groups.append(group)
+
     def geometry(self):
         """
         Calculate geometrical quantities for BOUT++
@@ -994,8 +1034,8 @@ class Mesh:
         with DataFile(filename, create=True) as f:
             f.write('nx', self.nx)
             # ny for BOUT++ excludes boundary guard cells
-            f.write('ny', self.ny - 2*self.y_boundary_guards -
-                          2*self.upper_target_y_boundary_guards)
+            f.write('ny', self.ny - 2*self.y_boundary_guards
+                          - 2*self.upper_target_y_boundary_guards)
             f.write('y_boundary_guards', self.y_boundary_guards)
             f.write('Rxy', self.Rxy)
             f.write('Rxy_ylow', self.Rxy_ylow)

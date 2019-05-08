@@ -120,6 +120,9 @@ class MeshContour:
             return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
 
         def refinePoint(p, tangent):
+            if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
+                # don't need to refine
+                return p
             converged = False
             w = width
             sp = []

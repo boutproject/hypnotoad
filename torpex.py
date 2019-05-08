@@ -44,7 +44,7 @@ class TORPEXMagneticField(Equilibrium):
         self.fpol = lambda psi: Bt_axis / self.Rcentre
 
         try:
-            self.x_points = [self.findSaddlePoint(self.Rmin, self.Rmax, 0.8*self.Zmin,
+            self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
                                                   0.8*self.Zmax)]
             self.psi_sep = self.psi(*self.x_points[0])
         except:
@@ -145,7 +145,7 @@ class TORPEXMagneticField(Equilibrium):
             legZ = xpoint.Z + s*(point.Z - xpoint.Z)
             leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi,
                               self.psi_sep)
-            leg = leg.getRefined(atol=atol, width=0.2)
+            leg = leg.getRefined(atol=atol, width=0.02)
             legs.append(leg)
 
         # note legs are ordered in theta

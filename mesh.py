@@ -228,16 +228,18 @@ class MeshRegion:
             temp_psi_vals = self.psi_vals[::-1]
         else:
             temp_psi_vals = self.psi_vals
-        perp_points = followPerpendicular(meshParent.f_R, meshParent.f_Z,
-                self.separatrix[0], meshParent.psi_sep, temp_psi_vals)
+        perp_points = followPerpendicular(meshParent.equilibrium.f_R,
+                meshParent.equilibrium.f_Z, self.separatrix[0],
+                meshParent.equilibrium.psi_sep, temp_psi_vals)
         if isInner:
             perp_points.reverse()
         for i,point in enumerate(perp_points):
-            self.contours.append(MeshContour([point], meshParent.psi,
+            self.contours.append(MeshContour([point], meshParent.equilibrium.psi,
                 self.psi_vals[i]))
         for p in self.separatrix[1:]:
-            perp_points = followPerpendicular(meshParent.f_R, meshParent.f_Z, p,
-                    meshParent.psi_sep, temp_psi_vals)
+            perp_points = followPerpendicular(meshParent.equilibrium.f_R,
+                    meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep,
+                    temp_psi_vals)
             if isInner:
                 perp_points.reverse()
             for i,point in enumerate(perp_points):
@@ -283,8 +285,8 @@ class MeshRegion:
         Calculate geometrical quantities for this region
         """
 
-        self.psixy = self.meshParent.psi(self.Rxy, self.Zxy)
-        self.psixy_ylow = self.meshParent.psi(self.Rxy_ylow, self.Zxy_ylow)
+        self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
+        self.psixy_ylow = self.meshParent.equilibrium.psi(self.Rxy_ylow, self.Zxy_ylow)
 
         self.dx = numpy.zeros([self.nx, self.ny])
         self.dx[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
@@ -302,10 +304,10 @@ class MeshRegion:
         self.dy = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
         self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
 
-        self.Brxy = self.meshParent.Bp_R(self.Rxy, self.Zxy)
-        self.Brxy_ylow = self.meshParent.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
-        self.Bzxy = self.meshParent.Bp_Z(self.Rxy, self.Zxy)
-        self.Bzxy_ylow = self.meshParent.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
+        self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
+        self.Brxy_ylow = self.meshParent.equilibrium.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
+        self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
+        self.Bzxy_ylow = self.meshParent.equilibrium.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
         self.Bpxy_ylow = numpy.sqrt(self.Brxy_ylow**2 + self.Bzxy_ylow**2)
         # determine direction - dot Bp with Grad(y) vector
@@ -326,8 +328,8 @@ class MeshRegion:
                 raise ValueError("Sign of Bp should be positive?")
 
         # Get toroidal field from poloidal current function fpol
-        self.Btxy = self.meshParent.fpol / self.Rxy
-        self.Btxy_ylow = self.meshParent.fpol / self.Rxy_ylow
+        self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
+        self.Btxy_ylow = self.meshParent.equilibrium.fpol(self.psixy_ylow) / self.Rxy_ylow
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
@@ -374,8 +376,7 @@ class Mesh:
     """
     Mesh quantities to be written to a grid file for BOUT++
     """
-    def __init__(self, meshOptions, psi, f_R, f_Z, Bp_R, Bp_Z, fpol, psi_sep,
-                 separatrix):
+    def __init__(self, equilibrium, meshOptions):
         self.orthogonal = meshOptions['orthogonal']
         self.nx_core = meshOptions['nx_core']
         self.nx_between = meshOptions['nx_between']
@@ -390,16 +391,7 @@ class Mesh:
         self.psi_outer = meshOptions['psi_outer']
         self.y_boundary_guards = meshOptions['y_boundary_guards']
 
-        self.psi = psi
-        self.f_R = f_R
-        self.f_Z = f_Z
-        self.Bp_R = Bp_R
-        self.Bp_Z = Bp_Z
-
-        # poloidal current function, gives B_toroidal
-        self.fpol = fpol
-
-        self.psi_sep = psi_sep
+        self.equilibrium = equilibrium
 
         if self.nx_between > 0:
             raise ValueError("nx_between > 0 - there are 2 separatrices - need to find psi-value of second separatrix")
@@ -437,9 +429,9 @@ class Mesh:
         # b = ( (psi_outer-psi_inner)/(nx+1)**2 - (psi_sep-psi_inner)/ixseps**2 ) / (1/(nx+1) - 1/ixseps)
         nx = self.nx_core + self.nx_between + self.nx_sol
         a = ((self.psi_outer-self.psi_inner)/(nx+1) -
-                (self.psi_sep-self.psi_inner)/self.nx_core) / (nx+1-self.nx_core)
-        b = ( (self.psi_outer-self.psi_inner)/(nx+1)**2 -
-                (self.psi_sep-self.psi_inner)/self.nx_core**2 ) / (1./(nx+1) -
+             (self.equilibrium.psi_sep-self.psi_inner)/self.nx_core) / (nx+1-self.nx_core)
+        b = ((self.psi_outer-self.psi_inner)/(nx+1)**2 -
+             (self.equilibrium.psi_sep-self.psi_inner)/self.nx_core**2) / (1./(nx+1) -
                         1./self.nx_core)
         c = self.psi_inner
         psi_index = lambda i: a*i**2 + b*i + c
@@ -521,8 +513,8 @@ class Mesh:
                     upper_guards = self.y_boundary_guards
                 else:
                     upper_guards = 0
-            sep = separatrix[sepname].getRegridded(2*ny+1, extend_lower=2*lower_guards,
-                                                 extend_upper=2*upper_guards, sfunc=sfunc)
+            sep = self.equilibrium.separatrix[sepname].getRegridded(2*ny+1,
+                    extend_lower=2*lower_guards, extend_upper=2*upper_guards, sfunc=sfunc)
             if reverse:
                 sep.reverse()
             return sep, ny + lower_guards + upper_guards
@@ -1070,16 +1062,6 @@ class Mesh:
             pyplot.colorbar()
         except NameError:
             raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
-
-    def plotPotential(self, Rmin, Rmax, Zmin, Zmax, npoints=100, ncontours=40):
-        from matplotlib import pyplot
-
-        R = numpy.linspace(Rmin, Rmax, npoints)
-        Z = numpy.linspace(Zmin, Zmax, npoints)
-        contours = pyplot.contour(
-                R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
-        pyplot.clabel(contours, inline=False, fmt='%1.3g')
-        pyplot.axes().set_aspect('equal')
 
     def plotPoints(self, ylow=False, corners=False):
         from matplotlib import pyplot

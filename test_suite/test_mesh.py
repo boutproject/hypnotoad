@@ -108,3 +108,9 @@ class TestContour:
         c.refine(width=2., atol=1.e-13)
         for p in c:
             assert c.psi(p.R, p.Z) == tight_approx(.7)
+
+    def test_interpFunction(self, testcontour):
+        f = testcontour.c.interpFunction()
+        p = f(0.5)
+        assert p.R == tight_approx(testcontour.R0 - testcontour.r)
+        assert p.Z == tight_approx(testcontour.Z0)

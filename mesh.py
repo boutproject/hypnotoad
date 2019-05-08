@@ -454,20 +454,30 @@ class Mesh:
     Mesh quantities to be written to a grid file for BOUT++
     """
     def __init__(self, equilibrium, meshOptions):
-        self.orthogonal = meshOptions['orthogonal']
-        self.nx_core = meshOptions['nx_core']
-        self.nx_between = meshOptions['nx_between']
-        self.nx_sol = meshOptions['nx_sol']
-        self.ny_inner_lower_divertor = meshOptions['ny_inner_lower_divertor']
-        self.ny_inner_core = meshOptions['ny_inner_core']
-        self.ny_inner_upper_divertor = meshOptions['ny_inner_upper_divertor']
-        self.ny_outer_upper_divertor = meshOptions['ny_outer_upper_divertor']
-        self.ny_outer_core = meshOptions['ny_outer_core']
-        self.ny_outer_lower_divertor = meshOptions['ny_outer_lower_divertor']
-        self.psi_inner = meshOptions['psi_inner']
-        self.psi_outer = meshOptions['psi_outer']
-        self.psi_spacing_separatrix_multiplier = meshOptions['psi_spacing_separatrix_multiplier']
-        self.y_boundary_guards = meshOptions['y_boundary_guards']
+        self.meshOptions = meshOptions
+        self.orthogonal = self.readOption('orthogonal')
+        self.nx_core = self.readOption('nx_core')
+        self.nx_between = self.readOption('nx_between')
+        self.nx_sol = self.readOption('nx_sol')
+        self.ny_inner_lower_divertor = self.readOption('ny_inner_lower_divertor')
+        self.ny_inner_core = self.readOption('ny_inner_core')
+        self.ny_inner_upper_divertor = self.readOption('ny_inner_upper_divertor')
+        self.ny_outer_upper_divertor = self.readOption('ny_outer_upper_divertor')
+        self.ny_outer_core = self.readOption('ny_outer_core')
+        self.ny_outer_lower_divertor = self.readOption('ny_outer_lower_divertor')
+
+        self.psi_core = self.readOption('psi_core')
+        self.psi_lower_pf = self.readOption('psi_lower_pf', self.psi_core)
+        self.psi_upper_pf = self.readOption('psi_upper_pf', self.psi_core)
+
+        self.psi_sol = self.readOption('psi_sol')
+        self.psi_inner_sol = self.readOption('psi_inner_sol', self.psi_sol)
+        # this option can only be set different from psi_sol in a double-null
+        # configuration (i.e. if there are upper divertor legs)
+        assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0
+
+        self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier')
+        self.y_boundary_guards = self.readOption('y_boundary_guards')
 
         self.equilibrium = equilibrium
 
@@ -495,13 +505,14 @@ class Mesh:
         # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1.
         # Estimate base value of dpsi/di as the lower of the average gradients on either
         # side
-        if self.psi_inner < self.psi_outer:
-            dpsidi_sep0 = min((self.equilibrium.psi_sep - self.psi_inner) /self.nx_core,
-                              (self.psi_outer - self.equilibrium.psi_sep)
+        print("MESSAGE: should update this with min of gradient in all possible regions")
+        if self.psi_core < self.psi_sol:
+            dpsidi_sep0 = min((self.equilibrium.psi_sep - self.psi_core) /self.nx_core,
+                              (self.psi_sol - self.equilibrium.psi_sep)
                                   /(self.nx_between + self.nx_sol))
         else:
-            dpsidi_sep0 = max((self.equilibrium.psi_sep - self.psi_inner) /self.nx_core,
-                              (self.psi_outer - self.equilibrium.psi_sep)
+            dpsidi_sep0 = max((self.equilibrium.psi_sep - self.psi_core) /self.nx_core,
+                              (self.psi_sol - self.equilibrium.psi_sep)
                                   /(self.nx_between + self.nx_sol))
 
         # decrease (presumably) the spacing around the separatrix by the factor
@@ -511,55 +522,92 @@ class Mesh:
         # fit quadratics on both sides, with gradient dpsidi_sep and value psi_sep at the separatrix and
         # values psi_inner at the inner boundary and psi_outer at the outer boundary
 
-        # for core region:
-        # psi(i) = a*i^2 + b*i + c
-        # psi(0) = psi_inner = c
-        # psi(nx_core) = psi_sep = a*nx_core**2 + b*nx_core + c
-        # dpsidi(nx_core) = dpsidi_sep = 2*a*nx_core + b
-        # nx_core*a = dpsidi_sep - psi_sep/nx_core + psi_inner/nx_core
-        # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep/nx_core - psi_inner/nx_core)
-        a = ( (dpsidi_sep*self.nx_core - self.equilibrium.psi_sep + self.psi_inner)
-                / self.nx_core**2)
-        b = dpsidi_sep - 2.*a*self.nx_core
-        c = self.psi_inner
-        psi_index_core = lambda i: a*i**2 + b*i + c
+        def getPsiFuncInner(psival):
+            # for core region:
+            # psi(i) = a*i^2 + b*i + c
+            # psi(0) = psival = c
+            # psi(nx_core) = psi_sep = a*nx_core**2 + b*nx_core + c
+            # dpsidi(nx_core) = dpsidi_sep = 2*a*nx_core + b
+            # nx_core*a = dpsidi_sep - psi_sep/nx_core + psival/nx_core
+            # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep/nx_core - psival/nx_core)
+            a = ( (dpsidi_sep*self.nx_core - self.equilibrium.psi_sep + psival)
+                    / self.nx_core**2)
+            b = dpsidi_sep - 2.*a*self.nx_core
+            c = psival
+            return lambda i: a*i**2 + b*i + c
 
-        # for between separatrix and sol regions:
-        # nx_outer = nx_between + nx_sol
-        # psi(i) = a*i^2 + b*i + c
-        # psi(0) = psi_sep = c
-        # psi(nx_outer) = psi_outer = a*nx_outer**2 + b*nx_outer + c
-        # dpsidi(0) = dpsidi_sep = b
-        # a = (psi_outer - dpsidi_sep*nx_outer - psi_inner)/nx_outer**2
+        assert self.nx_between == 0 # not sure what to do here if there are two separatrices
         nx_outer = self.nx_between + self.nx_sol
-        c2 = self.equilibrium.psi_sep
-        b2 = dpsidi_sep
-        a2 = (self.psi_outer - b2*nx_outer - c2) / nx_outer**2
-        psi_index_sol = lambda i: a2*i**2 + b2*i + c2
+        def getPsiFuncOuter(psival):
+            # for between separatrix and sol regions:
+            # nx_outer = nx_between + nx_sol
+            # psi(i) = a*i^2 + b*i + c
+            # psi(0) = psi_sep = c
+            # psi(nx_outer) = psival = a*nx_outer**2 + b*nx_outer + c
+            # dpsidi(0) = dpsidi_sep = b
+            # a = (psival - dpsidi_sep*nx_outer - psi_inner)/nx_outer**2
+            c2 = self.equilibrium.psi_sep
+            b2 = dpsidi_sep
+            a2 = (psival - b2*nx_outer - c2) / nx_outer**2
+            return lambda i: a2*i**2 + b2*i + c2
 
-        psi_face_vals_inner = numpy.array([psi_index_core(i) for i in range(self.nx_core+1)])
-        psi_face_vals_between = numpy.array([psi_index_sol(i) for i in
-                range(0, self.nx_between+1)])
-        psi_face_vals_outer = numpy.array([psi_index_sol(i) for i in
-                range(self.nx_between, self.nx_between+self.nx_sol+1)])
+        psi_face_vals_core = numpy.array(
+                [getPsiFuncInner(self.psi_core)(i) for i in range(self.nx_core+1)])
+        psi_face_vals_lower_pf = numpy.array(
+                [getPsiFuncInner(self.psi_lower_pf)(i) for i in range(self.nx_core+1)])
+        psi_face_vals_upper_pf = numpy.array(
+                [getPsiFuncInner(self.psi_upper_pf)(i) for i in range(self.nx_core+1)])
+        psi_face_vals_outer_between = numpy.array(
+                [getPsiFuncOuter(self.psi_sol)(i) for i in range(0, self.nx_between+1)])
+        psi_face_vals_outer_sol = numpy.array(
+                [getPsiFuncOuter(self.psi_sol)(i)
+                    for i in range(self.nx_between, self.nx_between+self.nx_sol+1)])
+        psi_face_vals_inner_between = numpy.array(
+                [getPsiFuncOuter(self.psi_inner_sol)(i) for i in range(0, self.nx_between+1)])
+        psi_face_vals_inner_sol = numpy.array(
+                [getPsiFuncOuter(self.psi_inner_sol)(i)
+                    for i in range(self.nx_between, self.nx_between+self.nx_sol+1)])
         if self.nx_core > 0:
-            self.psi_vals_inner = numpy.zeros(2*self.nx_core+1)
+            self.psi_vals_core = numpy.zeros(2*self.nx_core+1)
+            self.psi_vals_lower_pf = numpy.zeros(2*self.nx_core+1)
+            self.psi_vals_upper_pf = numpy.zeros(2*self.nx_core+1)
         else:
-            self.psi_vals_inner = numpy.zeros(0)
+            self.psi_vals_core = numpy.zeros(0)
+            self.psi_vals_lower_pf = numpy.zeros(0)
+            self.psi_vals_upper_pf = numpy.zeros(0)
         if self.nx_between > 0:
-            self.psi_vals_between = numpy.zeros(2*self.nx_between+1)
+            self.psi_vals_outer_between = numpy.zeros(2*self.nx_between+1)
+            self.psi_vals_inner_between = numpy.zeros(2*self.nx_between+1)
         else:
-            self.psi_vals_between = numpy.zeros(0)
+            self.psi_vals_outer_between = numpy.zeros(0)
+            self.psi_vals_inner_between = numpy.zeros(0)
         if self.nx_sol > 0:
-            self.psi_vals_outer = numpy.zeros(2*self.nx_sol+1)
+            self.psi_vals_outer_sol = numpy.zeros(2*self.nx_sol+1)
+            self.psi_vals_inner_sol = numpy.zeros(2*self.nx_sol+1)
         else:
-            self.psi_vals_outer = numpy.zeros(0)
-        self.psi_vals_inner[0::2] = psi_face_vals_inner
-        self.psi_vals_inner[1::2] = 0.5*(psi_face_vals_inner[:-1] + psi_face_vals_inner[1:])
-        self.psi_vals_between[0::2] = psi_face_vals_between
-        self.psi_vals_between[1::2] = 0.5*(psi_face_vals_between[:-1] + psi_face_vals_between[1:])
-        self.psi_vals_outer[0::2] = psi_face_vals_outer
-        self.psi_vals_outer[1::2] = 0.5*(psi_face_vals_outer[:-1] + psi_face_vals_outer[1:])
+            self.psi_vals_outer_sol = numpy.zeros(0)
+            self.psi_vals_inner_sol = numpy.zeros(0)
+
+        self.psi_vals_core[0::2] = psi_face_vals_core
+        self.psi_vals_core[1::2] = 0.5*(psi_face_vals_core[:-1] + psi_face_vals_core[1:])
+        self.psi_vals_lower_pf[0::2] = psi_face_vals_lower_pf
+        self.psi_vals_lower_pf[1::2] = 0.5*(psi_face_vals_lower_pf[:-1] +
+                                            psi_face_vals_lower_pf[1:])
+        self.psi_vals_upper_pf[0::2] = psi_face_vals_upper_pf
+        self.psi_vals_upper_pf[1::2] = 0.5*(psi_face_vals_upper_pf[:-1] +
+                                            psi_face_vals_upper_pf[1:])
+        self.psi_vals_outer_between[0::2] = psi_face_vals_outer_between
+        self.psi_vals_outer_between[1::2] = 0.5*(psi_face_vals_outer_between[:-1] +
+                                                 psi_face_vals_outer_between[1:])
+        self.psi_vals_inner_between[0::2] = psi_face_vals_inner_between
+        self.psi_vals_inner_between[1::2] = 0.5*(psi_face_vals_inner_between[:-1] +
+                                                 psi_face_vals_inner_between[1:])
+        self.psi_vals_outer_sol[0::2] = psi_face_vals_outer_sol
+        self.psi_vals_outer_sol[1::2] = 0.5*(psi_face_vals_outer_sol[:-1] +
+                                             psi_face_vals_outer_sol[1:])
+        self.psi_vals_inner_sol[0::2] = psi_face_vals_inner_sol
+        self.psi_vals_inner_sol[1::2] = 0.5*(psi_face_vals_inner_sol[:-1] +
+                                             psi_face_vals_inner_sol[1:])
 
         # Generate MeshRegion object for each section of the mesh
         # For region numbers see figure in 'BOUT++ Topology' section of BOUT++ manual
@@ -639,7 +687,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_lower_divertor',
                         self.ny_inner_lower_divertor, connections, sfunc_leg, True)
                 self.regions[1] = MeshRegion(self, 1, self.nx_core, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_lower_pf, connections, True)
                 self.region_indices[1] = (numpy.index_exp[x_regions[0], y_regions[0]])
             if self.nx_between > 0:
                 connections = {}
@@ -663,7 +711,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_lower_divertor',
                         self.ny_inner_lower_divertor, connections, sfunc_leg, True)
                 self.regions[2] = MeshRegion(self, 2, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, False)
+                        self.psi_vals_inner_between, connections, False)
                 self.region_indices[2] = (numpy.index_exp[x_regions[1], y_regions[0]])
             if self.nx_sol > 0:
                 connections = {}
@@ -694,7 +742,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_lower_divertor',
                         self.ny_inner_lower_divertor, connections, sfunc_leg, True)
                 self.regions[3] = MeshRegion(self, 3, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_inner_sol, connections, False)
                 self.region_indices[3] = (numpy.index_exp[x_regions[2], y_regions[0]])
 
         # Region 4 - inner core
@@ -719,7 +767,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
                         sfunc_core, False)
                 self.regions[4] = MeshRegion(self, 4, self.nx_core, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_core, connections, True)
                 self.region_indices[4] = (numpy.index_exp[x_regions[0], y_regions[1]])
             if self.nx_between > 0:
                 connections = {}
@@ -744,7 +792,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
                         sfunc_core, False)
                 self.regions[5] = MeshRegion(self, 5, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, False)
+                        self.psi_vals_inner_between, connections, False)
                 self.region_indices[5] = (numpy.index_exp[x_regions[1], y_regions[1]])
             if self.nx_sol > 0:
                 connections = {}
@@ -776,7 +824,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
                         sfunc_core, False)
                 self.regions[6] = MeshRegion(self, 6, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_inner_sol, connections, False)
                 self.region_indices[6] = (numpy.index_exp[x_regions[2], y_regions[1]])
 
         # Region 7 - inner upper SOL
@@ -798,7 +846,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_upper_divertor',
                         self.ny_inner_upper_divertor, connections, sfunc_leg, False)
                 self.regions[7] = MeshRegion(self, 7, nx_upper_pf, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_upper_pf, connections, True)
                 self.region_indices[7] = (numpy.index_exp[:nx_upper_pf, y_regions[2]])
             if self.nx_sol > 0:
                 connections = {}
@@ -817,7 +865,7 @@ class Mesh:
                 sep, localNy = get_sep('inner_upper_divertor',
                         self.ny_inner_upper_divertor, connections, sfunc_leg, False)
                 self.regions[8] = MeshRegion(self, 8, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_inner_sol, connections, False)
                 self.region_indices[8] = (numpy.index_exp[nx_upper_pf:, y_regions[2]])
 
         # Region 9 - outer upper PF
@@ -838,7 +886,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_upper_divertor',
                         self.ny_outer_upper_divertor, connections, sfunc_leg, True)
                 self.regions[9] = MeshRegion(self, 9, nx_upper_pf, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_upper_pf, connections, True)
                 self.region_indices[9] = (numpy.index_exp[:nx_upper_pf, y_regions[3]])
             if self.nx_sol > 0:
                 connections = {}
@@ -857,7 +905,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_upper_divertor',
                         self.ny_outer_upper_divertor, connections, sfunc_leg, True)
                 self.regions[10] = MeshRegion(self, 10, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_outer_sol, connections, False)
                 self.region_indices[10] = (numpy.index_exp[nx_upper_pf:, y_regions[3]])
 
         # Region 11 - outer core
@@ -882,7 +930,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
                         sfunc_core, False)
                 self.regions[11] = MeshRegion(self, 11, self.nx_core, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_core, connections, True)
                 self.region_indices[11] = (numpy.index_exp[x_regions[0], y_regions[4]])
             if self.nx_between > 0:
                 connections = {}
@@ -907,7 +955,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
                         sfunc_core, False)
                 self.regions[12] = MeshRegion(self, 12, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, False)
+                        self.psi_vals_outer_between, connections, False)
                 self.region_indices[12] = (numpy.index_exp[x_regions[1], y_regions[4]])
             if self.nx_sol > 0:
                 connections = {}
@@ -939,7 +987,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
                         sfunc_core, False)
                 self.regions[13] = MeshRegion(self, 13, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_outer_sol, connections, False)
                 self.region_indices[13] = (numpy.index_exp[x_regions[2], y_regions[4]])
 
         # Region 14 - outer lower PF
@@ -963,7 +1011,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_lower_divertor',
                         self.ny_outer_lower_divertor, connections, sfunc_leg, False)
                 self.regions[14] = MeshRegion(self, 14, self.nx_core, localNy, sep,
-                        self.psi_vals_inner, connections, True)
+                        self.psi_vals_lower_pf, connections, True)
                 self.region_indices[14] = (numpy.index_exp[x_regions[0], y_regions[5]])
             if self.nx_between > 0:
                 connections = {}
@@ -987,7 +1035,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_lower_divertor',
                         self.ny_outer_lower_divertor, connections, sfunc_leg, False)
                 self.regions[15] = MeshRegion(self, 15, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, False)
+                        self.psi_vals_outer_between, connections, False)
                 self.region_indices[15] = (numpy.index_exp[x_regions[1], y_regions[5]])
             if self.nx_sol > 0:
                 connections = {}
@@ -1018,7 +1066,7 @@ class Mesh:
                 sep, localNy = get_sep('outer_lower_divertor',
                         self.ny_outer_lower_divertor, connections, sfunc_leg, False)
                 self.regions[16] = MeshRegion(self, 16, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer, connections, False)
+                        self.psi_vals_outer_sol, connections, False)
                 self.region_indices[16] = (numpy.index_exp[x_regions[2], y_regions[5]])
 
         # constant spacing in y for now
@@ -1062,6 +1110,16 @@ class Mesh:
                     # reached boundary or have all regions in a periodic group
                     break
             self.y_groups.append(group)
+
+    def readOption(self, name, default=None):
+        print('reading option', name, end='')
+        try:
+            value = self.meshOptions[name]
+            print(':', value)
+            return value
+        except KeyError:
+            print(' - not set - setting default:', default)
+            return default
 
     def geometry(self):
         """

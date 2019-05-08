@@ -466,6 +466,7 @@ class Mesh:
         self.ny_outer_lower_divertor = meshOptions['ny_outer_lower_divertor']
         self.psi_inner = meshOptions['psi_inner']
         self.psi_outer = meshOptions['psi_outer']
+        self.psi_spacing_separatrix_multiplier = meshOptions['psi_spacing_separatrix_multiplier']
         self.y_boundary_guards = meshOptions['y_boundary_guards']
 
         self.equilibrium = equilibrium
@@ -490,33 +491,57 @@ class Mesh:
                    + self.ny_outer_core + self.ny_outer_lower_divertor
                    + 2*self.y_boundary_guards + 2*self.upper_target_y_boundary_guards)
 
-        # in index space for indices of cell faces, psi needs to go through psi_inner at
-        # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1
-        # for now use quadratic fit, leave grid refinement for later...
-        # psi(i) = c + b*i + a*i^2
-        # psi(0) = c = psi_inner
-        # psi(ixseps) = psi_sep
-        #   psi_sep - psi_inner = ixseps(b + a*ixseps)
-        #   (psi_sep - psi_inner)/ixseps = b + a*ixseps
-        # psi(nx+1) = psi_outer
-        #   psi_outer - psi_inner = (nx+1)*(b + a*(nx+1))
-        #   (psi_outer - psi_inner)/(nx+1) = b + a*(nx+1)
-        # a*(nx+1-ixseps) = (psi_outer-psi_inner)/(nx+1) - (psi_sep-psi_inner)/ixseps
-        # a = ((psi_outer-psi_inner)/(nx+1) - (psi_sep-psi_inner)/ixseps) / (nx+1-ixseps)
-        # b = ( (psi_outer-psi_inner)/(nx+1)**2 - (psi_sep-psi_inner)/ixseps**2 ) / (1/(nx+1) - 1/ixseps)
-        nx = self.nx_core + self.nx_between + self.nx_sol
-        a = ((self.psi_outer-self.psi_inner)/(nx+1) -
-             (self.equilibrium.psi_sep-self.psi_inner)/self.nx_core) / (nx+1-self.nx_core)
-        b = ((self.psi_outer-self.psi_inner)/(nx+1)**2 -
-             (self.equilibrium.psi_sep-self.psi_inner)/self.nx_core**2) / (1./(nx+1) -
-                        1./self.nx_core)
+        # In index space for indices of cell faces, psi needs to go through psi_inner at
+        # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1.
+        # Estimate base value of dpsi/di as the lower of the average gradients on either
+        # side
+        if self.psi_inner < self.psi_outer:
+            dpsidi_sep0 = min((self.equilibrium.psi_sep - self.psi_inner) /self.nx_core,
+                              (self.psi_outer - self.equilibrium.psi_sep)
+                                  /(self.nx_between + self.nx_sol))
+        else:
+            dpsidi_sep0 = max((self.equilibrium.psi_sep - self.psi_inner) /self.nx_core,
+                              (self.psi_outer - self.equilibrium.psi_sep)
+                                  /(self.nx_between + self.nx_sol))
+
+        # decrease (presumably) the spacing around the separatrix by the factor
+        # psi_spacing_separatrix_multiplier
+        dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep0
+
+        # fit quadratics on both sides, with gradient dpsidi_sep and value psi_sep at the separatrix and
+        # values psi_inner at the inner boundary and psi_outer at the outer boundary
+
+        # for core region:
+        # psi(i) = a*i^2 + b*i + c
+        # psi(0) = psi_inner = c
+        # psi(nx_core) = psi_sep = a*nx_core**2 + b*nx_core + c
+        # dpsidi(nx_core) = dpsidi_sep = 2*a*nx_core + b
+        # nx_core*a = dpsidi_sep - psi_sep/nx_core + psi_inner/nx_core
+        # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep/nx_core - psi_inner/nx_core)
+        a = ( (dpsidi_sep*self.nx_core - self.equilibrium.psi_sep + self.psi_inner)
+                / self.nx_core**2)
+        b = dpsidi_sep - 2.*a*self.nx_core
         c = self.psi_inner
-        psi_index = lambda i: a*i**2 + b*i + c
-        psi_face_vals_inner = numpy.array([psi_index(i) for i in range(self.nx_core+1)])
-        psi_face_vals_between = numpy.array([psi_index(i) for i in
-                range(self.nx_core, self.nx_core+self.nx_between+1)])
-        psi_face_vals_outer = numpy.array([psi_index(i) for i in
-                range(self.nx_core+self.nx_between, self.nx_core+self.nx_between+self.nx_sol+1)])
+        psi_index_core = lambda i: a*i**2 + b*i + c
+
+        # for between separatrix and sol regions:
+        # nx_outer = nx_between + nx_sol
+        # psi(i) = a*i^2 + b*i + c
+        # psi(0) = psi_sep = c
+        # psi(nx_outer) = psi_outer = a*nx_outer**2 + b*nx_outer + c
+        # dpsidi(0) = dpsidi_sep = b
+        # a = (psi_outer - dpsidi_sep*nx_outer - psi_inner)/nx_outer**2
+        nx_outer = self.nx_between + self.nx_sol
+        c2 = self.equilibrium.psi_sep
+        b2 = dpsidi_sep
+        a2 = (self.psi_outer - b2*nx_outer - c2) / nx_outer**2
+        psi_index_sol = lambda i: a2*i**2 + b2*i + c2
+
+        psi_face_vals_inner = numpy.array([psi_index_core(i) for i in range(self.nx_core+1)])
+        psi_face_vals_between = numpy.array([psi_index_sol(i) for i in
+                range(0, self.nx_between+1)])
+        psi_face_vals_outer = numpy.array([psi_index_sol(i) for i in
+                range(self.nx_between, self.nx_between+self.nx_sol+1)])
         if self.nx_core > 0:
             self.psi_vals_inner = numpy.zeros(2*self.nx_core+1)
         else:

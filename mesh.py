@@ -266,6 +266,11 @@ class MeshRegion:
         self.Rxy_extra_upper = numpy.array([contour[-1].R
             for contour in self.contours[1::2]])
 
+        self.Rxy_xlow = numpy.array([[p.R for p in contour[1::2]]
+            for contour in self.contours[0:-1:2]])
+
+        self.Rxy_extra_outer = numpy.array([p.R for p in self.contours[-1][1::2]])
+
         self.Zxy = numpy.array( [[p.Z for p in contour[1::2]]
             for contour in self.contours[1::2]])
 
@@ -274,6 +279,11 @@ class MeshRegion:
 
         self.Zxy_extra_upper = numpy.array([contour[-1].Z
             for contour in self.contours[1::2]])
+
+        self.Zxy_xlow = numpy.array([[p.Z for p in contour[1::2]]
+            for contour in self.contours[0:-1:2]])
+
+        self.Zxy_extra_outer = numpy.array([p.Z for p in self.contours[-1][1::2]])
 
         self.Rcorners = numpy.array( [[p.R for p in contour[0::2]]
             for contour in self.contours[0::2]])
@@ -334,29 +344,93 @@ class MeshRegion:
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
 
-        R = numpy.zeros([self.nx, self.ny + 1])
-        R[:, :-1] = self.Rxy
-        R[:, -1] = self.Rxy_extra_upper
-        Z = numpy.zeros([self.nx, self.ny + 1])
-        Z[:, :-1] = self.Zxy
-        Z[:, -1] = self.Zxy_extra_upper
-        self.hthe = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        self.hthe = self.calcHthe()
+        self.hthe_ylow = self.calcHthe(ylow=True)
 
-        # for hthe_ylow, need R, Z values from below the lower face of this region
-        R = numpy.zeros([self.nx, self.ny + 1])
-        R[:, 1:] = self.Rxy
-        Z = numpy.zeros([self.nx, self.ny + 1])
-        Z[:, 1:] = self.Zxy
-        if self.connections['lower'] is not None:
-            R[:, 0] = self.getNeighbour('lower').Rxy[:, -1]
-            Z[:, 0] = self.getNeighbour('lower').Zxy[:, -1]
+        # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
+        # Also calculate radial grid spacing
+        self.beta, self.hrad = self.calcBeta()
+        self.beta_ylow, self.hrad_ylow = self.calcBeta(ylow=True)
+
+        # eta is the polodial non-orthogonality parameter
+        self.eta = numpy.sin(self.beta)
+        self.eta_ylow = numpy.sin(self.beta_ylow)
+
+    def calcHthe(self, ylow=False):
+        if not ylow:
+            # Calculate poloidal grid spacings
+            R = numpy.zeros([self.nx, self.ny + 1])
+            R[:, :-1] = self.Rxy_ylow
+            R[:, -1] = self.Rxy_extra_upper
+            Z = numpy.zeros([self.nx, self.ny + 1])
+            Z[:, :-1] = self.Zxy_ylow
+            Z[:, -1] = self.Zxy_extra_upper
         else:
-            # dumb extrapolation, but should not need the affected guard cell value (the
-            # corresponding value at the upper boundary does not even exist, since we
-            # stagger to YLOW)
-            R[:, 0] = 2.*self.Rxy_ylow[:, 0] - self.Rxy[:, 0]
-            Z[:, 0] = 2.*self.Zxy_ylow[:, 0] - self.Zxy[:, 0]
-        self.hthe_ylow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+            # for hthe_ylow, need R, Z values from below the lower face of this region
+            R = numpy.zeros([self.nx, self.ny + 1])
+            R[:, 1:] = self.Rxy
+            Z = numpy.zeros([self.nx, self.ny + 1])
+            Z[:, 1:] = self.Zxy
+            if self.connections['lower'] is not None:
+                R[:, 0] = self.getNeighbour('lower').Rxy[:, -1]
+                Z[:, 0] = self.getNeighbour('lower').Zxy[:, -1]
+            else:
+                # dumb extrapolation, but should not need the affected guard cell value (the
+                # corresponding value at the upper boundary does not even exist, since we
+                # stagger to YLOW)
+                R[:, 0] = 2.*self.Rxy_ylow[:, 0] - self.Rxy[:, 0]
+                Z[:, 0] = 2.*self.Zxy_ylow[:, 0] - self.Zxy[:, 0]
+
+        return numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+
+    def calcBeta(self, ylow=False):
+        """
+        beta is the angle between x and y coordinates, used for non-orthogonal grid.
+        Also calculate radial grid spacing, hrad
+        """
+
+        if not ylow:
+            # need to multiply f_R and f_Z by bpsign because we want the radially-outward
+            # vector perpendicular to psi contours, and if bpsign is negative then psi
+            # increases inward instead of outward so (f_R,f_Z) would be in the opposite
+            # direction
+            # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
+            angle_grad_psi = numpy.arctan2(
+                    self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy, self.Zxy),
+                    -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy, self.Zxy))
+
+            R = numpy.zeros([self.nx + 1, self.ny])
+            R[:-1, :] = self.Rxy_xlow
+            R[-1, :] = self.Rxy_extra_outer
+            Z = numpy.zeros([self.nx + 1, self.ny])
+            Z[:-1 :] = self.Zxy_xlow
+            Z[-1, :] = self.Zxy_extra_outer
+            # could calculate radial grid spacing - is it ever needed?
+            hrad = numpy.sqrt((R[1:,:] - R[:-1,:])**2 + (Z[1:,:] - Z[:-1,:])**2)
+
+            dR = R[1:,:] - R[:-1,:]
+            dZ = Z[1:,:] - Z[:-1,:]
+            angle_dr = numpy.arctan2(dR, dZ)
+        else:
+            # need to multiply f_R and f_Z by bpsign because we want the radially-outward
+            # vector perpendicular to psi contours, and if bpsign is negative then psi
+            # increases inward instead of outward so (f_R,f_Z) would be in the opposite
+            # direction
+            # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
+            angle_grad_psi = numpy.arctan2(
+                    self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy_ylow, self.Zxy_ylow),
+                    -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy_ylow, self.Zxy_ylow))
+
+            # could calculate radial grid spacing - is it ever needed?
+            ## for hrad at ylow, can use Rcorners and Zcorners
+            hrad = numpy.sqrt((self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1])**2 +
+                              (self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1])**2)
+
+            dR = self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1]
+            dZ = self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1]
+            angle_dr = numpy.arctan2(dR, dZ)
+
+        return (angle_grad_psi - angle_dr - numpy.pi/2.), hrad
 
     def getNeighbour(self, face):
         if self.connections[face] is None:
@@ -973,8 +1047,10 @@ class Mesh:
 
         self.Rxy = numpy.zeros([self.nx, self.ny])
         self.Rxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Rxy_xlow = numpy.zeros([self.nx, self.ny])
         self.Zxy = numpy.zeros([self.nx, self.ny])
         self.Zxy_ylow = numpy.zeros([self.nx, self.ny])
+        self.Zxy_xlow = numpy.zeros([self.nx, self.ny])
         self.psixy = numpy.zeros([self.nx, self.ny])
         self.psixy_ylow = numpy.zeros([self.nx, self.ny])
         self.dx = numpy.zeros([self.nx, self.ny])
@@ -993,14 +1069,20 @@ class Mesh:
         self.Bxy_ylow = numpy.zeros([self.nx, self.ny])
         self.hthe = numpy.zeros([self.nx, self.ny])
         self.hthe_ylow = numpy.zeros([self.nx, self.ny])
+        self.beta = numpy.zeros([self.nx, self.ny])
+        self.beta_ylow = numpy.zeros([self.nx, self.ny])
+        self.eta = numpy.zeros([self.nx, self.ny])
+        self.eta_ylow = numpy.zeros([self.nx, self.ny])
 
         for region in self.regions.values():
             region.geometry()
 
             addFromRegion(self.Rxy, region.Rxy, region.myID)
             addFromRegion(self.Rxy_ylow, region.Rxy_ylow, region.myID)
+            addFromRegion(self.Rxy_xlow, region.Rxy_xlow, region.myID)
             addFromRegion(self.Zxy, region.Zxy, region.myID)
             addFromRegion(self.Zxy_ylow, region.Zxy_ylow, region.myID)
+            addFromRegion(self.Zxy_xlow, region.Zxy_xlow, region.myID)
             addFromRegion(self.psixy, region.psixy, region.myID)
             addFromRegion(self.psixy_ylow, region.psixy_ylow, region.myID)
             addFromRegion(self.dx, region.dx, region.myID)
@@ -1019,6 +1101,10 @@ class Mesh:
             addFromRegion(self.Bxy_ylow, region.Bxy_ylow, region.myID)
             addFromRegion(self.hthe, region.hthe, region.myID)
             addFromRegion(self.hthe_ylow, region.hthe_ylow, region.myID)
+            addFromRegion(self.beta, region.beta, region.myID)
+            addFromRegion(self.beta_ylow, region.beta_ylow, region.myID)
+            addFromRegion(self.eta, region.eta, region.myID)
+            addFromRegion(self.eta_ylow, region.eta_ylow, region.myID)
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
@@ -1045,8 +1131,12 @@ class Mesh:
             f.write('Btxy_ylow', self.Btxy_ylow)
             f.write('Bxy', self.Bxy)
             f.write('Bxy_ylow', self.hthe_ylow)
-            f.write('hthe', self.Bxy)
+            f.write('hthe', self.hthe)
             f.write('hthe_ylow', self.hthe_ylow)
+            f.write('beta', self.beta)
+            f.write('beta_ylow', self.beta_ylow)
+            f.write('eta', self.eta)
+            f.write('eta_ylow', self.eta_ylow)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

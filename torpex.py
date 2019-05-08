@@ -65,10 +65,16 @@ class TORPEXMagneticField(Equilibrium):
 
     def magneticFunctions(self):
         """
-        Calculate toroidal (anticlockwise) component of magnetic vector potential due to coils
+        Calculate the poloidal magnetic flux function psi = -R*A_phi, where A_phi is the
+        toroidal (anti-clockwise) component of magnetic vector potential due to coils.
         See for example http://physics.usask.ca/~hirose/p812/notes/Ch3.pdf
 
+        The currents in the coils are taken to be positive in the anti-clockwise direction
+        here.
+
         Note e_R x e_phi = e_Z
+
+        A radially increasing psi results in Bp going clockwise in the poloidal plane.
         """
         import sympy
         from sympy.functions.special.elliptic_integrals import elliptic_k, elliptic_e
@@ -77,7 +83,7 @@ class TORPEXMagneticField(Equilibrium):
         R,Z = sympy.symbols('R Z')
         mu0 = 4.e-7*sympy.pi
 
-        potential = 0*R
+        A_phi = 0*R
 
         for coil in self.coils:
             # little-r is the vector position from the centre of the coil to (R,Z)
@@ -86,27 +92,30 @@ class TORPEXMagneticField(Equilibrium):
             r = sympy.sqrt(rSquared)
             sinTheta = R / r
             kSquared = 4*coil.R*r*sinTheta / (rSquared + coil.R**2 + 2*coil.R*r*sinTheta)
-            potential += -(
+            A_phi += (
               coil.I*coil.R / sympy.sqrt(r**2 + coil.R**2 + 2*coil.R*r*sinTheta) / kSquared
               * ( (2-kSquared)*elliptic_k(kSquared) - 2*elliptic_e(kSquared) )
               )
 
         # multiply by costant pre-factor
-        potential *= mu0/sympy.pi
+        A_phi *= mu0/sympy.pi
 
-        dAdR = sympy.diff(potential, R)
-        dAdZ = sympy.diff(potential, Z)
-        modGradASquared = dAdR**2 + dAdZ**2
+        psi = -R*A_phi
+        dpsidR = sympy.diff(psi, R)
+        dpsidZ = sympy.diff(psi, Z)
+        modGradpsiSquared = dpsidR**2 + dpsidZ**2
+        B_R = dpsidZ/R
+        B_Z = -dpsidR/R
 
-        self.psi = sympy.lambdify([R,Z], potential, modules=['numpy',
+        self.psi = sympy.lambdify([R,Z], psi, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-        self.f_R = sympy.lambdify([R,Z], dAdR/modGradASquared, modules=['numpy',
+        self.f_R = sympy.lambdify([R,Z], dpsidR/modGradpsiSquared, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-        self.f_Z = sympy.lambdify([R,Z], dAdZ/modGradASquared, modules=['numpy',
+        self.f_Z = sympy.lambdify([R,Z], dpsidZ/modGradpsiSquared, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-        self.Bp_R = sympy.lambdify([R,Z], dAdZ, modules=['numpy',
+        self.Bp_R = sympy.lambdify([R,Z], B_R, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
-        self.Bp_Z = sympy.lambdify([R,Z], -1/R * sympy.diff(R*potential, R), modules=['numpy',
+        self.Bp_Z = sympy.lambdify([R,Z], B_Z, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
 
     def findSeparatrix(self, atol = 2.e-8, npoints=100):
@@ -162,7 +171,7 @@ def createMesh(filename):
 
     equilibrium = TORPEXMagneticField(coils, Bt_axis)
 
-    print('X-point',equilibrium.x_points[0],'with A_toroidal='+str(equilibrium.psi_sep))
+    print('X-point',equilibrium.x_points[0],'with psi='+str(equilibrium.psi_sep))
 
     equilibrium.findSeparatrix()
 

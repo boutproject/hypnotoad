@@ -182,7 +182,7 @@ if __name__ == '__main__':
         mesh.equilibrium.plotPotential()
         mesh.equilibrium.addWallToPlot()
         pyplot.plot(*mesh.equilibrium.x_points[0], 'rx')
-        mesh.plotPoints(ylow=True, corners=True)
+        mesh.plotPoints(xlow=True, ylow=True, corners=True)
         pyplot.show()
 
     mesh.writeGridfile(gridname)

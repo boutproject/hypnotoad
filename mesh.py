@@ -1153,7 +1153,7 @@ class Mesh:
         except NameError:
             raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
 
-    def plotPoints(self, ylow=False, corners=False):
+    def plotPoints(self, xlow=False, ylow=False, corners=False):
         from matplotlib import pyplot
         from cycler import cycle
 
@@ -1161,8 +1161,10 @@ class Mesh:
         for region in self.regions.values():
             c = next(colors)
             pyplot.scatter(region.Rxy, region.Zxy, marker='x', c=c)
+            if xlow:
+                pyplot.scatter(region.Rxy_xlow, region.Zxy_xlow, marker='1', c=c)
             if ylow:
-                pyplot.scatter(region.Rxy_ylow, region.Zxy_ylow, marker='1', c=c)
+                pyplot.scatter(region.Rxy_ylow, region.Zxy_ylow, marker='2', c=c)
             if corners:
                 pyplot.scatter(region.Rcorners, region.Zcorners, marker='+', c=c)
 

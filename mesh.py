@@ -1145,7 +1145,7 @@ class Mesh:
             vmin = f.min()
             vmax = f.max()
 
-            for region, indices in zip(self.regions.values(), self.region_indices):
+            for region, indices in zip(self.regions.values(), self.region_indices.values()):
                 pyplot.pcolor(region.Rcorners, region.Zcorners, f[indices],
                               vmin=vmin, vmax=vmax)
 

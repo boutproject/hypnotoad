@@ -114,3 +114,47 @@ class TestContour:
         p = f(0.5)
         assert p.R == tight_approx(testcontour.R0 - testcontour.r)
         assert p.Z == tight_approx(testcontour.Z0)
+
+    def test_getRegridded(self):
+        # make a circular contour in a circular psi
+        psifunc = lambda R,Z: R**2 + Z**2
+
+        npoints = 23
+        r = 1.
+        theta = numpy.linspace(0., 2.*numpy.pi, npoints)
+        R = r*numpy.cos(theta)
+        Z = r*numpy.sin(theta)
+        orig = MeshContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, 1.)
+
+        newNpoints = 97
+        sfunc = lambda s: numpy.sqrt(s)
+        newTheta = 2.*numpy.pi*numpy.sqrt(numpy.linspace(0., 1., newNpoints))
+        newR = r*numpy.cos(newTheta)
+        newZ = r*numpy.sin(newTheta)
+
+        new = orig.getRegridded(newNpoints, sfunc=sfunc, width=1.e-3)
+
+        assert [p.R for p in new] == pytest.approx(newR, abs=4.e-5)
+        assert [p.Z for p in new] == pytest.approx(newZ, abs=4.e-5)
+
+    def test_getRegridded_extend(self, testcontour):
+        # make a circular contour in a circular psi
+        psifunc = lambda R,Z: R**2 + Z**2
+
+        npoints = 23
+        r = 1.
+        theta = numpy.linspace(0., 2.*numpy.pi, npoints)
+        R = r*numpy.cos(theta)
+        Z = r*numpy.sin(theta)
+        orig = MeshContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, 1.)
+
+        new = orig.getRegridded(testcontour.npoints, width=.1, extend_lower=1, extend_upper=2)
+
+        assert numpy.array([[*p] for p in new[1:-2]]) == tight_approx(numpy.array([[*p] for p in orig]))
+
+        # test the extend_lower
+        assert [*new[0]] == pytest.approx([*orig[-2]], abs=2.e-3)
+
+        # test the extend_upper
+        assert [*new[-2]] == pytest.approx([*orig[1]], abs=2.e-3)
+        assert [*new[-1]] == pytest.approx([*orig[2]], abs=2.e-2)

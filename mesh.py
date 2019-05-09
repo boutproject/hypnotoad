@@ -360,14 +360,21 @@ class MeshRegion:
         self.eta_ylow = numpy.sin(self.beta_ylow)
 
     def calcHthe(self, ylow=False):
+        # hthe = |Grad(theta)|
+        # hthe = dtheta/ds at constant psi, phi when psi and theta are orthogonal
+        # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
+        assert self.orthogonal
+
         if not ylow:
-            # Calculate poloidal grid spacings
+            # get positions at j+/-0.5
             R = numpy.zeros([self.nx, self.ny + 1])
             R[:, :-1] = self.Rxy_ylow
             R[:, -1] = self.Rxy_extra_upper
             Z = numpy.zeros([self.nx, self.ny + 1])
             Z[:, :-1] = self.Zxy_ylow
             Z[:, -1] = self.Zxy_extra_upper
+
+            return self.dy/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
         else:
             # for hthe_ylow, need R, Z values from below the lower face of this region
             R = numpy.zeros([self.nx, self.ny + 1])
@@ -384,7 +391,8 @@ class MeshRegion:
                 R[:, 0] = 2.*self.Rxy_ylow[:, 0] - self.Rxy[:, 0]
                 Z[:, 0] = 2.*self.Zxy_ylow[:, 0] - self.Zxy[:, 0]
 
-        return numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+            return self.dy_ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+                                           + (Z[:,1:] - Z[:,:-1])**2)
 
     def calcBeta(self, ylow=False):
         """

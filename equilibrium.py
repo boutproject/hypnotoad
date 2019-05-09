@@ -33,8 +33,9 @@ class Equilibrium:
         component of the poloidal magnetic field.
       - self.Bp_Z: function which takes two arguments, {R,Z}, and returns the Z
         component of the poloidal magnetic field.
-      - self.x_points: list of Point2D objects giving the position of the X-points
-      - self.psi_sep: value of psi on the primary separatrix
+      - self.x_points: list of Point2D objects giving the position of the X-points ordered
+        from primary X-point (nearest the core) outward
+      - self.psi_sep: values of psi on the separatrices ordered the same as self.x_points
       - self.fpol: poloidal current function, takes one argument, psi, and returns fpol
         (function such that B_toroidal = fpol/R)
       - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a bounding

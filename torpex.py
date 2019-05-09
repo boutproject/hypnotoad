@@ -46,7 +46,7 @@ class TORPEXMagneticField(Equilibrium):
         try:
             self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
                                                   0.8*self.Zmax)]
-            self.psi_sep = self.psi(*self.x_points[0])
+            self.psi_sep = [self.psi(*self.x_points[0])]
         except:
             warnings.warn('Warning: failed to find X-point. Equilibrium generation will '
                     'fail')
@@ -130,8 +130,8 @@ class TORPEXMagneticField(Equilibrium):
         assert len(self.x_points) == 1 # should be one X-point for TORPEX configuration
         xpoint = self.x_points[0]
 
-        boundary = self.findRoots_1d(lambda s: self.psi(*wall_position(s)) - self.psi_sep,
-                                4, 0., 1.)
+        boundary = self.findRoots_1d(
+                lambda s: self.psi(*wall_position(s)) - self.psi_sep[0], 4, 0., 1.)
 
         # put lower left leg first in list, go clockwise
         boundary = boundary[2::-1] + [boundary[3]]
@@ -144,7 +144,7 @@ class TORPEXMagneticField(Equilibrium):
             legR = xpoint.R + s*(point.R - xpoint.R)
             legZ = xpoint.Z + s*(point.Z - xpoint.Z)
             leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi,
-                              self.psi_sep)
+                              self.psi_sep[0])
             leg = leg.getRefined(atol=atol, width=0.02)
             legs.append(leg)
 
@@ -171,7 +171,7 @@ def createMesh(filename):
 
     equilibrium = TORPEXMagneticField(coils, Bt_axis)
 
-    print('X-point',equilibrium.x_points[0],'with psi='+str(equilibrium.psi_sep))
+    print('X-point',equilibrium.x_points[0],'with psi='+str(equilibrium.psi_sep[0]))
 
     equilibrium.findSeparatrix()
 

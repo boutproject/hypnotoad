@@ -255,6 +255,9 @@ class MeshRegion:
     def fillRZ(self):
         """
         Fill the Rxy, Rxy_ylow and Zxy, Zxy_ylow arrays for this region
+
+        xlow values include the outer point, after the final cell-centre grid point
+        ylow values include the upper point, above the final cell-centre grid point
         """
 
         self.Rcorners = numpy.zeros([self.nx + 1, self.ny + 1])
@@ -263,28 +266,28 @@ class MeshRegion:
         self.Rxy = numpy.array([[p.R for p in contour[1::2]]
             for contour in self.contours[1::2]])
 
-        self.Rxy_ylow = numpy.array([[p.R for p in contour[0:-1:2]]
+        self.Rxy_ylow = numpy.array([[p.R for p in contour[0::2]]
             for contour in self.contours[1::2]])
 
         self.Rxy_extra_upper = numpy.array([contour[-1].R
             for contour in self.contours[1::2]])
 
         self.Rxy_xlow = numpy.array([[p.R for p in contour[1::2]]
-            for contour in self.contours[0:-1:2]])
+            for contour in self.contours[0::2]])
 
         self.Rxy_extra_outer = numpy.array([p.R for p in self.contours[-1][1::2]])
 
         self.Zxy = numpy.array( [[p.Z for p in contour[1::2]]
             for contour in self.contours[1::2]])
 
-        self.Zxy_ylow = numpy.array( [[p.Z for p in contour[0:-1:2]]
+        self.Zxy_ylow = numpy.array( [[p.Z for p in contour[0::2]]
             for contour in self.contours[1::2]])
 
         self.Zxy_extra_upper = numpy.array([contour[-1].Z
             for contour in self.contours[1::2]])
 
         self.Zxy_xlow = numpy.array([[p.Z for p in contour[1::2]]
-            for contour in self.contours[0:-1:2]])
+            for contour in self.contours[0::2]])
 
         self.Zxy_extra_outer = numpy.array([p.Z for p in self.contours[-1][1::2]])
 
@@ -300,10 +303,12 @@ class MeshRegion:
 
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
         self.psixy_ylow = self.meshParent.equilibrium.psi(self.Rxy_ylow, self.Zxy_ylow)
+        self.psixy_xlow = self.meshParent.equilibrium.psi(self.Rxy_xlow, self.Zxy_xlow)
+        self.psicorners = self.meshParent.equilibrium.psi(self.Rcorners, self.Zcorners)
 
         self.dx = numpy.zeros([self.nx, self.ny])
         self.dx[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx_ylow = numpy.zeros([self.nx, self.ny])
+        self.dx_ylow = numpy.zeros([self.nx, self.ny+1])
         self.dx_ylow[:] = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
@@ -315,14 +320,22 @@ class MeshRegion:
             self.xcoord = self.psixy
 
         self.dy = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
-        self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny])
+        self.dy_ylow = self.meshParent.dy_scalar * numpy.ones([self.nx, self.ny+1])
+        self.dy_xlow = self.meshParent.dy_scalar * numpy.ones([self.nx+1, self.ny])
+        self.dycorners = self.meshParent.dy_scalar * numpy.ones([self.nx+1, self.ny+1])
 
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Brxy_ylow = self.meshParent.equilibrium.Bp_R(self.Rxy_ylow, self.Zxy_ylow)
+        self.Brxy_xlow = self.meshParent.equilibrium.Bp_R(self.Rxy_xlow, self.Zxy_xlow)
+        self.Brcorners = self.meshParent.equilibrium.Bp_R(self.Rcorners, self.Zcorners)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
         self.Bzxy_ylow = self.meshParent.equilibrium.Bp_Z(self.Rxy_ylow, self.Zxy_ylow)
+        self.Bzxy_xlow = self.meshParent.equilibrium.Bp_Z(self.Rxy_xlow, self.Zxy_xlow)
+        self.Bzcorners = self.meshParent.equilibrium.Bp_Z(self.Rcorners, self.Zcorners)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
         self.Bpxy_ylow = numpy.sqrt(self.Brxy_ylow**2 + self.Bzxy_ylow**2)
+        self.Bpxy_xlow = numpy.sqrt(self.Brxy_xlow**2 + self.Bzxy_xlow**2)
+        self.Bpcorners = numpy.sqrt(self.Brcorners**2 + self.Bzcorners**2)
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = (
@@ -334,6 +347,8 @@ class MeshRegion:
             print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
             self.Bpxy = -self.Bpxy
             self.Bpxy_ylow = -self.Bpxy_ylow
+            self.Bpxy_xlow = -self.Bpxy_xlow
+            self.Bpcorners = -self.Bpcorners
             if self.bpsign > 0.:
                 raise ValueError("Sign of Bp should be negative?")
         else:
@@ -343,56 +358,112 @@ class MeshRegion:
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
         self.Btxy_ylow = self.meshParent.equilibrium.fpol(self.psixy_ylow) / self.Rxy_ylow
+        self.Btxy_xlow = self.meshParent.equilibrium.fpol(self.psixy_xlow) / self.Rxy_xlow
+        self.Btcorners = self.meshParent.equilibrium.fpol(self.psicorners) / self.Rcorners
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
         self.Bxy_ylow = numpy.sqrt(self.Bpxy_ylow**2 + self.Btxy_ylow**2)
 
-        self.hthe = self.calcHthe()
-        self.hthe_ylow = self.calcHthe(ylow=True)
+        self.hthe, self.hthe_ylow, self.hthe_xlow, self.hthecorners = self.calcHthe()
 
-        # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
-        # Also calculate radial grid spacing
-        self.beta, self.hrad = self.calcBeta()
-        self.beta_ylow, self.hrad_ylow = self.calcBeta(ylow=True)
+        #if not self.meshParent.orthogonal:
+        #    # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
+        #    # Also calculate radial grid spacing
+        #    self.beta, self.hrad = self.calcBeta()
+        #    self.beta_ylow, self.hrad_ylow = self.calcBeta(ylow=True)
 
-        # eta is the polodial non-orthogonality parameter
-        self.eta = numpy.sin(self.beta)
-        self.eta_ylow = numpy.sin(self.beta_ylow)
+        #    # eta is the polodial non-orthogonality parameter
+        #    self.eta = numpy.sin(self.beta)
+        #    self.eta_ylow = numpy.sin(self.beta_ylow)
+        #else:
+        #    self.beta = 0.
+        #    self.eta = 0.
+
+        # field line pitch
+        self.pitch = self.hthe * self.Btxy / (self.Bpxy * self.Rxy)
+        self.pitch_ylow = self.hthe_ylow * self.Btxy_ylow / (self.Bpxy_ylow
+                                                             * self.Rxy_ylow)
+        self.pitch_xlow = self.hthe_xlow * self.Btxy_xlow / (self.Bpxy_xlow
+                                                             * self.Rxy_xlow)
+        self.pitchcorners = self.hthecorners * self.Btcorners / (self.Bpcorners
+                                                                 * self.Rcorners)
+
+        self.dqdpsi = self.DDX_L2C(self.pitch_xlow)
+        self.dqdpsi_ylow = self.DDX_L2C(self.pitchcorners, ylow=True)
 
     def calcHthe(self, ylow=False):
         # hthe = |Grad(theta)|
         # hthe = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
-        assert self.orthogonal
+        assert self.meshParent.orthogonal
 
-        if not ylow:
-            # get positions at j+/-0.5
-            R = numpy.zeros([self.nx, self.ny + 1])
-            R[:, :-1] = self.Rxy_ylow
-            R[:, -1] = self.Rxy_extra_upper
-            Z = numpy.zeros([self.nx, self.ny + 1])
-            Z[:, :-1] = self.Zxy_ylow
-            Z[:, -1] = self.Zxy_extra_upper
+        # get positions at j+/-0.5
+        R = self.Rxy_ylow
+        Z = self.Zxy_ylow
 
-            return self.dy/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        hthe= self.dy/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+
+        # for hthe_ylow, need R, Z values from below the lower face of this region and
+        # above the upper face
+        R = numpy.zeros([self.nx, self.ny + 2])
+        R[:,1:-1] = self.Rxy
+        Z = numpy.zeros([self.nx, self.ny + 2])
+        Z[:,1:-1] = self.Zxy
+        if self.connections['lower'] is not None:
+            R[:,0] = self.getNeighbour('lower').Rxy[:, -1]
+            Z[:,0] = self.getNeighbour('lower').Zxy[:, -1]
         else:
-            # for hthe_ylow, need R, Z values from below the lower face of this region
-            R = numpy.zeros([self.nx, self.ny + 1])
-            R[:, 1:] = self.Rxy
-            Z = numpy.zeros([self.nx, self.ny + 1])
-            Z[:, 1:] = self.Zxy
-            if self.connections['lower'] is not None:
-                R[:, 0] = self.getNeighbour('lower').Rxy[:, -1]
-                Z[:, 0] = self.getNeighbour('lower').Zxy[:, -1]
-            else:
-                # dumb extrapolation, but should not need the affected guard cell value (the
-                # corresponding value at the upper boundary does not even exist, since we
-                # stagger to YLOW)
-                R[:, 0] = 2.*self.Rxy_ylow[:, 0] - self.Rxy[:, 0]
-                Z[:, 0] = 2.*self.Zxy_ylow[:, 0] - self.Zxy[:, 0]
+            # dumb extrapolation, but should not need the affected guard cell value (the
+            # corresponding value at the upper boundary does not even exist, since we
+            # stagger to YLOW)
+            R[:,0] = 2.*self.Rxy_ylow[:,0] - self.Rxy[:,0]
+            Z[:,0] = 2.*self.Zxy_ylow[:,0] - self.Zxy[:,0]
+        if self.connections['upper'] is not None:
+            R[:,-1] = self.getNeighbour('upper').Rxy[:,0]
+            Z[:,-1] = self.getNeighbour('upper').Zxy[:,0]
+        else:
+            # dumb extrapolation, but should not need the affected guard cell value (the
+            # value will never even be passed to Mesh, since we stagger to YLOW)
+            R[:,-1] = 2.*self.Rxy_ylow[:,-1] - self.Rxy[:,-1]
+            Z[:,-1] = 2.*self.Zxy_ylow[:,-1] - self.Zxy[:,-1]
 
-            return self.dy_ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
-                                           + (Z[:,1:] - Z[:,:-1])**2)
+        hthe_ylow =  self.dy_ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+                                             + (Z[:,1:] - Z[:,:-1])**2)
+
+        # for hthe_xlow, need R, Z values from the cell corners
+        R = self.Rcorners
+        Z = self.Zcorners
+
+        hthe_xlow =  self.dy_xlow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+                                             + (Z[:,1:] - Z[:,:-1])**2)
+
+        # for hthecorners, need R, Z values from xlow
+        R = numpy.zeros([self.nx+1, self.ny+2])
+        Z = numpy.zeros([self.nx+1, self.ny+2])
+        R[:,1:-1] = self.Rxy_xlow
+        Z[:,1:-1] = self.Zxy_xlow
+        if self.connections['lower'] is not None:
+            R[:,0] = self.getNeighbour('lower').Rxy_xlow[:,-1]
+            Z[:,0] = self.getNeighbour('lower').Zxy_xlow[:,-1]
+        else:
+            # dumb extrapolation, but should not need the affected guard cell value (the
+            # corresponding value at the upper boundary does not even exist, since we
+            # stagger to YLOW)
+            R[:,0] = 2.*self.Rcorners[:,0] - self.Rxy_xlow[:,0]
+            Z[:,0] = 2.*self.Zcorners[:,0] - self.Zxy_xlow[:,0]
+        if self.connections['upper'] is not None:
+            R[:,-1] = self.getNeighbour('upper').Rxy_xlow[:,0]
+            Z[:,-1] = self.getNeighbour('upper').Zxy_xlow[:,0]
+        else:
+            # dumb extrapolation, but should not need the affected guard cell value (the
+            # will not even be stored in Mesh, since we stagger to YLOW)
+            R[:,-1] = 2.*self.Rcorners[:,-1] - self.Rxy_xlow[:,-1]
+            Z[:,-1] = 2.*self.Zcorners[:,-1] - self.Zxy_xlow[:,-1]
+
+        hthecorners =  self.dycorners/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+                                             + (Z[:,1:] - Z[:,:-1])**2)
+
+        return hthe, hthe_ylow, hthe_xlow, hthecorners
 
     def calcBeta(self, ylow=False):
         """
@@ -450,12 +521,16 @@ class MeshRegion:
         else:
             return self.meshParent.regions[self.connections[face]]
 
-    def DDX(self, f):
-        raise ValueError('not implemented for MeshRegion yet')
-        result = numpy.zeros([self.nx, self.ny + 2*self.y_boundary_guards])
-        result[1:-1, :] = (f[2:, :] - f[:-2, :]) / (2.*self.dx[1:-1])
-        result[0, :] = (-1.5*f[0, :] + 2.*f[1,:] - 0.5*f[2, :]) / self.dx[0]
-        result[-1, :] = (1.5*f[-1, :] - 2.*f[-2,:] + 0.5*f[-3, :]) / self.dx[-1]
+    def DDX_L2C(self, f, ylow=False):
+        # assume the 'xlow' quantity f has nx+1 values and includes the outer point after
+        # the last cell-centre grid point.
+        assert f.shape[0] == self.nx + 1
+
+        if not ylow:
+            dx = self.dx
+        else:
+            dx = self.dx_ylow
+        result = (f[1:, :] - f[:-1, :]) / dx
         return result
 
 class Mesh:
@@ -1217,42 +1292,52 @@ class Mesh:
         self.Bxy_ylow = numpy.zeros([self.nx, self.ny])
         self.hthe = numpy.zeros([self.nx, self.ny])
         self.hthe_ylow = numpy.zeros([self.nx, self.ny])
-        self.beta = numpy.zeros([self.nx, self.ny])
-        self.beta_ylow = numpy.zeros([self.nx, self.ny])
-        self.eta = numpy.zeros([self.nx, self.ny])
-        self.eta_ylow = numpy.zeros([self.nx, self.ny])
+        #if not self.orthogonal:
+        #    self.beta = numpy.zeros([self.nx, self.ny])
+        #    self.beta_ylow = numpy.zeros([self.nx, self.ny])
+        #    self.eta = numpy.zeros([self.nx, self.ny])
+        #    self.eta_ylow = numpy.zeros([self.nx, self.ny])
+        self.pitch = numpy.zeros([self.nx, self.ny])
+        self.pitch_ylow = numpy.zeros([self.nx, self.ny])
+        self.dqdpsi = numpy.zeros([self.nx, self.ny])
+        self.dqdpsi_ylow = numpy.zeros([self.nx, self.ny])
 
         for region in self.regions.values():
             region.geometry()
 
             addFromRegion(self.Rxy, region.Rxy, region.myID)
-            addFromRegion(self.Rxy_ylow, region.Rxy_ylow, region.myID)
-            addFromRegion(self.Rxy_xlow, region.Rxy_xlow, region.myID)
+            addFromRegion(self.Rxy_ylow, region.Rxy_ylow[:,:-1], region.myID)
+            addFromRegion(self.Rxy_xlow, region.Rxy_xlow[:-1,:], region.myID)
             addFromRegion(self.Zxy, region.Zxy, region.myID)
-            addFromRegion(self.Zxy_ylow, region.Zxy_ylow, region.myID)
-            addFromRegion(self.Zxy_xlow, region.Zxy_xlow, region.myID)
+            addFromRegion(self.Zxy_ylow, region.Zxy_ylow[:,:-1], region.myID)
+            addFromRegion(self.Zxy_xlow, region.Zxy_xlow[:-1,:], region.myID)
             addFromRegion(self.psixy, region.psixy, region.myID)
-            addFromRegion(self.psixy_ylow, region.psixy_ylow, region.myID)
+            addFromRegion(self.psixy_ylow, region.psixy_ylow[:,:-1], region.myID)
             addFromRegion(self.dx, region.dx, region.myID)
-            addFromRegion(self.dx_ylow, region.dx_ylow, region.myID)
+            addFromRegion(self.dx_ylow, region.dx_ylow[:,:-1], region.myID)
             addFromRegion(self.dy, region.dy, region.myID)
-            addFromRegion(self.dy_ylow, region.dy_ylow, region.myID)
+            addFromRegion(self.dy_ylow, region.dy_ylow[:,:-1], region.myID)
             addFromRegion(self.Brxy, region.Brxy, region.myID)
-            addFromRegion(self.Brxy_ylow, region.Brxy_ylow, region.myID)
+            addFromRegion(self.Brxy_ylow, region.Brxy_ylow[:,:-1], region.myID)
             addFromRegion(self.Bzxy, region.Bzxy, region.myID)
-            addFromRegion(self.Bzxy_ylow, region.Bzxy_ylow, region.myID)
+            addFromRegion(self.Bzxy_ylow, region.Bzxy_ylow[:,:-1], region.myID)
             addFromRegion(self.Bpxy, region.Bpxy, region.myID)
-            addFromRegion(self.Bpxy_ylow, region.Bpxy_ylow, region.myID)
+            addFromRegion(self.Bpxy_ylow, region.Bpxy_ylow[:,:-1], region.myID)
             addFromRegion(self.Btxy, region.Btxy, region.myID)
-            addFromRegion(self.Btxy_ylow, region.Btxy_ylow, region.myID)
+            addFromRegion(self.Btxy_ylow, region.Btxy_ylow[:,:-1], region.myID)
             addFromRegion(self.Bxy, region.Bxy, region.myID)
-            addFromRegion(self.Bxy_ylow, region.Bxy_ylow, region.myID)
+            addFromRegion(self.Bxy_ylow, region.Bxy_ylow[:,:-1], region.myID)
             addFromRegion(self.hthe, region.hthe, region.myID)
-            addFromRegion(self.hthe_ylow, region.hthe_ylow, region.myID)
-            addFromRegion(self.beta, region.beta, region.myID)
-            addFromRegion(self.beta_ylow, region.beta_ylow, region.myID)
-            addFromRegion(self.eta, region.eta, region.myID)
-            addFromRegion(self.eta_ylow, region.eta_ylow, region.myID)
+            addFromRegion(self.hthe_ylow, region.hthe_ylow[:,:-1], region.myID)
+            #if not self.orthogonal:
+            #    addFromRegion(self.beta, region.beta, region.myID)
+            #    addFromRegion(self.beta_ylow, region.beta_ylow[:,:-1], region.myID)
+            #    addFromRegion(self.eta, region.eta, region.myID)
+            #    addFromRegion(self.eta_ylow, region.eta_ylow[:,:-1], region.myID)
+            addFromRegion(self.pitch, region.pitch, region.myID)
+            addFromRegion(self.pitch_ylow, region.pitch_ylow[:,:-1], region.myID)
+            addFromRegion(self.dqdpsi, region.dqdpsi, region.myID)
+            addFromRegion(self.dqdpsi_ylow, region.dqdpsi_ylow[:,:-1], region.myID)
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
@@ -1281,10 +1366,13 @@ class Mesh:
             f.write('Bxy_ylow', self.hthe_ylow)
             f.write('hthe', self.hthe)
             f.write('hthe_ylow', self.hthe_ylow)
-            f.write('beta', self.beta)
-            f.write('beta_ylow', self.beta_ylow)
-            f.write('eta', self.eta)
-            f.write('eta_ylow', self.eta_ylow)
+            #if not self.orthogonal:
+            #    f.write('beta', self.beta)
+            #    f.write('beta_ylow', self.beta_ylow)
+            #    f.write('eta', self.eta)
+            #    f.write('eta_ylow', self.eta_ylow)
+            f.write('pitch', self.pitch)
+            f.write('pitch_ylow', self.pitch_ylow)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

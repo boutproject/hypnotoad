@@ -399,6 +399,7 @@ class MeshRegion:
         beta is the angle between x and y coordinates, used for non-orthogonal grid.
         Also calculate radial grid spacing, hrad
         """
+        raise ValueError("non-orthogonal grids not calculated yet")
 
         if not ylow:
             # need to multiply f_R and f_Z by bpsign because we want the radially-outward

@@ -472,6 +472,20 @@ class MeshRegion:
         self.Zxy.corners = numpy.array( [[p.Z for p in contour[0::2]]
             for contour in self.contours[0::2]])
 
+        # Upper value of ylow array logically overlaps with the lower value in the upper
+        # neighbour. They should be close, but aren't guaranteed to be identical already
+        # because they were taken from separate MeshContour obects. Use the value from the
+        # upper neighbour to ensure consistency.
+        # Also do similarly for the corner arrays.
+        # Don't need to do this for the x-boundaries, because there the MeshContour
+        # objects are shared between neighbouring regions.
+        if self.connections('upper') is not None:
+            up = self.getNeighbour('upper')
+            self.Rxy.ylow[:,-1] = up.Rxy.ylow[:,0]
+            self.Zxy.ylow[:,-1] = up.Zxy.ylow[:,0]
+            self.Rxy.corners[:,-1] = up.Rxy.ylow[:,0]
+            self.Zxy.corners[:,-1] = up.Zxy.ylow[:,0]
+
     def geometry(self):
         """
         Calculate geometrical quantities for this region
@@ -1415,6 +1429,271 @@ class Mesh:
         """
         for region in self.regions.values():
             region.fillRZ()
+
+        # Fix up the corner values at the X-points. Because the MeshContours have to start
+        # slightly away from the X-point in order for the integrator to go in the right
+        # direction, the points that should be at the X-point will be slighly displaced,
+        # and will not be consistent between regions. So replace these points with the
+        # X-point position instead.
+        if len(self.equilibrium.x_points) > 0:
+            xpoint = self.equilibrium.x_points[0]
+
+            # outside lower inner leg
+            try:
+                # inner lower PF
+                r = self.regions[1]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[-1,-1] = xpoint.R
+                r.Zxy.corners[-1,-1] = xpoint.Z
+
+            # inside lower inner leg
+            try:
+                # inner lower between separatrix region
+                r = self.regions[2]
+            except KeyError:
+                # No between separatrix region, so X-point is at corner of SOL region
+                try:
+                    # inner lower SOL
+                    r = self.regions[3]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[0,-1] = xpoint.R
+                r.Zxy.corners[0,-1] = xpoint.Z
+
+            # outside inner upper leg
+            try:
+                # inner core region
+                r = self.regions[4]
+            except KeyError:
+                # No inner core region, outer core may be connected to X-point here
+                try:
+                    # outer core
+                    r = self.regions[11]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[-1,0] = xpoint.R
+                r.Zxy.corners[-1,0] = xpoint.Z
+
+            # inside inner upper leg
+            if self.nx_between > 0:
+                try:
+                    # inner between separatrix region
+                    r = self.regions[5]
+                except KeyError:
+                    try:
+                        # outer between separatrix region
+                        r = self.regions[12]
+                    except KeyError:
+                        r = None
+            else:
+                # no between separatrix region, so SOL regions are adjacent to X-point
+                try:
+                    # inner SOL
+                    r = self.regions[6]
+                except KeyError:
+                    if len(self.equilibrium.x_points) == 1:
+                        # single null, so outer SOL may be connected to this leg
+                        try:
+                            # outer SOL
+                            r = self.regions[13]
+                            if r.connections.lower
+                        except KeyError:
+                            r = None
+                    else:
+                        r = None
+            if r is not None:
+                r.Rxy.corners[0,0] = xpoint.R
+                r.Zxy.corners[0,0] = xpoint.Z
+
+            # inside outer upper leg
+            try:
+                # outer core
+                r = self.regions[11]
+            except KeyError:
+                try:
+                    # inner core
+                    r = self.regions[4]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[-1,-1] = xpoint.R
+                r.Zxy.corners[-1,-1] = xpoint.Z
+
+            # outside outer upper leg
+            if self.nx_between > 0:
+                try:
+                    # outer between separatrix region
+                    r = self.regions[12]
+                except KeyError:
+                    try:
+                        # inner between separatrix region
+                        r = self.regions[5]
+                    except KeyError:
+                        r = None
+            else:
+                # no between separatrix region, so SOL regions are adjacent to X-point
+                try:
+                    # outer SOL
+                    r = self.regions[13]
+                except KeyError:
+                    if len(self.equilibrium.x_points) == 1:
+                        # single null, so inner SOL may be connected to this leg
+                        try:
+                            # inner SOL
+                            r = self.regions[6]
+                        except KeyError:
+                            r = None
+                    else:
+                        r = None
+            if r is not None:
+                r.Rxy.corners[0,-1] = xpoint.R
+                r.Zxy.corners[0,-1] = xpoint.Z
+
+            # inside outer lower leg
+            try:
+                # outer lower PF
+                r = self.regions[14]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[-1,0] = xpoint.R
+                r.Zxy.corners[-1,0] = xpoint.Z
+
+            # outside outer lower leg
+            try:
+                # outer lower between separatrix region
+                r = self.regions[15]
+            except KeyError:
+                # No between separatrix region, so X-point is at corner of SOL region
+                try:
+                    r = self.region[16]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[0,0] = xpoint.R
+                r.Zxy.corners[0,0] = xpoint.Z
+
+        if len(self.equilibrium.x_points) > 1:
+            assert len(self.equilibrium.x_points) == 2
+
+            xpoint = self.equilibrium.x_points[1]
+
+            # outside inner lower leg
+            if self.nx_between > 0:
+                try:
+                    # inner between separatrix region
+                    r = self.regions[5]
+                except KeyError:
+                    # inner lower between separatrix region
+                    try:
+                        r = self.regions[2]
+                    except KeyError:
+                        r = None
+            else:
+                # no between separatrix region, so core regions are adjacent to X-point
+                try:
+                    # inner core
+                    r = self.regions[4]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[-1,-1] = xpoint.R
+                r.Zxy.corners[-1,-1] = xpoint.Z
+
+            # inside inner lower leg
+            try:
+                # inner SOL
+                r = self.regions[6]
+            except KeyError:
+                try:
+                    # inner lower SOL
+                    r = self.regions[3]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[0,-1] = xpoint.R
+                r.Zxy.corners[0,-1] = xpoint.Z
+
+            # inside inner upper leg
+            try:
+                # inner upper SOL
+                r = self.regions[7]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[0,0] = xpoint.R
+                r.Zxy.corners[0,0] = xpoint.Z
+
+            # outside inner upper leg
+            try:
+                # inner upper PF
+                r = self.regions[8]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[-1,0] = xpoint.R
+                r.Zxy.corners[-1,0] = xpoint.Z
+
+            # inside outer upper leg
+            try:
+                # outer upper PF
+                r = self.regions[9]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[-1,-1] = xpoint.R
+                r.Zxy.corners[-1,-1] = xpoint.Z
+
+            # outside outer upper leg
+            try:
+                # outer upper SOL
+                r = self.regions[10]
+            except KeyError:
+                pass
+            else:
+                r.Rxy.corners[0,-1] = xpoint.R
+                r.Zxy.corners[0,-1] = xpoint.Z
+
+            # outside outer lower leg
+            try:
+                # outer SOL
+                r = self.regions[13]
+            except KeyError:
+                try:
+                    r = self.regions[16]
+                except KeyError:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[0,0] = xpoint.R
+                r.Zxy.corners[0,0] = xpoint.Z
+
+            # inside outer lower leg
+            if self.nx_between:
+                try:
+                    # outer between separatrix region
+                    r = self.regions[12]
+                except KeyError:
+                    try:
+                        # outer lower between separatrx region
+                        r = self.regions[15]
+                    except KeyError:
+                        r = None
+            else:
+                # no between separatrix region, so core regions are adjacent to X-point
+                try:
+                    # outer core
+                    r = self.regions[11]
+                except KeyError:
+                    pass
+                else:
+                    r = None
+            if r is not None:
+                r.Rxy.corners[-1,0] = xpoint.R
+                r.Zxy.corners[-1,0] = xpoint.Z
 
         def addFromRegion(f, f_region, regionID):
             if f_region._centre_array is not None:

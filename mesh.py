@@ -3,6 +3,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
 import numpy
+import numbers
 from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
@@ -183,6 +184,212 @@ class MeshContour:
         from matplotlib import pyplot
         pyplot.plot([x.R for x in self], [x.Z for x in self], *args, **kwargs)
 
+class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
+    """
+    Container for arrays representing points at different cell locations
+    Not all have to be filled.
+    """
+    _centre_array = None
+    _xlow_array = None
+    _ylow_array = None
+    _corners_array = None
+
+    def __init__(self, nx, ny):
+        self.nx = nx
+        self.ny = ny
+
+    @property
+    def centre(self):
+        return self._centre_array
+
+    @centre.setter
+    def centre(self, value):
+        if self._centre_array is None:
+            self._centre_array = numpy.zeros([self.nx, self.ny])
+        self._centre_array[...] = value
+
+    @property
+    def xlow(self):
+        return self._xlow_array
+
+    @xlow.setter
+    def xlow(self, value):
+        if self._xlow_array is None:
+            self._xlow_array = numpy.zeros([self.nx + 1, self.ny])
+        print(self.xlow.shape)
+        try:
+            print(value.shape)
+        except:
+            pass
+        self._xlow_array[...] = value
+
+    @property
+    def ylow(self):
+        return self._ylow_array
+
+    @ylow.setter
+    def ylow(self, value):
+        if self._ylow_array is None:
+            self._ylow_array = numpy.zeros([self.nx, self.ny + 1])
+        self._ylow_array[...] = value
+
+    @property
+    def corners(self):
+        return self._corners_array
+
+    @corners.setter
+    def corners(self, value):
+        if self._corners_array is None:
+            self._corners_array = numpy.zeros([self.nx + 1, self.ny + 1])
+        self._corners_array[...] = value
+
+    # The following __array_ufunc__ implementation allows the MultiLocationArray class to
+    # be handled by Numpy functions, and add, subtract, etc. like an ndarray.
+    # The implementation is mostly copied from the example in
+    # https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.mixins.NDArrayOperatorsMixin.html#numpy.lib.mixins.NDArrayOperatorsMixin
+
+    # One might also consider adding the built-in list type to this
+    # list, to support operations like np.add(array_like, list)
+    _HANDLED_TYPES = (numpy.ndarray, numbers.Number)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        out = kwargs.get('out', ())
+        for x in inputs + out:
+            # Only support operations with instances of _HANDLED_TYPES.
+            # Use MultiLocationArray instead of type(self) for isinstance to
+            # allow subclasses that don't override __array_ufunc__ to
+            # handle MultiLocationArray objects.
+            if not isinstance(x, self._HANDLED_TYPES + (MultiLocationArray,)):
+                return NotImplemented
+
+        result = MultiLocationArray(self.nx, self.ny)
+
+        print('in __array_ufunc__')
+        # Defer to the implementation of the ufunc on unwrapped values.
+        if self._centre_array is not None:
+            this_inputs = tuple(x._centre_array if isinstance(x, MultiLocationArray)
+                    else x for x in inputs)
+            if out:
+                kwargs['out'] = tuple(
+                    x.centre if isinstance(x, MultiLocationArray) else x
+                    for x in out)
+            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
+            print('center',type(this_result))
+            try:
+                print('\t',this_result.shape)
+            except:
+                pass
+
+            if type(this_result) is tuple:
+                # multiple return values
+                if not type(result) is tuple:
+                    result = tuple(MultiLocationArray(self.nx, self.ny)
+                            for x in this_result)
+                for i,x in enumerate(this_result):
+                    result[i].centre = x
+
+            elif method == 'at':
+                # no return value
+                result = None
+            else:
+                # one return value
+                result.centre = this_result
+
+        # Defer to the implementation of the ufunc on unwrapped values.
+        if self._xlow_array is not None:
+            this_inputs = tuple(x._xlow_array if isinstance(x, MultiLocationArray)
+                    else x for x in inputs)
+            if out:
+                kwargs['out'] = tuple(
+                    x.xlow if isinstance(x, MultiLocationArray) else x
+                    for x in out)
+            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
+            print('xlow',type(this_result))
+            try:
+                print('\t',this_result.shape)
+                print('inputs were',this_inputs)
+                for i in this_inputs:
+                    print(type(i))
+            except:
+                pass
+
+            if type(this_result) is tuple:
+                # multiple return values
+                if not type(result) is tuple:
+                    result = tuple(MultiLocationArray(self.nx, self.ny)
+                            for x in this_result)
+                for i,x in enumerate(this_result):
+                    result[i].xlow = x
+
+            elif method == 'at':
+                # no return value
+                result = None
+            else:
+                # one return value
+                result.xlow = this_result
+
+        # Defer to the implementation of the ufunc on unwrapped values.
+        if self._ylow_array is not None:
+            this_inputs = tuple(x._ylow_array if isinstance(x, MultiLocationArray)
+                    else x for x in inputs)
+            if out:
+                kwargs['out'] = tuple(
+                    x.ylow if isinstance(x, MultiLocationArray) else x
+                    for x in out)
+            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
+            print('ylow',type(this_result))
+            try:
+                print('\t',this_result.shape)
+            except:
+                pass
+
+            if type(this_result) is tuple:
+                # multiple return values
+                if not type(result) is tuple:
+                    result = tuple(MultiLocationArray(self.nx, self.ny)
+                            for x in this_result)
+                for i,x in enumerate(this_result):
+                    result[i].ylow = x
+
+            elif method == 'at':
+                # no return value
+                result = None
+            else:
+                # one return value
+                result.ylow = this_result
+
+        # Defer to the implementation of the ufunc on unwrapped values.
+        if self._corners_array is not None:
+            this_inputs = tuple(x._corners_array if isinstance(x, MultiLocationArray)
+                    else x for x in inputs)
+            if out:
+                kwargs['out'] = tuple(
+                    x.corners if isinstance(x, MultiLocationArray) else x
+                    for x in out)
+            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
+            print('corners',type(this_result))
+            try:
+                print('\t',this_result.shape)
+            except:
+                pass
+
+            if type(this_result) is tuple:
+                # multiple return values
+                if not type(result) is tuple:
+                    result = tuple(MultiLocationArray(self.nx, self.ny)
+                            for x in this_result)
+                for i,x in enumerate(this_result):
+                    result[i].corners = x
+
+            elif method == 'at':
+                # no return value
+                result = None
+            else:
+                # one return value
+                result.corners = this_result
+
+        return result
+
 class MeshRegion:
     """
     A simple rectangular region of a Mesh, that connects to one other region (or has a
@@ -260,40 +467,30 @@ class MeshRegion:
         ylow values include the upper point, above the final cell-centre grid point
         """
 
-        self.Rcorners = numpy.zeros([self.nx + 1, self.ny + 1])
-        self.Zcorners = numpy.zeros([self.nx + 1, self.ny + 1])
+        self.R = MultiLocationArray(self.nx, self.ny)
+        self.Z = MultiLocationArray(self.nx, self.ny)
 
-        self.Rxy = numpy.array([[p.R for p in contour[1::2]]
+        self.R.centre = numpy.array([[p.R for p in contour[1::2]]
             for contour in self.contours[1::2]])
 
-        self.Rxy_ylow = numpy.array([[p.R for p in contour[0::2]]
+        self.R.ylow = numpy.array([[p.R for p in contour[0::2]]
             for contour in self.contours[1::2]])
 
-        self.Rxy_extra_upper = numpy.array([contour[-1].R
-            for contour in self.contours[1::2]])
-
-        self.Rxy_xlow = numpy.array([[p.R for p in contour[1::2]]
+        self.R.xlow = numpy.array([[p.R for p in contour[1::2]]
             for contour in self.contours[0::2]])
 
-        self.Rxy_extra_outer = numpy.array([p.R for p in self.contours[-1][1::2]])
-
-        self.Zxy = numpy.array( [[p.Z for p in contour[1::2]]
+        self.Z.centre = numpy.array( [[p.Z for p in contour[1::2]]
             for contour in self.contours[1::2]])
 
-        self.Zxy_ylow = numpy.array( [[p.Z for p in contour[0::2]]
+        self.Z.ylow = numpy.array( [[p.Z for p in contour[0::2]]
             for contour in self.contours[1::2]])
 
-        self.Zxy_extra_upper = numpy.array([contour[-1].Z
-            for contour in self.contours[1::2]])
-
-        self.Zxy_xlow = numpy.array([[p.Z for p in contour[1::2]]
+        self.Z.xlow = numpy.array([[p.Z for p in contour[1::2]]
             for contour in self.contours[0::2]])
 
-        self.Zxy_extra_outer = numpy.array([p.Z for p in self.contours[-1][1::2]])
-
-        self.Rcorners = numpy.array( [[p.R for p in contour[0::2]]
+        self.R.corners = numpy.array( [[p.R for p in contour[0::2]]
             for contour in self.contours[0::2]])
-        self.Zcorners = numpy.array( [[p.Z for p in contour[0::2]]
+        self.Z.corners = numpy.array( [[p.Z for p in contour[0::2]]
             for contour in self.contours[0::2]])
 
     def geometry(self):
@@ -301,7 +498,8 @@ class MeshRegion:
         Calculate geometrical quantities for this region
         """
 
-        self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
+        self.psixy = self.meshParent.equilibrium.psi(self.R, self.Z)
+        print(self.psixy)
         self.psixy_ylow = self.meshParent.equilibrium.psi(self.Rxy_ylow, self.Zxy_ylow)
         self.psixy_xlow = self.meshParent.equilibrium.psi(self.Rxy_xlow, self.Zxy_xlow)
         self.psicorners = self.meshParent.equilibrium.psi(self.Rcorners, self.Zcorners)

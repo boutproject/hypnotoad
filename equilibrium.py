@@ -5,6 +5,9 @@ the potential.
 
 import numpy
 from scipy.optimize import minimize_scalar, brentq, root
+from scipy.interpolate import interp1d
+from collections import OrderedDict
+from copy import deepcopy
 import warnings
 
 class Point2D:
@@ -188,23 +191,78 @@ class PsiContour:
 
 class EquilibriumRegion(PsiContour):
     """
-    Specialization of PsiContour for representing a separatrix segment. Includes members
-    to say if there is an X-point at the region boundary where the contour starts or ends.
+    Specialization of PsiContour for representing an equilibrium segment, which is a
+    poloidal segment based around a contour (normally a segment of a separatrix). Includes
+    members giving the connections to other regions and to list the X-points at the
+    boundaries where the contour starts or ends.
     """
-    xPointsAtStart = []
-    xPointsAtEnd = []
+    def __init__(self, name, nSegments, options, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+        self.nSegments = nSegments
+        self.options = options
+        self.nx = self.options['nx']
+        self.ny_noguards = self.options['ny']
+        self.y_boundary_guards = self.options['y_boundary_guards']
+
+        self.xPointsAtStart = []
+        self.xPointsAtEnd = []
+        self.connections = []
+        self.psi_boundaries = []
+
+        # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
+        # of each segment, so they both have length=nSegments+1
+        self.xPointsAtStart.append(None)
+        self.xPointsAtEnd.append(None)
+        for i in range(nSegments):
+            c = {'inner':None, 'outer':None, 'lower':None, 'upper':None}
+            if i > 0:
+                c['inner'] = (self.name, i - 1)
+            if i < nSegments - 1:
+                c['outer'] = (self.name, i + 1)
+            self.connections.append(c)
+            self.xPointsAtStart.append(None)
+            self.xPointsAtEnd.append(None)
 
     def fromPsiContour(self, contour):
-        result = EquilibriumRegion(contour.points, contour.psi, contour.psival)
-        result.xPointsAtStart = self.xPointsAtStart
-        result.xPointsAtEnd = self.xPointsAtEnd
+        result = EquilibriumRegion(self.name, self.nSegments, self.options,
+                contour.points, contour.psi, contour.psival)
+        result.xPointsAtStart = deepcopy(self.xPointsAtStart)
+        result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
+        result.connections = deepcopy(self.connections)
+        return result
+
+    def ny(self, radialIndex):
+        # Get ny for a segment of this EquilibriumRegion, including any y-boundary guard
+        # cells
+        result = self.ny_noguards
+        if self.connections[radialIndex]['lower'] is None:
+            result += self.y_boundary_guards
+        if self.connections[radialIndex]['upper'] is None:
+            result += self.y_boundary_guards
         return result
 
     def getRefined(self, *args, **kwargs):
         return self.fromPsiContour(super().getRefined(*args, **kwargs))
 
-    def getRegridded(self, *args, **kwargs):
-        return self.fromPsiContour(super().getRegridded(*args, **kwargs))
+    def getRegridded(self, *, radialIndex, **kwargs):
+        for wrong_argument in ['npoints', 'extend_lower', 'extend_upper']:
+            # these are valid arguments to PsiContour.getRegridded, but not to
+            # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its own
+            # ny and connections, so must use these
+            if wrong_argument in kwargs:
+                raise ValueError("'"+wrong_argument+"' should not be given as an "
+                        "argument to EquilibriumRegion.getRegridded")
+        if self.connections[radialIndex]['lower'] is None:
+            extend_lower = 2*self.y_boundary_guards
+        else:
+            extend_lower = 0
+        if self.connections[radialIndex]['upper'] is None:
+            extend_upper = 2*self.y_boundary_guards
+        else:
+            extend_upper = 0
+        return self.fromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
+            extend_lower=extend_lower, extend_upper=extend_upper, **kwargs))
 
 class Equilibrium:
     """
@@ -238,7 +296,24 @@ class Equilibrium:
         (function such that B_toroidal = fpol/R)
       - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a bounding
         box for the gridding
+      - self.regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
     """
+    def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
+        """
+        Make a connection between the upper edge of a certain segment of lowerRegion and
+        the lower edge of a certain segment of upperRegion.
+        """
+        # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
+        assert type(self.regions) == OrderedDict
+
+        assert self.regions[lowerRegion].connections[lowerSegment]['upper'] is None
+        assert self.regions[upperRegion].connections[upperSegment]['lower'] is None
+
+        self.regions[lowerRegion].connections[lowerSegment]['upper'] = (upperRegion,
+                                                                        upperSegment)
+        self.regions[upperRegion].connections[upperSegment]['lower'] = (lowerRegion,
+                                                                        lowerSegment)
+
     def findMinimum_1d(self, pos1, pos2, atol=1.e-14):
         coords = lambda s: pos1 + s*(pos2-pos1)
         result = minimize_scalar(lambda s: self.psi(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
@@ -356,6 +431,16 @@ class Equilibrium:
             warnings.warn('Warning: found',foundRoots,'roots but expected only',n)
 
         return roots
+
+    def readOption(self, name, default=None):
+        print('reading option', name, end='')
+        try:
+            value = self.options[name]
+            print(':', value)
+            return value
+        except KeyError:
+            print(' - not set - setting default:', default)
+            return default
 
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
             ncontours=40):

@@ -5,9 +5,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 import numpy
 import numbers
 from scipy.integrate import solve_ivp
-from scipy.interpolate import interp1d
-from scipy.optimize import brentq
-from equilibrium import Point2D, PsiContour
+from equilibrium import Point2D, PsiContour, EquilibriumRegion
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     """
@@ -201,9 +199,9 @@ class MeshRegion:
     Note that these regions include cell face and boundary points, so there are
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
-    def __init__(self, meshParent, myID, localNx, localNy, separatrix, psi_vals,
-            connections, radialIndex):
-        print('creating region', myID)
+    def __init__(self, meshParent, myID, equilibriumRegion, psi_vals, connections, radialIndex):
+        print('creating region', myID, '-',
+                equilibriumRegion.name+'('+str(radialIndex)+')')
 
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
@@ -211,15 +209,15 @@ class MeshRegion:
         # ID that Mesh uses to keep track of its MeshRegions
         self.myID = myID
 
-        # sizes of the grid in this MeshRegion, include boundary guard cells
-        self.nx = localNx
-        self.ny = localNy
-
         # psi values for radial grid
         self.psi_vals = psi_vals
 
         # EquilibriumRegion representing the segment associated with this region
-        self.separatrix = separatrix
+        self.equilibriumRegion = equilibriumRegion
+
+        # sizes of the grid in this MeshRegion, include boundary guard cells
+        self.nx = self.equilibriumRegion.nx[radialIndex]
+        self.ny = self.equilibriumRegion.ny(radialIndex)
 
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
@@ -230,11 +228,11 @@ class MeshRegion:
 
         # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
         # connected to another region
-        if connections['lower'] is None:
+        if self.connections['lower'] is None:
             self.y_guards_lower = meshParent.y_boundary_guards
         else:
             self.y_guards_lower = 0
-        if connections['upper'] is None:
+        if self.connections['upper'] is None:
             self.y_guards_upper = meshParent.y_boundary_guards
         else:
             self.y_guards_upper = 0
@@ -246,14 +244,14 @@ class MeshRegion:
         else:
             temp_psi_vals = self.psi_vals
         perp_points = followPerpendicular(meshParent.equilibrium.f_R,
-                meshParent.equilibrium.f_Z, self.separatrix[0],
+                meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
                 meshParent.equilibrium.psi_sep[0], temp_psi_vals)
         if self.radialIndex == 0:
             perp_points.reverse()
         for i,point in enumerate(perp_points):
             self.contours.append(PsiContour([point], meshParent.equilibrium.psi,
                 self.psi_vals[i]))
-        for p in self.separatrix[1:]:
+        for p in self.equilibriumRegion[1:]:
             perp_points = followPerpendicular(meshParent.equilibrium.f_R,
                     meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep[0],
                     temp_psi_vals)
@@ -305,28 +303,25 @@ class MeshRegion:
         # direction, the points that should be at the X-point will be slighly displaced,
         # and will not be consistent between regions. So replace these points with the
         # X-point position instead.
-        nstart = len(self.separatrix.xPointsAtStart)
-        nend = len(self.separatrix.xPointsAtEnd)
-        if self.radialIndex == 0:
-            if nstart > 0:
-                self.Rxy.corners[-1,0] = self.separatrix.xPointsAtStart[0].R
-                self.Zxy.corners[-1,0] = self.separatrix.xPointsAtStart[0].Z
-            if nend > 0:
-                self.Rxy.corners[-1,0] = self.separatrix.xPointsAtEnd[0].R
-                self.Zxy.corners[-1,0] = self.separatrix.xPointsAtEnd[0].Z
-        else:
-            if nstart >= self.radialIndex:
-                self.Rxy.corners[0,0] = self.separatrix.xPointsAtStart[0].R
-                self.Zxy.corners[0,0] = self.separatrix.xPointsAtStart[0].Z
-            if nstart > self.radialIndex:
-                self.Rxy.corners[-1,0] = self.separatrix.xPointsAtStart[0].R
-                self.Zxy.corners[-1,0] = self.separatrix.xPointsAtStart[0].Z
-            if nend >= self.radialIndex:
-                self.Rxy.corners[0,-1] = self.separatrix.xPointsAtEnd[0].R
-                self.Zxy.corners[0,-1] = self.separatrix.xPointsAtEnd[0].Z
-            if nend > self.radialIndex:
-                self.Rxy.corners[-1,-1] = self.separatrix.xPointsAtEnd[0].R
-                self.Zxy.corners[-1,-1] = self.separatrix.xPointsAtEnd[0].Z
+        xpoint = self.equilibriumRegion.xPointsAtStart[self.radialIndex]
+        if xpoint is not None:
+            self.Rxy.corners[0,0] = xpoint.R
+            self.Zxy.corners[0,0] = xpoint.Z
+
+        xpoint = self.equilibriumRegion.xPointsAtStart[self.radialIndex+1]
+        if xpoint is not None:
+            self.Rxy.corners[-1,0] = xpoint.R
+            self.Zxy.corners[-1,0] = xpoint.Z
+
+        xpoint = self.equilibriumRegion.xPointsAtEnd[self.radialIndex]
+        if xpoint is not None:
+            self.Rxy.corners[0,-1] = xpoint.R
+            self.Zxy.corners[0,-1] = xpoint.Z
+
+        xpoint = self.equilibriumRegion.xPointsAtEnd[self.radialIndex+1]
+        if xpoint is not None:
+            self.Rxy.corners[-1,-1] = xpoint.R
+            self.Zxy.corners[-1,-1] = xpoint.Z
 
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
@@ -561,6 +556,12 @@ class MeshRegion:
 class Mesh:
     """
     Mesh quantities to be written to a grid file for BOUT++
+
+    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions must
+    be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
+    outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
+    positioning in the global logically rectangular grid. Regions are allowed to not be
+    presen (if they would have size 0).
     """
     def __init__(self, equilibrium, meshOptions):
         self.meshOptions = meshOptions
@@ -778,23 +779,6 @@ class Mesh:
         # outer-x
         self.regions = {}
 
-        # Keep ranges of global indices for each region separately, because we don't want
-        # MeshRegion objects to depend on global indices
-        self.region_indices = {}
-        x_regions = (slice(0, self.nx_core, None),
-                     slice(self.nx_core, self.nx_core + self.nx_between, None),
-                     slice(self.nx_core + self.nx_between, self.nx, None))
-        y_sizes = [0,
-                   self.ny_inner_lower_divertor + self.y_boundary_guards,
-                   self.ny_inner_core,
-                   self.ny_inner_upper_divertor + self.upper_target_y_boundary_guards,
-                   self.ny_outer_upper_divertor + self.upper_target_y_boundary_guards,
-                   self.ny_outer_core,
-                   self.ny_outer_lower_divertor + self.y_boundary_guards]
-        y_startinds = numpy.cumsum(y_sizes)
-        y_regions = tuple(slice(y_startinds[i], y_startinds[i+1], None)
-                     for i in range(len(y_startinds)-1))
-
         # functions that set poloidal grid spacing:
         # - to use in divertor legs with X-point at start - sqrt of arc length in poloidal plane
         sfunc_leg_start = lambda s: s**0.5
@@ -802,11 +786,90 @@ class Mesh:
         sfunc_leg_end = lambda s: 1.-(1.-s)**0.5
         # - to use in core regions
         sfunc_core = lambda s: 0.5*(s**0.5 + 1.-(1.-s)**0.5)
+        # - to use in regions with no X-point (divertor targets at both ends)
+        sfunc_noX = lambda s: s
 
-        def get_sep(sepname, ny, connections, sfunc):
+        # Make consecutive numbering scheme for regions
+        regionlist = []
+        self.region_lookup = {}
+        for reg_name,eq_reg in equilibrium.regions.items():
+            for i in range(eq_reg.nSegments):
+                region_number = len(regionlist)
+                regionlist.append((reg_name, i))
+                self.region_lookup[(reg_name, i)] = region_number
+        # Get connections between regions
+        connections = {}
+        psi_vals = {}
+        for region_id,(eq_reg,i) in enumerate(regionlist):
+            connections[region_id] = {}
+            region = equilibrium.regions[eq_reg]
+            c = region.connections[i]
+            for key, val in c.items():
+                if val is not None:
+                    connections[region_id][key] = self.region_lookup[val]
+                else:
+                    connections[region_id][key] = None
+            psi_vals[region_id] = numpy.linspace(region.psi_boundaries[i],
+                    region.psi_boundaries[i+1], 2*region.nx[i]+1)
+
+        # Keep ranges of global indices for each region separately, because we don't want
+        # MeshRegion objects to depend on global indices
+        region = next(iter(self.equilibrium.regions.values())) # get first region from self.equilibrium.regions
+        assert all([r.nx == region.nx for r in self.equilibrium.regions.values()])
+        x_sizes = [0] + list(region.nx)
+        x_startinds = numpy.cumsum(x_sizes)
+        x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
+                     for i in range(len(x_startinds)-1))
+        y_total = 0
+        y_regions = {}
+        for regname, region in self.equilibrium.regions.items():
+            # all segments must have the same ny, i.e. same number of y-boundary guard
+            # cells
+            this_ny = region.ny(0)
+            assert all(region.ny(i) == this_ny for i in range(region.nSegments))
+
+            y_total_new = y_total + this_ny
+            reg_slice = slice(y_total, y_total_new, None)
+            y_total = y_total_new
+            y_regions[regname] = reg_slice
+
+        self.region_indices = {}
+        for reg_name in self.equilibrium.regions:
+            for i in range(len(x_regions)):
+                self.region_indices[self.region_lookup[(reg_name, i)]] = numpy.index_exp[
+                        x_regions[i], y_regions[reg_name]]
+
+        for eq_region in self.equilibrium.regions.values():
+            for i in range(eq_region.nSegments):
+                region_id = self.region_lookup[(eq_region.name,i)]
+                if (eq_region.connections[i]['lower'] is None and
+                        eq_region.connections[i]['upper'] is None):
+                    lower_guards = self.y_boundary_guards
+                    upper_guards = self.y_boundary_guards
+                    sfunc = sfunc_noX
+                elif eq_region.connections[i]['lower'] is None:
+                    lower_guards = self.y_boundary_guards
+                    upper_guards = 0
+                    sfunc = sfunc_leg_end
+                elif eq_region.connections[i]['upper'] is None:
+                    upper_guards = self.y_boundary_guards
+                    lower_guards = 0
+                    sfunc = sfunc_leg_start
+                else:
+                    lower_guards = 0
+                    upper_guards = 0
+                    sfunc = sfunc_core
+                eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i,
+                        sfunc=sfunc)
+                self.regions[region_id] = MeshRegion(self, region_id,
+                        eq_region_with_boundaries, psi_vals[region_id],
+                        connections[region_id], i)
+
+        def get_equilib_region(regname, segment, ny, sfunc):
             """
-            Utility function to wrap up adding guard cells to separatrix when necessary.
+            Utility function to wrap up adding guard cells when necessary.
             """
+            connections = self.equilibrium.regions[regname].connections[segment]
             if connections['lower'] is None:
                 lower_guards = self.y_boundary_guards
             else:
@@ -815,414 +878,11 @@ class Mesh:
                 upper_guards = self.y_boundary_guards
             else:
                 upper_guards = 0
-            sep = self.equilibrium.separatrix[sepname].getRegridded(2*ny+1,
+            reg = self.equilibrium.regions[regname].getRegridded(2*ny+1,
                     extend_lower=2*lower_guards, extend_upper=2*upper_guards, sfunc=sfunc)
-            return sep, ny + lower_guards + upper_guards
+            return reg, ny + lower_guards + upper_guards
 
         nxpoints = len(self.equilibrium.x_points)
-
-        # Region 1 - inner lower PF
-        # Region 2 - inner lower between separatrices
-        # Region 3 - inner lower SOL
-        if self.ny_inner_lower_divertor > 0:
-            if self.nx_core > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_between > 0:
-                    connections['outer'] = 2 # inner lower between separatrix region
-                elif self.nx_sol > 0:
-                    connections['outer'] = 3 # inner lower SOL
-                else:
-                    connections['outer'] = None
-                connections['lower'] = None
-                if self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 14 # outer lower PF
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('inner_lower_divertor',
-                        self.ny_inner_lower_divertor, connections, sfunc_leg_end)
-                self.regions[1] = MeshRegion(self, 1, self.nx_core, localNy, sep,
-                        self.psi_vals_lower_pf, connections, 0)
-                self.region_indices[1] = (numpy.index_exp[x_regions[0], y_regions[0]])
-            if self.nx_between > 0:
-                connections = {}
-                if self.nx_core > 0:
-                    connections['inner'] = 1 # inner lower PF
-                else:
-                    connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 3 # inner lower SOL
-                else:
-                    connections['outer'] = None
-                connections['lower'] = None
-                if self.ny_inner_core > 0:
-                    connections['upper'] = 5 # inner between separatrix region
-                elif self.ny_outer_core > 0:
-                    connections['upper'] = 12 # outer between separatrix region
-                elif self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 15 # outer lower between separatrix region
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('inner_lower_divertor',
-                        self.ny_inner_lower_divertor, connections, sfunc_leg_end)
-                self.regions[2] = MeshRegion(self, 2, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, 1)
-                self.region_indices[2] = (numpy.index_exp[x_regions[1], y_regions[0]])
-            if self.nx_sol > 0:
-                connections = {}
-                if self.nx_between > 0:
-                    connections['inner'] = 2 # inner lower between separatrix region
-                elif self.nx_core > 0:
-                    connections['inner'] = 1 # inner lower PF
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                connections['lower'] = None
-                if self.ny_inner_core > 0:
-                    connections['upper'] = 6 # inner SOL
-                elif self.ny_inner_upper_divertor > 0:
-                    connections['upper'] = 8 # inner upper SOL
-                elif self.ny_outer_upper_divertor > 0:
-                    # this probably shouldn't happen, but if there is no upper inner leg,
-                    # but there is an upper outer leg, we can't connect to the outer SOL,
-                    # so there must be a limiter/divertor plate going right up to the
-                    # upper X-point
-                    connections['upper'] = None
-                elif self.ny_outer_core > 0:
-                    connections['upper'] = 13 # outer SOL
-                elif self.ny_lower_outer_divertor > 0:
-                    connections['upper'] = 16 # outer lower SOL
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('inner_lower_divertor',
-                        self.ny_inner_lower_divertor, connections, sfunc_leg_end)
-                self.regions[3] = MeshRegion(self, 3, self.nx_sol, localNy, sep,
-                        self.psi_vals_inner_sol, connections, 2)
-                self.region_indices[3] = (numpy.index_exp[x_regions[2], y_regions[0]])
-
-        # Region 4 - inner core
-        # Region 5 - inner between separatrices
-        # Region 6 - inner SOL
-        if self.ny_inner_core > 0:
-            if self.nx_core > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_between > 0:
-                    connections['outer'] = 5 # inner between separatrix region
-                elif self.nx_sol > 0:
-                    connections['outer'] = 6 # inner SOL
-                else:
-                    connections['outer'] = None
-                if self.ny_outer_core > 0:
-                    connections['lower'] = 11 # outer core
-                    connections['upper'] = 11 # outer core
-                else:
-                    connections['lower'] = 4 # periodic inner core
-                    connections['upper'] = 4 # periodic inner core
-                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
-                        sfunc_core)
-                self.regions[4] = MeshRegion(self, 4, self.nx_core, localNy, sep,
-                        self.psi_vals_core, connections, 0)
-                self.region_indices[4] = (numpy.index_exp[x_regions[0], y_regions[1]])
-            if self.nx_between > 0:
-                connections = {}
-                if self.nx_core > 0:
-                    connections['inner'] = 4 # inner core
-                else:
-                    connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 6 # inner SOL
-                else:
-                    connections['outer'] = None
-                if self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 2 # inner lower between separatrix region
-                else:
-                    connections['lower'] = None
-                if self.ny_outer_core > 0:
-                    connections['upper'] = 12 # outer between separatrix region
-                elif self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 15 # outer lower between separatrix region
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
-                        sfunc_core)
-                self.regions[5] = MeshRegion(self, 5, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, 1)
-                self.region_indices[5] = (numpy.index_exp[x_regions[1], y_regions[1]])
-            if self.nx_sol > 0:
-                connections = {}
-                if self.nx_between > 0:
-                    connections['inner'] = 5 # inner between separatrix region
-                elif self.nx_core > 0:
-                    connections['inner'] = 4 # inner core
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                if self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 3 # inner lower SOL
-                else:
-                    connections['lower'] = None
-                if self.ny_inner_upper_divertor > 0:
-                    connections['upper'] = 8 # inner upper SOL
-                elif self.ny_outer_upper_divertor > 0:
-                    # this probably shouldn't happen, but if there is no upper inner leg,
-                    # but there is an upper outer leg, we can't connect to the outer SOL,
-                    # so there must be a limiter/divertor plate going right up to the
-                    # upper X-point
-                    connections['upper'] = None
-                elif self.ny_outer_core > 0:
-                    connections['upper'] = 13 # outer SOL
-                elif self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 16 # outer lower SOL
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('inner_core', self.ny_inner_core, connections,
-                        sfunc_core)
-                self.regions[6] = MeshRegion(self, 6, self.nx_sol, localNy, sep,
-                        self.psi_vals_inner_sol, connections, 2)
-                self.region_indices[6] = (numpy.index_exp[x_regions[2], y_regions[1]])
-
-        # Region 7 - inner upper PF
-        # Region 8 - inner upper SOL
-        nx_upper_pf = self.nx_between + self.nx_core
-        if self.ny_inner_upper_divertor > 0:
-            if nx_upper_pf > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 8 # inner upper SOL
-                else:
-                    connections['outer'] = None
-                if self.ny_outer_upper_divertor > 0:
-                    connections['lower'] = 9 # outer upper PF
-                else:
-                    connections['lower'] = None
-                connections['upper'] = None
-                sep, localNy = get_sep('inner_upper_divertor',
-                        self.ny_inner_upper_divertor, connections, sfunc_leg_start)
-                self.regions[7] = MeshRegion(self, 7, nx_upper_pf, localNy, sep,
-                        self.psi_vals_upper_pf, connections, 0)
-                self.region_indices[7] = (numpy.index_exp[0:nx_upper_pf, y_regions[2]])
-            if self.nx_sol > 0:
-                connections = {}
-                if nx_upper_pf > 0:
-                    connections['inner'] = 7 # inner upper PF
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                if self.ny_inner_core > 0:
-                    connections['lower'] = 6 # inner SOL
-                elif self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 3 # inner lower SOL
-                else:
-                    connections['lower'] = None
-                connections['upper'] = None
-                sep, localNy = get_sep('inner_upper_divertor',
-                        self.ny_inner_upper_divertor, connections, sfunc_leg_start)
-                self.regions[8] = MeshRegion(self, 8, self.nx_sol, localNy, sep,
-                        self.psi_vals_inner_sol, connections, 1)
-                self.region_indices[8] = (numpy.index_exp[nx_upper_pf:self.nx, y_regions[2]])
-
-        # Region 9 - outer upper PF
-        # Region 10 - outer upper SOL
-        if self.ny_outer_upper_divertor > 0:
-            if nx_upper_pf > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 10 # outer upper SOL
-                else:
-                    connections['outer'] = None
-                connections['lower'] = None
-                if self.ny_outer_upper_divertor > 0:
-                    connections['upper'] = 7 # inner upper PF
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('outer_upper_divertor',
-                        self.ny_outer_upper_divertor, connections, sfunc_leg_end)
-                self.regions[9] = MeshRegion(self, 9, nx_upper_pf, localNy, sep,
-                        self.psi_vals_upper_pf, connections, 0)
-                self.region_indices[9] = (numpy.index_exp[0:nx_upper_pf, y_regions[3]])
-            if self.nx_sol > 0:
-                connections = {}
-                if nx_upper_pf > 0:
-                    connections['inner'] = 9 # outer upper PF
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                connections['lower'] = None
-                if self.ny_outer_core > 0:
-                    connections['upper'] = 13 # outer SOL
-                elif self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 16 # outer lower SOL
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('outer_upper_divertor',
-                        self.ny_outer_upper_divertor, connections, sfunc_leg_end)
-                self.regions[10] = MeshRegion(self, 10, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer_sol, connections, 1)
-                self.region_indices[10] = (numpy.index_exp[nx_upper_pf:self.nx, y_regions[3]])
-
-        # Region 11 - outer core
-        # Region 12 - outer between separatrices
-        # Region 13 - outer SOL
-        if self.ny_outer_core > 0:
-            if self.nx_core > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_between > 0:
-                    connections['outer'] = 12 # outer between separatrix region
-                elif self.nx_sol > 0:
-                    connections['outer'] = 13 # outer SOL region
-                else:
-                    connections['outer'] = None
-                if self.ny_inner_core > 0:
-                    connections['lower'] = 4 # inner core
-                    connections['upper'] = 4 # inner core
-                else:
-                    connections['lower'] = 11 # outer core
-                    connections['upper'] = 11 # outer core
-                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
-                        sfunc_core)
-                self.regions[11] = MeshRegion(self, 11, self.nx_core, localNy, sep,
-                        self.psi_vals_core, connections, 0)
-                self.region_indices[11] = (numpy.index_exp[x_regions[0], y_regions[4]])
-            if self.nx_between > 0:
-                connections = {}
-                if self.nx_core > 0:
-                    connections['inner'] = 11 # outer core
-                else:
-                    connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 13 # outer SOL region
-                else:
-                    connections['outer'] = None
-                if self.ny_inner_core > 0:
-                    connections['lower'] = 5 # inner between separatrix region
-                elif self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 2 # inner lower between separatrix region
-                else:
-                    connections['lower'] = None
-                if self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 15 # outer lower between separatrix region
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
-                        sfunc_core)
-                self.regions[12] = MeshRegion(self, 12, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, 1)
-                self.region_indices[12] = (numpy.index_exp[x_regions[1], y_regions[4]])
-            if self.nx_sol > 0:
-                connections = {}
-                if self.nx_between > 0:
-                    connections['inner'] = 12 # outer between separatrix region
-                elif self.nx_core > 0:
-                    connections['inner'] = 11 # outer core
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                if self.ny_outer_upper_divertor > 0:
-                    connections['lower'] = 10
-                elif self.ny_inner_upper_divertor > 0:
-                    # this probably shouldn't happen, but if there is no upper outer leg,
-                    # but there is an upper inner leg, we can't connect to the inner SOL,
-                    # so there must be a limiter/divertor plate going right up to the
-                    # upper X-point
-                    connections['lower'] = None
-                elif self.ny_inner_core > 0:
-                    connections['lower'] = 6 # inner SOL
-                elif self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 3 # inner lower SOL
-                else:
-                    connections['lower'] = None
-                if self.ny_outer_lower_divertor > 0:
-                    connections['upper'] = 16 # outer lower SOL
-                else:
-                    connections['upper'] = None
-                sep, localNy = get_sep('outer_core', self.ny_outer_core, connections,
-                        sfunc_core)
-                self.regions[13] = MeshRegion(self, 13, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer_sol, connections, 2)
-                self.region_indices[13] = (numpy.index_exp[x_regions[2], y_regions[4]])
-
-        # Region 14 - outer lower PF
-        # Region 15 - outer lower between separatrices
-        # Region 16 - outer lower SOL
-        if self.ny_outer_lower_divertor > 0:
-            if self.nx_core > 0:
-                connections = {}
-                connections['inner'] = None
-                if self.nx_between > 0:
-                    connections['outer'] = 15 # outer lower between separatrix region
-                elif self.nx_sol > 0:
-                    connections['outer'] = 16 # outer lower SOL
-                else:
-                    connections['outer'] = None
-                if self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 1 # inner lower PF
-                else:
-                    connections['lower'] = None
-                connections['upper'] = None
-                sep, localNy = get_sep('outer_lower_divertor',
-                        self.ny_outer_lower_divertor, connections, sfunc_leg_start)
-                self.regions[14] = MeshRegion(self, 14, self.nx_core, localNy, sep,
-                        self.psi_vals_lower_pf, connections, 0)
-                self.region_indices[14] = (numpy.index_exp[x_regions[0], y_regions[5]])
-            if self.nx_between > 0:
-                connections = {}
-                if self.nx_core > 0:
-                    connections['inner'] = 14 # outer lower PF
-                else:
-                    connections['inner'] = None
-                if self.nx_sol > 0:
-                    connections['outer'] = 16 # outer lower SOL
-                else:
-                    connections['outer'] = None
-                if self.ny_outer_core > 0:
-                    connections['lower'] = 12 # outer between separatrix region
-                elif self.ny_inner_core > 0:
-                    connections['lower'] = 5 # inner between separatrix region
-                elif self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 2 # inner lower between separatrix region
-                else:
-                    connections['lower'] = None
-                connections['upper'] = None
-                sep, localNy = get_sep('outer_lower_divertor',
-                        self.ny_outer_lower_divertor, connections, sfunc_leg_start)
-                self.regions[15] = MeshRegion(self, 15, self.nx_between, localNy, sep,
-                        self.psi_vals_between, connections, 1)
-                self.region_indices[15] = (numpy.index_exp[x_regions[1], y_regions[5]])
-            if self.nx_sol > 0:
-                connections = {}
-                if self.nx_between > 0:
-                    connections['inner'] = 15 # outer lower between separatrix region
-                elif self.nx_core > 0:
-                    connections['inner'] = 14 # outer lower PF
-                else:
-                    connections['inner'] = None
-                connections['outer'] = None
-                if self.ny_outer_core > 0:
-                    connections['lower'] = 13 # outer SOL
-                elif self.ny_outer_upper_divertor > 0:
-                    connections['lower'] = 10 # outer upper SOL
-                elif self.ny_inner_upper_divertor > 0:
-                    # this probably shouldn't happen, but if there is no upper outer leg,
-                    # but there is an upper inner leg, we can't connect to the inner SOL,
-                    # so there must be a limiter/divertor plate going right up to the
-                    # upper X-point
-                    connections['lower'] = None
-                elif self.ny_inner_core > 0:
-                    connections['lower'] = 6 # inner SOL
-                elif self.ny_inner_lower_divertor > 0:
-                    connections['lower'] = 3 # inner lower SOL
-                else:
-                    connections['lower'] = None
-                connections['upper'] = None
-                sep, localNy = get_sep('outer_lower_divertor',
-                        self.ny_outer_lower_divertor, connections, sfunc_leg_start)
-                self.regions[16] = MeshRegion(self, 16, self.nx_sol, localNy, sep,
-                        self.psi_vals_outer_sol, connections, 2)
-                self.region_indices[16] = (numpy.index_exp[x_regions[2], y_regions[5]])
 
         # constant spacing in y for now
         self.dy_scalar = 2.*numpy.pi / (self.ny_inner_lower_divertor + self.ny_inner_core

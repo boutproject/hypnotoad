@@ -170,7 +170,7 @@ class Equilibrium:
 
         R = numpy.linspace(Rmin, Rmax, npoints)
         Z = numpy.linspace(Zmin, Zmax, npoints)
-        contours = pyplot.contour(
+        ax = pyplot.axes(aspect='equal')
+        contours = ax.contour(
                 R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
         pyplot.clabel(contours, inline=False, fmt='%1.3g')
-        pyplot.axes().set_aspect('equal')

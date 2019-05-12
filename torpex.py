@@ -15,7 +15,7 @@ plotStuff = True
 
 import numpy
 import warnings
-from mesh import Mesh, MeshContour, Point2D
+from mesh import Mesh, SeparatrixContour, Point2D
 from equilibrium import Equilibrium
 if plotStuff:
     from matplotlib import pyplot
@@ -143,11 +143,33 @@ class TORPEXMagneticField(Equilibrium):
         for point in boundaryPoints:
             legR = xpoint.R + s*(point.R - xpoint.R)
             legZ = xpoint.Z + s*(point.Z - xpoint.Z)
-            leg = MeshContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi,
+            leg = SeparatrixContour([Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi,
                               self.psi_sep[0])
             leg = leg.getRefined(atol=atol, width=0.02)
             legs.append(leg)
 
+        # Make the SeparatrixContours go around clockwise, and record the x-point position
+        # Record X-point twice in the lower legs because we want a 'double-null'
+        # equilibrium with upper and lower divertor, but as if both X-points are in the
+        # same position so there's no core.
+
+        # inner lower
+        legs[0].reverse()
+        legs[0].xPointsAtEnd.append(xpoint)
+        legs[0].xPointsAtEnd.append(xpoint)
+
+        # inner upper
+        legs[1].xPointsAtStart.append(xpoint)
+        legs[1].xPointsAtStart.append(xpoint)
+
+        # outer upper
+        legs[2].reverse()
+        legs[2].xPointsAtEnd.append(xpoint)
+
+        # outer lower
+        legs[3].xPointsAtStart.append(xpoint)
+
+        # Save the separatrix segments
         # note legs are ordered in theta
         self.separatrix = {'inner_lower_divertor': legs[0],
                            'inner_upper_divertor': legs[1],

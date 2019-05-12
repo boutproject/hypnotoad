@@ -6,7 +6,202 @@ the potential.
 import numpy
 from scipy.optimize import minimize_scalar, brentq, root
 import warnings
-from mesh import Point2D, MeshContour, calc_distance
+
+class Point2D:
+    """
+    A point in 2d space.
+    Can be added, subtracted, multiplied by scalar
+    """
+    def __init__(self, R, Z):
+        self.R = R
+        self.Z = Z
+
+    def __add__(self, other):
+        return Point2D(self.R+other.R, self.Z+other.Z)
+
+    def __sub__(self, other):
+        return Point2D(self.R-other.R, self.Z-other.Z)
+
+    def __mul__(self, other):
+        return Point2D(self.R*other, self.Z*other)
+
+    def __rmul__(self, other):
+        return Point2D(self.R*other, self.Z*other)
+
+    def __truediv__(self, other):
+        return Point2D(self.R/other, self.Z/other)
+
+    def __iter__(self):
+        """
+        Along with __next__() allows Point2D class to be treated like a tuple, e.g.
+        p = Point2D(1., 0.)
+        val = f(*p)
+        where f is a function that takes two arguments
+        """
+        self.iterStep = 0
+        return self
+
+    def __next__(self):
+        if self.iterStep == 0:
+            self.iterStep = 1
+            return self.R
+        elif self.iterStep == 1:
+            self.iterStep = 2
+            return self.Z
+        else:
+            raise StopIteration
+
+    def __repr__(self):
+        """
+        Allow Point2D to be printed
+        """
+        return 'Point2D('+str(self.R)+','+str(self.Z)+')'
+
+def calc_distance(p1, p2):
+    d = p2 - p1
+    return numpy.sqrt(d.R**2 + d.Z**2)
+
+class PsiContour:
+    """
+    Represents a contour as a collection of points.
+    Includes methods for interpolation.
+    Mostly behaves like a list
+    """
+    def __init__(self, points, psi, psival):
+        self.points = points
+
+        self.distance = [0.]
+        for i in range(1,len(self.points)):
+            self.distance.append(
+                    self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
+
+        # Function that evaluates the vector potential at R,Z
+        self.psi = psi
+
+        # Value of vector potential on this contour
+        self.psival = psival
+
+    def __iter__(self):
+        return self.points.__iter__()
+
+    def __str__(self):
+        return self.points.__str__()
+
+    def __getitem__(self, key):
+        return self.points.__getitem__(key)
+
+    def __len__(self):
+        return self.points.__len__()
+
+    def append(self, point):
+        self.points.append(point)
+        self.distance.append(
+                self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
+
+    def reverse(self):
+        self.points.reverse()
+        self.distance.reverse()
+        self.distance = [self.distance[0] - d for d in self.distance]
+
+    def refine(self, *args, **kwargs):
+        new = self.getRefined(*args, **kwargs)
+        self.points = new.points
+        self.distance = new.distance
+
+    def getRefined(self, width=1.e-5, atol=2.e-8):
+        f = lambda R,Z: self.psi(R, Z) - self.psival
+
+        def perpLine(p, tangent, w):
+            # p - point through which to draw perpLine
+            # tangent - vector tangent to original curve, result will be perpendicular to this
+            # w - width on either side of p to draw the perpLine to
+            modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
+            perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
+            return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
+
+        def refinePoint(p, tangent):
+            if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
+                # don't need to refine
+                return p
+            converged = False
+            w = width
+            sp = []
+            ep = []
+            while not converged:
+                try:
+                    pline = perpLine(p, tangent, w)
+                    sp.append(pline(0.))
+                    ep.append(pline(1.))
+                    snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
+                    converged = info.converged
+                except ValueError:
+                    pass
+                w /= 2.
+                if w < atol:
+                    raise ValueError("Could not find interval to refine point")
+
+            return pline(snew)
+
+        newpoints = []
+        newpoints.append(refinePoint(self.points[0], self.points[1] - self.points[0]))
+        for i,p in enumerate(self.points[1:-1]):
+            newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
+        newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
+
+        return PsiContour(newpoints, self.psi, self.psival)
+
+    def interpFunction(self):
+        distance = numpy.array(numpy.float64(self.distance))
+        R = numpy.array(numpy.float64([p.R for p in self.points]))
+        Z = numpy.array(numpy.float64([p.Z for p in self.points]))
+        interpR = interp1d(distance, R, kind='cubic',
+                           assume_sorted=True, fill_value='extrapolate')
+        interpZ = interp1d(distance, Z, kind='cubic',
+                           assume_sorted=True, fill_value='extrapolate')
+        total_distance = distance[-1]
+        return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
+
+    def getRegridded(self, npoints, width=1.e-5, atol=2.e-8, sfunc=None, extend_lower=0,
+            extend_upper=0):
+        """
+        Interpolate onto set of npoints points, then refine positions.
+        By default points are uniformly spaced, this can be changed by passing 'sfunc'
+        which replaces the uniform interval 's' with 's=sfunc(s)'.
+        'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
+        number of points.
+        Returns a new PsiContour.
+        """
+        s = numpy.linspace(-extend_lower/(npoints-1),
+                (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)
+        if sfunc is not None:
+            s = sfunc(s)
+        interp = self.interpFunction()
+        new_contour = PsiContour([interp(x) for x in s], self.psi, self.psival)
+        return new_contour.getRefined(width, atol)
+
+    def plot(self, *args, **kwargs):
+        from matplotlib import pyplot
+        pyplot.plot([x.R for x in self], [x.Z for x in self], *args, **kwargs)
+
+class EquilibriumRegion(PsiContour):
+    """
+    Specialization of PsiContour for representing a separatrix segment. Includes members
+    to say if there is an X-point at the region boundary where the contour starts or ends.
+    """
+    xPointsAtStart = []
+    xPointsAtEnd = []
+
+    def fromPsiContour(self, contour):
+        result = EquilibriumRegion(contour.points, contour.psi, contour.psival)
+        result.xPointsAtStart = self.xPointsAtStart
+        result.xPointsAtEnd = self.xPointsAtEnd
+        return result
+
+    def getRefined(self, *args, **kwargs):
+        return self.fromPsiContour(super().getRefined(*args, **kwargs))
+
+    def getRegridded(self, *args, **kwargs):
+        return self.fromPsiContour(super().getRegridded(*args, **kwargs))
 
 class Equilibrium:
     """

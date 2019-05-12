@@ -7,202 +7,7 @@ import numbers
 from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
-
-class Point2D:
-    """
-    A point in 2d space.
-    Can be added, subtracted, multiplied by scalar
-    """
-    def __init__(self, R, Z):
-        self.R = R
-        self.Z = Z
-
-    def __add__(self, other):
-        return Point2D(self.R+other.R, self.Z+other.Z)
-
-    def __sub__(self, other):
-        return Point2D(self.R-other.R, self.Z-other.Z)
-
-    def __mul__(self, other):
-        return Point2D(self.R*other, self.Z*other)
-
-    def __rmul__(self, other):
-        return Point2D(self.R*other, self.Z*other)
-
-    def __truediv__(self, other):
-        return Point2D(self.R/other, self.Z/other)
-
-    def __iter__(self):
-        """
-        Along with __next__() allows Point2D class to be treated like a tuple, e.g.
-        p = Point2D(1., 0.)
-        val = f(*p)
-        where f is a function that takes two arguments
-        """
-        self.iterStep = 0
-        return self
-
-    def __next__(self):
-        if self.iterStep == 0:
-            self.iterStep = 1
-            return self.R
-        elif self.iterStep == 1:
-            self.iterStep = 2
-            return self.Z
-        else:
-            raise StopIteration
-
-    def __repr__(self):
-        """
-        Allow Point2D to be printed
-        """
-        return 'Point2D('+str(self.R)+','+str(self.Z)+')'
-
-def calc_distance(p1, p2):
-    d = p2 - p1
-    return numpy.sqrt(d.R**2 + d.Z**2)
-
-class MeshContour:
-    """
-    Represents a contour as a collection of points.
-    Includes methods for interpolation.
-    Mostly behaves like a list
-    """
-    def __init__(self, points, psi, psival):
-        self.points = points
-
-        self.distance = [0.]
-        for i in range(1,len(self.points)):
-            self.distance.append(
-                    self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
-
-        # Function that evaluates the vector potential at R,Z
-        self.psi = psi
-
-        # Value of vector potential on this contour
-        self.psival = psival
-
-    def __iter__(self):
-        return self.points.__iter__()
-
-    def __str__(self):
-        return self.points.__str__()
-
-    def __getitem__(self, key):
-        return self.points.__getitem__(key)
-
-    def __len__(self):
-        return self.points.__len__()
-
-    def append(self, point):
-        self.points.append(point)
-        self.distance.append(
-                self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
-
-    def reverse(self):
-        self.points.reverse()
-        self.distance.reverse()
-        self.distance = [self.distance[0] - d for d in self.distance]
-
-    def refine(self, *args, **kwargs):
-        new = self.getRefined(*args, **kwargs)
-        self.points = new.points
-        self.distance = new.distance
-
-    def getRefined(self, width=1.e-5, atol=2.e-8):
-        f = lambda R,Z: self.psi(R, Z) - self.psival
-
-        def perpLine(p, tangent, w):
-            # p - point through which to draw perpLine
-            # tangent - vector tangent to original curve, result will be perpendicular to this
-            # w - width on either side of p to draw the perpLine to
-            modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
-            perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
-            return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
-
-        def refinePoint(p, tangent):
-            if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
-                # don't need to refine
-                return p
-            converged = False
-            w = width
-            sp = []
-            ep = []
-            while not converged:
-                try:
-                    pline = perpLine(p, tangent, w)
-                    sp.append(pline(0.))
-                    ep.append(pline(1.))
-                    snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
-                    converged = info.converged
-                except ValueError:
-                    pass
-                w /= 2.
-                if w < atol:
-                    raise ValueError("Could not find interval to refine point")
-
-            return pline(snew)
-
-        newpoints = []
-        newpoints.append(refinePoint(self.points[0], self.points[1] - self.points[0]))
-        for i,p in enumerate(self.points[1:-1]):
-            newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
-        newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
-
-        return MeshContour(newpoints, self.psi, self.psival)
-
-    def interpFunction(self):
-        distance = numpy.array(numpy.float64(self.distance))
-        R = numpy.array(numpy.float64([p.R for p in self.points]))
-        Z = numpy.array(numpy.float64([p.Z for p in self.points]))
-        interpR = interp1d(distance, R, kind='cubic',
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, Z, kind='cubic',
-                           assume_sorted=True, fill_value='extrapolate')
-        total_distance = distance[-1]
-        return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
-
-    def getRegridded(self, npoints, width=1.e-5, atol=2.e-8, sfunc=None, extend_lower=0,
-            extend_upper=0):
-        """
-        Interpolate onto set of npoints points, then refine positions.
-        By default points are uniformly spaced, this can be changed by passing 'sfunc'
-        which replaces the uniform interval 's' with 's=sfunc(s)'.
-        'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
-        number of points.
-        Returns a new MeshContour.
-        """
-        s = numpy.linspace(-extend_lower/(npoints-1),
-                (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)
-        if sfunc is not None:
-            s = sfunc(s)
-        interp = self.interpFunction()
-        new_contour = MeshContour([interp(x) for x in s], self.psi, self.psival)
-        return new_contour.getRefined(width, atol)
-
-    def plot(self, *args, **kwargs):
-        from matplotlib import pyplot
-        pyplot.plot([x.R for x in self], [x.Z for x in self], *args, **kwargs)
-
-class SeparatrixContour(MeshContour):
-    """
-    Specialization of MeshContour for representing a separatrix segment. Includes members
-    to say if there is an X-point at the region boundary where the contour starts or ends.
-    """
-    xPointsAtStart = []
-    xPointsAtEnd = []
-
-    def fromMeshContour(self, contour):
-        result = SeparatrixContour(contour.points, contour.psi, contour.psival)
-        result.xPointsAtStart = self.xPointsAtStart
-        result.xPointsAtEnd = self.xPointsAtEnd
-        return result
-
-    def getRefined(self, *args, **kwargs):
-        return self.fromMeshContour(super().getRefined(*args, **kwargs))
-
-    def getRegridded(self, *args, **kwargs):
-        return self.fromMeshContour(super().getRegridded(*args, **kwargs))
+from equilibrium import Point2D, PsiContour
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     """
@@ -413,7 +218,7 @@ class MeshRegion:
         # psi values for radial grid
         self.psi_vals = psi_vals
 
-        # MeshContour representing the separatrix segment associated with this region
+        # EquilibriumRegion representing the segment associated with this region
         self.separatrix = separatrix
 
         # Dictionary that specifies whether a boundary is connected to another region or
@@ -446,7 +251,7 @@ class MeshRegion:
         if self.radialIndex == 0:
             perp_points.reverse()
         for i,point in enumerate(perp_points):
-            self.contours.append(MeshContour([point], meshParent.equilibrium.psi,
+            self.contours.append(PsiContour([point], meshParent.equilibrium.psi,
                 self.psi_vals[i]))
         for p in self.separatrix[1:]:
             perp_points = followPerpendicular(meshParent.equilibrium.f_R,
@@ -495,7 +300,7 @@ class MeshRegion:
         self.Zxy.corners = numpy.array( [[p.Z for p in contour[0::2]]
             for contour in self.contours[0::2]])
 
-        # Fix up the corner values at the X-points. Because the MeshContours have to start
+        # Fix up the corner values at the X-points. Because the PsiContour have to start
         # slightly away from the X-point in order for the integrator to go in the right
         # direction, the points that should be at the X-point will be slighly displaced,
         # and will not be consistent between regions. So replace these points with the
@@ -526,10 +331,10 @@ class MeshRegion:
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
         # neighbour. They should be close, but aren't guaranteed to be identical already
-        # because they were taken from separate MeshContour obects. Use the value from the
+        # because they were taken from separate PsiContour obects. Use the value from the
         # upper neighbour to ensure consistency.
         # Also do similarly for the corner arrays.
-        # Don't need to do this for the x-boundaries, because there the MeshContour
+        # Don't need to do this for the x-boundaries, because there the PsiContour
         # objects are shared between neighbouring regions.
         #
         # This needs to be a separate method from fillRZ() so that it can be called after

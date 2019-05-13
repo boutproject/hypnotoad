@@ -208,7 +208,8 @@ class EquilibriumRegion(PsiContour):
         self.xPointsAtStart = []
         self.xPointsAtEnd = []
         self.connections = []
-        self.psi_boundaries = []
+        self.psi_vals = []
+        self.sfunc = None
 
         # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
         # of each segment, so they both have length=nSegments+1
@@ -230,6 +231,7 @@ class EquilibriumRegion(PsiContour):
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.connections = deepcopy(self.connections)
+        result.psi_vals = deepcopy(self.psi_vals)
         return result
 
     def ny(self, radialIndex):
@@ -246,7 +248,7 @@ class EquilibriumRegion(PsiContour):
         return self.fromPsiContour(super().getRefined(*args, **kwargs))
 
     def getRegridded(self, *, radialIndex, **kwargs):
-        for wrong_argument in ['npoints', 'extend_lower', 'extend_upper']:
+        for wrong_argument in ['npoints', 'extend_lower', 'extend_upper', 'sfunc']:
             # these are valid arguments to PsiContour.getRegridded, but not to
             # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its own
             # ny and connections, so must use these
@@ -262,7 +264,7 @@ class EquilibriumRegion(PsiContour):
         else:
             extend_upper = 0
         return self.fromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
-            extend_lower=extend_lower, extend_upper=extend_upper, **kwargs))
+            extend_lower=extend_lower, extend_upper=extend_upper, sfunc=self.sfunc, **kwargs))
 
 class Equilibrium:
     """
@@ -436,6 +438,47 @@ class Equilibrium:
             warnings.warn('Warning: found',foundRoots,'roots but expected only',n)
 
         return roots
+
+    def getPolynomialGridFunc(self, n, lower, upper, *, grad_lower=None, grad_upper=None):
+        """
+        A polynomial function with value 'lower' at 0 and 'upper' at n, used to
+        non-uniformly place grid point values in index space. Optionally matches the
+        gradient grad_lower at the lower end and grad_upper at the upper end. Linear if
+        neither gradient given, quadritic if one given, cubic if both given.
+        """
+        if grad_lower is None and grad_upper is None:
+            return lambda i: lower + (upper - lower)*i/n
+        elif grad_lower is None:
+            # psi(i) = a*i^2 + b*i + c
+            # psi(0) = lower = c
+            # psi(n) = upper = a*n**2 + b*n + c
+            # dpsidi(n) = grad_upper = 2*a*n + b
+            # n*a - c/n = grad_upper - upper/n
+            c = lower
+            a = (grad_upper - upper/n + c/n) / n
+            b = grad_upper - 2.*a*n
+            return lambda i: a*i**2 + b*i + c
+        elif grad_upper is None:
+            # psi(i) = a*i^2 + b*i + c
+            # psi(0) = lower = c
+            # psi(n) = upper = a*n**2 + b*n + c
+            # dpsidi(0) = grad_lower = b
+            c = lower
+            b = grad_lower
+            a = (upper - b*n - c) / n**2
+            return lambda i: a*i**2 + b*i + c
+        else:
+            # psi(i) = a*i^3 + b*i^2 + c*i + d
+            # psi(0) = lower = d
+            # dpsidi(0) = grad_lower = c
+            # dpsidi(n) = grad_upper = 3*a*n^2 + 2*b*n + c
+            # psi(n) = upper = a*n^3 + b*n^2 + c*n + d
+            # grad_upper - 2*upper/n = a*n^2 - c - d/n
+            d = lower
+            c = grad_lower
+            a = (grad_upper - 2*upper/n + c + d/n) / n**2
+            b = (grad_upper - 3*a*n**2 - c) / (2*n)
+            return lambda i: a*i**3 + b*i**2 + c*i + d
 
     def readOption(self, name, default=None):
         print('reading option', name, end='')

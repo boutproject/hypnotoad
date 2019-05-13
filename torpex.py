@@ -174,32 +174,68 @@ class TORPEXMagneticField(Equilibrium):
                     [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
             self.regions[name] = leg.getRefined(atol=atol, width=0.02)
 
-        # Make the SeparatrixContours go around clockwise, and record the x-point position
-        # Record X-point twice in the lower legs because we want a 'double-null'
-        # equilibrium with upper and lower divertor, but as if both X-points are in the
-        # same position so there's no core.
+        # Make the SeparatrixContours go around clockwise
+        # Record the x-point position
+        # Record the psi-values of segment boundaries
+        # Record the desired radial grid spacing dpsidi at internal boundaries
+
+        self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
+        dpsidi_sep_inner = (psi_inner_sol - self.psi_sep[0]) / nx_sol
+        dpsidi_sep_outer = (psi_sol - self.psi_sep[0]) / nx_sol
+        dpsidi_sep_lower = (self.psi_sep[0] - psi_lower_pf) / nx_core
+        dpsidi_sep_upper = (self.psi_sep[0] - psi_upper_pf) / nx_core
+        if psi_lower_pf < psi_sol:
+            dpsidi_sep = min(dpsidi_sep_inner, dpsidi_sep_outer, dpsidi_sep_lower,
+                    dpsidi_sep_upper)
+        else:
+            dpsidi_sep = max(dpsidi_sep_inner, dpsidi_sep_outer, dpsidi_sep_lower,
+                    dpsidi_sep_upper)
+
+        # decrease (assuming the factor is <1) the spacing around the separatrix by the
+        # factor psi_spacing_separatrix_multiplier
+        if self.psi_spacing_separatrix_multiplier is not None:
+            dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep
+
+        # lower PF
+        lower_psi_func = self.getPolynomialGridFunc(2*nx_core, psi_lower_pf,
+                self.psi_sep[0], grad_upper=dpsidi_sep)
+        lower_psi_vals = [lower_psi_func(i) for i in range(2*nx_core + 1)]
+
+        # upper PF
+        upper_psi_func = self.getPolynomialGridFunc(2*nx_core, psi_upper_pf,
+                self.psi_sep[0], grad_upper=dpsidi_sep)
+        upper_psi_vals = [upper_psi_func(i) for i in range(2*nx_core + 1)]
+
+        # inner SOL
+        inner_psi_func = self.getPolynomialGridFunc(2*nx_sol, self.psi_sep[0],
+                psi_inner_sol, grad_lower=dpsidi_sep)
+        inner_psi_vals = [inner_psi_func(i) for i in range(2*nx_sol + 1)]
+
+        # outer SOL
+        outer_psi_func = self.getPolynomialGridFunc(2*nx_sol, self.psi_sep[0],
+                psi_sol, grad_lower=dpsidi_sep)
+        outer_psi_vals = [outer_psi_func(i) for i in range(2*nx_sol + 1)]
 
         # inner lower
         self.regions['inner_lower_divertor'].reverse()
         self.regions['inner_lower_divertor'].xPointsAtEnd[1] = xpoint
-        self.regions['inner_lower_divertor'].psi_boundaries = [psi_lower_pf,
-                self.psi_sep[0], psi_inner_sol]
+        self.regions['inner_lower_divertor'].psi_vals = [lower_psi_vals, inner_psi_vals]
 
         # inner upper
         self.regions['inner_upper_divertor'].xPointsAtStart[1] = xpoint
-        self.regions['inner_upper_divertor'].psi_boundaries = [psi_upper_pf,
-                self.psi_sep[0], psi_inner_sol]
+        self.regions['inner_upper_divertor'].psi_vals = [upper_psi_vals, inner_psi_vals]
 
         # outer upper
         self.regions['outer_upper_divertor'].reverse()
         self.regions['outer_upper_divertor'].xPointsAtEnd[1] = xpoint
-        self.regions['outer_upper_divertor'].psi_boundaries = [psi_upper_pf,
-                self.psi_sep[0], psi_sol]
+        self.regions['outer_upper_divertor'].psi_vals = [upper_psi_vals, outer_psi_vals]
 
         # outer lower
         self.regions['outer_lower_divertor'].xPointsAtStart[1] = xpoint
-        self.regions['outer_lower_divertor'].psi_boundaries = [psi_lower_pf,
-                self.psi_sep[0], psi_sol]
+        self.regions['outer_lower_divertor'].psi_vals = [lower_psi_vals, outer_psi_vals]
+
+        # poloidal spacing function
+        self.sfunc = lambda s: s
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

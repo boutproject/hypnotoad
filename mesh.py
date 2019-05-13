@@ -200,7 +200,7 @@ class MeshRegion:
     Note that these regions include cell face and boundary points, so there are
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
-    def __init__(self, meshParent, myID, equilibriumRegion, psi_vals, connections, radialIndex):
+    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex):
         print('creating region', myID, '-',
                 equilibriumRegion.name+'('+str(radialIndex)+')')
 
@@ -210,10 +210,6 @@ class MeshRegion:
         # ID that Mesh uses to keep track of its MeshRegions
         self.myID = myID
 
-        # psi values for radial grid
-        self.psi_vals = psi_vals
-
-        # EquilibriumRegion representing the segment associated with this region
         self.equilibriumRegion = equilibriumRegion
 
         # sizes of the grid in this MeshRegion, include boundary guard cells
@@ -221,6 +217,11 @@ class MeshRegion:
         self.ny = self.equilibriumRegion.ny(radialIndex)
         self.ny_noguards = self.equilibriumRegion.ny_noguards
 
+        # psi values for radial grid
+        self.psi_vals = numpy.array(self.equilibriumRegion.psi_vals[radialIndex])
+        assert len(self.psi_vals) == 2*self.nx + 1
+
+        # EquilibriumRegion representing the segment associated with this region
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
         self.connections = connections
@@ -351,8 +352,8 @@ class MeshRegion:
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
         self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dx.centre = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx.ylow = numpy.array(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        self.dx.centre = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        self.dx.ylow = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
             # x-coordinate is -psixy so x always increases radially across grid
@@ -588,9 +589,9 @@ class Mesh:
                 region_number = len(regionlist)
                 regionlist.append((reg_name, i))
                 self.region_lookup[(reg_name, i)] = region_number
+
         # Get connections between regions
         connections = {}
-        psi_vals = {}
         for region_id,(eq_reg,i) in enumerate(regionlist):
             connections[region_id] = {}
             region = equilibrium.regions[eq_reg]
@@ -600,9 +601,6 @@ class Mesh:
                     connections[region_id][key] = self.region_lookup[val]
                 else:
                     connections[region_id][key] = None
-            warnings.warn("Using linear function for psi")
-            psi_vals[region_id] = numpy.linspace(region.psi_boundaries[i],
-                    region.psi_boundaries[i+1], 2*region.nx[i]+1)
 
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
@@ -616,11 +614,9 @@ class Mesh:
                     sfunc = sfunc_leg_start
                 else:
                     sfunc = sfunc_core
-                eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i,
-                        sfunc=sfunc)
+                eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i)
                 self.regions[region_id] = MeshRegion(self, region_id,
-                        eq_region_with_boundaries, psi_vals[region_id],
-                        connections[region_id], i)
+                        eq_region_with_boundaries, connections[region_id], i)
 
         # create groups that connect in x
         self.x_groups = []

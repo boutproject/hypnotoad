@@ -306,13 +306,18 @@ class Equilibrium:
         # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
         assert type(self.regions) == OrderedDict
 
-        assert self.regions[lowerRegion].connections[lowerSegment]['upper'] is None
-        assert self.regions[upperRegion].connections[upperSegment]['lower'] is None
+        lRegion = self.regions[lowerRegion]
+        uRegion = self.regions[upperRegion]
 
-        self.regions[lowerRegion].connections[lowerSegment]['upper'] = (upperRegion,
-                                                                        upperSegment)
-        self.regions[upperRegion].connections[upperSegment]['lower'] = (lowerRegion,
-                                                                        lowerSegment)
+        assert lRegion.connections[lowerSegment]['upper'] is None
+        assert uRegion.connections[upperSegment]['lower'] is None
+
+        # Check nx of both segments is the same - otherwise the connection must be between
+        # some wrong regions
+        assert lRegion.nx[lowerSegment] == uRegion.nx[upperSegment]
+
+        lRegion.connections[lowerSegment]['upper'] = (upperRegion, upperSegment)
+        uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
 
     def findMinimum_1d(self, pos1, pos2, atol=1.e-14):
         coords = lambda s: pos1 + s*(pos2-pos1)

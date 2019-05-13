@@ -161,8 +161,8 @@ class PsiContour:
         total_distance = distance[-1]
         return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
 
-    def getRegridded(self, npoints, width=1.e-5, atol=2.e-8, sfunc=None, extend_lower=0,
-            extend_upper=0):
+    def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
+            extend_lower=0, extend_upper=0):
         """
         Interpolate onto set of npoints points, then refine positions.
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
@@ -170,6 +170,9 @@ class PsiContour:
         'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
         number of points.
         Returns a new PsiContour.
+
+        Note: '*,' in the arguments list forces the following arguments to be passed as
+        keyword, not positional, arguments
         """
         s = numpy.linspace(-extend_lower/(npoints-1),
                 (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)

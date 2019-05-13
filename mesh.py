@@ -5,6 +5,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 import numpy
 import numbers
 from scipy.integrate import solve_ivp
+import warnings
 from equilibrium import Point2D, PsiContour, EquilibriumRegion
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -218,6 +219,7 @@ class MeshRegion:
         # sizes of the grid in this MeshRegion, include boundary guard cells
         self.nx = self.equilibriumRegion.nx[radialIndex]
         self.ny = self.equilibriumRegion.ny(radialIndex)
+        self.ny_noguards = self.equilibriumRegion.ny_noguards
 
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
@@ -226,16 +228,16 @@ class MeshRegion:
         # Number of this region, counting radially outward
         self.radialIndex = radialIndex
 
-        # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
-        # connected to another region
-        if self.connections['lower'] is None:
-            self.y_guards_lower = meshParent.y_boundary_guards
-        else:
-            self.y_guards_lower = 0
-        if self.connections['upper'] is None:
-            self.y_guards_upper = meshParent.y_boundary_guards
-        else:
-            self.y_guards_upper = 0
+        # # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
+        # # connected to another region
+        # if self.connections['lower'] is None:
+        #     self.y_guards_lower = self.equilibriumRegion.y_boundary_guards
+        # else:
+        #     self.y_guards_lower = 0
+        # if self.connections['upper'] is None:
+        #     self.y_guards_upper = self.equilibriumRegion.y_boundary_guards
+        # else:
+        #     self.y_guards_upper = 0
 
         # get points in this region
         self.contours = []
@@ -555,228 +557,17 @@ class MeshRegion:
 
 class Mesh:
     """
-    Mesh quantities to be written to a grid file for BOUT++
-
-    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions must
-    be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
-    outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
-    positioning in the global logically rectangular grid. Regions are allowed to not be
-    presen (if they would have size 0).
+    Mesh represented by a collection of connected MeshRegion objects
     """
     def __init__(self, equilibrium, meshOptions):
         self.meshOptions = meshOptions
         self.orthogonal = self.readOption('orthogonal')
-        self.nx_core = self.readOption('nx_core')
-        self.nx_between = self.readOption('nx_between')
-        self.nx_sol = self.readOption('nx_sol')
-        self.ny_inner_lower_divertor = self.readOption('ny_inner_lower_divertor')
-        self.ny_inner_core = self.readOption('ny_inner_core')
-        self.ny_inner_upper_divertor = self.readOption('ny_inner_upper_divertor')
-        self.ny_outer_upper_divertor = self.readOption('ny_outer_upper_divertor')
-        self.ny_outer_core = self.readOption('ny_outer_core')
-        self.ny_outer_lower_divertor = self.readOption('ny_outer_lower_divertor')
-
-        self.psi_core = self.readOption('psi_core')
-        self.psi_lower_pf = self.readOption('psi_lower_pf', self.psi_core)
-        self.psi_upper_pf = self.readOption('psi_upper_pf', self.psi_core)
-
-        self.psi_sol = self.readOption('psi_sol')
-        self.psi_inner_sol = self.readOption('psi_inner_sol', self.psi_sol)
-        # this option can only be set different from psi_sol in a double-null
-        # configuration (i.e. if there are upper divertor legs)
-        assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0
-
-        self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
-        if self.psi_spacing_separatrix_multiplier is not None:
-            if self.nx_between > 0:
-                raise ValueError("Cannot use psi_spacing_separatrix_multiplier when "
-                                 "there are points between two separatrices - to get "
-                                 "the same effect, increase the number of points in the "
-                                 "between-separatrix region.")
-
-        self.y_boundary_guards = self.readOption('y_boundary_guards')
 
         self.equilibrium = equilibrium
 
-        if self.nx_between > 0:
-            raise ValueError("nx_between > 0 - there are 2 separatrices - need to find psi-value of second separatrix")
         assert self.orthogonal # non-orthogonal not implelemented yet
 
-        # nx, ny both include boundary guard cells
-        self.nx = self.nx_core + self.nx_between + self.nx_sol
-
-        if ( (self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0)
-                and (self.ny_inner_lower_divertor > 0 or self.ny_inner_core > 0
-                     or self.ny_outer_core > 0 or self.ny_outer_lower_divertor > 0) ):
-            # there are two distinct divertor/limiter targets
-            #  - the upper divertor legs are not empty, and also the other regions are not
-            #    all empty
-            self.upper_target_y_boundary_guards = self.y_boundary_guards
-
-        self.ny = (self.ny_inner_lower_divertor + self.ny_inner_core
-                   + self.ny_inner_upper_divertor + self.ny_outer_upper_divertor
-                   + self.ny_outer_core + self.ny_outer_lower_divertor
-                   + 2*self.y_boundary_guards + 2*self.upper_target_y_boundary_guards)
-
-        if self.nx_between > 0:
-            # Use uniform spacing of psi in index space in the region between the two
-            # separatrices
-            assert self.psi_spacing_separatrix_multiplier is None
-            assert len(self.psi_sep) == 2
-            dpsidi_sep0 = (self.psi_sep[1] - self.psi_sep[0]) / self.nx_between
-        else:
-            # In index space for indices of cell faces, psi needs to go through psi_inner at
-            # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1.
-            # Estimate base value of dpsi/di as the lower of the average gradients on either
-            # side
-            if self.psi_core < self.psi_sol:
-                dpsidi_sep0 = min((self.equilibrium.psi_sep[0] - self.psi_core) / self.nx_core,
-                                  (self.psi_sol - self.equilibrium.psi_sep[0]) / self.nx_sol)
-            else:
-                dpsidi_sep0 = max((self.equilibrium.psi_sep[0] - self.psi_core) / self.nx_core,
-                                  (self.psi_sol - self.equilibrium.psi_sep[0]) / self.nx_sol)
-
-        # decrease (presumably) the spacing around the separatrix by the factor
-        # psi_spacing_separatrix_multiplier
-        if self.psi_spacing_separatrix_multiplier is not None:
-            dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep0
-        else:
-            dpsidi_sep = dpsidi_sep0
-
-        # fit quadratics on both sides, with gradient dpsidi_sep and values psi_sep at the
-        # separatrices and values psi_inner at the inner boundary and psi_outer at the
-        # outer boundary
-
-        def getPsiFuncInner(psival):
-            # for core region:
-            # psi(i) = a*i^2 + b*i + c
-            # psi(0) = psival = c
-            # psi(nx_core) = psi_sep[0] = a*nx_core**2 + b*nx_core + c
-            # dpsidi(nx_core) = dpsidi_sep = 2*a*nx_core + b
-            # nx_core*a = dpsidi_sep - psi_sep[0]/nx_core + psival/nx_core
-            # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[0]/nx_core - psival/nx_core)
-            a = ( (dpsidi_sep*self.nx_core - self.equilibrium.psi_sep[0] + psival)
-                    / self.nx_core**2)
-            b = dpsidi_sep - 2.*a*self.nx_core
-            c = psival
-            return lambda i: a*i**2 + b*i + c
-
-        def getPsiFuncBetweenAndInner(psival):
-            if self.nx_between > 0:
-                # disconnected double-null
-
-                nx_upper_pf = self.nx_core + self.nx_between
-                # for upper PF region:
-                # psi(i) = a*i^2 + b*i + c
-                # psi(0) = psival = c
-                # psi(nx_upper_pf) = psi_sep[1] = a*nx_upper_pf**2 + b*nx_upper_pf + c
-                # dpsidi(nx_upper_pf) = dpsidi_sep = 2*a*nx_upper_pf + b
-                # nx_upper_pf*a = dpsidi_sep - psi_sep[1]/nx_upper_pf + psival/nx_upper_pf
-                # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[1]/nx_upper_pf - psival/nx_upper_pf)
-                a = ( (dpsidi_sep*nx_upper_pf - self.equilibrium.psi_sep[1] + psival)
-                        / nx_upper_pf**2)
-                b = dpsidi_sep - 2.*a*nx_upper_pf
-                c = psival
-                return lambda i: a*i**2 + b*i + c
-
-            else:
-                # connected double-null
-                assert self.nx_between == 0
-
-                nx_upper_pf = self.nx_core
-                # for upper PF region:
-                # psi(i) = a*i^2 + b*i + c
-                # psi(0) = psival = c
-                # psi(nx_upper_pf) = psi_sep[0] = a*nx_upper_pf**2 + b*nx_upper_pf + c
-                # dpsidi(nx_upper_pf) = dpsidi_sep = 2*a*nx_upper_pf + b
-                # nx_upper_pf*a = dpsidi_sep - psi_sep[0]/nx_upper_pf + psival/nx_upper_pf
-                # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[0]/nx_upper_pf - psival/nx_upper_pf)
-                a = ( (dpsidi_sep*nx_upper_pf - self.equilibrium.psi_sep[0] + psival)
-                        / nx_upper_pf**2)
-                b = dpsidi_sep - 2.*a*nx_upper_pf
-                c = psival
-                return lambda i: a*i**2 + b*i + c
-
-        def getPsiFuncBetween():
-            # Constant spacing between the separatrices
-            # psi(0) = psi_sep[0]
-            # psi(nx_between) = psi_sep[1]
-            return lambda i: dpsidi_sep*i + self.equilibrium.psi_sep[0]
-
-        def getPsiFuncOuter(psival):
-            if self.nx_between > 0:
-                psi_sep = self.equilibrium.psi_sep[1]
-            else:
-                assert self.nx_between == 0
-                psi_sep = self.equilibrium.psi_sep[0]
-            # for between separatrix and sol regions:
-            # psi(i) = a*i^2 + b*i + c
-            # psi(0) = psi_sep = c
-            # psi(nx_sol) = psival = a*nx_sol**2 + b*nx_sol + c
-            # dpsidi(0) = dpsidi_sep = b
-            # a = (psival - dpsidi_sep*nx_sol - psi_inner)/nx_sol**2
-            c2 = psi_sep
-            b2 = dpsidi_sep
-            a2 = (psival - b2*self.nx_sol - c2) / self.nx_sol**2
-            return lambda i: a2*i**2 + b2*i + c2
-
-        psi_face_vals_core = numpy.array(
-                [getPsiFuncInner(self.psi_core)(i) for i in range(self.nx_core+1)])
-        psi_face_vals_lower_pf = numpy.array(
-                [getPsiFuncInner(self.psi_lower_pf)(i) for i in range(self.nx_core+1)])
-        psi_face_vals_upper_pf = numpy.array(
-                [getPsiFuncBetweenAndInner(self.psi_upper_pf)(i)
-                    for i in range(self.nx_core+self.nx_between+1)])
-        psi_face_vals_between = numpy.array(
-                [getPsiFuncBetween()(i) for i in range(0, self.nx_between+1)])
-        psi_face_vals_outer_sol = numpy.array(
-                [getPsiFuncOuter(self.psi_sol)(i)
-                    for i in range(self.nx_between, self.nx_sol+1)])
-        psi_face_vals_inner_sol = numpy.array(
-                [getPsiFuncOuter(self.psi_inner_sol)(i)
-                    for i in range(self.nx_between, self.nx_sol+1)])
-        if self.nx_core > 0:
-            self.psi_vals_core = numpy.zeros(2*self.nx_core+1)
-            self.psi_vals_lower_pf = numpy.zeros(2*self.nx_core+1)
-            self.psi_vals_upper_pf = numpy.zeros(2*self.nx_core+1)
-        else:
-            self.psi_vals_core = numpy.zeros(0)
-            self.psi_vals_lower_pf = numpy.zeros(0)
-            self.psi_vals_upper_pf = numpy.zeros(0)
-        if self.nx_between > 0:
-            self.psi_valsbetween = numpy.zeros(2*self.nx_between+1)
-        else:
-            self.psi_vals_between = numpy.zeros(0)
-        if self.nx_sol > 0:
-            self.psi_vals_outer_sol = numpy.zeros(2*self.nx_sol+1)
-            self.psi_vals_inner_sol = numpy.zeros(2*self.nx_sol+1)
-        else:
-            self.psi_vals_outer_sol = numpy.zeros(0)
-            self.psi_vals_inner_sol = numpy.zeros(0)
-
-        self.psi_vals_core[0::2] = psi_face_vals_core
-        self.psi_vals_core[1::2] = 0.5*(psi_face_vals_core[:-1] + psi_face_vals_core[1:])
-        self.psi_vals_lower_pf[0::2] = psi_face_vals_lower_pf
-        self.psi_vals_lower_pf[1::2] = 0.5*(psi_face_vals_lower_pf[:-1] +
-                                            psi_face_vals_lower_pf[1:])
-        self.psi_vals_upper_pf[0::2] = psi_face_vals_upper_pf
-        self.psi_vals_upper_pf[1::2] = 0.5*(psi_face_vals_upper_pf[:-1] +
-                                            psi_face_vals_upper_pf[1:])
-        self.psi_vals_between[0::2] = psi_face_vals_between
-        self.psi_vals_between[1::2] = 0.5*(psi_face_vals_between[:-1] +
-                                                 psi_face_vals_between[1:])
-        self.psi_vals_outer_sol[0::2] = psi_face_vals_outer_sol
-        self.psi_vals_outer_sol[1::2] = 0.5*(psi_face_vals_outer_sol[:-1] +
-                                             psi_face_vals_outer_sol[1:])
-        self.psi_vals_inner_sol[0::2] = psi_face_vals_inner_sol
-        self.psi_vals_inner_sol[1::2] = 0.5*(psi_face_vals_inner_sol[:-1] +
-                                             psi_face_vals_inner_sol[1:])
-
         # Generate MeshRegion object for each section of the mesh
-        # For region numbers see figure in 'BOUT++ Topology' section of BOUT++ manual -
-        # except here '7' is inner upper PF and '8' is inner upper SOL, which is the other
-        # way around from that figure, but means all regions are labelled from inner-x to
-        # outer-x
         self.regions = {}
 
         # functions that set poloidal grid spacing:
@@ -809,85 +600,27 @@ class Mesh:
                     connections[region_id][key] = self.region_lookup[val]
                 else:
                     connections[region_id][key] = None
+            warnings.warn("Using linear function for psi")
             psi_vals[region_id] = numpy.linspace(region.psi_boundaries[i],
                     region.psi_boundaries[i+1], 2*region.nx[i]+1)
-
-        # Keep ranges of global indices for each region separately, because we don't want
-        # MeshRegion objects to depend on global indices
-        region = next(iter(self.equilibrium.regions.values())) # get first region from self.equilibrium.regions
-        assert all([r.nx == region.nx for r in self.equilibrium.regions.values()])
-        x_sizes = [0] + list(region.nx)
-        x_startinds = numpy.cumsum(x_sizes)
-        x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
-                     for i in range(len(x_startinds)-1))
-        y_total = 0
-        y_regions = {}
-        for regname, region in self.equilibrium.regions.items():
-            # all segments must have the same ny, i.e. same number of y-boundary guard
-            # cells
-            this_ny = region.ny(0)
-            assert all(region.ny(i) == this_ny for i in range(region.nSegments))
-
-            y_total_new = y_total + this_ny
-            reg_slice = slice(y_total, y_total_new, None)
-            y_total = y_total_new
-            y_regions[regname] = reg_slice
-
-        self.region_indices = {}
-        for reg_name in self.equilibrium.regions:
-            for i in range(len(x_regions)):
-                self.region_indices[self.region_lookup[(reg_name, i)]] = numpy.index_exp[
-                        x_regions[i], y_regions[reg_name]]
 
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name,i)]
                 if (eq_region.connections[i]['lower'] is None and
                         eq_region.connections[i]['upper'] is None):
-                    lower_guards = self.y_boundary_guards
-                    upper_guards = self.y_boundary_guards
                     sfunc = sfunc_noX
                 elif eq_region.connections[i]['lower'] is None:
-                    lower_guards = self.y_boundary_guards
-                    upper_guards = 0
                     sfunc = sfunc_leg_end
                 elif eq_region.connections[i]['upper'] is None:
-                    upper_guards = self.y_boundary_guards
-                    lower_guards = 0
                     sfunc = sfunc_leg_start
                 else:
-                    lower_guards = 0
-                    upper_guards = 0
                     sfunc = sfunc_core
                 eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i,
                         sfunc=sfunc)
                 self.regions[region_id] = MeshRegion(self, region_id,
                         eq_region_with_boundaries, psi_vals[region_id],
                         connections[region_id], i)
-
-        def get_equilib_region(regname, segment, ny, sfunc):
-            """
-            Utility function to wrap up adding guard cells when necessary.
-            """
-            connections = self.equilibrium.regions[regname].connections[segment]
-            if connections['lower'] is None:
-                lower_guards = self.y_boundary_guards
-            else:
-                lower_guards = 0
-            if connections['upper'] is None:
-                upper_guards = self.y_boundary_guards
-            else:
-                upper_guards = 0
-            reg = self.equilibrium.regions[regname].getRegridded(2*ny+1,
-                    extend_lower=2*lower_guards, extend_upper=2*upper_guards, sfunc=sfunc)
-            return reg, ny + lower_guards + upper_guards
-
-        nxpoints = len(self.equilibrium.x_points)
-
-        # constant spacing in y for now
-        self.dy_scalar = 2.*numpy.pi / (self.ny_inner_lower_divertor + self.ny_inner_core
-                + self.ny_inner_upper_divertor + self.ny_outer_upper_divertor
-                + self.ny_outer_core + self.ny_outer_lower_divertor)
 
         # create groups that connect in x
         self.x_groups = []
@@ -944,95 +677,8 @@ class Mesh:
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
-
-        def addFromRegion(f, f_region, regionID):
-            if f_region._centre_array is not None:
-                f.centre[self.region_indices[regionID]] = f_region.centre
-            if f_region._xlow_array is not None:
-                f.xlow[self.region_indices[regionID]] = f_region.xlow[:-1,:]
-            if f_region._ylow_array is not None:
-                f.ylow[self.region_indices[regionID]] = f_region.ylow[:,:-1]
-            if f_region._corners_array is not None:
-                f.corners[self.region_indices[regionID]] = f_region.corners[:-1,:-1]
-
-        self.Rxy = MultiLocationArray(self.nx, self.ny)
-        self.Zxy = MultiLocationArray(self.nx, self.ny)
-        self.psixy = MultiLocationArray(self.nx, self.ny)
-        self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dy = MultiLocationArray(self.nx, self.ny)
-        self.Brxy = MultiLocationArray(self.nx, self.ny)
-        self.Bzxy = MultiLocationArray(self.nx, self.ny)
-        self.Bpxy = MultiLocationArray(self.nx, self.ny)
-        self.Btxy = MultiLocationArray(self.nx, self.ny)
-        self.Bxy = MultiLocationArray(self.nx, self.ny)
-        self.hthe = MultiLocationArray(self.nx, self.ny)
-        #if not self.orthogonal:
-        #    self.beta = MultiLocationArray(self.nx, self.ny)
-        #    self.eta = MultiLocationArray(self.nx, self.ny)
-        self.pitch = MultiLocationArray(self.nx, self.ny)
-        self.dqdpsi = MultiLocationArray(self.nx, self.ny)
-
         for region in self.regions.values():
             region.geometry()
-
-            addFromRegion(self.Rxy, region.Rxy, region.myID)
-            addFromRegion(self.Zxy, region.Zxy, region.myID)
-            addFromRegion(self.psixy, region.psixy, region.myID)
-            addFromRegion(self.dx, region.dx, region.myID)
-            addFromRegion(self.dy, region.dy, region.myID)
-            addFromRegion(self.Brxy, region.Brxy, region.myID)
-            addFromRegion(self.Bzxy, region.Bzxy, region.myID)
-            addFromRegion(self.Bpxy, region.Bpxy, region.myID)
-            addFromRegion(self.Btxy, region.Btxy, region.myID)
-            addFromRegion(self.Bxy, region.Bxy, region.myID)
-            addFromRegion(self.hthe, region.hthe, region.myID)
-            #if not self.orthogonal:
-            #    addFromRegion(self.beta, region.beta, region.myID)
-            #    addFromRegion(self.eta, region.eta, region.myID)
-            addFromRegion(self.pitch, region.pitch, region.myID)
-            addFromRegion(self.dqdpsi, region.dqdpsi, region.myID)
-
-    def writeArray(self, name, array, f):
-        f.write(name, array.centre)
-        f.write(name+'_ylow', array.ylow[:, :-1])
-
-    def writeGridfile(self, filename):
-        from boututils.datafile import DataFile
-
-        with DataFile(filename, create=True) as f:
-            f.write('nx', self.nx)
-            # ny for BOUT++ excludes boundary guard cells
-            f.write('ny', self.ny - 2*self.y_boundary_guards
-                          - 2*self.upper_target_y_boundary_guards)
-            f.write('y_boundary_guards', self.y_boundary_guards)
-            self.writeArray('Rxy', self.Rxy, f)
-            self.writeArray('Zxy', self.Zxy, f)
-            self.writeArray('psixy', self.psixy, f)
-            self.writeArray('dx', self.dx, f)
-            self.writeArray('dy', self.dy, f)
-            self.writeArray('Bpxy', self.Bpxy, f)
-            self.writeArray('Btxy', self.Btxy, f)
-            self.writeArray('Bxy', self.Bxy, f)
-            self.writeArray('hthe', self.hthe, f)
-            #if not self.orthogonal:
-            #    self.writeArray('beta', self.beta, f)
-            #    self.writeArray('eta', self.eta, f)
-            self.writeArray('pitch', self.pitch, f)
-
-    def plot2D(self, f, title=None):
-        from matplotlib import pyplot
-
-        try:
-            vmin = f.min()
-            vmax = f.max()
-
-            for region, indices in zip(self.regions.values(), self.region_indices.values()):
-                pyplot.pcolor(region.Rxy.corners, region.Zxy.corners, f[indices],
-                              vmin=vmin, vmax=vmax)
-
-            pyplot.colorbar()
-        except NameError:
-            raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
 
     def plotPoints(self, xlow=False, ylow=False, corners=False):
         from matplotlib import pyplot
@@ -1062,3 +708,307 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
             vectorized=True)
 
     return [Point2D(*p) for p in solution.y.T]
+
+class BoutMesh(Mesh):
+    """
+    Mesh quantities to be written to a grid file for BOUT++
+
+    Requires that the MeshRegion members fit together into a global logically-rectangular
+    Mesh, with the topology assumed by BOUT++ (allowing complexity up to
+    disconnected-double-null).
+
+    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions must
+    be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
+    outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
+    positioning in the global logically rectangular grid. Regions are allowed to not be
+    present (if they would have size 0).
+    """
+    def __init__(self, equilibrium, meshOptions):
+
+        super().__init__(equilibrium, meshOptions)
+
+        # nx, ny both include boundary guard cells
+        eq_region0 = next(iter(self.equilibrium.regions.values()))
+        self.nx = sum(eq_region0.nx)
+
+        self.ny = sum(r.ny(0) for r in self.equilibrium.regions.values())
+
+        self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
+
+        # if self.nx_between > 0:
+        #     # Use uniform spacing of psi in index space in the region between the two
+        #     # separatrices
+        #     assert self.psi_spacing_separatrix_multiplier is None
+        #     assert len(self.psi_sep) == 2
+        #     dpsidi_sep0 = (self.psi_sep[1] - self.psi_sep[0]) / self.nx_between
+        # else:
+        #     # In index space for indices of cell faces, psi needs to go through psi_inner at
+        #     # 0, psi_sep at nx_core and psi_outer at nx_core+nx_between+nx_sol+1.
+        #     # Estimate base value of dpsi/di as the lower of the average gradients on either
+        #     # side
+        #     if self.psi_core < self.psi_sol:
+        #         dpsidi_sep0 = min((self.equilibrium.psi_sep[0] - self.psi_core) / self.nx_core,
+        #                           (self.psi_sol - self.equilibrium.psi_sep[0]) / self.nx_sol)
+        #     else:
+        #         dpsidi_sep0 = max((self.equilibrium.psi_sep[0] - self.psi_core) / self.nx_core,
+        #                           (self.psi_sol - self.equilibrium.psi_sep[0]) / self.nx_sol)
+
+        # # decrease (presumably) the spacing around the separatrix by the factor
+        # # psi_spacing_separatrix_multiplier
+        # if self.psi_spacing_separatrix_multiplier is not None:
+        #     dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep0
+        # else:
+        #     dpsidi_sep = dpsidi_sep0
+
+        # # fit quadratics on both sides, with gradient dpsidi_sep and values psi_sep at the
+        # # separatrices and values psi_inner at the inner boundary and psi_outer at the
+        # # outer boundary
+
+        # def getPsiFuncInner(psival):
+        #     # for core region:
+        #     # psi(i) = a*i^2 + b*i + c
+        #     # psi(0) = psival = c
+        #     # psi(nx_core) = psi_sep[0] = a*nx_core**2 + b*nx_core + c
+        #     # dpsidi(nx_core) = dpsidi_sep = 2*a*nx_core + b
+        #     # nx_core*a = dpsidi_sep - psi_sep[0]/nx_core + psival/nx_core
+        #     # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[0]/nx_core - psival/nx_core)
+        #     a = ( (dpsidi_sep*self.nx_core - self.equilibrium.psi_sep[0] + psival)
+        #             / self.nx_core**2)
+        #     b = dpsidi_sep - 2.*a*self.nx_core
+        #     c = psival
+        #     return lambda i: a*i**2 + b*i + c
+
+        # def getPsiFuncBetweenAndInner(psival):
+        #     if self.nx_between > 0:
+        #         # disconnected double-null
+
+        #         nx_upper_pf = self.nx_core + self.nx_between
+        #         # for upper PF region:
+        #         # psi(i) = a*i^2 + b*i + c
+        #         # psi(0) = psival = c
+        #         # psi(nx_upper_pf) = psi_sep[1] = a*nx_upper_pf**2 + b*nx_upper_pf + c
+        #         # dpsidi(nx_upper_pf) = dpsidi_sep = 2*a*nx_upper_pf + b
+        #         # nx_upper_pf*a = dpsidi_sep - psi_sep[1]/nx_upper_pf + psival/nx_upper_pf
+        #         # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[1]/nx_upper_pf - psival/nx_upper_pf)
+        #         a = ( (dpsidi_sep*nx_upper_pf - self.equilibrium.psi_sep[1] + psival)
+        #                 / nx_upper_pf**2)
+        #         b = dpsidi_sep - 2.*a*nx_upper_pf
+        #         c = psival
+        #         return lambda i: a*i**2 + b*i + c
+
+        #     else:
+        #         # connected double-null
+        #         assert self.nx_between == 0
+
+        #         nx_upper_pf = self.nx_core
+        #         # for upper PF region:
+        #         # psi(i) = a*i^2 + b*i + c
+        #         # psi(0) = psival = c
+        #         # psi(nx_upper_pf) = psi_sep[0] = a*nx_upper_pf**2 + b*nx_upper_pf + c
+        #         # dpsidi(nx_upper_pf) = dpsidi_sep = 2*a*nx_upper_pf + b
+        #         # nx_upper_pf*a = dpsidi_sep - psi_sep[0]/nx_upper_pf + psival/nx_upper_pf
+        #         # b = dpsidi_sep - 2*(dpsidi_sep - psi_sep[0]/nx_upper_pf - psival/nx_upper_pf)
+        #         a = ( (dpsidi_sep*nx_upper_pf - self.equilibrium.psi_sep[0] + psival)
+        #                 / nx_upper_pf**2)
+        #         b = dpsidi_sep - 2.*a*nx_upper_pf
+        #         c = psival
+        #         return lambda i: a*i**2 + b*i + c
+
+        # def getPsiFuncBetween():
+        #     # Constant spacing between the separatrices
+        #     # psi(0) = psi_sep[0]
+        #     # psi(nx_between) = psi_sep[1]
+        #     return lambda i: dpsidi_sep*i + self.equilibrium.psi_sep[0]
+
+        # def getPsiFuncOuter(psival):
+        #     if self.nx_between > 0:
+        #         psi_sep = self.equilibrium.psi_sep[1]
+        #     else:
+        #         assert self.nx_between == 0
+        #         psi_sep = self.equilibrium.psi_sep[0]
+        #     # for between separatrix and sol regions:
+        #     # psi(i) = a*i^2 + b*i + c
+        #     # psi(0) = psi_sep = c
+        #     # psi(nx_sol) = psival = a*nx_sol**2 + b*nx_sol + c
+        #     # dpsidi(0) = dpsidi_sep = b
+        #     # a = (psival - dpsidi_sep*nx_sol - psi_inner)/nx_sol**2
+        #     c2 = psi_sep
+        #     b2 = dpsidi_sep
+        #     a2 = (psival - b2*self.nx_sol - c2) / self.nx_sol**2
+        #     return lambda i: a2*i**2 + b2*i + c2
+
+        # psi_face_vals_core = numpy.array(
+        #         [getPsiFuncInner(self.psi_core)(i) for i in range(self.nx_core+1)])
+        # psi_face_vals_lower_pf = numpy.array(
+        #         [getPsiFuncInner(self.psi_lower_pf)(i) for i in range(self.nx_core+1)])
+        # psi_face_vals_upper_pf = numpy.array(
+        #         [getPsiFuncBetweenAndInner(self.psi_upper_pf)(i)
+        #             for i in range(self.nx_core+self.nx_between+1)])
+        # psi_face_vals_between = numpy.array(
+        #         [getPsiFuncBetween()(i) for i in range(0, self.nx_between+1)])
+        # psi_face_vals_outer_sol = numpy.array(
+        #         [getPsiFuncOuter(self.psi_sol)(i)
+        #             for i in range(self.nx_between, self.nx_sol+1)])
+        # psi_face_vals_inner_sol = numpy.array(
+        #         [getPsiFuncOuter(self.psi_inner_sol)(i)
+        #             for i in range(self.nx_between, self.nx_sol+1)])
+        # if self.nx_core > 0:
+        #     self.psi_vals_core = numpy.zeros(2*self.nx_core+1)
+        #     self.psi_vals_lower_pf = numpy.zeros(2*self.nx_core+1)
+        #     self.psi_vals_upper_pf = numpy.zeros(2*self.nx_core+1)
+        # else:
+        #     self.psi_vals_core = numpy.zeros(0)
+        #     self.psi_vals_lower_pf = numpy.zeros(0)
+        #     self.psi_vals_upper_pf = numpy.zeros(0)
+        # if self.nx_between > 0:
+        #     self.psi_valsbetween = numpy.zeros(2*self.nx_between+1)
+        # else:
+        #     self.psi_vals_between = numpy.zeros(0)
+        # if self.nx_sol > 0:
+        #     self.psi_vals_outer_sol = numpy.zeros(2*self.nx_sol+1)
+        #     self.psi_vals_inner_sol = numpy.zeros(2*self.nx_sol+1)
+        # else:
+        #     self.psi_vals_outer_sol = numpy.zeros(0)
+        #     self.psi_vals_inner_sol = numpy.zeros(0)
+
+        # self.psi_vals_core[0::2] = psi_face_vals_core
+        # self.psi_vals_core[1::2] = 0.5*(psi_face_vals_core[:-1] + psi_face_vals_core[1:])
+        # self.psi_vals_lower_pf[0::2] = psi_face_vals_lower_pf
+        # self.psi_vals_lower_pf[1::2] = 0.5*(psi_face_vals_lower_pf[:-1] +
+        #                                     psi_face_vals_lower_pf[1:])
+        # self.psi_vals_upper_pf[0::2] = psi_face_vals_upper_pf
+        # self.psi_vals_upper_pf[1::2] = 0.5*(psi_face_vals_upper_pf[:-1] +
+        #                                     psi_face_vals_upper_pf[1:])
+        # self.psi_vals_between[0::2] = psi_face_vals_between
+        # self.psi_vals_between[1::2] = 0.5*(psi_face_vals_between[:-1] +
+        #                                          psi_face_vals_between[1:])
+        # self.psi_vals_outer_sol[0::2] = psi_face_vals_outer_sol
+        # self.psi_vals_outer_sol[1::2] = 0.5*(psi_face_vals_outer_sol[:-1] +
+        #                                      psi_face_vals_outer_sol[1:])
+        # self.psi_vals_inner_sol[0::2] = psi_face_vals_inner_sol
+        # self.psi_vals_inner_sol[1::2] = 0.5*(psi_face_vals_inner_sol[:-1] +
+        #                                      psi_face_vals_inner_sol[1:])
+
+        # For region numbers see figure in 'BOUT++ Topology' section of BOUT++ manual -
+        # except here '7' is inner upper PF and '8' is inner upper SOL, which is the other
+        # way around from that figure, but means all regions are labelled from inner-x to
+        # outer-x
+
+        # Keep ranges of global indices for each region separately, because we don't want
+        # MeshRegion objects to depend on global indices
+        assert all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()])
+        x_sizes = [0] + list(eq_region0.nx)
+        x_startinds = numpy.cumsum(x_sizes)
+        x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
+                     for i in range(len(x_startinds)-1))
+        y_total = 0
+        y_regions = {}
+        for regname, region in self.equilibrium.regions.items():
+            # all segments must have the same ny, i.e. same number of y-boundary guard
+            # cells
+            this_ny = region.ny(0)
+            assert all(region.ny(i) == this_ny for i in range(region.nSegments))
+
+            y_total_new = y_total + this_ny
+            reg_slice = slice(y_total, y_total_new, None)
+            y_total = y_total_new
+            y_regions[regname] = reg_slice
+
+        self.region_indices = {}
+        for reg_name in self.equilibrium.regions:
+            for i in range(len(x_regions)):
+                self.region_indices[self.region_lookup[(reg_name, i)]] = numpy.index_exp[
+                        x_regions[i], y_regions[reg_name]]
+
+        # constant spacing in y for now
+        self.dy_scalar = 2.*numpy.pi / self.ny_noguards
+
+    def geometry(self):
+        # Call geometry() method of base class
+        super().geometry()
+
+        def addFromRegion(f, f_region, regionID):
+            if f_region._centre_array is not None:
+                f.centre[self.region_indices[regionID]] = f_region.centre
+            if f_region._xlow_array is not None:
+                f.xlow[self.region_indices[regionID]] = f_region.xlow[:-1,:]
+            if f_region._ylow_array is not None:
+                f.ylow[self.region_indices[regionID]] = f_region.ylow[:,:-1]
+            if f_region._corners_array is not None:
+                f.corners[self.region_indices[regionID]] = f_region.corners[:-1,:-1]
+
+        self.Rxy = MultiLocationArray(self.nx, self.ny)
+        self.Zxy = MultiLocationArray(self.nx, self.ny)
+        self.psixy = MultiLocationArray(self.nx, self.ny)
+        self.dx = MultiLocationArray(self.nx, self.ny)
+        self.dy = MultiLocationArray(self.nx, self.ny)
+        self.Brxy = MultiLocationArray(self.nx, self.ny)
+        self.Bzxy = MultiLocationArray(self.nx, self.ny)
+        self.Bpxy = MultiLocationArray(self.nx, self.ny)
+        self.Btxy = MultiLocationArray(self.nx, self.ny)
+        self.Bxy = MultiLocationArray(self.nx, self.ny)
+        self.hthe = MultiLocationArray(self.nx, self.ny)
+        #if not self.orthogonal:
+        #    self.beta = MultiLocationArray(self.nx, self.ny)
+        #    self.eta = MultiLocationArray(self.nx, self.ny)
+        self.pitch = MultiLocationArray(self.nx, self.ny)
+        self.dqdpsi = MultiLocationArray(self.nx, self.ny)
+
+        for region in self.regions.values():
+            addFromRegion(self.Rxy, region.Rxy, region.myID)
+            addFromRegion(self.Zxy, region.Zxy, region.myID)
+            addFromRegion(self.psixy, region.psixy, region.myID)
+            addFromRegion(self.dx, region.dx, region.myID)
+            addFromRegion(self.dy, region.dy, region.myID)
+            addFromRegion(self.Brxy, region.Brxy, region.myID)
+            addFromRegion(self.Bzxy, region.Bzxy, region.myID)
+            addFromRegion(self.Bpxy, region.Bpxy, region.myID)
+            addFromRegion(self.Btxy, region.Btxy, region.myID)
+            addFromRegion(self.Bxy, region.Bxy, region.myID)
+            addFromRegion(self.hthe, region.hthe, region.myID)
+            #if not self.orthogonal:
+            #    addFromRegion(self.beta, region.beta, region.myID)
+            #    addFromRegion(self.eta, region.eta, region.myID)
+            addFromRegion(self.pitch, region.pitch, region.myID)
+            addFromRegion(self.dqdpsi, region.dqdpsi, region.myID)
+
+    def writeArray(self, name, array, f):
+        f.write(name, array.centre)
+        f.write(name+'_ylow', array.ylow[:, :-1])
+
+    def writeGridfile(self, filename):
+        from boututils.datafile import DataFile
+
+        with DataFile(filename, create=True) as f:
+            f.write('nx', self.nx)
+            # ny for BOUT++ excludes boundary guard cells
+            f.write('ny', self.ny_noguards)
+            f.write('y_boundary_guards', self.equilibrium.y_boundary_guards)
+            self.writeArray('Rxy', self.Rxy, f)
+            self.writeArray('Zxy', self.Zxy, f)
+            self.writeArray('psixy', self.psixy, f)
+            self.writeArray('dx', self.dx, f)
+            self.writeArray('dy', self.dy, f)
+            self.writeArray('Bpxy', self.Bpxy, f)
+            self.writeArray('Btxy', self.Btxy, f)
+            self.writeArray('Bxy', self.Bxy, f)
+            self.writeArray('hthe', self.hthe, f)
+            #if not self.orthogonal:
+            #    self.writeArray('beta', self.beta, f)
+            #    self.writeArray('eta', self.eta, f)
+            self.writeArray('pitch', self.pitch, f)
+
+    def plot2D(self, f, title=None):
+        from matplotlib import pyplot
+
+        try:
+            vmin = f.min()
+            vmax = f.max()
+
+            for region, indices in zip(self.regions.values(), self.region_indices.values()):
+                pyplot.pcolor(region.Rxy.corners, region.Zxy.corners, f[indices],
+                              vmin=vmin, vmax=vmax)
+
+            pyplot.colorbar()
+        except NameError:
+            raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')

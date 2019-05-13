@@ -457,3 +457,51 @@ class Equilibrium:
         contours = ax.contour(
                 R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
         pyplot.clabel(contours, inline=False, fmt='%1.3g')
+
+class DoubleNull(Equilibrium):
+    """
+    Analyse tokamak equilibrium - single-null, connected double-null or disconnected
+    double-null - with regions lined up according to BOUT++ requirements.
+    """
+
+    def __init__(self, options):
+        self.options = options
+
+        self.nx_core = self.readOption('nx_core')
+        self.nx_between = self.readOption('nx_between')
+        self.nx_sol = self.readOption('nx_sol')
+        self.ny_inner_lower_divertor = self.readOption('ny_inner_lower_divertor')
+        self.ny_inner_core = self.readOption('ny_inner_core')
+        self.ny_inner_upper_divertor = self.readOption('ny_inner_upper_divertor')
+        self.ny_outer_upper_divertor = self.readOption('ny_outer_upper_divertor')
+        self.ny_outer_core = self.readOption('ny_outer_core')
+        self.ny_outer_lower_divertor = self.readOption('ny_outer_lower_divertor')
+
+        self.psi_core = self.readOption('psi_core')
+        self.psi_lower_pf = self.readOption('psi_lower_pf', self.psi_core)
+        self.psi_upper_pf = self.readOption('psi_upper_pf', self.psi_core)
+
+        self.psi_sol = self.readOption('psi_sol')
+        self.psi_inner_sol = self.readOption('psi_inner_sol', self.psi_sol)
+        # this option can only be set different from psi_sol in a double-null
+        # configuration (i.e. if there are upper divertor legs)
+        if self.psi_sol != self.psi_inner_sol:
+            assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0
+
+        self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
+        if self.psi_spacing_separatrix_multiplier is not None:
+            if self.nx_between > 0:
+                raise ValueError("Cannot use psi_spacing_separatrix_multiplier when "
+                                 "there are points between two separatrices - to get "
+                                 "the same effect, increase the number of points in the "
+                                 "between-separatrix region.")
+
+        self.y_boundary_guards = self.readOption('y_boundary_guards')
+
+        if ( (self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0)
+                and (self.ny_inner_lower_divertor > 0 or self.ny_inner_core > 0
+                     or self.ny_outer_core > 0 or self.ny_outer_lower_divertor > 0) ):
+            # there are two distinct divertor/limiter targets
+            #  - the upper divertor legs are not empty, and also the other regions are not
+            #    all empty
+            self.upper_target_y_boundary_guards = self.y_boundary_guards

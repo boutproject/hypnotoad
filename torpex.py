@@ -16,7 +16,7 @@ plotStuff = True
 import numpy
 from collections import OrderedDict
 import warnings
-from mesh import Mesh
+from mesh import BoutMesh
 from equilibrium import Equilibrium, Point2D, EquilibriumRegion
 if plotStuff:
     from matplotlib import pyplot
@@ -148,12 +148,12 @@ class TORPEXMagneticField(Equilibrium):
         legoptions = {}
         nx_core = self.readOption('nx_core')
         nx_sol = self.readOption('nx_sol')
-        y_boundary_guards = self.readOption('y_boundary_guards')
+        self.y_boundary_guards = self.readOption('y_boundary_guards')
         for name in legnames:
             options = {}
             options['nx'] = [nx_core, nx_sol]
             options['ny'] = self.readOption('ny_'+name)
-            options['y_boundary_guards'] = y_boundary_guards
+            options['y_boundary_guards'] = self.y_boundary_guards
             legoptions[name] = options
 
         psi_core = self.readOption('psi_core')
@@ -234,7 +234,7 @@ def createMesh(filename):
 
     equilibrium.makeRegions()
 
-    return Mesh(equilibrium, meshOptions)
+    return BoutMesh(equilibrium, meshOptions)
 
 if __name__ == '__main__':
     from sys import argv, exit

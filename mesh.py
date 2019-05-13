@@ -605,15 +605,6 @@ class Mesh:
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name,i)]
-                if (eq_region.connections[i]['lower'] is None and
-                        eq_region.connections[i]['upper'] is None):
-                    sfunc = sfunc_noX
-                elif eq_region.connections[i]['lower'] is None:
-                    sfunc = sfunc_leg_end
-                elif eq_region.connections[i]['upper'] is None:
-                    sfunc = sfunc_leg_start
-                else:
-                    sfunc = sfunc_core
                 eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i)
                 self.regions[region_id] = MeshRegion(self, region_id,
                         eq_region_with_boundaries, connections[region_id], i)

@@ -162,7 +162,7 @@ class PsiContour:
         interpZ = interp1d(distance, Z, kind='cubic',
                            assume_sorted=True, fill_value='extrapolate')
         total_distance = distance[-1]
-        return lambda s: Point2D(interpR(s*total_distance), interpZ(s*total_distance))
+        return lambda s: Point2D(interpR(s), interpZ(s))
 
     def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
             extend_lower=0, extend_upper=0):
@@ -177,7 +177,7 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
-        s = numpy.linspace(-extend_lower/(npoints-1),
+        s = self.distance[-1]*numpy.linspace(-extend_lower/(npoints-1),
                 (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)
         if sfunc is not None:
             s = sfunc(s)
@@ -479,6 +479,35 @@ class Equilibrium:
             a = (grad_upper - 2*upper/n + c + d/n) / n**2
             b = (grad_upper - 3*a*n**2 - c) / (2*n)
             return lambda i: a*i**3 + b*i**2 + c*i + d
+
+    def getSqrtPoloidalDistanceFunc(self, length, *, d_lower=None, d_upper=None):
+        """
+        Return a function proportional to sqrt(distance from end) near its ends and linear
+        far from its ends and such that f(0) = 0 and f(length) = length. The parameters
+        d_lower and d_upper set the length scale at which the sqrt dependence is
+        comparable to the linear dependence.
+        """
+        if d_lower is None and d_upper is None:
+            return lambda s: s
+        elif d_lower is None:
+            # f(s) = -sqrt((length - s)*d_upper)) + c*s + b
+            # f(0) = 0 = -sqrt(length*d_upper) + b
+            b = numpy.sqrt(length*d_upper)
+            # f(length) = length = c*length + b
+            c = 1. - b / length
+            return lambda s: -numpy.sqrt((length - s)*d_upper) + c*s + b
+        elif d_upper is None:
+            # f(s) = sqrt(s*d_lower)) + c*s
+            # f(length) = length = sqrt(length*d_lower) + c*length
+            c = 1. - numpy.sqrt(d_lower / length)
+            return lambda s: numpy.sqrt(s*d_lower) + c*s
+        else:
+            # f(s) = sqrt(s*d_lower) + sqrt((length - s)*d_upper) + c*s + b
+            # f(0) = 0 = sqrt(length*d_upper) + b
+            b = -numpy.sqrt(length*d_upper)
+            # f(length) = length = sqrt(length*d_lower) + c*length + b
+            c = (length - numpy.sqrt(length*d_lower) - b)/length
+            return lambda s: numpy.sqrt(s*d_lower) + sqrt((length - s)*d_upper) + c*s + b
 
     def readOption(self, name, default=None):
         print('reading option', name, end='')

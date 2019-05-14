@@ -178,7 +178,7 @@ class PsiContour:
         keyword, not positional, arguments
         """
         if sfunc is not None:
-            indices = 2*self.ny_noguards*numpy.linspace(-extend_lower/(npoints-1),
+            indices = (npoints-1)*numpy.linspace(-extend_lower/(npoints-1),
                     (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)
             s = sfunc(indices)
         else:
@@ -484,39 +484,116 @@ class Equilibrium:
             b = (grad_upper - 3*a*n**2 - c) / (2*n)
             return lambda i: a*i**3 + b*i**2 + c*i + d
 
-    def getSqrtPoloidalDistanceFunc(self, length, N, *, d_lower=None, d_upper=None):
+    def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None, d_sqrt_lower=None,
+            d_upper=None, d_sqrt_upper=None):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
-        s(0) = 0
-        s(N) = L
-        ds/di(0) ~ d_lower/sqrt(i) at i=0 (if d_lower not None, else no sqrt(i) term)
-        ds/di(N) ~ d_upper/sqrt(N-i) at i=N (if d_upper is not None)
+        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
+        same form when resolution is changed. The total Ny in the grid might be a good
+        choice for N_norm.
+        sN(0) = 0
+        sN(N/N_norm) = L
+        ds/diN(0) ~ d_sqrt_lower/sqrt(iN)+d_lower at iN=0 (if d_lower not None, else no
+                                                           sqrt(iN) term)
+        ds/diN(N/N_norm) ~ d_sqrt_upper/sqrt(N/N_norm-iN)+d_upper at iN=N_norm (if d_upper
+                                                                              is not None)
+
+        By default d_sqrt_lower=d_lower and d_sqrt_upper=d_upper, unless both are
+        specified explicitly
         """
-        # s(i) = a*sqrt(i) - b*sqrt(N-i) + c*i + d
-        # s(0) = 0 = -b*sqrt(N) + d
-        # ds/di(0) = a/(2*sqrt(i))+... ~ d_lower/sqrt(i)
-        # a = 2*d_lower
-        # ds/di(N) = b/(2*sqrt(L-s)) ~ d_upper/sqrt(N-i)
-        # b = 2*d_upper
-        # s(N) = L = a*sqrt(N) - c*N + d
-        # c = (L - d - a*sqrt(N)) / N
         if d_lower is None and d_upper is None:
-            return lambda s: s*length/N
+            assert d_sqrt_lower is None
+            assert d_sqrt_upper is None
+            # always monotonic
+            return lambda i: i*length/N
         elif d_lower is None:
-            b = 2.*d_upper
-            d = b * numpy.sqrt(N)
-            c = (length - d) / N
-            return lambda i: -b*numpy.sqrt(N - i) + c*i + d
+            assert d_sqrt_lower is None
+            if d_sqrt_upper is None:
+                d_sqrt_upper = d_upper
+            # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
+            # s(0) = 0 = -b*sqrt(N/N_norm) + c
+            # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ d_sqrt_upper/sqrt(N/N_norm-iN)+d_upper
+            # b = 2*d_sqrt_upper
+            # d + 2*e*N/N_norm = d_upper
+            # d = d_upper - 2*e*N/N_norm
+            # s(N/N_norm) = L = c + d*N/N_norm + e*(N/N_norm)^2
+            # L = c + d_upper*N/N_norm - 2*e*(N/N_norm)^2 + e*(N/N_norm)^2
+            # e = (c + d_upper*N/N_norm - L) / (N/N_norm)^2
+            b = 2.*d_sqrt_upper
+            c = b*numpy.sqrt(N/N_norm)
+            e = (c + d_upper*N/N_norm - length) / (N/N_norm)**2
+            d = d_upper - 2*e*N/N_norm
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive.
+            # lower boundary:
+            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0.
+            # upper boundary:
+            assert b > 0. # sqrt part of gradient
+            assert d + 2.*e*N/N_norm > 0. # polynomial part of gradient
+
+            return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
         elif d_upper is None:
-            a = 2.*d_lower
-            c = (length - a*numpy.sqrt(N)) / N
-            return lambda i: a*numpy.sqrt(i) + c*i
+            if d_sqrt_lower is None:
+                d_sqrt_lower = d_lower
+            assert d_sqrt_upper is None
+            # s(iN) = a*sqrt(iN) + c + d*iN + e*iN^2
+            # s(0) = 0 = c
+            # ds/di(0) = a/(2*sqrt(iN))+d ~ d_sqrt_lower/sqrt(iN)+d_lower
+            # a = 2*d_sqrt_lower
+            # d = d_lower
+            # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2
+            a = 2.*d_sqrt_lower
+            d = d_lower
+            e = (length - a*numpy.sqrt(N/N_norm) - d*N/N_norm)/(N/N_norm)**2
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive.
+            # lower boundary:
+            assert a > 0. # sqrt part of gradient
+            assert d > 0. # polynomial part of gradient
+            # upper boundary:
+            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0.
+
+            return lambda i: a*numpy.sqrt(i/N_norm) + d*i/N_norm + e*(i/N_norm)**2
         else:
-            b = 2.*d_upper
-            d = b * sqrt(N)
-            a = 2.*d_lower
-            c = (length - d - a*numpy.sqrt(N)) / N
-            return lambda i: a*numpy.sqrt(i) - b*numpy.sqrt(N - i) + c*i + d
+            if d_sqrt_lower is None:
+                d_sqrt_lower = d_lower
+            if d_sqrt_upper is None:
+                d_sqrt_upper = d_upper
+            # s(iN) = a*sqrt(iN) - b*sqrt(N/N_norm-iN) + c + d*iN + e*iN^2 + f*iN^3
+            # s(0) = 0 = -b*sqrt(N/N_norm) + c
+            # c = b*sqrt(N/N_norm)
+            # ds/diN(0) = a/(2*sqrt(iN))+b/(2*sqrt(N/N_norm))+d ~ d_sqrt_lower/sqrt(iN)+d_lower
+            # a = 2*d_sqrt_lower
+            # b/(2*sqrt(N/N_norm)) + d = d_lower
+            # d = d_lower - b/(2*sqrt(N/N_norm)
+            # ds/di(N) =
+            # b/(2*sqrt(N/N_norm-iN))+a/(2*sqrt(N))+d+2*e*N/N_norm+3*f*(N/N_norm)^2 ~ d_sqrt_upper/sqrt(N/N_norm-i)+d_upper
+            # b = 2*d_sqrt_upper
+            # a/(2*sqrt(N/N_norm) + d + 2*e*N/N_norm + 3*f*(N/N_norm)^2 = d_upper
+            # e = (d_upper - a/(2*sqrt(N/N_norm)) - d)/(2*N/N_norm) - 3/2*f*N/N_norm
+            # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2 + f*(N/N_norm)^3
+            # L = a*sqrt(N/N_norm) + c + d*N/N_norm + (d_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm) - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
+            # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + d_upper*N/(2*N_norm) - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
+            a = 2.*d_sqrt_lower
+            b = 2.*d_sqrt_upper
+            c = b*numpy.sqrt(N/N_norm)
+            d = d_lower - b/2./numpy.sqrt(N/N_norm)
+            f = 2.*(a*numpy.sqrt(N/N_norm) + c + d*N/N_norm/2. + d_upper*N/N_norm/2. - a*numpy.sqrt(N/N_norm)/4. - length)*N_norm**3/N**3
+            e = (d_upper - a/2./numpy.sqrt(N/N_norm) - d)*N_norm/2./N - 1.5*f*N/N_norm
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive. Only check the boundaries here, should really add a check that
+            # gradient does not reverse in the middle somewhere...
+            # lower boundary:
+            assert a > 0. # sqrt part of gradient
+            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0. # non-singular part of gradient
+            # upper boundary:
+            assert b > 0. # sqrt part of gradient
+            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 # non-singular part of gradient
+
+            return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3
 
     def readOption(self, name, default=None):
         print('reading option', name, end='')

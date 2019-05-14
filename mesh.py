@@ -372,21 +372,6 @@ class MeshRegion:
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
-        # determine direction - dot Bp with Grad(y) vector
-        # evaluate in 'sol' at outer radial boundary
-        Bp_dot_grady = (
-            self.Brxy.centre[-1, self.ny//2]
-            *(self.Rxy.centre[-1, self.ny//2 + 1] - self.Rxy.centre[-1, self.ny//2 - 1])
-            + self.Bzxy.centre[-1, self.ny//2]
-              *(self.Zxy.centre[-1, self.ny//2 + 1] - self.Zxy.centre[-1, self.ny//2 - 1]) )
-        if Bp_dot_grady < 0.:
-            print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
-            self.Bpxy = -self.Bpxy
-            if self.bpsign > 0.:
-                raise ValueError("Sign of Bp should be negative?")
-        else:
-            if self.bpsign < 0.:
-                raise ValueError("Sign of Bp should be positive?")
 
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
@@ -773,6 +758,27 @@ class BoutMesh(Mesh):
         self.Brxy = MultiLocationArray(self.nx, self.ny)
         self.Bzxy = MultiLocationArray(self.nx, self.ny)
         self.Bpxy = MultiLocationArray(self.nx, self.ny)
+
+        # determine direction - dot Bp with Grad(y) vector
+        # evaluate in 'sol' at outer radial boundary
+        Bp_dot_grady = (
+            self.Brxy.centre[-1, self.ny//2]
+            *(self.Rxy.centre[-1, self.ny//2 + 1] - self.Rxy.centre[-1, self.ny//2 - 1])
+            + self.Bzxy.centre[-1, self.ny//2]
+              *(self.Zxy.centre[-1, self.ny//2 + 1] - self.Zxy.centre[-1, self.ny//2 - 1]) )
+        if Bp_dot_grady < 0.:
+            print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
+            self.Bpxy = -self.Bpxy
+            if self.bpsign > 0.:
+                raise ValueError("Sign of Bp should be negative? (note this check will "
+                        "raise an exception when bpsign was correct if you only have a "
+                        "private flux region)")
+        else:
+            if self.bpsign < 0.:
+                raise ValueError("Sign of Bp should be negative? (note this check will "
+                        "raise an exception when bpsign was correct if you only have a "
+                        "private flux region)")
+
         self.Btxy = MultiLocationArray(self.nx, self.ny)
         self.Bxy = MultiLocationArray(self.nx, self.ny)
         self.hthe = MultiLocationArray(self.nx, self.ny)

@@ -141,7 +141,7 @@ class PsiContour:
                     pass
                 w /= 2.
                 if w < atol:
-                    raise ValueError("Could not find interval to refine point")
+                    raise ValueError("Could not find interval to refine point at "+str(p))
 
             return pline(snew)
 

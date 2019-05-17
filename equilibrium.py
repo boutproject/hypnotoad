@@ -280,9 +280,9 @@ class Equilibrium:
     f_R and f_Z are the components of a vector Grad(psi)/|Grad(psi)|**2. This vector
     points along a path perpendicular to psi-contours, and its value is ds/dpsi where s is
     the coordinate along the path, so we can follow the path by integrating this vector:
-    R(psi) = \int_0^\psi f_R
+    R(psi) = \\int_0^\\psi f_R
     and
-    Z(psi) = \int_0^\psi f_Z
+    Z(psi) = \\int_0^\\psi f_Z
 
     Derived classes must provide:
       - self.psi: function which takes two arguments, {R,Z}, and returns the value of psi

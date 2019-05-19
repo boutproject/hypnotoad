@@ -237,6 +237,9 @@ class MeshRegion:
         # Number of this region, counting radially outward
         self.radialIndex = radialIndex
 
+        # Number of this region in its y-group
+        self.yGroupIndex = None
+
         # # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
         # # connected to another region
         # if self.connections['lower'] is None:
@@ -658,6 +661,8 @@ class Mesh:
                 # region must be part of a periodic group, which we will handle.
             group = []
             while True:
+                assert region.yGroupIndex == None
+                region.yGroupIndex = len(group)
                 group.append(region)
                 region_set.remove(region)
                 region = region.getNeighbour('upper')

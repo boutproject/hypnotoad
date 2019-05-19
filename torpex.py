@@ -227,14 +227,14 @@ class TORPEXMagneticField(Equilibrium):
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [lower_psi_vals, inner_psi_vals]
         r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_upper=d_xpoint)
+                ny_total, d_upper=0., d_sqrt_upper=d_xpoint)
 
         # inner upper
         r = self.regions['inner_upper_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [upper_psi_vals, inner_psi_vals]
         r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_lower=d_xpoint)
+                ny_total, d_lower=0., d_sqrt_lower=d_xpoint)
 
         # outer upper
         r = self.regions['outer_upper_divertor']
@@ -242,14 +242,14 @@ class TORPEXMagneticField(Equilibrium):
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [upper_psi_vals, outer_psi_vals]
         r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_upper=d_xpoint)
+                ny_total, d_upper=0., d_sqrt_upper=d_xpoint)
 
         # outer lower
         r = self.regions['outer_lower_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [lower_psi_vals, outer_psi_vals]
         r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_lower=d_xpoint)
+                ny_total, d_lower=0., d_sqrt_lower=d_xpoint)
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

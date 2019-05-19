@@ -413,7 +413,7 @@ class MeshRegion:
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
-        self.hthe = self.calcHthe()
+        self.hy = self.calcHy()
 
         #if not self.meshParent.orthogonal:
         #    # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
@@ -426,16 +426,87 @@ class MeshRegion:
         #    self.beta.centre = 0.
         #    self.eta.centre = 0.
 
-        # field line pitch
-        self.pitch = self.hthe * self.Btxy / (self.Bpxy * self.Rxy)
+        # variation of toroidal angle with y following a field line. Called 'pitch' in
+        # Hypnotoad1 because if y was the poloidal angle then dphidy would be the pitch
+        # angle.
+        self.dphidy = self.hy * self.Btxy / (self.Bpxy * self.Rxy)
 
-        self.dqdpsi = MultiLocationArray(self.nx, self.ny)
-        self.dqdpsi.centre = self.DDX_L2C(self.pitch.xlow)
-        self.dqdpsi.ylow = self.DDX_L2C(self.pitch.corners, ylow=True)
+        self.d2phidxdy = MultiLocationArray(self.nx, self.ny)
+        self.d2phidxdy.centre = self.DDX_L2C(self.dphidy.xlow)
+        self.d2phidxdy.ylow = self.DDX_L2C(self.dphidy.corners, ylow=True)
 
-    def calcHthe(self, ylow=False):
-        # hthe = |Grad(theta)|
-        # hthe = dtheta/ds at constant psi, phi when psi and theta are orthogonal
+    def calcMetric(self):
+        """
+        Calculate the metrics using geometrical information calculated in geometry().
+        Needs to be a separate method as zShift can only be calculated when calcZShift()
+        has been called on the MeshRegion at the beginning of the y-group. To ensure this,
+        call geometry() on all regions first, then calcMetric on all regions.
+        """
+        if not self.meshParent.shiftedmetric:
+            # To implement the shiftedmetric==False case, would have to define a
+            # consistent zShift=0 location for all regions, for example in the style of
+            # Hypnotoad1. This could be done by a particular implementation of 'Mesh'
+            # (e.g. 'BoutMesh') before calling this method. Needs to be a particular
+            # implementation which knows about the topology of the grid - still not clear
+            # it is possible to do consistently, e.g. in private-flux regions.
+            raise ValueError("'shiftedmetric == False' not handled at present.\n"
+                             "Cannot make grid for field-aligned toroidal coordinates "
+                             "without making zShift consistent between all regions. "
+                             "Don't know how to do this in general, and haven't "
+                             "implemented the Hypnototoad1-style solution as it does not "
+                             "seem consistent in the private-flux region, or the "
+                             "inner-SOL of a double-null configuration.")
+            # integrated shear
+            self.sinty = MultiLocationArray(self.nx, self.ny)
+            self.sinty.centre = self.DDX_L2C(self.zShift.xlow)
+            self.sinty.ylow = self.DDX_L2C(self.zShift.corners, ylow=True)
+            I = self.sinty
+        else:
+            # Zero integrated shear, because the coordinate system is defined locally to
+            # each value of y, and defined to have no shear.
+            # In this case zShift only needs to be defined consistently *along* each field
+            # line - don't need to be able to take radial (x-direction) derivatives. This
+            # means different (radial) regions can use different locations for where
+            # zShift=0.
+            I = MultiLocationArray(self.nx, self.ny).zero()
+
+        self.g11 = (self.Rxy*self.Bpxy)**2
+        self.g22 = 1./self.hy**2
+        self.g33 = I*self.g11 + (self.dphidy/self.hy)**2 + 1./self.Rxy**2
+        self.g12 = MultiLocationArray(self.nx, self.ny).zero()
+        self.g13 = -I*self.g11
+        self.g23 = -self.dphidy/self.hy**2
+
+        self.J = self.hy / self.Bpxy
+
+        self.g_11 = 1./self.g11 + (I*self.Rxy)**2
+        self.g_22 = self.hy**2 + (self.Rxy/self.dphidy)**2
+        self.g_33 = self.Rxy**2
+        self.g_12 = self.Rxy**2*self.dphidy*I
+        self.g_13 = self.Rxy**2*I
+        self.g_23 = self.dphidy*self.Rxy**2
+
+        # check Jacobian is OK
+        check = numpy.abs(self.J - 1./numpy.sqrt(self.g11*self.g22*self.g33
+            + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2 - self.g22*self.g13**2
+            - self.g33*self.g12**2)) / numpy.abs(self.J) < 1.e-11
+        assert numpy.all(check.centre)
+        assert numpy.all(check.ylow)
+        assert numpy.all(check.xlow)
+        # ignore grid points at X-points as J should diverge there (as Bp->0)
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
+            check.corners[0, 0] = True
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
+            check.corners[-1, 0] = True
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
+            check.corners[0, -1] = True
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
+            check.corners[-1, -1] = True
+        assert numpy.all(check.corners)
+
+    def calcHy(self, ylow=False):
+        # hy = |Grad(theta)|
+        # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
         assert self.meshParent.orthogonal
 
@@ -443,8 +514,8 @@ class MeshRegion:
         R = self.Rxy.ylow
         Z = self.Zxy.ylow
 
-        hthe = MultiLocationArray(self.nx, self.ny)
-        hthe.centre = self.dy.centre/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        hy = MultiLocationArray(self.nx, self.ny)
+        hy.centre = self.dy.centre/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
 
         # for hthe_ylow, need R, Z values from below the lower face of this region and
         # above the upper face
@@ -470,14 +541,14 @@ class MeshRegion:
             R[:,-1] = 2.*self.Rxy.ylow[:,-1] - self.Rxy.centre[:,-1]
             Z[:,-1] = 2.*self.Zxy.ylow[:,-1] - self.Zxy.centre[:,-1]
 
-        hthe.ylow =  self.dy.ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+        hy.ylow =  self.dy.ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
                                               + (Z[:,1:] - Z[:,:-1])**2)
 
         # for hthe_xlow, need R, Z values from the cell corners
         R = self.Rxy.corners
         Z = self.Zxy.corners
 
-        hthe.xlow =  self.dy.xlow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+        hy.xlow =  self.dy.xlow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
                                               + (Z[:,1:] - Z[:,:-1])**2)
 
         # for hthecorners, need R, Z values from xlow
@@ -503,10 +574,10 @@ class MeshRegion:
             R[:,-1] = 2.*self.Rxy.corners[:,-1] - self.Rxy.xlow[:,-1]
             Z[:,-1] = 2.*self.Zxy.corners[:,-1] - self.Zxy.xlow[:,-1]
 
-        hthe.corners =  self.dy.corners/numpy.sqrt((R[:,1:] - R[:,:-1])**2
+        hy.corners =  self.dy.corners/numpy.sqrt((R[:,1:] - R[:,:-1])**2
                                                     + (Z[:,1:] - Z[:,:-1])**2)
 
-        return hthe
+        return hy
 
     def calcBeta(self, ylow=False):
         """
@@ -643,7 +714,9 @@ class MeshRegion:
             return self.meshParent.regions[self.connections[face]]
 
     def DDX_L2C(self, f, ylow=False):
-        # assume the 'xlow' quantity f has nx+1 values and includes the outer point after
+        # x-derivative at x-centre points, calculated by 2nd order central difference from
+        # x-staggered points.
+        # Assume the 'xlow' quantity f has nx+1 values and includes the outer point after
         # the last cell-centre grid point.
         assert f.shape[0] == self.nx + 1
 
@@ -660,7 +733,8 @@ class Mesh:
     """
     def __init__(self, equilibrium, meshOptions):
         self.meshOptions = meshOptions
-        self.orthogonal = self.readOption('orthogonal')
+        self.orthogonal = self.readOption('orthogonal', True)
+        self.shiftedmetric = self.readOption('shiftedmetric', True)
 
         self.equilibrium = equilibrium
 
@@ -771,6 +845,8 @@ class Mesh:
             region.geometry()
         for region in self.regions.values():
             region.calcZShift()
+        for region in self.regions.values():
+            region.calcMetric()
 
     def plotPoints(self, xlow=False, ylow=False, corners=False):
         from matplotlib import pyplot
@@ -878,16 +954,30 @@ class BoutMesh(Mesh):
         self.Brxy = MultiLocationArray(self.nx, self.ny)
         self.Bzxy = MultiLocationArray(self.nx, self.ny)
         self.Bpxy = MultiLocationArray(self.nx, self.ny)
-
         self.Btxy = MultiLocationArray(self.nx, self.ny)
         self.Bxy = MultiLocationArray(self.nx, self.ny)
-        self.hthe = MultiLocationArray(self.nx, self.ny)
+        self.hy = MultiLocationArray(self.nx, self.ny)
         #if not self.orthogonal:
         #    self.beta = MultiLocationArray(self.nx, self.ny)
         #    self.eta = MultiLocationArray(self.nx, self.ny)
-        self.pitch = MultiLocationArray(self.nx, self.ny)
-        self.dqdpsi = MultiLocationArray(self.nx, self.ny)
+        self.dphidy = MultiLocationArray(self.nx, self.ny)
+        self.d2phidxdy = MultiLocationArray(self.nx, self.ny)
         self.zShift = MultiLocationArray(self.nx, self.ny)
+        if not self.shiftedmetric:
+            self.sinty = MultiLocationArray(self.nx, self.ny)
+        self.g11 = MultiLocationArray(self.nx, self.ny)
+        self.g22 = MultiLocationArray(self.nx, self.ny)
+        self.g33 = MultiLocationArray(self.nx, self.ny)
+        self.g12 = MultiLocationArray(self.nx, self.ny)
+        self.g13 = MultiLocationArray(self.nx, self.ny)
+        self.g23 = MultiLocationArray(self.nx, self.ny)
+        self.J = MultiLocationArray(self.nx, self.ny)
+        self.g_11 = MultiLocationArray(self.nx, self.ny)
+        self.g_22 = MultiLocationArray(self.nx, self.ny)
+        self.g_33 = MultiLocationArray(self.nx, self.ny)
+        self.g_12 = MultiLocationArray(self.nx, self.ny)
+        self.g_13 = MultiLocationArray(self.nx, self.ny)
+        self.g_23 = MultiLocationArray(self.nx, self.ny)
 
         for region in self.regions.values():
             addFromRegion(self.Rxy, region.Rxy, region.myID)
@@ -900,13 +990,28 @@ class BoutMesh(Mesh):
             addFromRegion(self.Bpxy, region.Bpxy, region.myID)
             addFromRegion(self.Btxy, region.Btxy, region.myID)
             addFromRegion(self.Bxy, region.Bxy, region.myID)
-            addFromRegion(self.hthe, region.hthe, region.myID)
+            addFromRegion(self.hy, region.hy, region.myID)
             #if not self.orthogonal:
             #    addFromRegion(self.beta, region.beta, region.myID)
             #    addFromRegion(self.eta, region.eta, region.myID)
-            addFromRegion(self.pitch, region.pitch, region.myID)
-            addFromRegion(self.dqdpsi, region.dqdpsi, region.myID)
+            addFromRegion(self.dphidy, region.dphidy, region.myID)
+            addFromRegion(self.d2phidxdy, region.d2phidxdy, region.myID)
             addFromRegion(self.zShift, region.zShift, region.myID)
+            if not self.shiftedmetric:
+                addFromRegion(self.sinty, region.sinty, region.myID)
+            addFromRegion(self.g11, region.g11, region.myID)
+            addFromRegion(self.g22, region.g22, region.myID)
+            addFromRegion(self.g33, region.g33, region.myID)
+            addFromRegion(self.g12, region.g12, region.myID)
+            addFromRegion(self.g13, region.g13, region.myID)
+            addFromRegion(self.g23, region.g23, region.myID)
+            addFromRegion(self.J, region.J, region.myID)
+            addFromRegion(self.g_11, region.g_11, region.myID)
+            addFromRegion(self.g_22, region.g_22, region.myID)
+            addFromRegion(self.g_33, region.g_33, region.myID)
+            addFromRegion(self.g_12, region.g_12, region.myID)
+            addFromRegion(self.g_13, region.g_13, region.myID)
+            addFromRegion(self.g_23, region.g_23, region.myID)
 
     def writeArray(self, name, array, f):
         f.write(name, array.centre)
@@ -928,12 +1033,37 @@ class BoutMesh(Mesh):
             self.writeArray('Bpxy', self.Bpxy, f)
             self.writeArray('Btxy', self.Btxy, f)
             self.writeArray('Bxy', self.Bxy, f)
-            self.writeArray('hthe', self.hthe, f)
+            self.writeArray('hthe', self.hy, f)
             #if not self.orthogonal:
             #    self.writeArray('beta', self.beta, f)
             #    self.writeArray('eta', self.eta, f)
-            self.writeArray('pitch', self.pitch, f)
+            self.writeArray('dphidy', self.dphidy, f)
             self.writeArray('zShift', self.dphidy, f)
+
+            # Haven't checked this is exactly the quantity needed by BOUT++...
+            # ShiftTorsion is only used in Curl operator - Curl is rarely used.
+            self.writeArray('ShiftTorsion', self.d2phidxdy, f)
+
+            # I think IntShiftTorsion should be the same as sinty in Hypnotoad1.
+            # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
+            # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
+            # here. /JTO 19/5/2019
+            if not self.shiftedmetric:
+                self.writeArray('sinty', self.sinty, f)
+
+            self.writeArray('g11', self.g11, f)
+            self.writeArray('g22', self.g22, f)
+            self.writeArray('g33', self.g33, f)
+            self.writeArray('g12', self.g12, f)
+            self.writeArray('g13', self.g13, f)
+            self.writeArray('g23', self.g23, f)
+            self.writeArray('J', self.J, f)
+            self.writeArray('g_11', self.g_11, f)
+            self.writeArray('g_22', self.g_22, f)
+            self.writeArray('g_33', self.g_33, f)
+            self.writeArray('g_12', self.g_12, f)
+            self.writeArray('g_13', self.g_13, f)
+            self.writeArray('g_23', self.g_23, f)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

@@ -193,6 +193,14 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
 
         return result
 
+    def zero(self):
+        # Initialise all locations, set them to zero and return the result
+        self.centre = 0.
+        self.xlow = 0.
+        self.ylow = 0.
+        self.corners = 0.
+        return self
+
 class MeshRegion:
     """
     A simple rectangular region of a Mesh, that connects to one other region (or has a

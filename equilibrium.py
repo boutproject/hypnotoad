@@ -547,7 +547,7 @@ class Equilibrium:
             assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0.
             # upper boundary:
             assert b > 0. # sqrt part of gradient
-            assert d + 2.*e*N/N_norm > 0. # polynomial part of gradient
+            assert d + 2.*e*N/N_norm >= 0. # polynomial part of gradient
 
             return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
         elif d_upper is None:
@@ -568,7 +568,7 @@ class Equilibrium:
             # positive.
             # lower boundary:
             assert a > 0. # sqrt part of gradient
-            assert d > 0. # polynomial part of gradient
+            assert d >= 0. # polynomial part of gradient
             # upper boundary:
             assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0.
 
@@ -605,10 +605,10 @@ class Equilibrium:
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
             assert a > 0. # sqrt part of gradient
-            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0. # non-singular part of gradient
+            assert b/(2.*numpy.sqrt(N/N_norm)) + d >= 0. # non-singular part of gradient
             # upper boundary:
             assert b > 0. # sqrt part of gradient
-            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 # non-singular part of gradient
+            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 >= 0. # non-singular part of gradient
 
             return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3
 

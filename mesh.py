@@ -558,6 +558,84 @@ class MeshRegion:
 
         return (angle_grad_psi - angle_dr - numpy.pi/2.), hrad
 
+    def calcZShift(self):
+        """
+        Calculate zShift by integrating dphidy in y.
+        """
+        # Integrate using all available points - centre+ylow or xlow+corner.
+        # Integrate from lower boundary on open field lines.
+        # Integrate from lower side of MeshRegion with yGroupIndex=0 on closed field
+        # lines.
+        # Use trapezoid rule. If int_f = \int f dy
+        # int_f.centre[j] = int_f.centre[j-1]
+        #                   + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
+        #                   + 0.5*(f.ylow[j] + f.centre[j]) * (0.5*dy.centre[j])
+        #                 = i_centre[j-1] + i_ylow_upper[j]
+        #                   + i_ylow_lower[j] + i_centre[j]
+        # At the moment dy is a constant, but we allow for future changes with variable
+        # grid-spacing in y. The cell-centre points should be half way between the
+        # cell-face points, so the distance between centre[j-1] and ylow[j] is
+        # 0.5*dy[j-1], and the distace between ylow[j] and centre[j] is 0.5*dy[j]
+        #
+        # Also
+        # int_f.ylow[j] = int_f.ylow[j-1]
+        #                 + 0.5*(f.ylow[j-1] + f.centre[j-1]) * (0.5*dy.centre[j-1])
+        #                 + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
+        #               = i_ylow_lower[j-1] + i_centre[j-1]
+        #                 + i_centre[j-1] + i_ylow_upper[j]
+
+        # Cannot just test 'connections['lower'] is not None' because periodic regions
+        # always have a lower connection - requires us to give a yGroupIndex to each
+        # region when creating the groups.
+        if self.yGroupIndex is not 0:
+            return None
+
+        region = self
+        region.zShift = MultiLocationArray(region.nx, region.ny)
+        while True:
+            # calculate integral for field lines with centre and ylow points
+            i_centre = 0.25*numpy.cumsum(region.dphidy.centre * region.dy.centre, axis=1)
+            i_ylow_lower = 0.25*numpy.cumsum(region.dphidy.ylow[:, :-1] \
+                           * region.dy.centre, axis=1)
+            i_ylow_upper = 0.25*numpy.cumsum(region.dphidy.ylow[:, 1:] \
+                           * region.dy.centre, axis=1)
+
+            region.zShift.centre[:,0] = region.zShift.ylow[:, 0] \
+                                        + i_ylow_lower[:, 0] + i_centre[:, 0]
+            region.zShift.centre[:,1:] = region.zShift.ylow[:, 0, numpy.newaxis] \
+                                         + i_centre[:, :-1] + i_ylow_upper[:, :-1] \
+                                         + i_ylow_lower[:, 1:] + i_centre[:, 1:]
+
+            region.zShift.ylow[:, 1:] = region.zShift.ylow[:, 0, numpy.newaxis] \
+                                        + i_ylow_lower + 2.*i_centre \
+                                        + i_ylow_upper
+
+            # repeat for field lines with xlow and corner points
+            i_xlow = 0.25*numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
+            i_corners_lower = 0.25*numpy.cumsum(region.dphidy.corners[:, :-1] \
+                              * region.dy.xlow, axis=1)
+            i_corners_upper = 0.25*numpy.cumsum(region.dphidy.corners[:, 1:] \
+                              * region.dy.xlow, axis=1)
+
+            region.zShift.xlow[:,0] = region.zShift.corners[:, 0] \
+                                        + i_corners_lower[:, 0] + i_xlow[:, 0]
+            region.zShift.xlow[:,1:] = region.zShift.corners[:, 0, numpy.newaxis] \
+                                         + i_xlow[:, :-1] + i_corners_upper[:, :-1] \
+                                         + i_corners_lower[:, 1:] + i_xlow[:, 1:]
+
+            region.zShift.corners[:, 1:] = region.zShift.corners[:, 0, numpy.newaxis] \
+                                        + i_corners_lower + 2.*i_xlow \
+                                        + i_corners_upper
+
+            next_region = region.getNeighbour('upper')
+            if next_region is None:
+                break
+            else:
+                next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)
+                next_region.zShift.ylow[:, 0] = region.zShift.ylow[:, -1]
+                next_region.zShift.corners[:, 0] = region.zShift.corners[:, -1]
+                region = next_region
+
     def getNeighbour(self, face):
         if self.connections[face] is None:
             return None
@@ -691,6 +769,8 @@ class Mesh:
             region.getRZBoundary()
         for region in self.regions.values():
             region.geometry()
+        for region in self.regions.values():
+            region.calcZShift()
 
     def plotPoints(self, xlow=False, ylow=False, corners=False):
         from matplotlib import pyplot
@@ -807,6 +887,7 @@ class BoutMesh(Mesh):
         #    self.eta = MultiLocationArray(self.nx, self.ny)
         self.pitch = MultiLocationArray(self.nx, self.ny)
         self.dqdpsi = MultiLocationArray(self.nx, self.ny)
+        self.zShift = MultiLocationArray(self.nx, self.ny)
 
         for region in self.regions.values():
             addFromRegion(self.Rxy, region.Rxy, region.myID)
@@ -825,6 +906,7 @@ class BoutMesh(Mesh):
             #    addFromRegion(self.eta, region.eta, region.myID)
             addFromRegion(self.pitch, region.pitch, region.myID)
             addFromRegion(self.dqdpsi, region.dqdpsi, region.myID)
+            addFromRegion(self.zShift, region.zShift, region.myID)
 
     def writeArray(self, name, array, f):
         f.write(name, array.centre)
@@ -851,6 +933,7 @@ class BoutMesh(Mesh):
             #    self.writeArray('beta', self.beta, f)
             #    self.writeArray('eta', self.eta, f)
             self.writeArray('pitch', self.pitch, f)
+            self.writeArray('zShift', self.dphidy, f)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

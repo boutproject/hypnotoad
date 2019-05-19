@@ -1068,6 +1068,9 @@ class BoutMesh(Mesh):
         try:
             vmin = f.min()
             vmax = f.max()
+            if vmin == vmax:
+                vmin -= 0.1
+                vmax += 0.1
 
             for region, indices in zip(self.regions.values(), self.region_indices.values()):
                 pyplot.pcolor(region.Rxy.corners, region.Zxy.corners, f[indices],

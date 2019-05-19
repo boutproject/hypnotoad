@@ -197,24 +197,25 @@ class TORPEXMagneticField(Equilibrium):
             dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep
 
         # lower PF
-        lower_psi_func = self.getPolynomialGridFunc(2*nx_core, psi_lower_pf,
+        lower_psi_func = self.getPolynomialGridFunc(nx_core, psi_lower_pf,
                 self.psi_sep[0], grad_upper=dpsidi_sep)
-        lower_psi_vals = [lower_psi_func(i) for i in range(2*nx_core + 1)]
+        lower_psi_vals = self.make1dGrid(nx_core, lower_psi_func)
 
         # upper PF
-        upper_psi_func = self.getPolynomialGridFunc(2*nx_core, psi_upper_pf,
+        upper_psi_func = self.getPolynomialGridFunc(nx_core, psi_upper_pf,
                 self.psi_sep[0], grad_upper=dpsidi_sep)
-        upper_psi_vals = [upper_psi_func(i) for i in range(2*nx_core + 1)]
+        upper_psi_vals = self.make1dGrid(nx_core, upper_psi_func)
 
         # inner SOL
-        inner_psi_func = self.getPolynomialGridFunc(2*nx_sol, self.psi_sep[0],
+        inner_psi_func = self.getPolynomialGridFunc(nx_sol, self.psi_sep[0],
                 psi_inner_sol, grad_lower=dpsidi_sep)
-        inner_psi_vals = [inner_psi_func(i) for i in range(2*nx_sol + 1)]
+        inner_psi_vals = self.make1dGrid(nx_sol, inner_psi_func)
 
         # outer SOL
-        outer_psi_func = self.getPolynomialGridFunc(2*nx_sol, self.psi_sep[0],
+        outer_psi_func = self.getPolynomialGridFunc(nx_sol, self.psi_sep[0],
                 psi_sol, grad_lower=dpsidi_sep)
-        outer_psi_vals = [outer_psi_func(i) for i in range(2*nx_sol + 1)]
+        outer_psi_vals = self.make1dGrid(nx_sol, outer_psi_func)
+
 
         # set poloidal grid spacing
         d_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)

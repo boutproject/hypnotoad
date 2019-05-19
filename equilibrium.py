@@ -443,6 +443,23 @@ class Equilibrium:
 
         return roots
 
+    def make1dGrid(self, n, spacingFunc):
+        """
+        Make a 1d grid:
+        - Start by generating grid of cell-face values, with values from spacingFunc.
+        - Place cell-centre values half-way between cell-faces.
+
+        spacingFunc should take an index between 0 and n, and returns the desired
+        coordinate value.
+        """
+        face_vals = [spacingFunc(i) for i in range(n + 1)]
+
+        result = numpy.zeros(2*n + 1)
+        result[::2] = face_vals
+        result[1::2] = 0.5*(result[:-1:2] + result[2::2])
+
+        return result
+
     def getPolynomialGridFunc(self, n, lower, upper, *, grad_lower=None, grad_upper=None):
         """
         A polynomial function with value 'lower' at 0 and 'upper' at n, used to

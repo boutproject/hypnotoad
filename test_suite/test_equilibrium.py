@@ -164,6 +164,12 @@ class TestEquilibrium:
         eq = Equilibrium()
         return eq
 
+    def test_make1dGrid(self, eq):
+        n = 4
+        f = lambda i: i**2
+        r = eq.make1dGrid(n, f)
+        assert r == tight_approx([0., 0.5, 1., 2.5, 4., 6.5, 9., 12.5, 16.])
+
     def test_getSqrtPoloidalDistanceFuncLinear(self, eq):
         L = 2.
         N = 10.

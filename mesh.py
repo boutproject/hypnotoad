@@ -515,7 +515,7 @@ class MeshRegion:
         Z = self.Zxy.ylow
 
         hy = MultiLocationArray(self.nx, self.ny)
-        hy.centre = self.dy.centre/numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2)
+        hy.centre = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.centre
 
         # for hthe_ylow, need R, Z values from below the lower face of this region and
         # above the upper face
@@ -541,15 +541,13 @@ class MeshRegion:
             R[:,-1] = 2.*self.Rxy.ylow[:,-1] - self.Rxy.centre[:,-1]
             Z[:,-1] = 2.*self.Zxy.ylow[:,-1] - self.Zxy.centre[:,-1]
 
-        hy.ylow =  self.dy.ylow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
-                                              + (Z[:,1:] - Z[:,:-1])**2)
+        hy.ylow =  numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.ylow
 
         # for hthe_xlow, need R, Z values from the cell corners
         R = self.Rxy.corners
         Z = self.Zxy.corners
 
-        hy.xlow =  self.dy.xlow/numpy.sqrt((R[:,1:] - R[:,:-1])**2
-                                              + (Z[:,1:] - Z[:,:-1])**2)
+        hy.xlow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.xlow
 
         # for hthecorners, need R, Z values from xlow
         R = numpy.zeros([self.nx+1, self.ny+2])
@@ -574,8 +572,7 @@ class MeshRegion:
             R[:,-1] = 2.*self.Rxy.corners[:,-1] - self.Rxy.xlow[:,-1]
             Z[:,-1] = 2.*self.Zxy.corners[:,-1] - self.Zxy.xlow[:,-1]
 
-        hy.corners =  self.dy.corners/numpy.sqrt((R[:,1:] - R[:,:-1])**2
-                                                    + (Z[:,1:] - Z[:,:-1])**2)
+        hy.corners = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.corners
 
         return hy
 

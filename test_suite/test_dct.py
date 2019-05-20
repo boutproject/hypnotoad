@@ -1,0 +1,96 @@
+import pytest
+import numpy
+from test_utils import *
+from dct_interpolation import DCT_2D
+
+def test_DCT_2D():
+    f = lambda R,Z: (R - 0.5)**2 - (Z - 0.1)**2
+
+    nR = 10
+    nZ = 15
+    Rmin = .2
+    Rmax = 1.2
+    Zmin = -0.3
+    Zmax = 0.4
+
+    R_array = numpy.linspace(Rmin, Rmax, nR)
+    Z_array = numpy.linspace(Zmin, Zmax, nZ)
+
+    f_array = f(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+
+    f_dct = DCT_2D(R_array, Z_array, f_array)
+
+    # check the input array values are correctly reproduced
+    f_reconstructed = f_dct(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+    assert f_reconstructed == tight_approx(f_array)
+
+    # check a few random points
+    R = numpy.array([0.2784230, 0.357892, 0.578237, 0.732580, 1.1326794])[numpy.newaxis, :]
+    Z = numpy.array([-0.232123, -0.178594, -0.053789, 0.172530, 0.375072])[:, numpy.newaxis]
+    # can't use tight tolerance because interpolation does not reproduce exactly the
+    # values away from the grid points
+    assert f_dct(R, Z) == pytest.approx(f(R, Z), abs=1.e-2)
+
+def test_DCT_2D_ddR():
+    # check R-derivative
+    f = lambda R,Z: (R - 0.5)**2 - (Z - 0.1)**2
+    dfdR = lambda R,Z: 2.*(R - 0.5) + 0.*Z
+
+    nR = 60
+    nZ = 23
+    Rmin = .2
+    Rmax = 1.2
+    Zmin = -0.3
+    Zmax = 0.4
+
+    R_array = numpy.linspace(Rmin, Rmax, nR)
+    Z_array = numpy.linspace(Zmin, Zmax, nZ)
+
+    f_array = f(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+    dfdR_array = dfdR(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+
+    f_dct = DCT_2D(R_array, Z_array, f_array)
+
+    # check on the input array
+    dfdR_reconstructed = f_dct.ddR(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+    # exclude edge points because gradient reconstruction is poor there
+    assert dfdR_reconstructed[:, nR//10:-nR//10] == pytest.approx(dfdR_array[:, nR//10:-nR//10], abs=1.e-2)
+
+    # check a few random points
+    R = numpy.array([0.2784230, 0.357892, 0.578237, 0.732580, 1.0326794])[numpy.newaxis, :]
+    Z = numpy.array([-0.232123, -0.178594, -0.053789, 0.172530, 0.375072])[:, numpy.newaxis]
+    # can't use tight tolerance because interpolation does not reproduce exactly the
+    # values away from the grid points
+    assert f_dct.ddR(R, Z) == pytest.approx(dfdR(R, Z), abs=1.e-2)
+
+def test_DCT_2D_ddZ():
+    # check Z-derivative
+    f = lambda R,Z: (R - 0.5)**2 - (Z - 0.1)**2
+    dfdZ = lambda R,Z: 0.*R - 2.*(Z - 0.1)
+
+    nR = 11
+    nZ = 40
+    Rmin = .2
+    Rmax = 1.2
+    Zmin = -0.3
+    Zmax = 0.4
+
+    R_array = numpy.linspace(Rmin, Rmax, nR)
+    Z_array = numpy.linspace(Zmin, Zmax, nZ)
+
+    f_array = f(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+    dfdZ_array = dfdZ(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+
+    f_dct = DCT_2D(R_array, Z_array, f_array)
+
+    # check on the input array
+    dfdZ_reconstructed = f_dct.ddZ(R_array[numpy.newaxis, :], Z_array[:, numpy.newaxis])
+    # exclude edge points because gradient reconstruction is poor there
+    assert dfdZ_reconstructed[nZ//10:-nZ//10] == pytest.approx(dfdZ_array[nZ//10:-nZ//10], abs=1.e-2)
+
+    # check a few random points
+    R = numpy.array([0.2784230, 0.357892, 0.578237, 0.732580, 1.1326794])[numpy.newaxis, :]
+    Z = numpy.array([-0.222123, -0.178594, -0.053789, 0.172530, 0.275072])[:, numpy.newaxis]
+    # can't use tight tolerance because interpolation does not reproduce exactly the
+    # values away from the grid points
+    assert f_dct.ddZ(R, Z) == pytest.approx(dfdZ(R, Z), abs=1.e-2)

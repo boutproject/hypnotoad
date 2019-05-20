@@ -227,7 +227,7 @@ class MeshRegion:
 
         # psi values for radial grid
         self.psi_vals = numpy.array(self.equilibriumRegion.psi_vals[radialIndex])
-        assert len(self.psi_vals) == 2*self.nx + 1
+        assert len(self.psi_vals) == 2*self.nx + 1, 'should be a psi value for each radial point'
 
         # EquilibriumRegion representing the segment associated with this region
         # Dictionary that specifies whether a boundary is connected to another region or
@@ -490,9 +490,9 @@ class MeshRegion:
         check = numpy.abs(self.J - 1./numpy.sqrt(self.g11*self.g22*self.g33
             + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2 - self.g22*self.g13**2
             - self.g33*self.g12**2)) / numpy.abs(self.J) < 1.e-11
-        assert numpy.all(check.centre)
-        assert numpy.all(check.ylow)
-        assert numpy.all(check.xlow)
+        assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+        assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+        assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         # ignore grid points at X-points as J should diverge there (as Bp->0)
         if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
             check.corners[0, 0] = True
@@ -502,13 +502,13 @@ class MeshRegion:
             check.corners[0, -1] = True
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
             check.corners[-1, -1] = True
-        assert numpy.all(check.corners)
+        assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
     def calcHy(self, ylow=False):
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
-        assert self.meshParent.orthogonal
+        assert self.meshParent.orthogonal, 'need to check that this is correct for non-orthogonal grids'
 
         # get positions at j+/-0.5
         R = self.Rxy.ylow
@@ -715,7 +715,7 @@ class MeshRegion:
         # x-staggered points.
         # Assume the 'xlow' quantity f has nx+1 values and includes the outer point after
         # the last cell-centre grid point.
-        assert f.shape[0] == self.nx + 1
+        assert f.shape[0] == self.nx + 1, 'input field f should be at xlow or corner, so should have x-size nx+1'
 
         if not ylow:
             dx = self.dx.centre
@@ -735,7 +735,7 @@ class Mesh:
 
         self.equilibrium = equilibrium
 
-        assert self.orthogonal # non-orthogonal not implelemented yet
+        assert self.orthogonal, 'non-orthogonal not implelemented yet'
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -810,7 +810,7 @@ class Mesh:
                 # region must be part of a periodic group, which we will handle.
             group = []
             while True:
-                assert region.yGroupIndex == None
+                assert region.yGroupIndex == None, 'region should not have been added to any yGroup before'
                 region.yGroupIndex = len(group)
                 group.append(region)
                 region_set.remove(region)
@@ -900,9 +900,9 @@ class BoutMesh(Mesh):
 
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
 
-        # Keep ranges of global indices for each region separately, because we don't want
-        # MeshRegion objects to depend on global indices
-        assert all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()])
+        # Keep ranges of global indices for each region, separately from the MeshRegions,
+        # because we don't want MeshRegion objects to depend on global indices
+        assert all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
         x_sizes = [0] + list(eq_region0.nx)
         x_startinds = numpy.cumsum(x_sizes)
         x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
@@ -913,7 +913,7 @@ class BoutMesh(Mesh):
             # all segments must have the same ny, i.e. same number of y-boundary guard
             # cells
             this_ny = region.ny(0)
-            assert all(region.ny(i) == this_ny for i in range(region.nSegments))
+            assert all(region.ny(i) == this_ny for i in range(region.nSegments)), 'all radial segments in an equilibrium-region must have the same ny (i.e. same number of boundary guard cells) to be compatible with a global, logically-rectangular grid'
 
             y_total_new = y_total + this_ny
             reg_slice = slice(y_total, y_total_new, None)

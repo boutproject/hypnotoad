@@ -310,17 +310,17 @@ class Equilibrium:
         the lower edge of a certain segment of upperRegion.
         """
         # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
-        assert type(self.regions) == OrderedDict
+        assert type(self.regions) == OrderedDict, 'self.regions should be OrderedDict'
 
         lRegion = self.regions[lowerRegion]
         uRegion = self.regions[upperRegion]
 
-        assert lRegion.connections[lowerSegment]['upper'] is None
-        assert uRegion.connections[upperSegment]['lower'] is None
+        assert lRegion.connections[lowerSegment]['upper'] is None, 'lRegion.connections[\'upper\'] should not have been set already'
+        assert uRegion.connections[upperSegment]['lower'] is None, 'uRegion.connections[\'lower\'] should not have been set already'
 
         # Check nx of both segments is the same - otherwise the connection must be between
         # some wrong regions
-        assert lRegion.nx[lowerSegment] == uRegion.nx[upperSegment]
+        assert lRegion.nx[lowerSegment] == uRegion.nx[upperSegment], 'nx should match across connection'
 
         lRegion.connections[lowerSegment]['upper'] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
@@ -368,9 +368,9 @@ class Equilibrium:
         posLeft, minLeft = self.findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmin, Zmax))
         posRight, minRight = self.findExtremum_1d(Point2D(Rmax, Zmin), Point2D(Rmax, Zmax))
 
-        assert minTop == minBottom
-        assert minLeft == minRight
-        assert minTop != minLeft
+        assert minTop == minBottom, 'if minumum is found at top, should also be found at bottom'
+        assert minLeft == minRight, 'if minumum is found at left, should also be found at right'
+        assert minTop != minLeft, 'if minimum is found at top, maximum should be found at left'
 
         if minTop:
             vertSearch = self.findMaximum_1d
@@ -519,12 +519,12 @@ class Equilibrium:
         specified explicitly
         """
         if d_lower is None and d_upper is None:
-            assert d_sqrt_lower is None
-            assert d_sqrt_upper is None
+            assert d_sqrt_lower is None, 'cannot set d_sqrt_lower unless d_lower is set'
+            assert d_sqrt_upper is None, 'cannot set d_sqrt_upper unless d_upper is set'
             # always monotonic
             return lambda i: i*length/N
         elif d_lower is None:
-            assert d_sqrt_lower is None
+            assert d_sqrt_lower is None, 'cannot set d_sqrt_lower unless d_lower is set'
             if d_sqrt_upper is None:
                 d_sqrt_upper = d_upper
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
@@ -544,10 +544,10 @@ class Equilibrium:
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0.
+            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0., 'gradient at start should be positive'
             # upper boundary:
-            assert b > 0. # sqrt part of gradient
-            assert d + 2.*e*N/N_norm >= 0. # polynomial part of gradient
+            assert b > 0., 'sqrt part of function should be positive at end'
+            assert d + 2.*e*N/N_norm >= 0., 'gradient of polynomial part should be positive at end'
 
             return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
         elif d_upper is None:
@@ -567,10 +567,10 @@ class Equilibrium:
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert a > 0. # sqrt part of gradient
-            assert d >= 0. # polynomial part of gradient
+            assert a > 0., 'sqrt part of function should be positive at start'
+            assert d >= 0., 'gradient of polynomial part should be positive at start'
             # upper boundary:
-            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0.
+            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0., 'gradient at end should be positive'
 
             return lambda i: a*numpy.sqrt(i/N_norm) + d*i/N_norm + e*(i/N_norm)**2
         else:
@@ -604,11 +604,11 @@ class Equilibrium:
             # positive. Only check the boundaries here, should really add a check that
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
-            assert a > 0. # sqrt part of gradient
-            assert b/(2.*numpy.sqrt(N/N_norm)) + d >= 0. # non-singular part of gradient
+            assert a > 0., 'sqrt part of function should be positive at start'
+            assert b/(2.*numpy.sqrt(N/N_norm)) + d >= 0., 'gradient of non-singular part should be positive at start'
             # upper boundary:
-            assert b > 0. # sqrt part of gradient
-            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 >= 0. # non-singular part of gradient
+            assert b > 0., 'sqrt part of function should be positive at end'
+            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 >= 0., 'gradient of non-singular part should be positive at end'
 
             return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3
 
@@ -666,7 +666,7 @@ class DoubleNull(Equilibrium):
         # this option can only be set different from psi_sol in a double-null
         # configuration (i.e. if there are upper divertor legs)
         if self.psi_sol != self.psi_inner_sol:
-            assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0
+            assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0, 'inner and outer SOL should be separated by an upper divertor, i.e. topology should be double-null'
 
         self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
         if self.psi_spacing_separatrix_multiplier is not None:

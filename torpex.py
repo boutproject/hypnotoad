@@ -168,7 +168,7 @@ class TORPEXMagneticField(Equilibrium):
         """
         wall_position = lambda s: self.TORPEX_wall(s*2.*numpy.pi)
 
-        assert len(self.x_points) == 1 # should be one X-point for TORPEX configuration
+        assert len(self.x_points) == 1, 'should be one X-point for TORPEX configuration'
         xpoint = self.x_points[0]
 
         boundary = self.findRoots_1d(

@@ -22,8 +22,8 @@ class DCT_2D:
         self.nZ = len(self.Zarray)
 
         # Assume constant spacing in R and Z
-        assert all(numpy.abs(self.Rarray - numpy.linspace(self.Rarray[0], self.Rarray[-1], self.nR)) < 1.e-13)
-        assert all(numpy.abs(self.Zarray - numpy.linspace(self.Zarray[0], self.Zarray[-1], self.nZ)) < 1.e-13)
+        assert all(numpy.abs(self.Rarray - numpy.linspace(self.Rarray[0], self.Rarray[-1], self.nR)) < 1.e-13), 'grid spacing should be constant'
+        assert all(numpy.abs(self.Zarray - numpy.linspace(self.Zarray[0], self.Zarray[-1], self.nZ)) < 1.e-13), 'grid spacing should be constant'
 
         self.dR = self.Rarray[1] - self.Rarray[0]
         self.dZ = self.Zarray[1] - self.Zarray[0]
@@ -34,8 +34,8 @@ class DCT_2D:
         self.Zsize = self.Zarray[-1] - self.Zarray[0]
 
         # Check array sizes are compatible
-        assert self.nR == psiRZ.shape[1]
-        assert self.nZ == psiRZ.shape[0]
+        assert self.nR == psiRZ.shape[1], 'size of R-direction should match size of columns of psiRZ'
+        assert self.nZ == psiRZ.shape[0], 'size of Z-direction should match size of rows of psiRZ'
 
         self.psiDCT = dct( dct(psiRZ, axis=0), axis=1 )
 
@@ -55,7 +55,7 @@ class DCT_2D:
         Z = numpy.array(Z)
 
         # check inputs are compatible
-        assert len(R.shape) == len(Z.shape)
+        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)
@@ -79,7 +79,7 @@ class DCT_2D:
         Z = numpy.array(Z)
 
         # check inputs are compatible
-        assert len(R.shape) == len(Z.shape)
+        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)
@@ -103,7 +103,7 @@ class DCT_2D:
         Z = numpy.array(Z)
 
         # check inputs are compatible
-        assert len(R.shape) == len(Z.shape)
+        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)

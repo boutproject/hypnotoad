@@ -37,14 +37,39 @@ class TORPEXMagneticField(Equilibrium):
     Zmin = -.2
     Zmax = .2
 
-    def __init__(self, coils, Bt_axis, options):
-        self.coils = coils
-        self.magneticFunctions()
+    def __init__(self, equilibOptions, meshOptions):
+        if 'Coils' in equilibOptions:
+            from collections import namedtuple
+
+            Coil = namedtuple('Coil', 'R, Z, I')
+            self.coils = [Coil(**c) for c in equilibOptions['Coils']]
+
+            self.magneticFunctionsFromCoils()
+
+        elif 'gfile' in equilibOptions:
+            from geqdsk import Geqdsk
+            from dct_interpolation import DCT_2D
+
+            # load a g-file
+            gfile = Geqdsk
+            try:
+                gfile.read(equilibOptions['gfile'])
+            except AttributeError:
+                gfile.openFile(equilibOptions['gfile'])
+
+            R = numpy.linspace(gfile['rleft'], gfile['rdim'], gfile['nw'])
+            Z = numpy.linspace(gfile['zmid'] - 0.5*gfile['zdim'], gfile['zmid'] + 0.5*gfile['zdim'], gfile['nh'])
+            self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
+
+        else:
+            raise ValueError('Failed to initialise psi function from inputs')
+
+        Bt_axis = equilibOptions['Bt_axis']
 
         # TORPEX plasma pressure so low fpol is constant
         self.fpol = lambda psi: Bt_axis / self.Rcentre
 
-        self.options = options
+        self.options = meshOptions
 
         try:
             self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
@@ -66,7 +91,7 @@ class TORPEXMagneticField(Equilibrium):
         theta = numpy.linspace(0., 2.*numpy.pi, npoints+1)
         pyplot.plot(*self.TORPEX_wall(theta))
 
-    def magneticFunctions(self):
+    def magneticFunctionsFromCoils(self):
         """
         Calculate the poloidal magnetic flux function psi = -R*A_phi, where A_phi is the
         toroidal (anti-clockwise) component of magnetic vector potential due to coils.
@@ -120,6 +145,19 @@ class TORPEXMagneticField(Equilibrium):
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
         self.Bp_Z = sympy.lambdify([R,Z], B_Z, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+
+    def magneticFunctionsFromGrid(self, R, Z, psiRZ):
+        from dct_interpolation import DCT_2D
+
+        self._dct = DCT_2D(R, Z, psiRZ)
+
+        self.psi = lambda R, Z: self._dct(R, Z)
+        modGradpsiSquared = lambda R, Z: numpy.sqrt(self._dct.ddR(R, Z)**2
+                                                         + self._dct.ddZ(R, Z)**2)
+        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
+        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
+        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
+        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
 
     def makeRegions(self, atol = 2.e-8, npoints=100):
         """
@@ -265,20 +303,24 @@ class TORPEXMagneticField(Equilibrium):
 
 def parseInput(filename):
     import yaml
-    from collections import namedtuple
 
     with open(filename, 'r') as inputfile:
-        coil_inputs, mesh_inputs = yaml.safe_load_all(inputfile)
-    print('Coils:',coil_inputs['Coils'])
+        inputs = yaml.safe_load(inputfile)
+    mesh_inputs = inputs['Mesh']
+    del inputs['Mesh']
+    equilib_inputs = inputs
+    if 'Coils' in equilib_inputs:
+        print('Coils:',equilib_inputs['Coils'])
+    elif 'gfile' in equilib_inputs:
+        print('gfile:', equilib_inputs['gfile'])
     
-    Coil = namedtuple('Coil', 'R, Z, I')
-    return [Coil(**c) for c in coil_inputs['Coils']], coil_inputs['Bt_axis'], mesh_inputs['Mesh']
+    return equilib_inputs, mesh_inputs
 
 def createMesh(filename):
     # parse input file
-    coils, Bt_axis, meshOptions = parseInput(filename)
+    equilibOptions, meshOptions = parseInput(filename)
 
-    equilibrium = TORPEXMagneticField(coils, Bt_axis, meshOptions)
+    equilibrium = TORPEXMagneticField(equilibOptions, meshOptions)
 
     print('X-point',equilibrium.x_points[0],'with psi='+str(equilibrium.psi_sep[0]))
 

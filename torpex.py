@@ -328,6 +328,44 @@ def createMesh(filename):
 
     return BoutMesh(equilibrium, meshOptions)
 
+def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None):
+    from pyEquilibrium.geqdsk import Geqdsk
+
+    R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
+    Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]
+
+    gout = Geqdsk()
+    gout.set('nw', nR)
+    gout.set('nh', nZ)
+    gout.set('rdim', Rmax - Rmin)
+    gout.set('zdim', Zmax - Zmin)
+    gout.set('rcentr', 0.5*(Rmax - Rmin))
+    gout.set('rleft', Rmin)
+    gout.set('zmid', 0.5*(Zmax + Zmin))
+    gout.set('rmaxis', 1.)
+    gout.set('zmaxis', 0.)
+    # these values very arbitrary as don't have a magnetic axis
+    gout.set('simag', equilib.psi(1., Zmax))
+    gout.set('sibry', equilib.psi_sep[0])
+    gout.set('bcentr', equilib.fpol(0.)/1.)
+    gout.set('current', 0.)
+    gout.set('xdum', 0.)
+
+    gout.set('fpol', equilib.fpol(0.) * numpy.ones(nR)) # works for TORPEX because we assume fpol is constant - plasma response neglected
+    gout.set('pres', numpy.zeros(nR))
+    gout.set('ffprime', numpy.zeros(nR))
+    gout.set('pprime', numpy.zeros(nR))
+    gout.set('psirz', equilib.psi(R, Z))
+
+    gout.set('rbbbs', [Rmin, Rmax, Rmax, Rmin])
+    gout.set('zbbbs', [Zmin, Zmin, Zmax, Zmax])
+
+    theta = numpy.linspace(0., 2.*numpy.pi, 100, endpoint=False)
+    gout.set('rlim', [equilib.TORPEX_wall(t).R for t in theta])
+    gout.set('zlim', [equilib.TORPEX_wall(t).Z for t in theta])
+
+    gout.dump('torpex_test.g')
+
 if __name__ == '__main__':
     from sys import argv, exit
 

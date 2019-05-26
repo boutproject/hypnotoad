@@ -47,12 +47,13 @@ class TORPEXMagneticField(Equilibrium):
 
             self.magneticFunctionsFromCoils()
 
+            Bt_axis = equilibOptions['Bt_axis']
         elif 'gfile' in equilibOptions:
-            from geqdsk import Geqdsk
+            from pyEquilibrium.geqdsk import Geqdsk
             from dct_interpolation import DCT_2D
 
             # load a g-file
-            gfile = Geqdsk
+            gfile = Geqdsk()
             try:
                 gfile.read(equilibOptions['gfile'])
             except AttributeError:
@@ -62,10 +63,9 @@ class TORPEXMagneticField(Equilibrium):
             Z = numpy.linspace(gfile['zmid'] - 0.5*gfile['zdim'], gfile['zmid'] + 0.5*gfile['zdim'], gfile['nh'])
             self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
 
+            Bt_axis = gfile['bcentr']
         else:
             raise ValueError('Failed to initialise psi function from inputs')
-
-        Bt_axis = equilibOptions['Bt_axis']
 
         # TORPEX plasma pressure so low fpol is constant
         self.fpol = lambda psi: Bt_axis / self.Rcentre

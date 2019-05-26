@@ -261,6 +261,10 @@ class MeshRegion:
                 meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
                 meshParent.equilibrium.psi_sep[0], temp_psi_vals)
         if self.radialIndex == 0:
+            # not sure this is absolutly robust
+            # maybe should have some option like 'isInside' instead, as could conceivably
+            # want to make an equilibrium that just starts at a separatrix and goes
+            # radially outwards
             perp_points.reverse()
         for i,point in enumerate(perp_points):
             self.contours.append(PsiContour([point], meshParent.equilibrium.psi,

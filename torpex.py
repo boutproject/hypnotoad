@@ -21,6 +21,10 @@ from equilibrium import Equilibrium, Point2D, EquilibriumRegion, SolutionError
 if plotStuff:
     from matplotlib import pyplot
 
+# type for manipulating inforation about magnetic field coils
+from collections import namedtuple
+Coil = namedtuple('Coil', 'R, Z, I')
+
 class TORPEXMagneticField(Equilibrium):
     """
     Magnetic configuration defined by coil positions and currents for the TORPEX device
@@ -39,9 +43,6 @@ class TORPEXMagneticField(Equilibrium):
 
     def __init__(self, equilibOptions, meshOptions):
         if 'Coils' in equilibOptions:
-            from collections import namedtuple
-
-            Coil = namedtuple('Coil', 'R, Z, I')
             self.coils = [Coil(**c) for c in equilibOptions['Coils']]
 
             self.magneticFunctionsFromCoils()

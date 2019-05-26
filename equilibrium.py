@@ -79,10 +79,7 @@ class PsiContour:
     def __init__(self, points, psi, psival):
         self.points = points
 
-        self.distance = [0.]
-        for i in range(1,len(self.points)):
-            self.distance.append(
-                    self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
+        self.recalculateDistance()
 
         # Function that evaluates the vector potential at R,Z
         self.psi = psi
@@ -106,6 +103,12 @@ class PsiContour:
         self.points.append(point)
         self.distance.append(
                 self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
+
+    def recalculateDistance(self):
+        self.distance = [0.]
+        for i in range(1, len(self.points)):
+            self.distance.append(
+                    self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
 
     def reverse(self):
         self.points.reverse()

@@ -76,6 +76,10 @@ class PsiContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
+
+    # Number of points for high-resolution intermediate contours used in re-gridding
+    Nfine = 1000
+
     def __init__(self, points, psi, psival):
         self.points = points
 
@@ -191,19 +195,51 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
+        # To make the new points accurate, first regrid onto a high-resolution contour,
+        # then interpolate.
+        # Extend further than will be needed in the final contour, because extrapolation
+        # past the end of the fine contour is very bad.
+        extend_lower_fine = 2*(extend_lower * self.Nfine) // npoints
+        extend_upper_fine = 2*(extend_upper * self.Nfine) // npoints
+
+        indices_fine = numpy.linspace(-extend_lower_fine,
+                (self.Nfine - 1 + extend_upper_fine),
+                self.Nfine + extend_lower_fine + extend_upper_fine)
+
         if sfunc is not None:
-            indices = (npoints-1)*numpy.linspace(-extend_lower/(npoints-1),
-                    (npoints-1+extend_upper)/(npoints-1), npoints+extend_lower+extend_upper)
+            sfine = sfunc(indices_fine*(npoints - 1)/(self.Nfine - 1))
+        else:
+            sfine = (self.distance[self.endInd] - self.distance[self.startInd]) / (self.Nfine - 1) * indices_fine
+
+        interp_self = self.interpFunction()
+
+        fine_contour = PsiContour([interp_self(x) for x in sfine], self.psi, self.psival)
+        fine_contour.startInd = extend_lower_fine
+        fine_contour.endInd = len(fine_contour) - 1 - extend_upper_fine
+        fine_contour.refine(width, atol)
+
+        # fine_contour does not have exactly the same total distance as the original,
+        # because it integrates on a finer grid. But sfunc was defined with the total
+        # distance of the original, so scale the distance of fine_contour to make the
+        # totals the same
+        scale_factor = (self.distance[self.endInd] - self.distance[self.startInd]) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
+        fine_contour.distance = [scale_factor*d for d in fine_contour.distance]
+
+        indices = numpy.linspace(-extend_lower, (npoints - 1 + extend_upper),
+                npoints + extend_lower + extend_upper)
+        if sfunc is not None:
             s = sfunc(indices)
         else:
-            s = self.distance[-1]*numpy.linspace(-extend_lower/(npoints-1),
-                    (npoints-1+extend_upper)/(npoints-1),
-                    npoints+extend_lower+extend_upper)
-        interp = self.interpFunction()
-        new_contour = PsiContour([interp(x) for x in s], self.psi, self.psival)
+            s = (self.distance[self.endInd] - self.distance[self.startInd]) / (npoints - 1) * indices
+
+        interp_fine = fine_contour.interpFunction()
+
+        new_contour = PsiContour([interp_fine(x) for x in s], self.psi, self.psival)
         new_contour.startInd = extend_lower
         new_contour.endInd = len(new_contour) - 1 - extend_upper
-        return new_contour.getRefined(width, atol)
+        # new_contour was interpolated from a high-resolution contour, so should not need
+        # a large width for refinement - use 1.e-7 instead of 'width'
+        return new_contour.getRefined(1.e-7, atol)
 
     def plot(self, *args, **kwargs):
         from matplotlib import pyplot

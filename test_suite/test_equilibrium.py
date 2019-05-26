@@ -125,15 +125,16 @@ class TestContour:
         orig = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, 1.)
 
         newNpoints = 97
-        sfunc = lambda i: numpy.sqrt(i / (newNpoints - 1)) * 2. * numpy.pi * r
-        newTheta = sfunc(numpy.arange(newNpoints))
+        sfunc_true = lambda i: numpy.sqrt(i / (newNpoints - 1)) * 2. * numpy.pi * r
+        sfunc = lambda i: numpy.sqrt(i / (newNpoints - 1)) * orig.distance[-1]
+        newTheta = sfunc_true(numpy.arange(newNpoints)) / r
         newR = r*numpy.cos(newTheta)
         newZ = r*numpy.sin(newTheta)
 
         new = orig.getRegridded(newNpoints, sfunc=sfunc, width=1.e-3)
 
-        assert [p.R for p in new] == pytest.approx(newR, abs=2.e-5)
-        assert [p.Z for p in new] == pytest.approx(newZ, abs=2.e-5)
+        assert [p.R for p in new] == pytest.approx(newR, abs=4.e-4)
+        assert [p.Z for p in new] == pytest.approx(newZ, abs=4.e-4)
 
     def test_getRegridded_extend(self, testcontour):
         # make a circular contour in a circular psi
@@ -148,14 +149,14 @@ class TestContour:
 
         new = orig.getRegridded(testcontour.npoints, width=.1, extend_lower=1, extend_upper=2)
 
-        assert numpy.array([[*p] for p in new[1:-2]]) == tight_approx(numpy.array([[*p] for p in orig]))
+        assert numpy.array([[*p] for p in new[1:-2]]) == pytest.approx(numpy.array([[*p] for p in orig]), abs=1.e-8)
 
         # test the extend_lower
-        assert [*new[0]] == pytest.approx([*orig[-2]], abs=2.e-3)
+        assert [*new[0]] == pytest.approx([*orig[-2]], abs=1.e-8)
 
         # test the extend_upper
-        assert [*new[-2]] == pytest.approx([*orig[1]], abs=2.e-3)
-        assert [*new[-1]] == pytest.approx([*orig[2]], abs=2.e-2)
+        assert [*new[-2]] == pytest.approx([*orig[1]], abs=1.e-8)
+        assert [*new[-1]] == pytest.approx([*orig[2]], abs=1.e-7)
 
 class TestEquilibrium:
 

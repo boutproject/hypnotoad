@@ -153,8 +153,7 @@ class TORPEXMagneticField(Equilibrium):
         self._dct = DCT_2D(R, Z, psiRZ)
 
         self.psi = lambda R, Z: self._dct(R, Z)
-        modGradpsiSquared = lambda R, Z: numpy.sqrt(self._dct.ddR(R, Z)**2
-                                                         + self._dct.ddZ(R, Z)**2)
+        modGradpsiSquared = lambda R, Z: self._dct.ddR(R, Z)**2 + self._dct.ddZ(R, Z)**2
         self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
         self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
         self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R

@@ -644,6 +644,13 @@ class Equilibrium:
                 R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
         pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
+    def plotSeparatrix(self):
+        from matplotlib import pyplot
+        for region in self.regions.values():
+            R = [p.R for p in region]
+            Z = [p.Z for p in region]
+            pyplot.scatter(R, Z, marker='x', label=region.name)
+
 class DoubleNull(Equilibrium):
     """
     Analyse tokamak equilibrium - single-null, connected double-null or disconnected

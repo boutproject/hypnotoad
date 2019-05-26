@@ -326,7 +326,7 @@ def createMesh(filename):
 
     equilibrium.makeRegions()
 
-    return BoutMesh(equilibrium, meshOptions)
+    return BoutMesh(equilibrium, meshOptions, regrid_width=1.e-1)
 
 def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None):
     from pyEquilibrium.geqdsk import Geqdsk

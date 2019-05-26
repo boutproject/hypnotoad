@@ -208,7 +208,8 @@ class MeshRegion:
     Note that these regions include cell face and boundary points, so there are
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
-    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex):
+    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex,
+                 *, regrid_width = 1.e-5):
         print('creating region', myID, '-',
                 equilibriumRegion.name+'('+str(radialIndex)+')')
 
@@ -280,7 +281,7 @@ class MeshRegion:
 
         # refine the contours to make sure they are at exactly the right psi-value
         for contour in self.contours:
-            contour.refine()
+            contour.refine(width=regrid_width)
 
     def fillRZ(self):
         """
@@ -732,7 +733,7 @@ class Mesh:
     """
     Mesh represented by a collection of connected MeshRegion objects
     """
-    def __init__(self, equilibrium, meshOptions):
+    def __init__(self, equilibrium, meshOptions, *, regrid_width=1.e-5):
         self.meshOptions = meshOptions
         self.orthogonal = self.readOption('orthogonal', True)
         self.shiftedmetric = self.readOption('shiftedmetric', True)
@@ -778,12 +779,11 @@ class Mesh:
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name,i)]
-                try:
-                    eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i)
-                except Exception:
-                    pyplot.show()
+                eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i,
+                                                                   width=regrid_width)
                 self.regions[region_id] = MeshRegion(self, region_id,
-                        eq_region_with_boundaries, connections[region_id], i)
+                        eq_region_with_boundaries, connections[region_id], i,
+                        regrid_width=regrid_width)
 
         # create groups that connect in x
         self.x_groups = []
@@ -892,9 +892,9 @@ class BoutMesh(Mesh):
     positioning in the global logically rectangular grid. Regions are allowed to not be
     present (if they would have size 0).
     """
-    def __init__(self, equilibrium, meshOptions):
+    def __init__(self, equilibrium, meshOptions, *args, **kwargs):
 
-        super().__init__(equilibrium, meshOptions)
+        super().__init__(equilibrium, meshOptions, *args, **kwargs)
 
         # nx, ny both include boundary guard cells
         eq_region0 = next(iter(self.equilibrium.regions.values()))

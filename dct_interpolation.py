@@ -1,6 +1,8 @@
 from scipy.fftpack import dct
 import numpy
 
+from mesh import MultiLocationArray
+
 class DCT_2D:
     """
     Helper class to calculate the discrete cosine transform (DCT) of a 2d array, and provide
@@ -51,73 +53,139 @@ class DCT_2D:
         self.coef_Z = (numpy.pi*numpy.arange(self.nZ)/self.nZ)[:, numpy.newaxis]
 
     def __call__(self, R, Z):
-        R = numpy.array(R)
-        Z = numpy.array(Z)
+        if not isinstance(R, MultiLocationArray):
+            assert not isinstance(Z, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
 
-        # check inputs are compatible
-        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
+            R = numpy.array(R)
+            Z = numpy.array(Z)
+
+            # check inputs are compatible
+            assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
-        # Using numpy array broadcasting instead of this explicit iteration requires a
-        # high-dimensional array to be contlucted before the sum is calculated - this can
-        # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-        # (size of R,Z) or (size of DCT)]
-        with numpy.nditer([iR, iZ, None]) as it:
-            for ir, iz, result in it:
-                result[...] = numpy.sum(self.psiDCT
-                              * numpy.cos(self.coef_R*(ir + 0.5))
-                              * numpy.cos(self.coef_Z*(iz + 0.5)))
-            result = it.operands[2]
+        def getResult(this_iR, this_iZ):
+            # Using numpy array broadcasting instead of this explicit iteration requires a
+            # high-dimensional array to be constructed before the sum is calculated - this can
+            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
+            # (size of R,Z) or (size of DCT)]
+            with numpy.nditer([this_iR, this_iZ, None]) as it:
+                for ir, iz, result in it:
+                    result[...] = numpy.sum(self.psiDCT
+                                  * numpy.cos(self.coef_R*(ir + 0.5))
+                                  * numpy.cos(self.coef_Z*(iz + 0.5)))
+                return it.operands[2]
+
+        if isinstance(iR, MultiLocationArray):
+            assert isinstance(iZ, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
+
+            result = MultiLocationArray(R.nx, R.ny)
+            if iR.centre is not None and iZ.centre is not None:
+                result.centre = getResult(iR.centre, iZ.centre)
+
+            if iR.xlow is not None and iZ.xlow is not None:
+                result.xlow = getResult(iR.xlow, iZ.xlow)
+
+            if iR.ylow is not None and iZ.ylow is not None:
+                result.ylow = getResult(iR.ylow, iZ.ylow)
+
+            if iR.corners is not None and iZ.corners is not None:
+                result.corners = getResult(iR.corners, iZ.corners)
+        else:
+            result = getResult(iR, iZ)
 
         return result
 
     def ddR(self, R, Z):
-        R = numpy.array(R)
-        Z = numpy.array(Z)
+        if not isinstance(R, MultiLocationArray):
+            assert not isinstance(Z, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
 
-        # check inputs are compatible
-        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
+            R = numpy.array(R)
+            Z = numpy.array(Z)
+
+            # check inputs are compatible
+            assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
-        # Using numpy array broadcasting instead of this explicit iteration requires a
-        # high-dimensional array to be contlucted before the sum is calculated - this can
-        # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-        # (size of R,Z) or (size of DCT)]
-        with numpy.nditer([iR, iZ, None]) as it:
-            for ir, iz, result in it:
-                result[...] = -numpy.sum(self.psiDCT
-                              * self.coef_R/self.dR*numpy.sin(self.coef_R*(ir + 0.5))
-                              * numpy.cos(self.coef_Z*(iz + 0.5)))
-            result = it.operands[2]
+        def getResult(this_iR, this_iZ):
+            # Using numpy array broadcasting instead of this explicit iteration requires a
+            # high-dimensional array to be contlucted before the sum is calculated - this can
+            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
+            # (size of R,Z) or (size of DCT)]
+            with numpy.nditer([this_iR, this_iZ, None]) as it:
+                for ir, iz, result in it:
+                    result[...] = -numpy.sum(self.psiDCT
+                                  * self.coef_R/self.dR*numpy.sin(self.coef_R*(ir + 0.5))
+                                  * numpy.cos(self.coef_Z*(iz + 0.5)))
+                return it.operands[2]
+
+        if isinstance(iR, MultiLocationArray):
+            assert isinstance(iZ, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
+
+            result = MultiLocationArray(R.nx, R.ny)
+            if iR.centre is not None and iZ.centre is not None:
+                result.centre = getResult(iR.centre, iZ.centre)
+
+            if iR.xlow is not None and iZ.xlow is not None:
+                result.xlow = getResult(iR.xlow, iZ.xlow)
+
+            if iR.ylow is not None and iZ.ylow is not None:
+                result.ylow = getResult(iR.ylow, iZ.ylow)
+
+            if iR.corners is not None and iZ.corners is not None:
+                result.corners = getResult(iR.corners, iZ.corners)
+        else:
+            result = getResult(iR, iZ)
 
         return result
 
     def ddZ(self, R, Z):
-        R = numpy.array(R)
-        Z = numpy.array(Z)
+        if not isinstance(R, MultiLocationArray):
+            assert not isinstance(Z, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
 
-        # check inputs are compatible
-        assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
+            R = numpy.array(R)
+            Z = numpy.array(Z)
+
+            # check inputs are compatible
+            assert len(R.shape) == len(Z.shape), 'input R and Z should have same number of dimensions'
 
         # calculate values in index space
         iR = (R - self.Rmin) / self.Rsize * (self.nR - 1)
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
-        # Using numpy array broadcasting instead of this explicit iteration requires a
-        # high-dimensional array to be contlucted before the sum is calculated - this can
-        # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-        # (size of R,Z) or (size of DCT)]
-        with numpy.nditer([iR, iZ, None]) as it:
-            for ir, iz, result in it:
-                result[...] = -numpy.sum(self.psiDCT
-                              * numpy.cos(self.coef_R*(ir + 0.5))
-                              * self.coef_Z/self.dZ*numpy.sin(self.coef_Z*(iz + 0.5)))
-            result = it.operands[2]
+        def getResult(this_iR, this_iZ):
+            # Using numpy array broadcasting instead of this explicit iteration requires a
+            # high-dimensional array to be contlucted before the sum is calculated - this can
+            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
+            # (size of R,Z) or (size of DCT)]
+            with numpy.nditer([this_iR, this_iZ, None]) as it:
+                for ir, iz, result in it:
+                    result[...] = -numpy.sum(self.psiDCT
+                                  * numpy.cos(self.coef_R*(ir + 0.5))
+                                  * self.coef_Z/self.dZ*numpy.sin(self.coef_Z*(iz + 0.5)))
+                return it.operands[2]
+
+        if isinstance(iR, MultiLocationArray):
+            assert isinstance(iZ, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
+
+            result = MultiLocationArray(R.nx, R.ny)
+            if iR.centre is not None and iZ.centre is not None:
+                result.centre = getResult(iR.centre, iZ.centre)
+
+            if iR.xlow is not None and iZ.xlow is not None:
+                result.xlow = getResult(iR.xlow, iZ.xlow)
+
+            if iR.ylow is not None and iZ.ylow is not None:
+                result.ylow = getResult(iR.ylow, iZ.ylow)
+
+            if iR.corners is not None and iZ.corners is not None:
+                result.corners = getResult(iR.corners, iZ.corners)
+        else:
+            result = getResult(iR, iZ)
 
         return result

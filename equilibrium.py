@@ -79,6 +79,9 @@ class PsiContour:
     def __init__(self, points, psi, psival):
         self.points = points
 
+        self.startInd = 0
+        self.endInd = len(points) - 1
+
         self.recalculateDistance()
 
         # Function that evaluates the vector potential at R,Z
@@ -112,6 +115,9 @@ class PsiContour:
 
     def reverse(self):
         self.points.reverse()
+        old_start = self.startInd
+        self.startInd = len(self) - 1 - self.endInd
+        self.endInd = len(self) - 1 - old_start
         self.distance.reverse()
         self.distance = [self.distance[0] - d for d in self.distance]
 
@@ -163,14 +169,13 @@ class PsiContour:
         return PsiContour(newpoints, self.psi, self.psival)
 
     def interpFunction(self):
-        distance = numpy.array(numpy.float64(self.distance))
+        distance = numpy.array(numpy.float64(self.distance)) - self.distance[self.startInd]
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
         interpR = interp1d(distance, R, kind='cubic',
                            assume_sorted=True, fill_value='extrapolate')
         interpZ = interp1d(distance, Z, kind='cubic',
                            assume_sorted=True, fill_value='extrapolate')
-        total_distance = distance[-1]
         return lambda s: Point2D(interpR(s), interpZ(s))
 
     def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
@@ -196,6 +201,8 @@ class PsiContour:
                     npoints+extend_lower+extend_upper)
         interp = self.interpFunction()
         new_contour = PsiContour([interp(x) for x in s], self.psi, self.psival)
+        new_contour.startInd = extend_lower
+        new_contour.endInd = len(new_contour) - 1 - extend_upper
         return new_contour.getRefined(width, atol)
 
     def plot(self, *args, **kwargs):

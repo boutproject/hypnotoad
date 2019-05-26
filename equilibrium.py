@@ -10,6 +10,12 @@ from collections import OrderedDict
 from copy import deepcopy
 import warnings
 
+class SolutionError(Exception):
+    """
+    Solution was not found
+    """
+    pass
+
 class Point2D:
     """
     A point in 2d space.
@@ -141,7 +147,7 @@ class PsiContour:
                     pass
                 w /= 2.
                 if w < atol:
-                    raise ValueError("Could not find interval to refine point at "+str(p))
+                    raise SolutionError("Could not find interval to refine point at "+str(p))
 
             return pline(snew)
 
@@ -331,7 +337,7 @@ class Equilibrium:
         if result.success:
             return coords(result.x)
         else:
-            raise ValueError('findMinimum_1d failed')
+            raise SolutionError('findMinimum_1d failed')
 
     def findMaximum_1d(self, pos1, pos2, atol=1.e-14):
         coords = lambda s: pos1 + s*(pos2-pos1)
@@ -340,7 +346,7 @@ class Equilibrium:
         if result.success:
             return coords(result.x)
         else:
-            raise ValueError('findMaximum_1d failed')
+            raise SolutionError('findMaximum_1d failed')
 
     def findExtremum_1d(self, pos1, pos2, rtol=1.e-5, atol=1.e-14):
         smallDistance = 10.*rtol*calc_distance(pos1, pos2)
@@ -354,7 +360,7 @@ class Equilibrium:
         if calc_distance(pos1,maxpos) > smallDistance and calc_distance(pos2,maxpos) > smallDistance:
             return maxpos, False
 
-        raise ValueError("Neither minimum nor maximum found in interval")
+        raise SolutionError("Neither minimum nor maximum found in interval")
 
     def findSaddlePoint(self, Rmin, Rmax, Zmin, Zmax, atol=2.e-8):
         """
@@ -424,7 +430,7 @@ class Equilibrium:
                 break
             n_intervals *= 2
             if n_intervals > maxintervals:
-                raise ValueError("Could not find", n, "roots when checking", maxintervals,
+                raise SolutionError("Could not find", n, "roots when checking", maxintervals,
                                  "intervals")
 
         # find roots in the intervals
@@ -432,7 +438,7 @@ class Equilibrium:
             root, info = brentq(f, interval_points[i], interval_points[i+1], xtol=atol,
                     full_output=True)
             if not info.converged:
-                raise ValueError("Root finding failed in {" + str(interval_points[i]) + "," +
+                raise SolutionError("Root finding failed in {" + str(interval_points[i]) + "," +
                         str(interval_points[i+1]) + "} with end values {" + str(interval_f[i])
                         + "," + str(interval_f[i+1]))
             roots.append(root)

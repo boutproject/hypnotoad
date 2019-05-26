@@ -17,7 +17,7 @@ import numpy
 from collections import OrderedDict
 import warnings
 from mesh import BoutMesh
-from equilibrium import Equilibrium, Point2D, EquilibriumRegion
+from equilibrium import Equilibrium, Point2D, EquilibriumRegion, SolutionError
 if plotStuff:
     from matplotlib import pyplot
 
@@ -75,7 +75,7 @@ class TORPEXMagneticField(Equilibrium):
             self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
                                                   0.8*self.Zmax)]
             self.psi_sep = [self.psi(*self.x_points[0])]
-        except:
+        except SolutionError:
             warnings.warn('Warning: failed to find X-point. Equilibrium generation will '
                     'fail')
 

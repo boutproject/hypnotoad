@@ -328,7 +328,8 @@ def createMesh(filename):
 
     return BoutMesh(equilibrium, meshOptions, regrid_width=1.e-1)
 
-def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None):
+def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None,
+        filename='torpex_test.g'):
     from pyEquilibrium.geqdsk import Geqdsk
 
     R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
@@ -364,7 +365,7 @@ def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Z
     gout.set('rlim', [equilib.TORPEX_wall(t).R for t in theta])
     gout.set('zlim', [equilib.TORPEX_wall(t).Z for t in theta])
 
-    gout.dump('torpex_test.g')
+    gout.dump(filename)
 
 if __name__ == '__main__':
     from sys import argv, exit

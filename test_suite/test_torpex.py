@@ -1,6 +1,6 @@
 import pytest
 from equilibrium import Equilibrium
-from torpex_gridgen import *
+from torpex import *
 from test_utils import *
 
 class TestTORPEX:

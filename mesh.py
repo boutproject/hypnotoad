@@ -492,9 +492,9 @@ class MeshRegion:
         self.g_23 = self.dphidy*self.Rxy**2
 
         # check Jacobian is OK
-        check = numpy.abs(self.J - 1./numpy.sqrt(self.g11*self.g22*self.g33
+        check = numpy.abs(self.J - self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
             + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2 - self.g22*self.g13**2
-            - self.g33*self.g12**2)) / numpy.abs(self.J) < 1.e-11
+            - self.g33*self.g12**2)) / numpy.abs(self.J) < 1.e-10
         assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'

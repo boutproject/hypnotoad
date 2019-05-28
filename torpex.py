@@ -49,17 +49,18 @@ class TORPEXMagneticField(Equilibrium):
 
             Bt_axis = equilibOptions['Bt_axis']
         elif 'gfile' in equilibOptions:
-            from pyEquilibrium.geqdsk import Geqdsk
             from dct_interpolation import DCT_2D
 
             # load a g-file
-            gfile = Geqdsk()
             try:
-                gfile.read(equilibOptions['gfile'])
+                from pyEquilibrium.geqdsk import Geqdsk
+                gfile = Geqdsk(equilibOptions['gfile'])
             except AttributeError:
+                from boututils.geqdsk import Geqdsk
+                gfile = Geqdsk()
                 gfile.openFile(equilibOptions['gfile'])
 
-            R = numpy.linspace(gfile['rleft'], gfile['rdim'], gfile['nw'])
+            R = numpy.linspace(gfile['rleft'], gfile['rleft'] + gfile['rdim'], gfile['nw'])
             Z = numpy.linspace(gfile['zmid'] - 0.5*gfile['zdim'], gfile['zmid'] + 0.5*gfile['zdim'], gfile['nh'])
             self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
 

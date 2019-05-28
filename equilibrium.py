@@ -377,6 +377,18 @@ class Equilibrium:
         lRegion.connections[lowerSegment]['upper'] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
 
+    def magneticFunctionsFromGrid(self, R, Z, psiRZ):
+        from dct_interpolation import DCT_2D
+
+        self._dct = DCT_2D(R, Z, psiRZ)
+
+        self.psi = lambda R, Z: self._dct(R, Z)
+        modGradpsiSquared = lambda R, Z: self._dct.ddR(R, Z)**2 + self._dct.ddZ(R, Z)**2
+        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
+        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
+        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
+        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
+
     def findMinimum_1d(self, pos1, pos2, atol=1.e-14):
         coords = lambda s: pos1 + s*(pos2-pos1)
         result = minimize_scalar(lambda s: self.psi(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})

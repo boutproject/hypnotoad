@@ -180,18 +180,6 @@ class TORPEXMagneticField(Equilibrium):
         self.Bp_Z = sympy.lambdify([R,Z], B_Z, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
 
-    def magneticFunctionsFromGrid(self, R, Z, psiRZ):
-        from dct_interpolation import DCT_2D
-
-        self._dct = DCT_2D(R, Z, psiRZ)
-
-        self.psi = lambda R, Z: self._dct(R, Z)
-        modGradpsiSquared = lambda R, Z: self._dct.ddR(R, Z)**2 + self._dct.ddZ(R, Z)**2
-        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
-        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
-        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
-        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
-
     def makeRegions(self, atol = 2.e-8, npoints=100):
         """
         Find the separatrix and create the regions to grid.

@@ -745,16 +745,6 @@ class Mesh:
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
 
-        # functions that set poloidal grid spacing:
-        # - to use in divertor legs with X-point at start - sqrt of arc length in poloidal plane
-        sfunc_leg_start = lambda s: s**0.5
-        # - to use in divertor legs with X-point at end - sqrt of arc length in poloidal plane
-        sfunc_leg_end = lambda s: 1.-(1.-s)**0.5
-        # - to use in core regions
-        sfunc_core = lambda s: 0.5*(s**0.5 + 1.-(1.-s)**0.5)
-        # - to use in regions with no X-point (divertor targets at both ends)
-        sfunc_noX = lambda s: s
-
         # Make consecutive numbering scheme for regions
         regionlist = []
         self.region_lookup = {}

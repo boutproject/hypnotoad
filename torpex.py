@@ -76,11 +76,11 @@ class TORPEXMagneticField(Equilibrium):
 
             R = eqfile['R'][0, 0]
             Z = eqfile['Z'][0, 0]
-            # Do we need to divide psi by 2pi??
-            psi = eqfile['psi'][0, 0]
+            # TORPEX psi uses different sign convention from us
+            psi = -eqfile['psi'][0, 0]
 
-            Rinds = (R[0, :] >= self.Rmin) * (R[0, :] <= self.Rmax)
-            Zinds = (Z[:, 0] >= self.Zmin) * (Z[:, 0] <= self.Zmax)
+            Rinds = (R[0, :] >= self.Rmin - 0.02) * (R[0, :] <= self.Rmax + 0.02)
+            Zinds = (Z[:, 0] >= self.Zmin - 0.02) * (Z[:, 0] <= self.Zmax + 0.02)
 
             R = R[:, Rinds]
             R = R[Zinds, :]

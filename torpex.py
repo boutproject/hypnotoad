@@ -65,6 +65,38 @@ class TORPEXMagneticField(Equilibrium):
             self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
 
             Bt_axis = gfile['bcentr']
+        elif 'matfile' in equilibOptions:
+            # Loading directly from the TORPEX-provided matlab file should be slightly
+            # more accurate than going via a g-file because g-files don't save full
+            # double-precision
+            from dct_interpolation import DCT_2D
+
+            from scipy.io import loadmat
+            eqfile = loadmat(equilibOptions['matfile'])['eq']
+
+            R = eqfile['R'][0, 0]
+            Z = eqfile['Z'][0, 0]
+            # Do we need to divide psi by 2pi??
+            psi = eqfile['psi'][0, 0]
+
+            Rinds = (R[0, :] >= self.Rmin) * (R[0, :] <= self.Rmax)
+            Zinds = (Z[:, 0] >= self.Zmin) * (Z[:, 0] <= self.Zmax)
+
+            R = R[:, Rinds]
+            R = R[Zinds, :]
+            Z = Z[:, Rinds]
+            Z = Z[Zinds, :]
+            psi = psi[:, Rinds]
+            psi = psi[Zinds, :]
+
+            self.magneticFunctionsFromGrid(R[0, :], Z[:, 0], psi)
+
+            Bt = eqfile['Bphi'][0,0]
+            RindMid = Bt.shape[1]//2
+            ZindMid = Bt.shape[0]//2
+            assert eqfile['R'][0,0][ZindMid, RindMid] == 1.
+            assert eqfile['Z'][0,0][ZindMid, RindMid] == 0.
+            Bt_axis = Bt[ZindMid, RindMid]
         else:
             raise ValueError('Failed to initialise psi function from inputs')
 

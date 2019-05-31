@@ -160,6 +160,17 @@ class PsiContour:
                     pass
                 w /= 2.
                 if w < atol:
+                    from matplotlib import pyplot
+                    pline0 = perpLine(p, tangent, width)
+                    Rbox = numpy.linspace(p.R-.05,p.R+.05,100)[numpy.newaxis,:]
+                    Zbox = numpy.linspace(p.Z-.05,p.Z+.05,100)[:,numpy.newaxis]
+                    svals = numpy.linspace(0., 1., 40)
+                    pyplot.figure()
+                    pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox))
+                    pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
+                    pyplot.figure()
+                    pyplot.plot([f(*pline0(s)) for s in svals])
+                    pyplot.show()
                     raise SolutionError("Could not find interval to refine point at "+str(p))
 
             return pline(snew)

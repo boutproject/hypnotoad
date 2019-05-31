@@ -257,7 +257,7 @@ class PsiContour:
         new_contour.endInd = len(new_contour) - 1 - extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use 1.e-7 instead of 'width'
-        return new_contour.getRefined(1.e-7, atol)
+        return new_contour.getRefined(1.e-5, atol)
 
     def plot(self, *args, **kwargs):
         from matplotlib import pyplot

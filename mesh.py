@@ -270,6 +270,8 @@ class MeshRegion:
         for i,point in enumerate(perp_points):
             self.contours.append(PsiContour([point], meshParent.equilibrium.psi,
                 self.psi_vals[i]))
+            self.contours[i].startInd = self.equilibriumRegion.startInd
+            self.contours[i].endInd = self.equilibriumRegion.endInd
         for p in self.equilibriumRegion[1:]:
             perp_points = followPerpendicular(meshParent.equilibrium.f_R,
                     meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep[0],

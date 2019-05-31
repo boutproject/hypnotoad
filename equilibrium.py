@@ -94,6 +94,10 @@ class PsiContour:
         # Value of vector potential on this contour
         self.psival = psival
 
+        # Number of boundary guard cells at either end
+        self.extend_lower = 0
+        self.extend_upper = 0
+
     def __iter__(self):
         return self.points.__iter__()
 
@@ -206,6 +210,9 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
+        self.extend_lower = extend_lower
+        self.extend_upper = extend_upper
+
         # To make the new points accurate, first regrid onto a high-resolution contour,
         # then interpolate.
         # Extend further than will be needed in the final contour, because extrapolation

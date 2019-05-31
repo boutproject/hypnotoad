@@ -628,7 +628,7 @@ class Equilibrium:
             # lower boundary:
             assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0., 'gradient at start should be positive'
             # upper boundary:
-            assert b > 0., 'sqrt part of function should be positive at end'
+            assert b >= 0., 'sqrt part of function should be positive at end'
             assert d + 2.*e*N/N_norm >= 0., 'gradient of polynomial part should be positive at end'
 
             return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
@@ -649,7 +649,7 @@ class Equilibrium:
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert a > 0., 'sqrt part of function should be positive at start'
+            assert a >= 0., 'sqrt part of function should be positive at start'
             assert d >= 0., 'gradient of polynomial part should be positive at start'
             # upper boundary:
             assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0., 'gradient at end should be positive'
@@ -686,10 +686,10 @@ class Equilibrium:
             # positive. Only check the boundaries here, should really add a check that
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
-            assert a > 0., 'sqrt part of function should be positive at start'
+            assert a >= 0., 'sqrt part of function should be positive at start'
             assert b/(2.*numpy.sqrt(N/N_norm)) + d >= 0., 'gradient of non-singular part should be positive at start'
             # upper boundary:
-            assert b > 0., 'sqrt part of function should be positive at end'
+            assert b >= 0., 'sqrt part of function should be positive at end'
             assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 >= 0., 'gradient of non-singular part should be positive at end'
 
             return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3

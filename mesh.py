@@ -285,6 +285,13 @@ class MeshRegion:
         for contour in self.contours:
             contour.refine(width=regrid_width)
 
+        if not meshParent.orthogonal:
+            for contour in self.contours:
+                contour.getRegridded(self.ny, sfunc=self.equilibriumRegion.sfunc,
+                        width=regrid_width,
+                        extend_lower=self.equilibriumRegion.extend_lower,
+                        extend_upper=self.equilibriumRegion.extend_upper)
+
     def fillRZ(self):
         """
         Fill the Rxy, Rxy_ylow and Zxy, Zxy_ylow arrays for this region
@@ -515,7 +522,8 @@ class MeshRegion:
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
-        assert self.meshParent.orthogonal, 'need to check that this is correct for non-orthogonal grids'
+        if self.meshParent.orthogonal:
+            warnings.warn('need to check that this is correct for non-orthogonal grids')
 
         # get positions at j+/-0.5
         R = self.Rxy.ylow
@@ -588,50 +596,51 @@ class MeshRegion:
         beta is the angle between x and y coordinates, used for non-orthogonal grid.
         Also calculate radial grid spacing, hrad
         """
-        raise ValueError("non-orthogonal grids not calculated yet")
+        #raise ValueError("non-orthogonal grids not calculated yet")
+        warnings.warn("non-orthogonal grids not calculated yet")
 
-        if not ylow:
-            # need to multiply f_R and f_Z by bpsign because we want the radially-outward
-            # vector perpendicular to psi contours, and if bpsign is negative then psi
-            # increases inward instead of outward so (f_R,f_Z) would be in the opposite
-            # direction
-            # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
-            angle_grad_psi = numpy.arctan2(
-                    self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy, self.Zxy),
-                    -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy, self.Zxy))
+        #if not ylow:
+        #    # need to multiply f_R and f_Z by bpsign because we want the radially-outward
+        #    # vector perpendicular to psi contours, and if bpsign is negative then psi
+        #    # increases inward instead of outward so (f_R,f_Z) would be in the opposite
+        #    # direction
+        #    # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
+        #    angle_grad_psi = numpy.arctan2(
+        #            self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy, self.Zxy),
+        #            -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy, self.Zxy))
 
-            R = numpy.zeros([self.nx + 1, self.ny])
-            R[:-1, :] = self.Rxy_xlow
-            R[-1, :] = self.Rxy_extra_outer
-            Z = numpy.zeros([self.nx + 1, self.ny])
-            Z[:-1 :] = self.Zxy_xlow
-            Z[-1, :] = self.Zxy_extra_outer
-            # could calculate radial grid spacing - is it ever needed?
-            hrad = numpy.sqrt((R[1:,:] - R[:-1,:])**2 + (Z[1:,:] - Z[:-1,:])**2)
+        #    R = numpy.zeros([self.nx + 1, self.ny])
+        #    R[:-1, :] = self.Rxy_xlow
+        #    R[-1, :] = self.Rxy_extra_outer
+        #    Z = numpy.zeros([self.nx + 1, self.ny])
+        #    Z[:-1 :] = self.Zxy_xlow
+        #    Z[-1, :] = self.Zxy_extra_outer
+        #    # could calculate radial grid spacing - is it ever needed?
+        #    hrad = numpy.sqrt((R[1:,:] - R[:-1,:])**2 + (Z[1:,:] - Z[:-1,:])**2)
 
-            dR = R[1:,:] - R[:-1,:]
-            dZ = Z[1:,:] - Z[:-1,:]
-            angle_dr = numpy.arctan2(dR, dZ)
-        else:
-            # need to multiply f_R and f_Z by bpsign because we want the radially-outward
-            # vector perpendicular to psi contours, and if bpsign is negative then psi
-            # increases inward instead of outward so (f_R,f_Z) would be in the opposite
-            # direction
-            # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
-            angle_grad_psi = numpy.arctan2(
-                    self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy_ylow, self.Zxy_ylow),
-                    -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy_ylow, self.Zxy_ylow))
+        #    dR = R[1:,:] - R[:-1,:]
+        #    dZ = Z[1:,:] - Z[:-1,:]
+        #    angle_dr = numpy.arctan2(dR, dZ)
+        #else:
+        #    # need to multiply f_R and f_Z by bpsign because we want the radially-outward
+        #    # vector perpendicular to psi contours, and if bpsign is negative then psi
+        #    # increases inward instead of outward so (f_R,f_Z) would be in the opposite
+        #    # direction
+        #    # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
+        #    angle_grad_psi = numpy.arctan2(
+        #            self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy_ylow, self.Zxy_ylow),
+        #            -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy_ylow, self.Zxy_ylow))
 
-            # could calculate radial grid spacing - is it ever needed?
-            ## for hrad at ylow, can use Rcorners and Zcorners
-            hrad = numpy.sqrt((self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1])**2 +
-                              (self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1])**2)
+        #    # could calculate radial grid spacing - is it ever needed?
+        #    ## for hrad at ylow, can use Rcorners and Zcorners
+        #    hrad = numpy.sqrt((self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1])**2 +
+        #                      (self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1])**2)
 
-            dR = self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1]
-            dZ = self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1]
-            angle_dr = numpy.arctan2(dR, dZ)
+        #    dR = self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1]
+        #    dZ = self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1]
+        #    angle_dr = numpy.arctan2(dR, dZ)
 
-        return (angle_grad_psi - angle_dr - numpy.pi/2.), hrad
+        #return (angle_grad_psi - angle_dr - numpy.pi/2.), hrad
 
     def calcZShift(self):
         """
@@ -741,8 +750,6 @@ class Mesh:
         self.shiftedmetric = self.readOption('shiftedmetric', True)
 
         self.equilibrium = equilibrium
-
-        assert self.orthogonal, 'non-orthogonal not implelemented yet'
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}

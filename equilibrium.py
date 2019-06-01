@@ -306,6 +306,7 @@ class EquilibriumRegion(PsiContour):
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
+        result.sfunc = deepcopy(self.sfunc)
         return result
 
     def ny(self, radialIndex):

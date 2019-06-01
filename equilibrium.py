@@ -584,6 +584,96 @@ class Equilibrium:
             b = (grad_upper - 3*a*n**2 - c) / (2*n)
             return lambda i: a*i**3 + b*i**2 + c*i + d
 
+    def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
+            d_upper=None):
+        """
+        Return a function s(i) giving poloidal distance as a function of index-number.
+        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
+        same form when resolution is changed. The total Ny in the grid might be a good
+        choice for N_norm.
+        sN(0) = 0
+        sN(N/N_norm) = L
+        ds/diN(0) = d_lower at iN=0
+        d2s/diN2(0) = 0 if d_lower is not None
+        ds/diN(N/N_norm) = d_upper at iN=N_norm
+        d2s/diN2(N/N_norm) = 0 if d_upper is not None
+        """
+        if d_lower is None and d_upper is None:
+            # always monotonic
+            return lambda i: i*length/N
+        elif d_lower is None:
+            # s(iN) = a + b*iN + c*iN^2 + d*iN^3
+            # s(0) = 0 = a
+            # d2s/diN2(N/N_norm) = 0 = 2*c + 6*d*N/N_norm
+            # c = -3*d*N/N_norm
+            # ds/diN(N/N_norm) = d_upper = b + 2*c*N/N_norm + 3*d*(N/N_norm)^2
+            #                            = b - 3*d*(N/N_norm)^2
+            # b = d_upper + 3*d*(N/N_norm)^2
+            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3
+            #                 = 0 + d_upper*N/N_Norm + 3*d*(N/N_norm)^3 - 3*d*(N/N_norm)^3 + d*(N/N_norm)^3
+            #               d = L*(N_norm/N)^3 - d_upper*(N_norm/N)^2
+            d = length*(N_norm/N)**3 - d_upper*(N_norm/N)**2
+            b = d_upper + 3*d*(N/N_norm)**2
+            c = -3.*d*N/N_norm
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive.
+            # lower boundary:
+            assert b >= 0., 'gradient at start should be positive'
+            # upper boundary:
+            assert b + 2.*c*N/N_norm + 3.*d*(N/N_norm)**2 >= 0., 'gradient at end should be positive'
+
+            return lambda i: b*i/N_norm + c*(i/N_norm)**2 + d*(i/N_norm)**3
+        elif d_upper is None:
+            # s(iN) = a + b*iN + c*iN^2 + d*iN^3
+            # s(0) = 0 = a
+            # ds/diN(0) = d_lower = b
+            # d2s/diN2(0) = 0 = 2.*c
+            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3
+            #                 = 0 + d_lower*N/N_norm + 0 + d*(N/N_norm)^3
+            # d = L*(N_norm/N)^3 - d_lower*(N_norm/N)^2
+            d = length*(N_norm/N)**3 - d_lower*(N_norm/N)**2
+            b = d_lower
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive.
+            # lower boundary:
+            assert b >= 0., 'gradient at start should be positive'
+            # upper boundary:
+            assert b + 3.*d*(N/N_norm)**2 > 0., 'gradient at end should be positive'
+
+            return lambda i: b*i/N_norm + d*(i/N_norm)**3
+        else:
+            # s(iN) = a + b*iN + c*iN^2 + d*iN^3 + e*iN^4 + f*iN^5
+            # s(0) = 0 = a
+            # ds/diN(0) = d_lower = b
+            # d2s/diN2(0) = 0 = 2.*c
+            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3 + e*(N/N_norm)^4 + f*(N/N_norm)^5
+            #                 = 0 + d_lower*N/N_norm + 0 + d*(N/N_norm)^3 + e*(N/N_norm)^4 + f*(N/N_norm)^5
+            # ds/diN(N/N_norm) = d_upper = b + 2*c*(N/N_norm) + 3*d(N/N_norm)^2 + 4*e*(N/N_norm)^3 + 5*f*(N/N_norm)^4
+            #                            = d_lower + 0 + 3*d(N/N_norm)^2 + 4*e*(N/N_norm)^3 + 5*f*(N/N_norm)^4
+            # d2s/diN2(N/N_norm) = 0 = 2*c + 6*d*(N/N_norm) + 12*e*(N/N_norm)^2 + 20*f*(N/N_norm)^3
+            #                        = 0 + 6*d*(N/N_norm) + 12*e*(N/N_norm)^2 + 20*f*(N/N_norm)^3
+            # 0 = 3*d + 6*e*N/N_norm + 10*f*(N/N_norm)^2
+            # d_upper - d_lower = -2*e*(N/N_norm)^3 - 5*f*(N/N_norm)^4
+            # 3*L = 3*d_lower*N/N_norm - 3*e*(N/N_norm)^4 - 7*f*(N/N_norm)^5
+            # 6*L - 3*d_upper*N/N_norm + 3*d_lower*N/N_norm = 6*d_lower*N/N_norm + f*(N/N_norm)^5
+            # f = 6*L*(N_norm/N)^5 - 3*(d_upper + d_lower)*(N_norm/N)^4
+            f = 6.*length*(N_norm/N)**5 - 3*(d_upper + d_lower)*(N_norm/N)**4
+            e = -1./2.*(d_upper - d_lower)*(N_norm/N)**3 - 5./2.*f*N/N_norm
+            d = -2.*e*N/N_norm - 10./3.*f*(N/N_norm)**2
+            b = d_lower
+
+            # check function is monotonic: gradients at beginning and end should both be
+            # positive. Only check the boundaries here, should really add a check that
+            # gradient does not reverse in the middle somewhere...
+            # lower boundary:
+            assert b >= 0., 'gradient at start should be positive'
+            # upper boundary:
+            assert b + 3.*d*(N/N_norm)**2 + 4.*e*(N/N_norm)**3 + 5.*f*(N/N_norm)**4 >= 0., 'gradient at end should be positive'
+
+            return lambda i: b*i/N_norm + d*(i/N_norm)**3 + e*(i/N_norm)**4 + f*(i/N_norm)**5
+
     def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None, d_sqrt_lower=None,
             d_upper=None, d_sqrt_upper=None):
         """

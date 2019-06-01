@@ -171,6 +171,71 @@ class TestEquilibrium:
         r = eq.make1dGrid(n, f)
         assert r == tight_approx([0., 0.5, 1., 2.5, 4., 6.5, 9., 12.5, 16.])
 
+    def test_getPolynomialPoloidalDistanceFuncLinear(self, eq):
+        L = 2.
+        N = 10.
+        N_norm = 1
+        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm)
+        # f(0) = 0
+        assert f(0.) == tight_approx(0.)
+        # f(N) = L
+        assert f(10.) == tight_approx(2.)
+        # f(i) = i/N*L
+        assert f(3.) == tight_approx(0.6)
+
+    def test_getPolynomialPoloidalDistanceFuncDLower(self, eq):
+        d_lower = 0.01
+        L = 2.
+        N = 10.
+        N_norm = 40.
+        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
+        # f(0) = 0
+        assert f(0.) == tight_approx(0.)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f = d_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(d_lower*itest/N_norm, abs=1.e-5)
+        # for i<<1, d2f/di2 = 0
+        assert f(itest) - f(0) == pytest.approx(f(2.*itest) - f(itest), abs=1.e-5)
+
+    def test_getPolynomialPoloidalDistanceFuncDUpper(self, eq):
+        d_upper = 0.01
+        L = 2.
+        N = 10.
+        N_norm = 40.
+        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
+        # f(0) = 0
+        assert f(0.) == tight_approx(0.)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for N-i<<1, f = L - d_upper*i/N_norm
+        itest = 0.01
+        assert f(N - itest) == pytest.approx(L - d_upper*itest/N_norm, abs=1.e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
+
+    def test_getPolynomialPoloidalDistanceFuncDBoth(self, eq):
+        d_lower = 0.02
+        d_upper = 0.01
+        L = 2.
+        N = 10.
+        N_norm = 40.
+        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
+        # f(0) = 0
+        assert f(0.) == tight_approx(0.)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f = d_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(d_lower*itest/N_norm, abs=1.e-5)
+        # for i<<1, d2f/di2 = 0
+        assert f(itest) - f(0) == pytest.approx(f(2.*itest) - f(itest), abs=1.e-5)
+        # for N-i<<1, f = L - d_upper*i/N_norm
+        assert f(N - itest) == pytest.approx(L - d_upper*itest/N_norm, abs=1.e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
+
     def test_getSqrtPoloidalDistanceFuncLinear(self, eq):
         L = 2.
         N = 10.

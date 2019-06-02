@@ -104,6 +104,7 @@ class TORPEXMagneticField(Equilibrium):
         self.fpol = lambda psi: Bt_axis / self.Rcentre
 
         self.options = meshOptions
+        self.orthogonal = self.readOption('orthogonal', True)
 
         try:
             self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
@@ -213,6 +214,7 @@ class TORPEXMagneticField(Equilibrium):
             options['nx'] = [nx_core, nx_sol]
             options['ny'] = self.readOption('ny_'+name)
             options['y_boundary_guards'] = self.y_boundary_guards
+            options['orthogonal'] = self.orthogonal
             legoptions[name] = options
 
         psi_core = self.readOption('psi_core')
@@ -229,7 +231,7 @@ class TORPEXMagneticField(Equilibrium):
             name = legnames[i]
             legR = xpoint.R + s*(point.R - xpoint.R)
             legZ = xpoint.Z + s*(point.Z - xpoint.Z)
-            leg = EquilibriumRegion(name, 2, legoptions[name],
+            leg = EquilibriumRegion(self, name, 2, legoptions[name],
                     [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
             self.regions[name] = leg.getRefined(atol=atol, width=0.02)
 
@@ -278,44 +280,55 @@ class TORPEXMagneticField(Equilibrium):
 
         # set poloidal grid spacing
         d_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)
+        d_target = self.readOption('target_poloidal_spacing_length', None)
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
-        if self.readOption('orthogonal', True):
+        if self.orthogonal:
             d_polynomial = 0.
             d_sqrt = d_xpoint
+            d_target = None
         else:
             d_polynomial = d_xpoint
             d_sqrt = 0.
+            d_target = d_target
 
         # inner lower
         r = self.regions['inner_lower_divertor']
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [lower_psi_vals, inner_psi_vals]
-        r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_upper=d_polynomial, d_sqrt_upper=d_sqrt)
+        r.d_upper = d_polynomial
+        r.d_sqrt_upper = d_sqrt
+        r.d_lower = d_target
+        r.N_norm = ny_total
 
         # inner upper
         r = self.regions['inner_upper_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [upper_psi_vals, inner_psi_vals]
-        r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_lower=d_polynomial, d_sqrt_lower=d_sqrt)
+        r.d_lower = d_polynomial
+        r.d_sqrt_lower = d_sqrt
+        r.d_upper = d_target
+        r.N_norm = ny_total
 
         # outer upper
         r = self.regions['outer_upper_divertor']
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [upper_psi_vals, outer_psi_vals]
-        r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_upper=d_polynomial, d_sqrt_upper=d_sqrt)
+        r.d_upper = d_polynomial
+        r.d_sqrt_upper = d_sqrt
+        r.d_lower = d_target
+        r.N_norm = ny_total
 
         # outer lower
         r = self.regions['outer_lower_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [lower_psi_vals, outer_psi_vals]
-        r.sfunc = self.getSqrtPoloidalDistanceFunc(r.distance[-1], 2*r.ny_noguards,
-                ny_total, d_lower=d_polynomial, d_sqrt_lower=d_sqrt)
+        r.d_lower = d_polynomial
+        r.d_sqrt_lower = d_sqrt
+        r.d_upper = d_target
+        r.N_norm = ny_total
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

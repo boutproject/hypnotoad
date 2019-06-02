@@ -290,8 +290,9 @@ class EquilibriumRegion(PsiContour):
     members giving the connections to other regions and to list the X-points at the
     boundaries where the contour starts or ends.
     """
-    def __init__(self, name, nSegments, options, *args, **kwargs):
+    def __init__(self, equilibrium, name, nSegments, options, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.equilibrium = equilibrium
         self.name = name
         self.nSegments = nSegments
         self.options = options
@@ -303,7 +304,13 @@ class EquilibriumRegion(PsiContour):
         self.xPointsAtEnd = []
         self.connections = []
         self.psi_vals = []
-        self.sfunc = None
+
+        # parameters for poloidal distance functions
+        self.d_lower = None
+        self.d_sqrt_lower = None
+        self.d_upper = None
+        self.d_sqrt_upper = None
+        self.N_norm = None
 
         # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
         # of each segment, so they both have length=nSegments+1
@@ -320,13 +327,17 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtEnd.append(None)
 
     def fromPsiContour(self, contour):
-        result = EquilibriumRegion(self.name, self.nSegments, self.options,
+        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments, self.options,
                 contour.points, contour.psi, contour.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
-        result.sfunc = deepcopy(self.sfunc)
+        result.d_lower = self.d_lower
+        result.d_sqrt_lower = self.d_sqrt_lower
+        result.d_upper = self.d_upper
+        result.d_sqrt_upper = self.d_sqrt_upper
+        result.N_norm = self.N_norm
         return result
 
     def ny(self, radialIndex):
@@ -358,8 +369,19 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2*self.y_boundary_guards
         else:
             extend_upper = 0
+        sfunc = self.getSfunc(2*self.ny_noguards+1,
+                self.distance[self.endInd] - self.distance[self.startInd])
         return self.fromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
-            extend_lower=extend_lower, extend_upper=extend_upper, sfunc=self.sfunc, **kwargs))
+            extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
+
+    def getSfunc(self, npoints, distance):
+        if self.options['orthogonal']:
+            return self.equilibrium.getSqrtPoloidalDistanceFunc(distance, npoints-1,
+                    self.N_norm, d_lower=self.d_lower, d_sqrt_lower=self.d_sqrt_lower,
+                    d_upper=self.d_upper, d_sqrt_upper=self.d_sqrt_upper)
+        else:
+            return self.equilibrium.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
+                    self.N_norm, d_lower=self.d_lower, d_upper=self.d_upper)
 
 class Equilibrium:
     """

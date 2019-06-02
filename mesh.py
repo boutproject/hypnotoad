@@ -287,8 +287,10 @@ class MeshRegion:
 
         if not meshParent.orthogonal:
             for contour in self.contours:
-                contour = contour.getRegridded(2*self.ny + 1,
-                        sfunc=self.equilibriumRegion.sfunc, width=regrid_width,
+                sfunc = self.equilibriumRegion.getSfunc(2*self.ny + 1,
+                        contour.distance[contour.endInd]
+                        - contour.distance[contour.startInd])
+                contour.regrid(2*self.ny + 1, sfunc=sfunc, width=regrid_width,
                         extend_lower=self.equilibriumRegion.extend_lower,
                         extend_upper=self.equilibriumRegion.extend_upper)
 

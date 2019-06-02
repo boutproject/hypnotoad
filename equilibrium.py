@@ -16,6 +16,15 @@ class SolutionError(Exception):
     """
     pass
 
+class PoloidalSpacingParameters:
+    def __init__(self):
+        self.type = 'sqrt'
+        self.d_lower = None
+        self.d_upper = None
+        self.d_sqrt_lower = None
+        self.d_sqrt_upper = None
+        self.N_norm = None
+
 class Point2D:
     """
     A point in 2d space.
@@ -306,11 +315,7 @@ class EquilibriumRegion(PsiContour):
         self.psi_vals = []
 
         # parameters for poloidal distance functions
-        self.d_lower = None
-        self.d_sqrt_lower = None
-        self.d_upper = None
-        self.d_sqrt_upper = None
-        self.N_norm = None
+        self.poloidalSpacingParameters = PoloidalSpacingParameters()
 
         # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
         # of each segment, so they both have length=nSegments+1
@@ -333,11 +338,7 @@ class EquilibriumRegion(PsiContour):
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
-        result.d_lower = self.d_lower
-        result.d_sqrt_lower = self.d_sqrt_lower
-        result.d_upper = self.d_upper
-        result.d_sqrt_upper = self.d_sqrt_upper
-        result.N_norm = self.N_norm
+        result.poloidalSpacingParameters = self.poloidalSpacingParameters
         return result
 
     def ny(self, radialIndex):
@@ -377,11 +378,16 @@ class EquilibriumRegion(PsiContour):
     def getSfunc(self, npoints, distance):
         if self.options['orthogonal']:
             return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
-                    self.N_norm, d_lower=self.d_lower, d_sqrt_lower=self.d_sqrt_lower,
-                    d_upper=self.d_upper, d_sqrt_upper=self.d_sqrt_upper)
+                    self.poloidalSpacingParameters.N_norm,
+                    d_lower=self.poloidalSpacingParameters.d_lower,
+                    d_sqrt_lower=self.poloidalSpacingParameters.d_sqrt_lower,
+                    d_upper=self.poloidalSpacingParameters.d_upper,
+                    d_sqrt_upper=self.poloidalSpacingParameters.d_sqrt_upper)
         else:
             return self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
-                    self.N_norm, d_lower=self.d_lower, d_upper=self.d_upper)
+                    self.poloidalSpacingParameters.N_norm,
+                    d_lower=self.poloidalSpacingParameters.d_lower,
+                    d_upper=self.poloidalSpacingParameters.d_upper)
 
     def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
             d_upper=None):

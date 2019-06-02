@@ -297,38 +297,40 @@ class TORPEXMagneticField(Equilibrium):
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [lower_psi_vals, inner_psi_vals]
-        r.d_upper = d_polynomial
-        r.d_sqrt_upper = d_sqrt
-        r.d_lower = d_target
-        r.N_norm = ny_total
+        print(r.poloidalSpacingParameters)
+        print(r.poloidalSpacingParameters.d_upper)
+        r.poloidalSpacingParameters.d_upper = d_polynomial
+        r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
+        r.poloidalSpacingParameters.d_lower = d_target
+        r.poloidalSpacingParameters.N_norm = ny_total
 
         # inner upper
         r = self.regions['inner_upper_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [upper_psi_vals, inner_psi_vals]
-        r.d_lower = d_polynomial
-        r.d_sqrt_lower = d_sqrt
-        r.d_upper = d_target
-        r.N_norm = ny_total
+        r.poloidalSpacingParameters.d_lower = d_polynomial
+        r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
+        r.poloidalSpacingParameters.d_upper = d_target
+        r.poloidalSpacingParameters.N_norm = ny_total
 
         # outer upper
         r = self.regions['outer_upper_divertor']
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [upper_psi_vals, outer_psi_vals]
-        r.d_upper = d_polynomial
-        r.d_sqrt_upper = d_sqrt
-        r.d_lower = d_target
-        r.N_norm = ny_total
+        r.poloidalSpacingParameters.d_upper = d_polynomial
+        r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
+        r.poloidalSpacingParameters.d_lower = d_target
+        r.poloidalSpacingParameters.N_norm = ny_total
 
         # outer lower
         r = self.regions['outer_lower_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [lower_psi_vals, outer_psi_vals]
-        r.d_lower = d_polynomial
-        r.d_sqrt_lower = d_sqrt
-        r.d_upper = d_target
-        r.N_norm = ny_total
+        r.poloidalSpacingParameters.d_lower = d_polynomial
+        r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
+        r.poloidalSpacingParameters.d_upper = d_target
+        r.poloidalSpacingParameters.N_norm = ny_total
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

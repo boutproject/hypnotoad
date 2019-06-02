@@ -301,8 +301,7 @@ class TORPEXMagneticField(Equilibrium):
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [lower_psi_vals, inner_psi_vals]
-        print(r.poloidalSpacingParameters)
-        print(r.poloidalSpacingParameters.d_upper)
+        r.separatrix_radial_index = 1
         r.poloidalSpacingParameters.d_upper = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
         r.poloidalSpacingParameters.d_lower = d_target
@@ -312,6 +311,7 @@ class TORPEXMagneticField(Equilibrium):
         r = self.regions['inner_upper_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [upper_psi_vals, inner_psi_vals]
+        r.separatrix_radial_index = 1
         r.poloidalSpacingParameters.d_lower = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
         r.poloidalSpacingParameters.d_upper = d_target
@@ -322,6 +322,7 @@ class TORPEXMagneticField(Equilibrium):
         r.reverse()
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [upper_psi_vals, outer_psi_vals]
+        r.separatrix_radial_index = 1
         r.poloidalSpacingParameters.d_upper = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
         r.poloidalSpacingParameters.d_lower = d_target
@@ -331,6 +332,7 @@ class TORPEXMagneticField(Equilibrium):
         r = self.regions['outer_lower_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [lower_psi_vals, outer_psi_vals]
+        r.separatrix_radial_index = 1
         r.poloidalSpacingParameters.d_lower = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
         r.poloidalSpacingParameters.d_upper = d_target

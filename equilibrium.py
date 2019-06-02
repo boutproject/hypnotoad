@@ -453,6 +453,7 @@ class EquilibriumRegion(PsiContour):
         self.xPointsAtEnd = []
         self.connections = []
         self.psi_vals = []
+        self.separatrix_radial_index = 0
 
         # parameters for poloidal distance functions
         self.poloidalSpacingParameters = PoloidalSpacingParameters()
@@ -479,6 +480,7 @@ class EquilibriumRegion(PsiContour):
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
         result.poloidalSpacingParameters = self.poloidalSpacingParameters
+        result.separatrix_radial_index = self.separatrix_radial_index
         return result
 
     def ny(self, radialIndex):

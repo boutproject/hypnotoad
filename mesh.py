@@ -254,18 +254,17 @@ class MeshRegion:
 
         # get points in this region
         self.contours = []
-        if self.radialIndex == 0:
+        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+            # region is inside separatrix, so need to follow line from the last psi_val to
+            # the first
             temp_psi_vals = self.psi_vals[::-1]
         else:
             temp_psi_vals = self.psi_vals
         perp_points = followPerpendicular(meshParent.equilibrium.f_R,
                 meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
                 meshParent.equilibrium.psi_sep[0], temp_psi_vals)
-        if self.radialIndex == 0:
-            # not sure this is absolutly robust
-            # maybe should have some option like 'isInside' instead, as could conceivably
-            # want to make an equilibrium that just starts at a separatrix and goes
-            # radially outwards
+        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+            # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
         for i,point in enumerate(perp_points):
             self.contours.append(PsiContour([point], meshParent.equilibrium.psi,
@@ -276,7 +275,7 @@ class MeshRegion:
             perp_points = followPerpendicular(meshParent.equilibrium.f_R,
                     meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep[0],
                     temp_psi_vals)
-            if self.radialIndex == 0:
+            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
                 perp_points.reverse()
             for i,point in enumerate(perp_points):
                 self.contours[i].append(point)

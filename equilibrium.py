@@ -287,6 +287,9 @@ class PsiContour:
             self.distance.append(
                     self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
 
+    def totalDistance(self):
+        return self.distance[self.endInd] - self.distance[self.startInd]
+
     def reverse(self):
         self.points.reverse()
         old_start = self.startInd

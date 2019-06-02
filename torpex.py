@@ -106,6 +106,10 @@ class TORPEXMagneticField(Equilibrium):
         self.options = meshOptions
         self.orthogonal = self.readOption('orthogonal', True)
 
+        # Make a set of points representing the wall
+        self.wall = [self.TORPEX_wall(theta) for theta in
+                numpy.linspace(0., 2.*numpy.pi, 100, endpoint=False)]
+
         try:
             self.x_points = [self.findSaddlePoint(self.Rmin+0.05, self.Rmax-0.05, 0.8*self.Zmin,
                                                   0.8*self.Zmax)]

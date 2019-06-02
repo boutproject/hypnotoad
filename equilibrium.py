@@ -425,7 +425,7 @@ class PsiContour:
         new_contour.startInd = extend_lower
         new_contour.endInd = len(new_contour) - 1 - extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
-        # a large width for refinement - use 1.e-7 instead of 'width'
+        # a large width for refinement - use 1.e-5 instead of 'width'
         return new_contour.getRefined(1.e-5, atol)
 
     def plot(self, *args, **kwargs):
@@ -763,6 +763,9 @@ class Equilibrium:
       - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a bounding
         box for the gridding
       - self.regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
+      - self.wall: list of Point2D giving vertices of polygon representing the wall, in
+        anti-clockwise order; assumed to be closed so last element and first are taken to
+        be connected
     """
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """
@@ -914,6 +917,28 @@ class Equilibrium:
             warnings.warn('Warning: found',foundRoots,'roots but expected only',n)
 
         return roots
+
+    def wallIntersection(self, p1, p2):
+        """
+        Find the intersection, if any, between the wall and the line between p1 and p2
+        """
+        intersect = None
+        for i in range(len(self.wall) - 1):
+            if intersect is None:
+                intersect = find_intersection(self.wall[i], self.wall[i+1], p1, p2)
+            else:
+                second_intersect = find_intersection(self.wall[i], self.wall[i+1], p1, p2)
+                if second_intersect is not None:
+                    assert numpy.abs(intersect.R - second_intersect.R) < 1.e-14 and numpy.abs(intersect.Z - second_intersect.Z) < 1.e-14, 'Multiple intersections with wall found'
+        # final segment between last and first point of wall
+        if intersect is None:
+            intersect = find_intersection(self.wall[-1], self.wall[0], p1, p2)
+        else:
+            second_intersect = find_intersection(self.wall[-1], self.wall[0], p1, p2)
+            if second_intersect is not None:
+                assert numpy.abs(intersect.R - second_intersect.R) < 1.e-14 and numpy.abs(intersect.Z - second_intersect.Z) < 1.e-14, 'Multiple intersections with wall found'
+
+        return intersect
 
     def make1dGrid(self, n, spacingFunc):
         """

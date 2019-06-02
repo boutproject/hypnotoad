@@ -435,6 +435,7 @@ class TestEquilibrium:
     @pytest.fixture
     def eq(self):
         eq = Equilibrium()
+        eq.wall = [Point2D(-1., -1.), Point2D(1., -1.), Point2D(1., 1.), Point2D(-1., 1.)]
         return eq
 
     def test_make1dGrid(self, eq):
@@ -442,6 +443,17 @@ class TestEquilibrium:
         f = lambda i: i**2
         r = eq.make1dGrid(n, f)
         assert r == tight_approx([0., 0.5, 1., 2.5, 4., 6.5, 9., 12.5, 16.])
+
+    def test_wallIntersection(self, eq):
+        intersect = eq.wallIntersection(Point2D(0., 0.), Point2D(2., 0.))
+        assert intersect.R == tight_approx(1.)
+        assert intersect.Z == tight_approx(0.)
+
+        # Line goes exactly through a corner of the wall, so intersects with two wall
+        # segments
+        intersect = eq.wallIntersection(Point2D(0., 0.), Point2D(2., 2.))
+        assert intersect.R == tight_approx(1.)
+        assert intersect.Z == tight_approx(1.)
 
 class TestEquilibriumRegion:
 

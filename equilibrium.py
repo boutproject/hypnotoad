@@ -110,6 +110,19 @@ class PsiContour:
     def __len__(self):
         return self.points.__len__()
 
+    def fromPsiContour(self, contour):
+        """
+        Copy the state of this object from contour
+        """
+        self.points = contour.points
+        self.startInd = contour.startInd
+        self.endInd = contour.endInd
+        self.distance = contour.distance
+        self.psi = contour.psi
+        self.psival = contour.psival
+        self.extend_lower = contour.extend_lower
+        self.extend_upper = contour.extend_upper
+
     def append(self, point):
         self.points.append(point)
         self.distance.append(

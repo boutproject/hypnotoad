@@ -210,6 +210,13 @@ class PsiContour:
                            assume_sorted=True, fill_value='extrapolate')
         return lambda s: Point2D(interpR(s), interpZ(s))
 
+    def regrid(self, *args, **kwargs):
+        """
+        Regrid this contour, modifying the object
+        """
+        self.fromPsiContour(self.getRegridded(*args, **kwargs))
+        return self
+
     def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
             extend_lower=0, extend_upper=0):
         """

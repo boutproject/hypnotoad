@@ -277,6 +277,10 @@ class PsiContour:
         self.distance.append(
                 self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
 
+    def prepend(self, point):
+        self.points.insert(0, point)
+        self.recalculateDistance()
+
     def recalculateDistance(self):
         self.distance = [0.]
         for i in range(1, len(self.points)):

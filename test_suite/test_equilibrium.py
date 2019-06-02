@@ -42,6 +42,278 @@ class TestPoints:
     def test_distance(self):
         assert calc_distance(self.p0, self.p1) == tight_approx(2.*numpy.sqrt(2.))
 
+def test_find_intersectionRR1():
+    l1start = Point2D(-1., -.1)
+    l1end = Point2D(1., .1)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRR2():
+    l1end = Point2D(-1., -.1)
+    l1start = Point2D(1., .1)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRR3():
+    l1start = Point2D(-1., -.1)
+    l1end = Point2D(1., .1)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRR4():
+    l1end = Point2D(-1., -.1)
+    l1start = Point2D(1., .1)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRRNone1():
+    l1start = Point2D(2., -.1)
+    l1end = Point2D(4., .1)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRRNone2():
+    l1end = Point2D(2., -.1)
+    l1start = Point2D(4., .1)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRRNone3():
+    l1start = Point2D(2., -.1)
+    l1end = Point2D(4., .1)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRRNone4():
+    l1end = Point2D(2., -.1)
+    l1start = Point2D(4., .1)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRZ1():
+    l1start = Point2D(-1., -.1)
+    l1end = Point2D(1., .1)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRZ2():
+    l1end = Point2D(-1., -.1)
+    l1start = Point2D(1., .1)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRZ3():
+    l1start = Point2D(-1., -.1)
+    l1end = Point2D(1., .1)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRZ4():
+    l1end = Point2D(-1., -.1)
+    l1start = Point2D(1., .1)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionRZNone1():
+    l1start = Point2D(2., -.1)
+    l1end = Point2D(4., .1)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRZNone2():
+    l1end = Point2D(2., -.1)
+    l1start = Point2D(4., .1)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRZNone3():
+    l1start = Point2D(2., -.1)
+    l1end = Point2D(4., .1)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionRZNone4():
+    l1end = Point2D(2., -.1)
+    l1start = Point2D(4., .1)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZR1():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZR2():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2start = Point2D(-1., .1)
+    l2end = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZR3():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZR4():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2end = Point2D(-1., .1)
+    l2start = Point2D(1., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZRNone1():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2start = Point2D(2., .1)
+    l2end = Point2D(4., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZRNone2():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2start = Point2D(2., .1)
+    l2end = Point2D(4., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZRNone3():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2end = Point2D(2., .1)
+    l2start = Point2D(4., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZRNone4():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2end = Point2D(2., .1)
+    l2start = Point2D(4., -.1)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZZ1():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZZ2():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2start = Point2D(-.1, 1.)
+    l2end = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZZ3():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZZ4():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2end = Point2D(-.1, 1.)
+    l2start = Point2D(.1, -1.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect.R == tight_approx(0.)
+    assert intersect.Z == tight_approx(0.)
+
+def test_find_intersectionZZNone1():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2start = Point2D(-.1, 4.)
+    l2end = Point2D(.1, 2.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZZNone2():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2start = Point2D(-.1, 4.)
+    l2end = Point2D(.1, 2.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZZNone3():
+    l1start = Point2D(-.1, -1.)
+    l1end = Point2D(.1, 1.)
+    l2end = Point2D(-.1, 4.)
+    l2start = Point2D(.1, 2.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
+def test_find_intersectionZZNone4():
+    l1end = Point2D(-.1, -1.)
+    l1start = Point2D(.1, 1.)
+    l2end = Point2D(-.1, 4.)
+    l2start = Point2D(.1, 2.)
+    intersect = find_intersection(l1start, l1end, l2start, l2end)
+    assert intersect == None
+
 class TestContour:
     @pytest.fixture
     def testcontour(self):

@@ -79,6 +79,146 @@ def calc_distance(p1, p2):
     d = p2 - p1
     return numpy.sqrt(d.R**2 + d.Z**2)
 
+def swap_points(p1, p2):
+    tempR = p1.R
+    tempZ = p1.Z
+    p1.R = p2.R
+    p1.Z = p2.Z
+    p2.R = tempR
+    p2.Z = tempZ
+
+def find_intersection(l1start, l1end, l2start, l2end):
+    """
+    Find the intersection (if there is one) between the lines 'l1' and 'l2'
+    """
+    # Copy so we don't change the inputs
+    l1start = deepcopy(l1start)
+    l1end = deepcopy(l1end)
+    l2start = deepcopy(l2start)
+    l2end = deepcopy(l2end)
+
+    R2 = l2start.R
+    Z2 = l2start.Z
+    dR2 = l2end.R - l2start.R
+    dZ2 = l2end.Z - l2start.Z
+
+    if numpy.abs(l1end.R - l1start.R) > numpy.abs(l1end.Z - l1start.Z):
+        # if l1 is sensible, dR1 shouldn't be too small as it's bigger than dZ1
+        # l1 is Z = Z1 + dZ1/dR1 * (R - R1)
+
+        # sort l1 points in R
+        if l1start.R > l1end.R:
+            swap_points(l1start, l1end)
+        R1 = l1start.R
+        Z1 = l1start.Z
+        dR1 = l1end.R - l1start.R
+        dZ1 = l1end.Z - l1start.Z
+
+        if numpy.abs(l2end.R - l2start.R) > numpy.abs(l2end.Z - l2start.Z):
+            # if l2 is sensible, dR2 shouldn't be too small as it's bigger than dZ2
+            # l2 is Z = Z2 + dZ2/dR2 * (R - R2)
+
+            # sort l2 points in R
+            if l2start.R > l2end.R:
+                swap_points(l2start, l2end)
+            R2 = l2start.R
+            Z2 = l2start.Z
+            dR2 = l2end.R - l2start.R
+            dZ2 = l2end.Z - l2start.Z
+
+            if numpy.abs(dZ1/dR1 - dZ2/dR2) < 1.e-15:
+                # lines are parallel so cannot intersect
+                return None
+
+            # intersection where
+            # Z1 + dZ1/dR1 * (R - R1) = Z2 + dZ2/dR2 * (R - R2)
+            # (dZ1/dR1 - dZ2/dR2)*R = Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2
+            R = (Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2) / (dZ1/dR1 - dZ2/dR2)
+            if R >= R1 and R <= l1end.R and R >= R2 and R <= l2end.R:
+                Z = Z1 + dZ1/dR1 * (R - R1)
+                return Point2D(R, Z)
+            else:
+                return None
+        else:
+            # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
+            # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
+
+            # sort l2 points in Z
+            if l2start.Z > l2end.Z:
+                swap_points(l2start, l2end)
+            R2 = l2start.R
+            Z2 = l2start.Z
+            dR2 = l2end.R - l2start.R
+            dZ2 = l2end.Z - l2start.Z
+
+            # intersection where
+            # Z = Z1 + dZ1/dR1 * (R2 + dR2/dZ2 * (Z - Z2) - R1)
+            # (1 - dZ1*dR2/dR1/dZ2) * Z = Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)
+            Z = (Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)) / (1. - dZ1*dR2/(dR1*dZ2))
+            R = R2 + dR2/dZ2 * (Z - Z2)
+            if R >= R1 and R <= l1end.R and Z >= Z2 and Z <= l2end.Z:
+                return Point2D(R, Z)
+            else:
+                return None
+    else:
+        # if l1 is sensible, dZ1 shouldn't be too small as it's bigger than dR1
+        # l1 is R = R1 + dR1/dZ1 * (Z - Z1)
+
+        # sort l1 points in Z
+        if l1start.Z > l1end.Z:
+            swap_points(l1start, l1end)
+        R1 = l1start.R
+        Z1 = l1start.Z
+        dR1 = l1end.R - l1start.R
+        dZ1 = l1end.Z - l1start.Z
+
+        if numpy.abs(dR2) > numpy.abs(dZ2):
+            # if l2 is sensible, dR2 shouldn't be too small as it's bigger than dZ2
+            # l2 is Z = Z2 + dZ2/dR2 * (R - R2)
+
+            # sort l2 points in R
+            if l2start.R > l2end.R:
+                swap_points(l2start, l2end)
+            R2 = l2start.R
+            Z2 = l2start.Z
+            dR2 = l2end.R - l2start.R
+            dZ2 = l2end.Z - l2start.Z
+
+            # intersection where
+            # R = R1 + dR1/dZ1 * (Z2 + dZ2/dR2 * (R - R2) - Z1)
+            # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
+            R = (R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)) / (1. - dR1/dZ1 * dZ2/dR2)
+            Z = Z2 + dZ2/dR2 * (R - R2)
+            if Z >= Z1 and Z <= l1end.Z and R > R2 and R < l2end.R:
+                return Point2D(R, Z)
+            else:
+                return None
+        else:
+            # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
+            # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
+
+            # sort l2 points in Z
+            if l2start.Z > l2end.Z:
+                swap_points(l2start, l2end)
+            R2 = l2start.R
+            Z2 = l2start.Z
+            dR2 = l2end.R - l2start.R
+            dZ2 = l2end.Z - l2start.Z
+
+            if numpy.abs(dR2/dZ2 - dR1/dZ1) < 1.e-15:
+                # lines are parallel so cannot intersect
+                return None
+
+            # intersection where
+            # R2 + dR2/dZ2 * (Z - Z2) = R1 + dR1/dZ1 * (Z - Z1)
+            # (dR2/dZ2 - dR1*dZ1) * Z = R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1
+            Z = (R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1) / (dR2/dZ2 - dR1/dZ1)
+            if Z >= Z1 and Z <= l1end.Z and Z >= Z2 and Z <= l2end.Z:
+                R = R2 + dR2/dZ2 * (Z - Z2)
+                return Point2D(R, Z)
+            else:
+                return None
+
 class PsiContour:
     """
     Represents a contour as a collection of points.

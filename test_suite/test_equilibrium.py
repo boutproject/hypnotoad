@@ -171,11 +171,19 @@ class TestEquilibrium:
         r = eq.make1dGrid(n, f)
         assert r == tight_approx([0., 0.5, 1., 2.5, 4., 6.5, 9., 12.5, 16.])
 
-    def test_getPolynomialPoloidalDistanceFuncLinear(self, eq):
+class TestEquilibriumRegion:
+
+    @pytest.fixture
+    def eqReg(self):
+        options = {'nx':1, 'ny':1, 'y_boundary_guards':1}
+        eqReg = EquilibriumRegion(Equilibrium(), '', 1, options, [], None, 0.)
+        return eqReg
+
+    def test_getPolynomialPoloidalDistanceFuncLinear(self, eqReg):
         L = 2.
         N = 10.
         N_norm = 1
-        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm)
+        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -183,12 +191,12 @@ class TestEquilibrium:
         # f(i) = i/N*L
         assert f(3.) == tight_approx(0.6)
 
-    def test_getPolynomialPoloidalDistanceFuncDLower(self, eq):
+    def test_getPolynomialPoloidalDistanceFuncDLower(self, eqReg):
         d_lower = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
+        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -199,12 +207,12 @@ class TestEquilibrium:
         # for i<<1, d2f/di2 = 0
         assert f(itest) - f(0) == pytest.approx(f(2.*itest) - f(itest), abs=1.e-5)
 
-    def test_getPolynomialPoloidalDistanceFuncDUpper(self, eq):
+    def test_getPolynomialPoloidalDistanceFuncDUpper(self, eqReg):
         d_upper = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
+        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -215,13 +223,13 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
 
-    def test_getPolynomialPoloidalDistanceFuncDBoth(self, eq):
+    def test_getPolynomialPoloidalDistanceFuncDBoth(self, eqReg):
         d_lower = 0.02
         d_upper = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
+        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -236,11 +244,11 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncLinear(self, eq):
+    def test_getSqrtPoloidalDistanceFuncLinear(self, eqReg):
         L = 2.
         N = 10.
         N_norm = 1
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -248,12 +256,12 @@ class TestEquilibrium:
         # f(i) = i/N*L
         assert f(3.) == tight_approx(0.6)
 
-    def test_getSqrtPoloidalDistanceFuncDLower(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDLower(self, eqReg):
         d_lower = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -263,12 +271,12 @@ class TestEquilibrium:
         assert f(itest) == pytest.approx(2.*d_lower*numpy.sqrt(itest/N_norm)
                                          + d_lower*itest/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDUpper(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDUpper(self, eqReg):
         d_upper = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -278,13 +286,13 @@ class TestEquilibrium:
         assert f(itest) == pytest.approx(L - 2.*d_upper*numpy.sqrt((N - itest)/N_norm)
                                          - d_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDBoth(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDBoth(self, eqReg):
         d_lower = 0.1
         d_upper = 0.2
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -298,13 +306,13 @@ class TestEquilibrium:
         assert f(itest) == pytest.approx(L - 2.*d_upper*numpy.sqrt((N - itest)/N_norm)
                                          - d_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDLower2(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDLower2(self, eqReg):
         d_lower = 0.01
         d_sqrt_lower = 0.05
         L = 2.
         N = 10.
         N_norm = 2.
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_sqrt_lower =
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_sqrt_lower =
                 d_sqrt_lower)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
@@ -315,13 +323,13 @@ class TestEquilibrium:
         assert f(itest) == pytest.approx(2.*d_sqrt_lower*numpy.sqrt(itest/N_norm)
                                          + d_lower*itest/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDUpper2(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDUpper2(self, eqReg):
         d_upper = 0.01
         d_sqrt_upper = 0.05
         L = 2.
         N = 10.
         N_norm = 1
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper, d_sqrt_upper = d_sqrt_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper, d_sqrt_upper = d_sqrt_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -331,7 +339,7 @@ class TestEquilibrium:
         assert f(itest) == pytest.approx(L - 2.*d_sqrt_upper*numpy.sqrt((N - itest)/N_norm)
                                          - d_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDBoth2(self, eq):
+    def test_getSqrtPoloidalDistanceFuncDBoth2(self, eqReg):
         d_lower = 0.01
         d_sqrt_lower = 0.05
         d_upper = 0.2
@@ -340,7 +348,7 @@ class TestEquilibrium:
         L = 2.
         N = 10.
         N_norm = 1
-        f = eq.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower,
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower,
                 d_sqrt_lower = d_sqrt_lower, d_upper = d_upper,
                 d_sqrt_upper = d_sqrt_upper)
         # f(0) = 0

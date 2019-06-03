@@ -589,8 +589,10 @@ class EquilibriumRegion(PsiContour):
         sN(N/N_norm) = L
         ds/diN(0) = d_lower at iN=0
         d2s/diN2(0) = 0 if d_lower is not None
+        sN(iN) = d_lower*iN for iN < 0 if d_lower is given
         ds/diN(N/N_norm) = d_upper at iN=N_norm
         d2s/diN2(N/N_norm) = 0 if d_upper is not None
+        sN(iN) = L + d_upper*(iN - N/N_norm) for iN > N/N_norm if d_upper is given
         """
         if d_lower is None and d_upper is None:
             # always monotonic
@@ -617,7 +619,9 @@ class EquilibriumRegion(PsiContour):
             # upper boundary:
             assert b + 2.*c*N/N_norm + 3.*d*(N/N_norm)**2 >= 0., 'gradient at end should be positive'
 
-            return lambda i: b*i/N_norm + c*(i/N_norm)**2 + d*(i/N_norm)**3
+            return lambda i: numpy.piecewise(i, i > N,
+                    [lambda i: length + d_upper*(i - N)/N_norm,
+                     lambda i: b*i/N_norm + c*(i/N_norm)**2 + d*(i/N_norm)**3])
         elif d_upper is None:
             # s(iN) = a + b*iN + c*iN^2 + d*iN^3
             # s(0) = 0 = a
@@ -636,7 +640,8 @@ class EquilibriumRegion(PsiContour):
             # upper boundary:
             assert b + 3.*d*(N/N_norm)**2 > 0., 'gradient at end should be positive'
 
-            return lambda i: b*i/N_norm + d*(i/N_norm)**3
+            return lambda i: numpy.piecewise(i, i < 0.,
+                    [lambda i: d_lower*i/N_norm, lambda i: b*i/N_norm + d*(i/N_norm)**3])
         else:
             # s(iN) = a + b*iN + c*iN^2 + d*iN^3 + e*iN^4 + f*iN^5
             # s(0) = 0 = a
@@ -666,7 +671,10 @@ class EquilibriumRegion(PsiContour):
             # upper boundary:
             assert b + 3.*d*(N/N_norm)**2 + 4.*e*(N/N_norm)**3 + 5.*f*(N/N_norm)**4 >= 0., 'gradient at end should be positive'
 
-            return lambda i: b*i/N_norm + d*(i/N_norm)**3 + e*(i/N_norm)**4 + f*(i/N_norm)**5
+            return lambda i: numpy.piecewise(i, [i < 0., i > N],
+                    [lambda i: d_lower*i/N_norm,
+                     lambda i:length + d_upper*(i - N)/N_norm,
+                     lambda i: b*i/N_norm + d*(i/N_norm)**3 + e*(i/N_norm)**4 + f*(i/N_norm)**5])
 
     def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None, d_sqrt_lower=None,
             d_upper=None, d_sqrt_upper=None):

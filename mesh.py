@@ -267,10 +267,8 @@ class MeshRegion:
             # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
         for i,point in enumerate(perp_points):
-            self.contours.append(PsiContour([point], meshParent.equilibrium.psi,
-                self.psi_vals[i]))
-            self.contours[i].startInd = self.equilibriumRegion.startInd
-            self.contours[i].endInd = self.equilibriumRegion.endInd
+            self.contours.append(self.equilibriumRegion.newContourFromSelf(points=[point],
+                psival=self.psi_vals[i]))
         for p in self.equilibriumRegion[1:]:
             perp_points = followPerpendicular(meshParent.equilibrium.f_R,
                     meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep[0],

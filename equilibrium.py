@@ -262,11 +262,11 @@ class PsiContour:
     def __len__(self):
         return self.points.__len__()
 
-    def fromPsiContour(self, contour):
+    def setSelfToContour(self, contour):
         """
         Copy the state of this object from contour
         """
-        self.points = contour.points
+        self.points = deepcopy(contour.points)
         self.startInd = contour.startInd
         self.endInd = contour.endInd
         self.distance = contour.distance
@@ -274,6 +274,20 @@ class PsiContour:
         self.psival = contour.psival
         self.extend_lower = contour.extend_lower
         self.extend_upper = contour.extend_upper
+
+    def newContourFromSelf(self, *, points=None, psival=None):
+        if points is None:
+            points = deepcopy(self.points)
+        if psival is None:
+            psival = self.psival
+        new_contour = PsiContour(points, self.psi, psival)
+
+        new_contour.startInd = self.startInd
+        new_contour.endInd = self.endInd
+        new_contour.extend_lower = self.extend_lower
+        new_contour.extend_upper = self.extend_upper
+
+        return new_contour
 
     def append(self, point):
         self.points.append(point)
@@ -357,7 +371,7 @@ class PsiContour:
             newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
         newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
-        return PsiContour(newpoints, self.psi, self.psival)
+        return self.newContourFromSelf(points=newpoints)
 
     def interpFunction(self):
         distance = numpy.array(numpy.float64(self.distance)) - self.distance[self.startInd]
@@ -373,11 +387,11 @@ class PsiContour:
         """
         Regrid this contour, modifying the object
         """
-        self.fromPsiContour(self.getRegridded(*args, **kwargs))
+        self.setSelfToContour(self.getRegridded(*args, **kwargs))
         return self
 
     def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
-            extend_lower=0, extend_upper=0):
+            extend_lower=None, extend_upper=None):
         """
         Interpolate onto set of npoints points, then refine positions.
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
@@ -389,15 +403,17 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
-        self.extend_lower = extend_lower
-        self.extend_upper = extend_upper
+        if extend_lower is not None:
+            self.extend_lower = extend_lower
+        if extend_upper is not None:
+            self.extend_upper = extend_upper
 
         # To make the new points accurate, first regrid onto a high-resolution contour,
         # then interpolate.
         # Extend further than will be needed in the final contour, because extrapolation
         # past the end of the fine contour is very bad.
-        extend_lower_fine = 2*(extend_lower * self.Nfine) // npoints
-        extend_upper_fine = 2*(extend_upper * self.Nfine) // npoints
+        extend_lower_fine = 2*(self.extend_lower * self.Nfine) // npoints
+        extend_upper_fine = 2*(self.extend_upper * self.Nfine) // npoints
 
         indices_fine = numpy.linspace(-extend_lower_fine,
                 (self.Nfine - 1 + extend_upper_fine),
@@ -422,8 +438,8 @@ class PsiContour:
         scale_factor = (self.distance[self.endInd] - self.distance[self.startInd]) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
         fine_contour.distance = [scale_factor*d for d in fine_contour.distance]
 
-        indices = numpy.linspace(-extend_lower, (npoints - 1 + extend_upper),
-                npoints + extend_lower + extend_upper)
+        indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
+                npoints + self.extend_lower + self.extend_upper)
         if sfunc is not None:
             s = sfunc(indices)
         else:
@@ -431,9 +447,9 @@ class PsiContour:
 
         interp_fine = fine_contour.interpFunction()
 
-        new_contour = PsiContour([interp_fine(x) for x in s], self.psi, self.psival)
-        new_contour.startInd = extend_lower
-        new_contour.endInd = len(new_contour) - 1 - extend_upper
+        new_contour = self.newContourFromSelf(points=[interp_fine(x) for x in s])
+        new_contour.startInd = self.extend_lower
+        new_contour.endInd = len(new_contour) - 1 - self.extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use 1.e-5 instead of 'width'
         return new_contour.getRefined(1.e-5, atol)
@@ -482,7 +498,7 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
-    def fromPsiContour(self, contour):
+    def newRegionFromPsiContour(self, contour):
         result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments, self.options,
                 contour.points, contour.psi, contour.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
@@ -491,6 +507,8 @@ class EquilibriumRegion(PsiContour):
         result.psi_vals = deepcopy(self.psi_vals)
         result.poloidalSpacingParameters = self.poloidalSpacingParameters
         result.separatrix_radial_index = self.separatrix_radial_index
+        result.extend_lower = contour.extend_lower
+        result.extend_upper = contour.extend_upper
         return result
 
     def ny(self, radialIndex):
@@ -504,7 +522,7 @@ class EquilibriumRegion(PsiContour):
         return result
 
     def getRefined(self, *args, **kwargs):
-        return self.fromPsiContour(super().getRefined(*args, **kwargs))
+        return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
     def getRegridded(self, *, radialIndex, **kwargs):
         for wrong_argument in ['npoints', 'extend_lower', 'extend_upper', 'sfunc']:
@@ -524,7 +542,7 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 0
         sfunc = self.getSfunc(2*self.ny_noguards+1,
                 self.distance[self.endInd] - self.distance[self.startInd])
-        return self.fromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
+        return self.newRegionFromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
             extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
 
     def getSfunc(self, npoints, distance):

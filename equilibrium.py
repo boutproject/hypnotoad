@@ -244,6 +244,9 @@ class PsiContour:
         self.psival = psival
 
         # Number of boundary guard cells at either end
+        # This may be set even if the contour has not been extended yet, to specify how
+        # many guard cells should be added when it is - this is extra information to
+        # startInd and endInd.
         self.extend_lower = 0
         self.extend_upper = 0
 

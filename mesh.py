@@ -210,8 +210,8 @@ class MeshRegion:
     """
     def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex,
                  *, regrid_width = 1.e-5):
-        print('creating region', myID, '-',
-                equilibriumRegion.name+'('+str(radialIndex)+')')
+        self.name = equilibriumRegion.name+'('+str(radialIndex)+')'
+        print('creating region', myID, '-', self.name)
 
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
@@ -219,6 +219,7 @@ class MeshRegion:
         # ID that Mesh uses to keep track of its MeshRegions
         self.myID = myID
 
+        # EquilibriumRegion representing the segment associated with this region
         self.equilibriumRegion = equilibriumRegion
 
         # sizes of the grid in this MeshRegion, include boundary guard cells
@@ -230,7 +231,6 @@ class MeshRegion:
         self.psi_vals = numpy.array(self.equilibriumRegion.psi_vals[radialIndex])
         assert len(self.psi_vals) == 2*self.nx + 1, 'should be a psi value for each radial point'
 
-        # EquilibriumRegion representing the segment associated with this region
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
         self.connections = connections
@@ -238,19 +238,11 @@ class MeshRegion:
         # Number of this region, counting radially outward
         self.radialIndex = radialIndex
 
+        # Width to use when regridding contours in this region
+        self.regrid_width = regrid_width
+
         # Number of this region in its y-group
         self.yGroupIndex = None
-
-        # # y-boundary guard cells needed if the region edge is a real boundary, i.e. not
-        # # connected to another region
-        # if self.connections['lower'] is None:
-        #     self.y_guards_lower = self.equilibriumRegion.y_boundary_guards
-        # else:
-        #     self.y_guards_lower = 0
-        # if self.connections['upper'] is None:
-        #     self.y_guards_upper = self.equilibriumRegion.y_boundary_guards
-        # else:
-        #     self.y_guards_upper = 0
 
         # get points in this region
         self.contours = []
@@ -280,7 +272,7 @@ class MeshRegion:
 
         # refine the contours to make sure they are at exactly the right psi-value
         for contour in self.contours:
-            contour.refine(width=regrid_width)
+            contour.refine(width=self.regrid_width)
 
         if not meshParent.orthogonal:
             for contour in self.contours:

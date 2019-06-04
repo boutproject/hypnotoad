@@ -405,6 +405,22 @@ class PsiContour:
                            assume_sorted=True, fill_value='extrapolate')
         return lambda s: Point2D(interpR(s), interpZ(s))
 
+    def contourSfunc(self):
+        """
+        Function interpolating distance as a function of index for the current state of
+        this contour. When outside [startInd, endInd], set to constant so the results
+        aren't affected by extrapolation errors.
+        """
+        interpS = interp1d(numpy.arange(len(self), dtype=float), self.distance, kind='cubic', assume_sorted=True,
+                fill_value='extrapolate')
+        thisStartInd = self.startInd
+        thisEndInd = self.endInd
+        startDistance = self.distance[thisStartInd]
+        endDistance = self.distance[thisEndInd]
+        return lambda i: numpy.piecewise(i, [i <= 0., i >= thisEndInd - thisStartInd],
+                [0., endDistance - startDistance,
+                 lambda i: interpS(i + thisStartInd) - startDistance])
+
     def regrid(self, *args, **kwargs):
         """
         Regrid this contour, modifying the object

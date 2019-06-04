@@ -430,6 +430,20 @@ class TestContour:
         assert [*new[-2]] == pytest.approx([*orig[1]], abs=1.e-8)
         assert [*new[-1]] == pytest.approx([*orig[2]], abs=1.e-7)
 
+    def test_contourSfunc(self, testcontour):
+        c = testcontour.c
+        c.startInd = 2
+        c.endInd = len(c) - 2
+        n = c.endInd - c.startInd + 1
+
+        f = c.contourSfunc()
+
+        indices = numpy.arange(n, dtype=float)
+        assert f(indices) == tight_approx([d - c.distance[c.startInd] for d in
+                                           c.distance[c.startInd:c.endInd+1]])
+        assert f(-1.) == tight_approx(0.)
+        assert f(n + 1.) == tight_approx(c.distance[c.endInd] - c.distance[c.startInd])
+
 class TestEquilibrium:
 
     @pytest.fixture

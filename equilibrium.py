@@ -474,17 +474,25 @@ class PsiContour:
         # because it integrates on a finer grid. But sfunc was defined with the total
         # distance of the original, so scale the distance of fine_contour to make the
         # totals the same
-        scale_factor = (self.distance[self.endInd] - self.distance[self.startInd]) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
+        if sfunc is not None:
+            scale_factor = (sfunc(npoints - 1.) - sfunc(0.)) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
+        else:
+            scale_factor = (self.distance[self.endInd] - self.distance[self.startInd]) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
         fine_contour.distance = [scale_factor*d for d in fine_contour.distance]
 
         indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
                 npoints + self.extend_lower + self.extend_upper)
         if sfunc is not None:
             s = sfunc(indices)
+
+            # offset fine_contour.interpFunction in case sfunc(0.)!=0.
+            sbegin = sfunc(0.)
         else:
             s = (self.distance[self.endInd] - self.distance[self.startInd]) / (npoints - 1) * indices
+            sbegin = 0.
 
-        interp_fine = fine_contour.interpFunction()
+        interp_fine_unadjusted = fine_contour.interpFunction()
+        interp_fine = lambda s: interp_fine_unadjusted(s - sbegin)
 
         new_contour = self.newContourFromSelf(points=[interp_fine(x) for x in s])
         new_contour.startInd = self.extend_lower

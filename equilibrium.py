@@ -16,6 +16,9 @@ class SolutionError(Exception):
     """
     pass
 
+# Dictionary of global parameters for contours
+ContourParameters = {'Nfine':1000}
+
 class PoloidalSpacingParameters:
     def __init__(self):
         self.type = 'sqrt'
@@ -225,10 +228,6 @@ class PsiContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-
-    # Number of points for high-resolution intermediate contours used in re-gridding
-    Nfine = 1000
-
     def __init__(self, points, psi, psival):
         self.points = points
 
@@ -408,21 +407,22 @@ class PsiContour:
         if extend_upper is not None:
             self.extend_upper = extend_upper
 
+        Nfine = ContourParameters['Nfine']
         # To make the new points accurate, first regrid onto a high-resolution contour,
         # then interpolate.
         # Extend further than will be needed in the final contour, because extrapolation
         # past the end of the fine contour is very bad.
-        extend_lower_fine = 2*(self.extend_lower * self.Nfine) // npoints
-        extend_upper_fine = 2*(self.extend_upper * self.Nfine) // npoints
+        extend_lower_fine = 2*(self.extend_lower * Nfine) // npoints
+        extend_upper_fine = 2*(self.extend_upper * Nfine) // npoints
 
         indices_fine = numpy.linspace(-extend_lower_fine,
-                (self.Nfine - 1 + extend_upper_fine),
-                self.Nfine + extend_lower_fine + extend_upper_fine)
+                (Nfine - 1 + extend_upper_fine),
+                Nfine + extend_lower_fine + extend_upper_fine)
 
         if sfunc is not None:
-            sfine = sfunc(indices_fine*(npoints - 1)/(self.Nfine - 1))
+            sfine = sfunc(indices_fine*(npoints - 1)/(Nfine - 1))
         else:
-            sfine = (self.distance[self.endInd] - self.distance[self.startInd]) / (self.Nfine - 1) * indices_fine
+            sfine = (self.distance[self.endInd] - self.distance[self.startInd]) / (Nfine - 1) * indices_fine
 
         interp_self = self.interpFunction()
 

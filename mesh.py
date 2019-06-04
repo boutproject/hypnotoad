@@ -6,7 +6,7 @@ import numpy
 import numbers
 from scipy.integrate import solve_ivp
 import warnings
-from equilibrium import Point2D, PsiContour, EquilibriumRegion
+from equilibrium import Point2D, ContourParameters, PsiContour, EquilibriumRegion
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     """
@@ -252,23 +252,31 @@ class MeshRegion:
             temp_psi_vals = self.psi_vals[::-1]
         else:
             temp_psi_vals = self.psi_vals
-        perp_points = followPerpendicular(meshParent.equilibrium.f_R,
-                meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
-                meshParent.equilibrium.psi_sep[0], temp_psi_vals)
+        print('Following perpendicular: ' + str(1) + '/'
+                + str(len(self.equilibriumRegion)), end='\r')
+        perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
+                self.meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
+                self.meshParent.equilibrium.psi_sep[0], temp_psi_vals,
+                rtol=self.meshParent.follow_perpendicular_rtol,
+                atol=self.meshParent.follow_perpendicular_atol)
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
         for i,point in enumerate(perp_points):
             self.contours.append(self.equilibriumRegion.newContourFromSelf(points=[point],
                 psival=self.psi_vals[i]))
-        for p in self.equilibriumRegion[1:]:
-            perp_points = followPerpendicular(meshParent.equilibrium.f_R,
-                    meshParent.equilibrium.f_Z, p, meshParent.equilibrium.psi_sep[0],
-                    temp_psi_vals)
+        for i,p in enumerate(self.equilibriumRegion[1:]):
+            print('Following perpendicular: ' + str(i+2) + '/'
+                    + str(len(self.equilibriumRegion)), end='\r')
+            perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
+                    self.meshParent.equilibrium.f_Z, p,
+                    self.meshParent.equilibrium.psi_sep[0], temp_psi_vals,
+                    rtol=self.meshParent.follow_perpendicular_rtol,
+                    atol=self.meshParent.follow_perpendicular_atol)
             if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
                 perp_points.reverse()
-            for i,point in enumerate(perp_points):
-                self.contours[i].append(point)
+            for j,point in enumerate(perp_points):
+                self.contours[j].append(point)
 
         # refine the contours to make sure they are at exactly the right psi-value
         for contour in self.contours:
@@ -842,6 +850,15 @@ class Mesh:
         self.meshOptions = meshOptions
         self.orthogonal = self.readOption('orthogonal', True)
         self.shiftedmetric = self.readOption('shiftedmetric', True)
+
+        # Set some global parameters for PsiContours
+        contour_nfine = self.readOption('contour_nfine', None)
+        if contour_nfine is not None:
+            ContourParameters['Nfine'] = contour_nfine
+
+        # Tolerances for following Grad(psi)
+        self.follow_perpendicular_rtol = self.readOption('gradPsiRtol', 2.e-8)
+        self.follow_perpendicular_atol = self.readOption('gradPsiAtol', 1.e-8)
 
         self.equilibrium = equilibrium
 

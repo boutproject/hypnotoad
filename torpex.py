@@ -285,16 +285,20 @@ class TORPEXMagneticField(Equilibrium):
         # set poloidal grid spacing
         d_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)
         d_target = self.readOption('target_poloidal_spacing_length', None)
+        nonorthogonal_d_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_length', None)
+        nonorthogonal_d_target = self.readOption('nonorthogonal_target_poloidal_spacing_length', None)
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
         if self.orthogonal:
             d_polynomial = 0.
             d_sqrt = d_xpoint
             d_target = None
+            spacing_method = 'sqrt'
         else:
             d_polynomial = d_xpoint
             d_sqrt = 0.
             d_target = d_target
+            spacing_method = 'polynomial'
 
         # inner lower
         r = self.regions['inner_lower_divertor']
@@ -302,20 +306,26 @@ class TORPEXMagneticField(Equilibrium):
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [lower_psi_vals, inner_psi_vals]
         r.separatrix_radial_index = 1
+        r.poloidalSpacingParameters.method = spacing_method
         r.poloidalSpacingParameters.d_upper = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
         r.poloidalSpacingParameters.d_lower = d_target
         r.poloidalSpacingParameters.N_norm = ny_total
+        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
+        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
 
         # inner upper
         r = self.regions['inner_upper_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [upper_psi_vals, inner_psi_vals]
         r.separatrix_radial_index = 1
+        r.poloidalSpacingParameters.method = spacing_method
         r.poloidalSpacingParameters.d_lower = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
         r.poloidalSpacingParameters.d_upper = d_target
         r.poloidalSpacingParameters.N_norm = ny_total
+        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
+        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
 
         # outer upper
         r = self.regions['outer_upper_divertor']
@@ -323,20 +333,26 @@ class TORPEXMagneticField(Equilibrium):
         r.xPointsAtEnd[1] = xpoint
         r.psi_vals = [upper_psi_vals, outer_psi_vals]
         r.separatrix_radial_index = 1
+        r.poloidalSpacingParameters.method = spacing_method
         r.poloidalSpacingParameters.d_upper = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
         r.poloidalSpacingParameters.d_lower = d_target
         r.poloidalSpacingParameters.N_norm = ny_total
+        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
+        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
 
         # outer lower
         r = self.regions['outer_lower_divertor']
         r.xPointsAtStart[1] = xpoint
         r.psi_vals = [lower_psi_vals, outer_psi_vals]
         r.separatrix_radial_index = 1
+        r.poloidalSpacingParameters.method = spacing_method
         r.poloidalSpacingParameters.d_lower = d_polynomial
         r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
         r.poloidalSpacingParameters.d_upper = d_target
         r.poloidalSpacingParameters.N_norm = ny_total
+        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
+        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

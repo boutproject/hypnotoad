@@ -565,6 +565,8 @@ class EquilibriumRegion(PsiContour):
         result.psi_vals = deepcopy(self.psi_vals)
         result.poloidalSpacingParameters = self.poloidalSpacingParameters
         result.separatrix_radial_index = self.separatrix_radial_index
+        result.startInd = contour.startInd
+        result.endInd = contour.endInd
         result.extend_lower = contour.extend_lower
         result.extend_upper = contour.extend_upper
         return result

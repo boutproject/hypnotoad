@@ -600,12 +600,12 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2*self.y_boundary_guards
         else:
             extend_upper = 0
-        sfunc = self.getSfunc(2*self.ny_noguards+1,
+        sfunc = self.getSfuncFixedSpacing(2*self.ny_noguards+1,
                 self.distance[self.endInd] - self.distance[self.startInd])
         return self.newRegionFromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
             extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
 
-    def getSfunc(self, npoints, distance):
+    def getSfuncFixedSpacing(self, npoints, distance):
         if self.poloidalSpacingParameters.method == 'sqrt':
             return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
                     self.poloidalSpacingParameters.N_norm,

@@ -126,9 +126,16 @@ class TORPEXMagneticField(Equilibrium):
         return Point2D(self.Rcentre + self.awall*numpy.cos(theta),
                        self.Zcentre + self.awall*numpy.sin(theta))
 
-    def addWallToPlot(self, npoints=100):
-        theta = numpy.linspace(0., 2.*numpy.pi, npoints+1)
-        pyplot.plot(*self.TORPEX_wall(theta))
+    def addWallToPlot(self, npoints=None):
+        if npoints is not None:
+            theta = numpy.linspace(0., 2.*numpy.pi, npoints+1)
+            pyplot.plot(*self.TORPEX_wall(theta))
+        else:
+            R = [p.R for p in self.wall]
+            Z = [p.Z for p in self.wall]
+            R.append(R[0])
+            Z.append(Z[0])
+            pyplot.plot(R, Z)
 
     def magneticFunctionsFromCoils(self):
         """

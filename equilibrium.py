@@ -421,6 +421,10 @@ class PsiContour:
                 fill_value='extrapolate')
         thisStartInd = self.startInd
         thisEndInd = self.endInd
+        if thisEndInd < 0:
+            # endInd might be negative, which would mean relative to the end of the list,
+            # but we need the actual index below
+            thisEndInd += len(self)
         startDistance = self.distance[thisStartInd]
         endDistance = self.distance[thisEndInd]
         return lambda i: numpy.piecewise(i, [i <= 0., i >= thisEndInd - thisStartInd],

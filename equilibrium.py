@@ -665,7 +665,12 @@ class EquilibriumRegion(PsiContour):
                     [sfixed < 0., sfixed > total_distance],
                     [0., 1., lambda s: numpy.exp(-(total_distance - s)/d_upper)])
 
-                weight = numpy.min(weight_lower + weight_upper, 1.)
+                weight = weight_lower + weight_upper
+
+                # make sure weight <= 1
+                weight = numpy.array(weight)
+                weight[weight > 1.] = 1.
+
                 return weight*sfixed + (1. - weight) * sorth
         elif d_lower is not None:
             def new_sfunc(i):

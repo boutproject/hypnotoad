@@ -399,7 +399,8 @@ class MeshRegion:
         contour.refine(width=self.regrid_width)
 
         # this sfunc gives a fixed poloidal spacing at beginning and end of contours
-        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(2*self.ny_noguards + 1, contour.totalDistance())
+        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(
+                2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
 
         if self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'orthogonal':
             warnings.warn('\'orthogonal\' option is not currently compatible with '

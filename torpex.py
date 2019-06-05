@@ -299,10 +299,7 @@ class TORPEXMagneticField(Equilibrium):
         nonorthogonal_spacing_method = self.readOption('nonorthogonal_spacing_method', 'combined')
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
-        if self.orthogonal:
-            spacing_method = 'sqrt'
-        else:
-            spacing_method = 'polynomial'
+        spacing_method = 'sqrt'
 
         def setupRegion(name, psi_vals1, psi_vals2, reverse):
             r = self.regions[name]

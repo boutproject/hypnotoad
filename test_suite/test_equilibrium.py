@@ -661,3 +661,89 @@ class TestEquilibriumRegion:
         itest = N - 0.01
         assert f(itest) == pytest.approx(L - 2.*d_sqrt_upper*numpy.sqrt((N - itest)/N_norm)
                                          - d_upper*(N - itest)/N_norm, abs=1.e-5)
+
+    def test_combineSfuncsNoD(self, eqReg):
+        n = 20.
+        L = 3.
+
+        # fixed spacing sfunc should not be used when
+        # poloidalSpacingParameters.d_lower=None and
+        # poloidalSpacingParameters.d_upper=None
+        sfunc_fixed_spacing = lambda i: -10000. * i
+
+        sfunc_orthogonal = lambda i: i/n * L
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+
+        assert sfunc(0.) == tight_approx(0.)
+        assert sfunc(n) == tight_approx(L)
+
+    def test_combineSfuncsDLower(self, eqReg):
+        n = 10.
+        L = 3.
+
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = 1.
+
+        # fixed spacing sfunc should not be used when
+        # poloidalSpacingParameters.d_lower=None and
+        # poloidalSpacingParameters.d_upper=None
+        sfunc_fixed_spacing = lambda i: i/n * L
+
+        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
+                [100., lambda i: numpy.sqrt(i/n) * L])
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+
+        assert sfunc(-1.) == tight_approx(-1./n * L)
+        assert sfunc(0.) == tight_approx(0.)
+        itest = 0.0001
+        assert sfunc(itest) == pytest.approx(0.00003, rel=1.e-2)
+        assert sfunc(n) == tight_approx(L)
+
+    def test_combineSfuncsDUpper(self, eqReg):
+        n = 10.
+        L = 3.
+
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = 1.
+
+        # fixed spacing sfunc should not be used when
+        # poloidalSpacingParameters.d_lower=None and
+        # poloidalSpacingParameters.d_upper=None
+        sfunc_fixed_spacing = lambda i: i/n * L
+
+        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n],
+                [100., lambda i: numpy.sqrt(i/n) * L])
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+
+        assert sfunc(0.) == tight_approx(0.)
+        itest = n - 0.0001
+        assert L - sfunc(itest) == pytest.approx(0.00003, rel=1.e-2)
+        assert sfunc(n) == tight_approx(L)
+        assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
+
+    def test_combineSfuncsDBoth(self, eqReg):
+        n = 10.
+        L = 3.
+
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = .1
+
+        # fixed spacing sfunc should not be used when
+        # poloidalSpacingParameters.d_lower=None and
+        # poloidalSpacingParameters.d_upper=None
+        sfunc_fixed_spacing = lambda i: i/n * L
+
+        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n],
+                [-100., 100., lambda i: numpy.sqrt(i/n) * L])
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+
+        assert sfunc(-1.) == tight_approx(-1./n * L)
+        assert sfunc(0.) == tight_approx(0.)
+        itest = 1.e-6
+        assert sfunc(itest) == pytest.approx(3.e-7, rel=1.e-2)
+        itest = n - 1.e-6
+        assert L - sfunc(itest) == pytest.approx(3.e-7, rel=1.e-2)
+        assert sfunc(n) == tight_approx(L)
+        assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)

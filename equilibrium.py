@@ -637,6 +637,58 @@ class EquilibriumRegion(PsiContour):
                              +str(self.poloidalSpacingParameters.method)
                              +' for poloidal spacing method')
 
+    def combineSfuncs(self, sfunc_fixed_spacing, sfunc_orthogonal, total_distance):
+        if self.poloidalSpacingParameters.nonorthogonal_d_lower is not None:
+            d_lower = self.poloidalSpacingParameters.nonorthogonal_d_lower
+        else:
+            d_lower = self.poloidalSpacingParameters.d_lower
+
+        if self.poloidalSpacingParameters.nonorthogonal_d_upper is not None:
+            d_upper = self.poloidalSpacingParameters.nonorthogonal_d_upper
+        else:
+            d_upper = self.poloidalSpacingParameters.d_upper
+
+        if d_lower is not None and d_upper is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+                sorth = sfunc_orthogonal(i)
+
+                weight_lower = numpy.piecewise(sfixed,
+                        [sfixed < 0., sfixed > total_distance],
+                        [1., 0., lambda s: numpy.exp(-s/d_lower)])
+
+                weight_upper = numpy.piecewise(sfixed,
+                    [sfixed < 0., sfixed > total_distance],
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/d_upper)])
+
+                weight = numpy.min(weight_lower + weight_upper, 1.)
+                return weight*sfixed + (1. - weight) * sorth
+        elif d_lower is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+                sorth = sfunc_orthogonal(i)
+
+                weight_lower = numpy.piecewise(sfixed,
+                        [sfixed < 0., sfixed > total_distance],
+                        [1., 0., lambda s: numpy.exp(-s/d_lower)])
+
+                return (weight_lower)*sfixed + (1. - weight_lower) * sorth
+        elif d_upper is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+                sorth = sfunc_orthogonal(i)
+
+                weight_upper = numpy.piecewise(sfixed,
+                    [sfixed < 0., sfixed > total_distance],
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/d_upper)])
+
+                return (weight_upper)*sfixed + (1. - weight_upper) * sorth
+        else:
+            def new_sfunc(i):
+                return sfunc_orthogonal(i)
+
+        return new_sfunc
+
     def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
             d_upper=None):
         """

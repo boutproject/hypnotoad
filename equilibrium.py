@@ -323,6 +323,23 @@ class PsiContour:
         self.points.insert(0, point)
         self.recalculateDistance()
 
+    def insert(self, index, point):
+        # Make sure index is positive, following behaviour of list.insert()
+        if index < 0:
+            index += len(self) + 1
+            if index < 0:
+                index = 0
+
+        self.points.insert(index, point)
+        if index <= self.startInd:
+            self.startInd += 1
+        if index <= self.endInd:
+            self.endInd += 1
+        if self.endInd < 0 and index > len(self) + self.endInd:
+            self.endInd -= 1
+
+        self.recalculateDistance()
+
     def recalculateDistance(self):
         if len(self.points) is 0:
             self.distance = []

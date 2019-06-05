@@ -747,3 +747,46 @@ class TestEquilibriumRegion:
         assert L - sfunc(itest) == pytest.approx(3.e-7, rel=1.e-2)
         assert sfunc(n) == tight_approx(L)
         assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
+
+    def test_combineSfuncsIntegrated(self, eqReg):
+        # This test follows roughly the operations in
+        # MeshRegion.distributePointsNonorthogonal
+        n = 10
+
+        c = PsiContour([], None, 0.)
+        for i in range(n):
+            c.append(Point2D(float(i), float(i)**2))
+        eqReg = eqReg.newRegionFromPsiContour(c)
+
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = .1
+
+        print(eqReg.startInd, eqReg.endInd, eqReg.totalDistance())
+        sfunc_orthogonal_original = eqReg.contourSfunc()
+
+        # as if lower_wall
+        intersect_index = 2
+        original_start = eqReg.startInd
+
+        eqReg.points.insert(intersect_index, eqReg.interpFunction()(2.5))
+
+        eqReg.recalculateDistance()
+
+        if original_start >= intersect_index:
+            original_start += 1
+        distance_at_original_start = eqReg.distance[original_start]
+
+        distance_at_wall = eqReg.distance[intersect_index]
+
+        sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
+
+        eqReg.startInd = intersect_index
+
+        d = eqReg.totalDistance()
+
+        sfunc_fixed_spacing = eqReg.getSfuncFixedSpacing(n, d)
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, d)
+
+        assert sfunc(0.) == tight_approx(0.)
+        assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())

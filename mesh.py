@@ -282,7 +282,7 @@ class MeshRegion:
         for contour in self.contours:
             contour.refine(width=self.regrid_width)
 
-        if not meshParent.orthogonal:
+        if not self.meshParent.orthogonal:
             for i,contour in enumerate(self.contours):
                 print('distributing points on contour:',
                         str(i+1)+'/'+str(len(self.contours)), end = '\r')
@@ -359,19 +359,30 @@ class MeshRegion:
 
         # this sfunc would put the points at the positions along the contour where the
         # grid would be orthogonal
-        sfunc_orthogonal = contour.contourSfunc()
+        sfunc_orthogonal_original = contour.contourSfunc()
+        # will use sfunc_orthogonal eventually, but we might redefine sfunc_orthogonal in
+        # terms of sfunc_orthogonal_original (if lower_wall==True), but need to avoid
+        # recursion
+        sfunc_orthogonal = sfunc_orthogonal_original
 
         # now add points on the wall(s) to the contour
         if lower_wall:
+            # need to construct a new sfunc which gives distance from the wall, not the
+            # distance from the original startInd
+
             # now make lower_intersect_index the index where the point at the wall is
             lower_intersect_index += 1
-            contour.points.insert(lower_intersect_index, lower_intersect)
+            contour.insert(lower_intersect_index, lower_intersect)
+
+            distance_at_original_start = contour.distance[contour.startInd]
+
+            distance_at_wall = contour.distance[lower_intersect_index]
 
             # need to correct sfunc_orthogonal for the distance between the point at the
             # lower wall and the original start-point
-            sfunc_orthogonal = lambda i: sfunc_orthogonal(i) - (contour.distance[lower_intersect_index] - contour.distance[contour.startInd])
+            sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
 
-            # start point is now at the wall
+            # start contour from the wall
             contour.startInd = lower_intersect_index
 
         if upper_wall:
@@ -380,17 +391,20 @@ class MeshRegion:
                 upper_intersect_index += 1
             # now make upper_intersect_index the index where the point at the wall is
             upper_intersect_index += 1
-            contour.points.insert(upper_intersect_index, upper_intersect)
+            contour.insert(upper_intersect_index, upper_intersect)
 
             # end point is now at the wall
             contour.endInd = upper_intersect_index
 
-        contour.refine(width=self.regrid_width) # also re-calculates distance
+        contour.refine(width=self.regrid_width)
 
         # this sfunc gives a fixed poloidal spacing at beginning and end of contours
-        sfunc_fixed_spacing = self.equilibriumRegion.getSfunc(2*self.ny_noguards + 1, contour.totalDistance())
+        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(2*self.ny_noguards + 1, contour.totalDistance())
 
-        return contour.getRegridded(2*self.ny_noguards + 1, sfunc=sfunc_fixed_spacing,
+        sfunc = self.equilibriumRegion.combineSfuncs(sfunc_fixed_spacing,
+                sfunc_orthogonal, contour.totalDistance())
+
+        return contour.getRegridded(2*self.ny_noguards + 1, sfunc=sfunc,
                 width=self.regrid_width, extend_lower=self.equilibriumRegion.extend_lower,
                 extend_upper=self.equilibriumRegion.extend_upper)
 

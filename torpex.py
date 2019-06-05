@@ -290,81 +290,51 @@ class TORPEXMagneticField(Equilibrium):
 
 
         # set poloidal grid spacing
-        d_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)
-        d_target = self.readOption('target_poloidal_spacing_length', None)
-        nonorthogonal_d_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_length', None)
-        nonorthogonal_d_target = self.readOption('nonorthogonal_target_poloidal_spacing_length', None)
+        sqrt_a_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)
+        sqrt_b_target = self.readOption('target_poloidal_spacing_length', None)
+        polynomial_d_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_length', 5.e-2)
+        polynomial_d_target = self.readOption('nonorthogonal_target_poloidal_spacing_length', None)
+        nonorthogonal_range_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_range', None)
+        nonorthogonal_range_target = self.readOption('nonorthogonal_target_poloidal_spacing_range', None)
         nonorthogonal_spacing_method = self.readOption('nonorthogonal_spacing_method', 'combined')
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
         if self.orthogonal:
-            d_polynomial = 0.
-            d_sqrt = d_xpoint
-            d_target = None
             spacing_method = 'sqrt'
         else:
-            d_polynomial = d_xpoint
-            d_sqrt = 0.
-            d_target = d_target
             spacing_method = 'polynomial'
 
-        # inner lower
-        r = self.regions['inner_lower_divertor']
-        r.reverse()
-        r.xPointsAtEnd[1] = xpoint
-        r.psi_vals = [lower_psi_vals, inner_psi_vals]
-        r.separatrix_radial_index = 1
-        r.poloidalSpacingParameters.method = spacing_method
-        r.poloidalSpacingParameters.d_upper = d_polynomial
-        r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
-        r.poloidalSpacingParameters.d_lower = d_target
-        r.poloidalSpacingParameters.N_norm = ny_total
-        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
-        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
-        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
+        def setupRegion(name, psi_vals1, psi_vals2, reverse):
+            r = self.regions[name]
+            r.psi_vals = [psi_vals1, psi_vals2]
+            r.separatrix_radial_index = 1
+            r.poloidalSpacingParameters.method = spacing_method
+            r.poloidalSpacingParameters.N_norm = ny_total
+            r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
+            if reverse:
+                r.reverse()
+                r.xPointsAtEnd[1] = xpoint
+                r.poloidalSpacingParameters.sqrt_b_lower = sqrt_b_target
+                r.poloidalSpacingParameters.sqrt_a_upper = sqrt_a_xpoint
+                r.poloidalSpacingParameters.sqrt_b_upper = 0.
+                r.poloidalSpacingParameters.polynomial_d_lower = polynomial_d_target
+                r.poloidalSpacingParameters.polynomial_d_upper = polynomial_d_xpoint
+                r.poloidalSpacingParameters.nonorthogonal_range_lower = nonorthogonal_range_target
+                r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_xpoint
+            else:
+                r.xPointsAtStart[1] = xpoint
+                r.poloidalSpacingParameters.sqrt_a_lower = sqrt_a_xpoint
+                r.poloidalSpacingParameters.sqrt_b_lower = 0.
+                r.poloidalSpacingParameters.sqrt_b_upper = sqrt_b_target
+                r.poloidalSpacingParameters.polynomial_d_lower = polynomial_d_xpoint
+                r.poloidalSpacingParameters.polynomial_d_upper = polynomial_d_target
+                r.poloidalSpacingParameters.nonorthogonal_range_lower = nonorthogonal_range_xpoint
+                r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_target
 
-        # inner upper
-        r = self.regions['inner_upper_divertor']
-        r.xPointsAtStart[1] = xpoint
-        r.psi_vals = [upper_psi_vals, inner_psi_vals]
-        r.separatrix_radial_index = 1
-        r.poloidalSpacingParameters.method = spacing_method
-        r.poloidalSpacingParameters.d_lower = d_polynomial
-        r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
-        r.poloidalSpacingParameters.d_upper = d_target
-        r.poloidalSpacingParameters.N_norm = ny_total
-        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
-        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
-        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
-
-        # outer upper
-        r = self.regions['outer_upper_divertor']
-        r.reverse()
-        r.xPointsAtEnd[1] = xpoint
-        r.psi_vals = [upper_psi_vals, outer_psi_vals]
-        r.separatrix_radial_index = 1
-        r.poloidalSpacingParameters.method = spacing_method
-        r.poloidalSpacingParameters.d_upper = d_polynomial
-        r.poloidalSpacingParameters.d_sqrt_upper = d_sqrt
-        r.poloidalSpacingParameters.d_lower = d_target
-        r.poloidalSpacingParameters.N_norm = ny_total
-        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
-        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
-        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
-
-        # outer lower
-        r = self.regions['outer_lower_divertor']
-        r.xPointsAtStart[1] = xpoint
-        r.psi_vals = [lower_psi_vals, outer_psi_vals]
-        r.separatrix_radial_index = 1
-        r.poloidalSpacingParameters.method = spacing_method
-        r.poloidalSpacingParameters.d_lower = d_polynomial
-        r.poloidalSpacingParameters.d_sqrt_lower = d_sqrt
-        r.poloidalSpacingParameters.d_upper = d_target
-        r.poloidalSpacingParameters.N_norm = ny_total
-        r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
-        r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
-        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
+        setupRegion('inner_lower_divertor', lower_psi_vals, inner_psi_vals, True)
+        setupRegion('inner_upper_divertor', upper_psi_vals, inner_psi_vals, False)
+        setupRegion('outer_upper_divertor', upper_psi_vals, outer_psi_vals, True)
+        setupRegion('outer_lower_divertor', lower_psi_vals, outer_psi_vals, False)
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

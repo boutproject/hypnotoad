@@ -26,17 +26,25 @@ class PoloidalSpacingParameters:
         #  - 'polynomial' for getPolynomialPoloidalSpacingFunction
         self.method = 'sqrt'
 
+        ## Parameters for sqrt spacing function
         # Distance for polynomial part of spacing function at lower end
-        self.d_lower = None
+        self.sqrt_b_lower = None
 
         # Distance for polynomial part of spacing function at upper end
-        self.d_upper = None
+        self.sqrt_b_upper = None
 
         # Distance for sqrt part of spacing function (if used) at lower end
-        self.d_sqrt_lower = None
+        self.sqrt_a_lower = None
 
         # Distance for sqrt part of spacing function (if used) at upper end
-        self.d_sqrt_upper = None
+        self.sqrt_a_upper = None
+
+        ## Parameters for polynomial spacing function
+        # Distance for spacing function at lower end
+        self.polynomial_d_lower = None
+
+        # Distance for spacing function at upper end
+        self.polynomial_d_upper = None
 
         # Normalization factor for number of points in contours, used to scale grid
         # spacing with total number of points, to keep functions consistent when
@@ -47,12 +55,12 @@ class PoloidalSpacingParameters:
         self.nonorthogonal_method = 'combined'
 
         # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-        # at the lower end. If 'None' then the value of d_lower will be used instead.
-        self.nonorthogonal_d_lower = None
+        # at the lower end. If 'None' then the value of polynomial_d_lower will be used instead.
+        self.nonorthogonal_range_lower = None
 
         # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-        # at the upper end. If 'None' then the value of d_upper will be used instead.
-        self.nonorthogonal_d_upper = None
+        # at the upper end. If 'None' then the value of polynomial_d_upper will be used instead.
+        self.nonorthogonal_range_upper = None
 
 class Point2D:
     """
@@ -643,47 +651,50 @@ class EquilibriumRegion(PsiContour):
         return self.newRegionFromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
             extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
 
-    def getSfuncFixedSpacing(self, npoints, distance):
-        if self.poloidalSpacingParameters.method == 'sqrt':
+    def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
+        if method is None:
+            method = self.poloidalSpacingParameters.method
+
+        if method == 'sqrt':
             return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
                     self.poloidalSpacingParameters.N_norm,
-                    d_lower=self.poloidalSpacingParameters.d_lower,
-                    d_sqrt_lower=self.poloidalSpacingParameters.d_sqrt_lower,
-                    d_upper=self.poloidalSpacingParameters.d_upper,
-                    d_sqrt_upper=self.poloidalSpacingParameters.d_sqrt_upper)
-        elif self.poloidalSpacingParameters.method == 'polynomial':
+                    b_lower=self.poloidalSpacingParameters.sqrt_b_lower,
+                    a_lower=self.poloidalSpacingParameters.sqrt_a_lower,
+                    b_upper=self.poloidalSpacingParameters.sqrt_b_upper,
+                    a_upper=self.poloidalSpacingParameters.sqrt_a_upper)
+        elif method == 'polynomial':
             return self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
                     self.poloidalSpacingParameters.N_norm,
-                    d_lower=self.poloidalSpacingParameters.d_lower,
-                    d_upper=self.poloidalSpacingParameters.d_upper)
+                    d_lower=self.poloidalSpacingParameters.polynomial_d_lower,
+                    d_upper=self.poloidalSpacingParameters.polynomial_d_upper)
         else:
             raise ValueError('Unrecognized option '
                              +str(self.poloidalSpacingParameters.method)
                              +' for poloidal spacing method')
 
     def combineSfuncs(self, sfunc_fixed_spacing, sfunc_orthogonal, total_distance):
-        if self.poloidalSpacingParameters.nonorthogonal_d_lower is not None:
-            d_lower = self.poloidalSpacingParameters.nonorthogonal_d_lower
+        if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:
+            range_lower = self.poloidalSpacingParameters.nonorthogonal_range_lower
         else:
-            d_lower = self.poloidalSpacingParameters.d_lower
+            range_lower = self.poloidalSpacingParameters.polynomial_d_lower
 
-        if self.poloidalSpacingParameters.nonorthogonal_d_upper is not None:
-            d_upper = self.poloidalSpacingParameters.nonorthogonal_d_upper
+        if self.poloidalSpacingParameters.nonorthogonal_range_upper is not None:
+            range_upper = self.poloidalSpacingParameters.nonorthogonal_range_upper
         else:
-            d_upper = self.poloidalSpacingParameters.d_upper
+            range_upper = self.poloidalSpacingParameters.polynomial_d_upper
 
-        if d_lower is not None and d_upper is not None:
+        if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
                 sfixed = sfunc_fixed_spacing(i)
                 sorth = sfunc_orthogonal(i)
 
                 weight_lower = numpy.piecewise(sfixed,
                         [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/d_lower)])
+                        [1., 0., lambda s: numpy.exp(-s/range_lower)])
 
                 weight_upper = numpy.piecewise(sfixed,
                     [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/d_upper)])
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)])
 
                 weight = weight_lower + weight_upper
 
@@ -692,24 +703,24 @@ class EquilibriumRegion(PsiContour):
                 weight[weight > 1.] = 1.
 
                 return weight*sfixed + (1. - weight) * sorth
-        elif d_lower is not None:
+        elif range_lower is not None:
             def new_sfunc(i):
                 sfixed = sfunc_fixed_spacing(i)
                 sorth = sfunc_orthogonal(i)
 
                 weight_lower = numpy.piecewise(sfixed,
                         [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/d_lower)])
+                        [1., 0., lambda s: numpy.exp(-s/range_lower)])
 
                 return (weight_lower)*sfixed + (1. - weight_lower) * sorth
-        elif d_upper is not None:
+        elif range_upper is not None:
             def new_sfunc(i):
                 sfixed = sfunc_fixed_spacing(i)
                 sorth = sfunc_orthogonal(i)
 
                 weight_upper = numpy.piecewise(sfixed,
                     [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/d_upper)])
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)])
 
                 return (weight_upper)*sfixed + (1. - weight_upper) * sorth
         else:
@@ -816,8 +827,8 @@ class EquilibriumRegion(PsiContour):
                      lambda i:length + d_upper*(i - N)/N_norm,
                      lambda i: b*i/N_norm + d*(i/N_norm)**3 + e*(i/N_norm)**4 + f*(i/N_norm)**5])
 
-    def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None, d_sqrt_lower=None,
-            d_upper=None, d_sqrt_upper=None):
+    def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, b_lower=None, a_lower=None,
+            b_upper=None, a_upper=None):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
@@ -825,36 +836,36 @@ class EquilibriumRegion(PsiContour):
         choice for N_norm.
         sN(0) = 0
         sN(N/N_norm) = L
-        ds/diN(0) ~ d_sqrt_lower/sqrt(iN)+d_lower at iN=0 (if d_lower not None, else no
+        ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0 (if a_lower not None, else no
                                                            sqrt(iN) term)
-        ds/diN(N/N_norm) ~ d_sqrt_upper/sqrt(N/N_norm-iN)+d_upper at iN=N_norm (if d_upper
-                                                                              is not None)
+        ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm (if a_upper is
+                                               not None, else no sqrt(N/N_norm - iN) term)
 
-        By default d_sqrt_lower=d_lower and d_sqrt_upper=d_upper, unless both are
+        By default a_lower=b_lower and a_upper=b_upper, unless both are
         specified explicitly
         """
-        if d_lower is None and d_upper is None:
-            assert d_sqrt_lower is None, 'cannot set d_sqrt_lower unless d_lower is set'
-            assert d_sqrt_upper is None, 'cannot set d_sqrt_upper unless d_upper is set'
+        if b_lower is None and b_upper is None:
+            assert a_lower is None, 'cannot set a_lower unless b_lower is set'
+            assert a_upper is None, 'cannot set a_upper unless b_upper is set'
             # always monotonic
             return lambda i: i*length/N
-        elif d_lower is None:
-            assert d_sqrt_lower is None, 'cannot set d_sqrt_lower unless d_lower is set'
-            if d_sqrt_upper is None:
-                d_sqrt_upper = d_upper
+        elif b_lower is None:
+            assert a_lower is None, 'cannot set a_lower unless b_lower is set'
+            if a_upper is None:
+                a_upper = b_upper
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
-            # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ d_sqrt_upper/sqrt(N/N_norm-iN)+d_upper
-            # b = 2*d_sqrt_upper
-            # d + 2*e*N/N_norm = d_upper
-            # d = d_upper - 2*e*N/N_norm
+            # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ a_upper/sqrt(N/N_norm-iN)+b_upper
+            # b = 2*a_upper
+            # d + 2*e*N/N_norm = b_upper
+            # d = b_upper - 2*e*N/N_norm
             # s(N/N_norm) = L = c + d*N/N_norm + e*(N/N_norm)^2
-            # L = c + d_upper*N/N_norm - 2*e*(N/N_norm)^2 + e*(N/N_norm)^2
-            # e = (c + d_upper*N/N_norm - L) / (N/N_norm)^2
-            b = 2.*d_sqrt_upper
+            # L = c + b_upper*N/N_norm - 2*e*(N/N_norm)^2 + e*(N/N_norm)^2
+            # e = (c + b_upper*N/N_norm - L) / (N/N_norm)^2
+            b = 2.*a_upper
             c = b*numpy.sqrt(N/N_norm)
-            e = (c + d_upper*N/N_norm - length) / (N/N_norm)**2
-            d = d_upper - 2*e*N/N_norm
+            e = (c + b_upper*N/N_norm - length) / (N/N_norm)**2
+            d = b_upper - 2*e*N/N_norm
 
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
@@ -865,18 +876,18 @@ class EquilibriumRegion(PsiContour):
             assert d + 2.*e*N/N_norm >= 0., 'gradient of polynomial part should be positive at end'
 
             return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
-        elif d_upper is None:
-            if d_sqrt_lower is None:
-                d_sqrt_lower = d_lower
-            assert d_sqrt_upper is None
+        elif b_upper is None:
+            if a_lower is None:
+                a_lower = b_lower
+            assert a_upper is None
             # s(iN) = a*sqrt(iN) + c + d*iN + e*iN^2
             # s(0) = 0 = c
-            # ds/di(0) = a/(2*sqrt(iN))+d ~ d_sqrt_lower/sqrt(iN)+d_lower
-            # a = 2*d_sqrt_lower
-            # d = d_lower
+            # ds/di(0) = a/(2*sqrt(iN))+d ~ a_lower/sqrt(iN)+b_lower
+            # a = 2*a_lower
+            # d = b_lower
             # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2
-            a = 2.*d_sqrt_lower
-            d = d_lower
+            a = 2.*a_lower
+            d = b_lower
             e = (length - a*numpy.sqrt(N/N_norm) - d*N/N_norm)/(N/N_norm)**2
 
             # check function is monotonic: gradients at beginning and end should both be
@@ -889,31 +900,30 @@ class EquilibriumRegion(PsiContour):
 
             return lambda i: a*numpy.sqrt(i/N_norm) + d*i/N_norm + e*(i/N_norm)**2
         else:
-            if d_sqrt_lower is None:
-                d_sqrt_lower = d_lower
-            if d_sqrt_upper is None:
-                d_sqrt_upper = d_upper
+            if a_lower is None:
+                a_lower = b_lower
+            if a_upper is None:
+                a_upper = b_upper
             # s(iN) = a*sqrt(iN) - b*sqrt(N/N_norm-iN) + c + d*iN + e*iN^2 + f*iN^3
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # c = b*sqrt(N/N_norm)
-            # ds/diN(0) = a/(2*sqrt(iN))+b/(2*sqrt(N/N_norm))+d ~ d_sqrt_lower/sqrt(iN)+d_lower
-            # a = 2*d_sqrt_lower
-            # b/(2*sqrt(N/N_norm)) + d = d_lower
-            # d = d_lower - b/(2*sqrt(N/N_norm)
-            # ds/di(N) =
-            # b/(2*sqrt(N/N_norm-iN))+a/(2*sqrt(N))+d+2*e*N/N_norm+3*f*(N/N_norm)^2 ~ d_sqrt_upper/sqrt(N/N_norm-i)+d_upper
-            # b = 2*d_sqrt_upper
-            # a/(2*sqrt(N/N_norm) + d + 2*e*N/N_norm + 3*f*(N/N_norm)^2 = d_upper
-            # e = (d_upper - a/(2*sqrt(N/N_norm)) - d)/(2*N/N_norm) - 3/2*f*N/N_norm
+            # ds/diN(0) = a/(2*sqrt(iN))+b/(2*sqrt(N/N_norm))+d ~ a_lower/sqrt(iN)+b_lower
+            # a = 2*a_lower
+            # b/(2*sqrt(N/N_norm)) + d = b_lower
+            # d = b_lower - b/(2*sqrt(N/N_norm)
+            # ds/di(N) = b/(2*sqrt(N/N_norm-iN))+a/(2*sqrt(N))+d+2*e*N/N_norm+3*f*(N/N_norm)^2 ~ a_upper/sqrt(N/N_norm-i)+b_upper
+            # b = 2*a_upper
+            # a/(2*sqrt(N/N_norm) + d + 2*e*N/N_norm + 3*f*(N/N_norm)^2 = b_upper
+            # e = (b_upper - a/(2*sqrt(N/N_norm)) - d)/(2*N/N_norm) - 3/2*f*N/N_norm
             # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2 + f*(N/N_norm)^3
-            # L = a*sqrt(N/N_norm) + c + d*N/N_norm + (d_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm) - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
-            # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + d_upper*N/(2*N_norm) - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
-            a = 2.*d_sqrt_lower
-            b = 2.*d_sqrt_upper
+            # L = a*sqrt(N/N_norm) + c + d*N/N_norm + (b_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm) - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
+            # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + b_upper*N/(2*N_norm) - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
+            a = 2.*a_lower
+            b = 2.*a_upper
             c = b*numpy.sqrt(N/N_norm)
-            d = d_lower - b/2./numpy.sqrt(N/N_norm)
-            f = 2.*(a*numpy.sqrt(N/N_norm) + c + d*N/N_norm/2. + d_upper*N/N_norm/2. - a*numpy.sqrt(N/N_norm)/4. - length)*N_norm**3/N**3
-            e = (d_upper - a/2./numpy.sqrt(N/N_norm) - d)*N_norm/2./N - 1.5*f*N/N_norm
+            d = b_lower - b/2./numpy.sqrt(N/N_norm)
+            f = 2.*(a*numpy.sqrt(N/N_norm) + c + d*N/N_norm/2. + b_upper*N/N_norm/2. - a*numpy.sqrt(N/N_norm)/4. - length)*N_norm**3/N**3
+            e = (b_upper - a/2./numpy.sqrt(N/N_norm) - d)*N_norm/2./N - 1.5*f*N/N_norm
 
             # check function is monotonic: gradients at beginning and end should both be
             # positive. Only check the boundaries here, should really add a check that

@@ -401,8 +401,19 @@ class MeshRegion:
         # this sfunc gives a fixed poloidal spacing at beginning and end of contours
         sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(2*self.ny_noguards + 1, contour.totalDistance())
 
-        sfunc = self.equilibriumRegion.combineSfuncs(sfunc_fixed_spacing,
-                sfunc_orthogonal, contour.totalDistance())
+        if self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'orthogonal':
+            warnings.warn('\'orthogonal\' option is not currently compatible with '
+                    'extending grid past targets')
+            sfunc = sfunc_orthogonal
+        elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed':
+            sfunc = sfunc_fixed_spacing
+        elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
+            sfunc = self.equilibriumRegion.combineSfuncs(sfunc_fixed_spacing,
+                    sfunc_orthogonal, contour.totalDistance())
+        else:
+            raise ValueError('Unrecognized option \'' +
+                    str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)
+                    + '\' for nonorthogonal poloidal spacing function')
 
         return contour.getRegridded(2*self.ny_noguards + 1, sfunc=sfunc,
                 width=self.regrid_width, extend_lower=self.equilibriumRegion.extend_lower,

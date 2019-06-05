@@ -43,6 +43,9 @@ class PoloidalSpacingParameters:
         # resolution is changed
         self.N_norm = None
 
+        # Method to use for spacing of points in non-orthogonal grid
+        self.nonorthogonal_method = 'combined'
+
         # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
         # at the lower end. If 'None' then the value of d_lower will be used instead.
         self.nonorthogonal_d_lower = None

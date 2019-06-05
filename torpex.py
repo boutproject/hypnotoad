@@ -287,6 +287,7 @@ class TORPEXMagneticField(Equilibrium):
         d_target = self.readOption('target_poloidal_spacing_length', None)
         nonorthogonal_d_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_length', None)
         nonorthogonal_d_target = self.readOption('nonorthogonal_target_poloidal_spacing_length', None)
+        nonorthogonal_spacing_method = self.readOption('nonorthogonal_spacing_method', 'combined')
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
         if self.orthogonal:
@@ -313,6 +314,7 @@ class TORPEXMagneticField(Equilibrium):
         r.poloidalSpacingParameters.N_norm = ny_total
         r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
         r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
+        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
 
         # inner upper
         r = self.regions['inner_upper_divertor']
@@ -326,6 +328,7 @@ class TORPEXMagneticField(Equilibrium):
         r.poloidalSpacingParameters.N_norm = ny_total
         r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
         r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
+        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
 
         # outer upper
         r = self.regions['outer_upper_divertor']
@@ -340,6 +343,7 @@ class TORPEXMagneticField(Equilibrium):
         r.poloidalSpacingParameters.N_norm = ny_total
         r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_target
         r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_xpoint
+        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
 
         # outer lower
         r = self.regions['outer_lower_divertor']
@@ -353,6 +357,7 @@ class TORPEXMagneticField(Equilibrium):
         r.poloidalSpacingParameters.N_norm = ny_total
         r.poloidalSpacingParameters.nonorthogonal_d_lower = nonorthogonal_d_xpoint
         r.poloidalSpacingParameters.nonorthogonal_d_upper = nonorthogonal_d_target
+        r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
 
         # inner lower PF -> outer lower PF
         self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)

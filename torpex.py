@@ -199,18 +199,17 @@ class TORPEXMagneticField(Equilibrium):
         For TORPEX, follow 4 legs away from the x-point, starting with a rough guess and
         then refining to the separatrix value of A_toroidal.
         """
-        wall_position = lambda s: self.TORPEX_wall(s*2.*numpy.pi)
-
         assert len(self.x_points) == 1, 'should be one X-point for TORPEX configuration'
         xpoint = self.x_points[0]
 
         boundary = self.findRoots_1d(
-                lambda s: self.psi(*wall_position(s)) - self.psi_sep[0], 4, 0., 1.)
+                lambda s: self.psi(*self.wallPosition(s)) - self.psi_sep[0], 4, 0., 1.)
 
         # put lower left leg first in list, go clockwise
         boundary = boundary[2::-1] + [boundary[3]]
 
-        boundaryPoints = tuple(wall_position(s) for s in boundary)
+        boundaryPoints = tuple(self.wallPosition(s) for s in boundary)
+        print('boundaryPoints', boundaryPoints)
 
         legnames = ['inner_lower_divertor', 'inner_upper_divertor',
                 'outer_upper_divertor', 'outer_lower_divertor']

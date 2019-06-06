@@ -1209,6 +1209,31 @@ class Equilibrium:
 
         return roots
 
+    def wallPosition(self, s):
+        """
+        Get a position on the wall, where the distance along the wall is parameterized by
+        0<=s<1
+        """
+        try:
+            return Point2D(self.wallRInterp(s), self.wallZInterp(s))
+        except AttributeError:
+            # wall interpolation functions not created yet
+
+            wall = deepcopy(self.wall)
+
+            # make closed contour
+            wall.append(wall[0])
+
+            R = [p.R for p in wall]
+            Z = [p.Z for p in wall]
+
+            wallfraction = numpy.linspace(0., 1., len(wall))
+
+            self.wallRInterp = interp1d(wallfraction, R, kind='linear', assume_sorted=True)
+            self.wallZInterp = interp1d(wallfraction, Z, kind='linear', assume_sorted=True)
+
+            return Point2D(self.wallRInterp(s), self.wallZInterp(s))
+
     def wallIntersection(self, p1, p2):
         """
         Find the intersection, if any, between the wall and the line between p1 and p2

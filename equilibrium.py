@@ -226,7 +226,7 @@ def find_intersection(l1start, l1end, l2start, l2end):
             # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
             R = (R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)) / (1. - dR1/dZ1 * dZ2/dR2)
             Z = Z2 + dZ2/dR2 * (R - R2)
-            if Z >= Z1 and Z <= l1end.Z and R > R2 and R < l2end.R:
+            if Z >= Z1 and Z <= l1end.Z and R >= R2 and R <= l2end.R:
                 return Point2D(R, Z)
             else:
                 return None

@@ -688,7 +688,7 @@ class TestEquilibriumRegion:
 
         sfunc_orthogonal = lambda i: i/n * L
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n) == tight_approx(L)
@@ -708,12 +708,12 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
                 [100., lambda i: numpy.sqrt(i/n) * L])
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
 
         assert sfunc(-1.) == tight_approx(-1./n * L)
         assert sfunc(0.) == tight_approx(0.)
         itest = 0.0001
-        assert sfunc(itest) == pytest.approx(0.00003, rel=1.e-2)
+        assert sfunc(itest) == pytest.approx(0.00003, rel=2.e-2)
         assert sfunc(n) == tight_approx(L)
 
     def test_combineSfuncsRangeUpper(self, eqReg):
@@ -731,7 +731,7 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n],
                 [100., lambda i: numpy.sqrt(i/n) * L])
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
 
         assert sfunc(0.) == tight_approx(0.)
         itest = n - 0.0001
@@ -756,7 +756,7 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n],
                 [-100., 100., lambda i: numpy.sqrt(i/n) * L])
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
 
         assert sfunc(-1.) == tight_approx(-1./n * L)
         assert sfunc(0.) == tight_approx(0.)
@@ -807,7 +807,7 @@ class TestEquilibriumRegion:
 
         sfunc_fixed_spacing = eqReg.getSfuncFixedSpacing(n, d)
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_orthogonal, d)
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, d)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())

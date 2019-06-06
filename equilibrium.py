@@ -719,7 +719,9 @@ class EquilibriumRegion(PsiContour):
                              +str(self.poloidalSpacingParameters.method)
                              +' for poloidal spacing method')
 
-    def combineSfuncs(self, sfunc_fixed_spacing, sfunc_orthogonal, total_distance):
+    def combineSfuncs(self, sfunc_fixed_lower, sfunc_fixed_upper, sfunc_orthogonal,
+            total_distance):
+
         if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:
             range_lower = self.poloidalSpacingParameters.nonorthogonal_range_lower
         else:
@@ -732,44 +734,57 @@ class EquilibriumRegion(PsiContour):
 
         if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
-                sfixed = sfunc_fixed_spacing(i)
+                sfixed_lower = sfunc_fixed_lower(i)
+                sfixed_upper = sfunc_fixed_upper(i)
                 sorth = sfunc_orthogonal(i)
 
-                weight_lower = numpy.piecewise(sfixed,
-                        [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/range_lower)])
+                # define weight_lower so it is 1. at the lower boundary and 0. at the
+                # upper boundary
+                weight_lower = numpy.piecewise(sfixed_lower,
+                        [sfixed_lower < 0., sfixed_lower > total_distance],
+                        [1., 0., lambda s: numpy.exp(-s/range_lower)
+                                           * (1. - s/total_distance)])
 
-                weight_upper = numpy.piecewise(sfixed,
-                    [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)])
+                # define weight_upper so it is 1. at the upper boundary and 0. at the
+                # lower boundary
+                weight_upper = numpy.piecewise(sfixed_upper,
+                    [sfixed_upper < 0., sfixed_upper > total_distance],
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
+                                       * s/total_distance])
 
+                # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper
+                weight_over_slice = weight[weight > 1.]
+                weight_lower[weight > 1.] /= weight_over_slice
+                weight_upper[weight > 1.] /= weight_over_slice
 
-                # make sure weight <= 1
-                weight = numpy.array(weight)
-                weight[weight > 1.] = 1.
-
-                return weight*sfixed + (1. - weight) * sorth
+                return weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight) * sorth
         elif range_lower is not None:
             def new_sfunc(i):
-                sfixed = sfunc_fixed_spacing(i)
+                sfixed_lower = sfunc_fixed_lower(i)
                 sorth = sfunc_orthogonal(i)
 
-                weight_lower = numpy.piecewise(sfixed,
-                        [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/range_lower)])
+                # define weight_lower so it is 1. at the lower boundary and 0. at the
+                # upper boundary
+                weight_lower = numpy.piecewise(sfixed_lower,
+                        [sfixed_lower < 0., sfixed_lower > total_distance],
+                        [1., 0., lambda s: numpy.exp(-s/range_lower)
+                                           * (1. - s/total_distance)])
 
-                return (weight_lower)*sfixed + (1. - weight_lower) * sorth
+                return (weight_lower)*sfixed_lower + (1. - weight_lower) * sorth
         elif range_upper is not None:
             def new_sfunc(i):
-                sfixed = sfunc_fixed_spacing(i)
+                sfixed_upper = sfunc_fixed_upper(i)
                 sorth = sfunc_orthogonal(i)
 
-                weight_upper = numpy.piecewise(sfixed,
-                    [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)])
+                # define weight_upper so it is 1. at the upper boundary and 0. at the
+                # lower boundary
+                weight_upper = numpy.piecewise(sfixed_upper,
+                    [sfixed_upper < 0., sfixed_upper > total_distance],
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
+                                       * s/total_distance])
 
-                return (weight_upper)*sfixed + (1. - weight_upper) * sorth
+                return (weight_upper)*sfixed_upper + (1. - weight_upper) * sorth
         else:
             def new_sfunc(i):
                 return sfunc_orthogonal(i)

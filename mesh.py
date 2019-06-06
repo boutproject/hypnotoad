@@ -410,7 +410,7 @@ class MeshRegion:
             sfunc = sfunc_fixed_spacing
         elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
             sfunc = self.equilibriumRegion.combineSfuncs(sfunc_fixed_spacing,
-                    sfunc_orthogonal, contour.totalDistance())
+                    sfunc_fixed_spacing, sfunc_orthogonal, contour.totalDistance())
         else:
             raise ValueError('Unrecognized option \'' +
                     str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)

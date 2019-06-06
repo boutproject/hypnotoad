@@ -554,113 +554,113 @@ class TestEquilibriumRegion:
         # f(i) = i/N*L
         assert f(3.) == tight_approx(0.6)
 
-    def test_getSqrtPoloidalDistanceFuncDLower(self, eqReg):
-        d_lower = 0.01
+    def test_getSqrtPoloidalDistanceFuncBLower(self, eqReg):
+        b_lower = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_lower = b_lower)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*d_lower*sqrt(i/N_norm) + d_lower*i/N_norm
+        # for i<<1, f ~ 2*b_lower*sqrt(i/N_norm) + b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*d_lower*numpy.sqrt(itest/N_norm)
-                                         + d_lower*itest/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(2.*b_lower*numpy.sqrt(itest/N_norm)
+                                         + b_lower*itest/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDUpper(self, eqReg):
-        d_upper = 0.01
+    def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
+        b_upper = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_upper = b_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for (N-i)<<1, f ~ L - 2*d_upper*sqrt((N-i)/N_norm) - d_upper*(N-i)/N_norm
+        # for (N-i)<<1, f ~ L - 2*b_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*d_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - d_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - 2.*b_upper*numpy.sqrt((N - itest)/N_norm)
+                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDBoth(self, eqReg):
-        d_lower = 0.1
-        d_upper = 0.2
+    def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
+        b_lower = 0.1
+        b_upper = 0.2
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_lower = b_lower, b_upper = b_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*d_lower*sqrt(i/N_norm) + d_lower*i/N_norm
+        # for i<<1, f ~ 2*b_lower*sqrt(i/N_norm) + b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*d_lower*numpy.sqrt(itest/N_norm)
-                                         + d_lower*itest/N_norm, abs=1.e-5)
-        # for (N-i)<<1, f ~ L - 2*d_upper*sqrt((N-i)/N_norm) - d_upper*(N-i)/N_norm
+        assert f(itest) == pytest.approx(2.*b_lower*numpy.sqrt(itest/N_norm)
+                                         + b_lower*itest/N_norm, abs=1.e-5)
+        # for (N-i)<<1, f ~ L - 2*b_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*d_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - d_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - 2.*b_upper*numpy.sqrt((N - itest)/N_norm)
+                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDLower2(self, eqReg):
-        d_lower = 0.01
-        d_sqrt_lower = 0.05
+    def test_getSqrtPoloidalDistanceFuncBothLower(self, eqReg):
+        b_lower = 0.01
+        a_lower = 0.05
         L = 2.
         N = 10.
         N_norm = 2.
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_sqrt_lower =
-                d_sqrt_lower)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_lower = b_lower, a_lower =
+                a_lower)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*d_sqrt_lower*sqrt(i/N_norm) + d_lower*i/N_norm
+        # for i<<1, f ~ 2*a_lower*sqrt(i/N_norm) + b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*d_sqrt_lower*numpy.sqrt(itest/N_norm)
-                                         + d_lower*itest/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(2.*a_lower*numpy.sqrt(itest/N_norm)
+                                         + b_lower*itest/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDUpper2(self, eqReg):
-        d_upper = 0.01
-        d_sqrt_upper = 0.05
+    def test_getSqrtPoloidalDistanceFuncBothUpper(self, eqReg):
+        b_upper = 0.01
+        a_upper = 0.05
         L = 2.
         N = 10.
         N_norm = 1
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper, d_sqrt_upper = d_sqrt_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_upper = b_upper, a_upper = a_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for (N-i)<<1, f ~ L - 2*d_sqrt_upper*sqrt((N-i)/N_norm) - d_upper*(N-i)/N_norm
+        # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*d_sqrt_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - d_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - 2.*a_upper*numpy.sqrt((N - itest)/N_norm)
+                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_getSqrtPoloidalDistanceFuncDBoth2(self, eqReg):
-        d_lower = 0.01
-        d_sqrt_lower = 0.05
-        d_upper = 0.2
-        d_sqrt_upper = 0.07
+    def test_getSqrtPoloidalDistanceFuncBothBoth(self, eqReg):
+        b_lower = 0.01
+        a_lower = 0.05
+        b_upper = 0.2
+        a_upper = 0.07
         L = 2.
         L = 2.
         N = 10.
         N_norm = 1
-        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower,
-                d_sqrt_lower = d_sqrt_lower, d_upper = d_upper,
-                d_sqrt_upper = d_sqrt_upper)
+        f = eqReg.getSqrtPoloidalDistanceFunc(L, N, N_norm, b_lower = b_lower,
+                a_lower = a_lower, b_upper = b_upper,
+                a_upper = a_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*d_sqrt_lower*sqrt(i/N_norm) + d_lower*i/N_norm
+        # for i<<1, f ~ 2*a_lower*sqrt(i/N_norm) + b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*d_sqrt_lower*numpy.sqrt(itest/N_norm)
-                                         + d_lower*itest/N_norm, abs=1.e-5)
-        # for (N-i)<<1, f ~ L - 2*d_sqrt_upper*sqrt((N-i)/N_norm) - d_upper*(N-i)/N_norm
+        assert f(itest) == pytest.approx(2.*a_lower*numpy.sqrt(itest/N_norm)
+                                         + b_lower*itest/N_norm, abs=1.e-5)
+        # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*d_sqrt_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - d_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - 2.*a_upper*numpy.sqrt((N - itest)/N_norm)
+                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
     def test_combineSfuncsNoD(self, eqReg):
         n = 20.
@@ -678,11 +678,12 @@ class TestEquilibriumRegion:
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n) == tight_approx(L)
 
-    def test_combineSfuncsDLower(self, eqReg):
+    def test_combineSfuncsRangeLower(self, eqReg):
         n = 10.
         L = 3.
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = 1.
+        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = 1.
 
         # fixed spacing sfunc should not be used when
         # poloidalSpacingParameters.d_lower=None and
@@ -700,11 +701,12 @@ class TestEquilibriumRegion:
         assert sfunc(itest) == pytest.approx(0.00003, rel=1.e-2)
         assert sfunc(n) == tight_approx(L)
 
-    def test_combineSfuncsDUpper(self, eqReg):
+    def test_combineSfuncsRangeUpper(self, eqReg):
         n = 10.
         L = 3.
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = 1.
+        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = 1.
 
         # fixed spacing sfunc should not be used when
         # poloidalSpacingParameters.d_lower=None and
@@ -722,12 +724,14 @@ class TestEquilibriumRegion:
         assert sfunc(n) == tight_approx(L)
         assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
 
-    def test_combineSfuncsDBoth(self, eqReg):
+    def test_combineSfuncsRangeBoth(self, eqReg):
         n = 10.
         L = 3.
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = .1
+        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
+        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
 
         # fixed spacing sfunc should not be used when
         # poloidalSpacingParameters.d_lower=None and
@@ -758,8 +762,10 @@ class TestEquilibriumRegion:
             c.append(Point2D(float(i), float(i)**2))
         eqReg = eqReg.newRegionFromPsiContour(c)
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_d_upper = .1
+        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
+        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
 
         print(eqReg.startInd, eqReg.endInd, eqReg.totalDistance())
         sfunc_orthogonal_original = eqReg.contourSfunc()

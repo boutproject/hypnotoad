@@ -444,6 +444,21 @@ class TestContour:
         assert f(-1.) == tight_approx(0.)
         assert f(n + 1.) == tight_approx(c.distance[c.endInd] - c.distance[c.startInd])
 
+    def test_interpSSperp(self, testcontour):
+        c = testcontour.c
+
+        # Make c.startInd > 0
+        c.insert(0, 2.*c[0] - c[1])
+
+        # 'vec' argument is in Z-direction, so 's_perp' is displacement in R-direction
+        sfunc, s_perp_total = c.interpSSperp([0., 1.])
+        assert sfunc(0.) == tight_approx(0.)
+        assert sfunc(1.) == pytest.approx(numpy.pi/2., abs=1.e-2)
+        assert sfunc(2.) == pytest.approx(numpy.pi, abs=2.e-2)
+        assert sfunc(3.) == pytest.approx(1.5*numpy.pi, abs=2.e-2)
+        assert sfunc(4.) == pytest.approx(2.*numpy.pi, abs=3.e-2)
+        assert s_perp_total == tight_approx(4.)
+
 class TestEquilibrium:
 
     @pytest.fixture

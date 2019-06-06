@@ -459,6 +459,53 @@ class PsiContour:
                 [0., endDistance - startDistance,
                  lambda i: interpS(i + thisStartInd) - startDistance])
 
+    def interpSSperp(self, vec):
+        """
+        Returns:
+        1. a function s(s_perp) for interpolating the poloidal distance along the contour
+           from the distance perpendicular to vec.
+           's_perp' is modified to be a monotonically increasing function along the
+           contour.
+        2. the total perpendicular distance between startInd and endInd of the contour.
+        """
+
+        # vec_perp is a vector in the direction of either increasing or decreasing sperp
+        vec_perp = numpy.zeros(2)
+        vec_perp[0] = -vec[1]
+        vec_perp[1] = vec[0]
+
+        # make vec_perp a unit vector
+        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
+        Rstart = self[self.startInd].R
+        Zstart = self[self.startInd].Z
+
+        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from self[self.startInd]
+        s_perp = numpy.array([vec_perp[0]*(p.R - Rstart) + vec_perp[1]*(p.Z - Zstart) for p in self])
+
+        # s_perp might not be monotonic in which case s(s_perp) is not well defined.
+        # To get around this, if d(s_perp) between two points is negative, flip its sign
+        # to make a fake 's_perp' that is always increasing.
+        # Note we only need s_perp to be good near one of the ends, the function using it
+        # will be multiplied by a weight that goes to zero far from the end.
+        # This correction means s_perp is always increasing, regardless of sign of
+        # vec_perp, so don't need to check sign of vec_perp when creating it.
+        for i in range(self.startInd + 1, len(s_perp)):
+            ds = s_perp[i] - s_perp[i-1]
+            if ds < 0.:
+                s_perp[i:] = 2.*s_perp[i-1] - s_perp[i:]
+        for i in range(self.startInd - 1, -1, -1):
+            ds = s_perp[i+1] - s_perp[i]
+            if ds < 0.:
+                s_perp[:i+1] = 2.*s_perp[i+1] - s_perp[:i+1]
+
+        s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
+
+        distance = numpy.array(self.distance) - self.distance[self.startInd]
+        s_of_sperp = interp1d(s_perp, distance, kind='cubic', assume_sorted=True,
+                fill_value = 'extrapolate')
+
+        return s_of_sperp, s_perp_total
+
     def regrid(self, *args, **kwargs):
         """
         Regrid this contour, modifying the object

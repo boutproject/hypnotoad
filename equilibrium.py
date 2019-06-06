@@ -1234,6 +1234,34 @@ class Equilibrium:
 
             return Point2D(self.wallRInterp(s), self.wallZInterp(s))
 
+    def wallVector(self, s):
+        """
+        Get the vector along the wall at a point s, with the same parameterization as
+        wallPosition.
+        """
+        try:
+            return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
+        except AttributeError:
+            # wall vector interpolation functions not created yet
+            Rcomponents = [self[i+1].R - self[i].R for i in range(len(self)-1)]
+            Rcomponents.append(self[0].R - self[-1].R)
+            Rcomponents.append(self[1].R - self[0].R)
+
+            Zcomponents = [self[i+1].Z - self[i].Z for i in range(len(self)-1)]
+            Zcomponents.append(self[0].Z - self[-1].Z)
+            Zcomponents.append(self[1].Z - self[0].Z)
+
+            wallfraction = numpy.linspace(0., 1., len(wall))
+
+            # Vector along wall stays constant along each segment, as we assume the
+            # segments are straight. Have calculated the vector at each vertex for the
+            # following segment, so use 'previous' interpolation to just take the value
+            # from the previous point
+            self.wallVectorRComponents = interp1d(wallfraction, Rcomponents, kind='previous', assume_sorted=True)
+            self.wallVectorZComponents = interp1d(wallfraction, Zcomponents, kind='previous', assume_sorted=True)
+
+            return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
+
     def wallIntersection(self, p1, p2):
         """
         Find the intersection, if any, between the wall and the line between p1 and p2

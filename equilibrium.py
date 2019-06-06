@@ -406,6 +406,7 @@ class PsiContour:
                     pass
                 w /= 2.
                 if w < atol:
+                    print('width =',width)
                     from matplotlib import pyplot
                     pline0 = perpLine(p, tangent, width)
                     Rbox = numpy.linspace(p.R-.05,p.R+.05,100)[numpy.newaxis,:]

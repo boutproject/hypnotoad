@@ -791,6 +791,27 @@ class EquilibriumRegion(PsiContour):
 
         return new_sfunc
 
+    def getSfuncFixedPerpSpacing(self, N, contour,
+            surface_direction, lower):
+        """
+        Return a function s(i) giving poloidal distance as a function of index-number.
+        Construct so that ds_perp/diN = d_lower at the lower end or ds_perp/diN = d_upper
+        at the upper end, where s_perp is the distance normal to the vector
+        'surface_direction'.
+        """
+        N_norm = self.poloidalSpacingParameters.N_norm
+        if lower:
+            d_lower = self.poloidalSpacingParameters.polynomial_d_lower
+            d_upper = None
+        else:
+            d_upper = self.poloidalSpacingParameters.polynomial_d_upper
+            d_lower = None
+
+        s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
+        sperp_func = self.getPolynomialPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
+                d_lower=d_lower, d_upper=d_upper)
+        return lambda i: s_of_sperp(sperp_func(i))
+
     def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
             d_upper=None):
         """

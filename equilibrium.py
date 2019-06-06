@@ -587,22 +587,22 @@ class PsiContour:
         # a large width for refinement - use 1.e-5 instead of 'width'
         return new_contour.getRefined(1.e-5, atol)
 
-    def temporaryExtend(*, extend_lower=0, extend_upper=0):
+    def temporaryExtend(self, *, extend_lower=0, extend_upper=0):
         """
         Add temporary guard-cell points to the beginning and/or end of a contour
         """
         if extend_lower > 0:
-            ds = distance[1] - distance[0]
+            ds = self.distance[1] - self.distance[0]
             for i in range(extend_lower):
-                new_point = self.interpFunction()(distance[0] - ds)
+                new_point = self.interpFunction()(self.distance[0] - ds)
                 self.points.insert(0, new_point)
                 self.startInd += 1
                 self.endInd += 1
                 self.refine() # also re-calculates self.distance
         if extend_upper > 0:
-            ds = distance[-1] - distance[-2]
+            ds = self.distance[-1] - self.distance[-2]
             for i in range(extend_upper):
-                new_point = self.interpFunction()(distance[-1] + ds)
+                new_point = self.interpFunction()(self.distance[-1] + ds)
                 self.points.append(new_point)
                 self.refine()
 

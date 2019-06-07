@@ -19,6 +19,11 @@ class SolutionError(Exception):
 # Dictionary of global parameters for contours
 ContourParameters = {'Nfine':1000}
 
+# tolerance used to try and avoid missed intersections between lines
+# also if two sets of lines appear to intersect twice, only count it once if the
+# distance between the intersections is less than this
+intersect_tolerance = 1.e-14
+
 class PoloidalSpacingParameters:
     def __init__(self):
         # Method to use for poloidal spacing function:
@@ -171,7 +176,8 @@ def find_intersection(l1start, l1end, l2start, l2end):
             # Z1 + dZ1/dR1 * (R - R1) = Z2 + dZ2/dR2 * (R - R2)
             # (dZ1/dR1 - dZ2/dR2)*R = Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2
             R = (Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2) / (dZ1/dR1 - dZ2/dR2)
-            if R >= R1 and R <= l1end.R and R >= R2 and R <= l2end.R:
+            if (R >= R1 - intersect_tolerance and R <= l1end.R + intersect_tolerance and
+                    R >= R2 - intersect_tolerance and R <= l2end.R + intersect_tolerance):
                 Z = Z1 + dZ1/dR1 * (R - R1)
                 return Point2D(R, Z)
             else:
@@ -193,7 +199,8 @@ def find_intersection(l1start, l1end, l2start, l2end):
             # (1 - dZ1*dR2/dR1/dZ2) * Z = Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)
             Z = (Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)) / (1. - dZ1*dR2/(dR1*dZ2))
             R = R2 + dR2/dZ2 * (Z - Z2)
-            if R >= R1 and R <= l1end.R and Z >= Z2 and Z <= l2end.Z:
+            if (R >= R1 - intersect_tolerance and R <= l1end.R + intersect_tolerance and
+                    Z >= Z2 - intersect_tolerance and Z <= l2end.Z + intersect_tolerance):
                 return Point2D(R, Z)
             else:
                 return None
@@ -226,7 +233,8 @@ def find_intersection(l1start, l1end, l2start, l2end):
             # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
             R = (R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)) / (1. - dR1/dZ1 * dZ2/dR2)
             Z = Z2 + dZ2/dR2 * (R - R2)
-            if Z >= Z1 and Z <= l1end.Z and R >= R2 and R <= l2end.R:
+            if (Z >= Z1 - intersect_tolerance and Z <= l1end.Z + intersect_tolerance and
+                    R >= R2 - intersect_tolerance and R <= l2end.R + intersect_tolerance):
                 return Point2D(R, Z)
             else:
                 return None
@@ -250,7 +258,8 @@ def find_intersection(l1start, l1end, l2start, l2end):
             # R2 + dR2/dZ2 * (Z - Z2) = R1 + dR1/dZ1 * (Z - Z1)
             # (dR2/dZ2 - dR1*dZ1) * Z = R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1
             Z = (R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1) / (dR2/dZ2 - dR1/dZ1)
-            if Z >= Z1 and Z <= l1end.Z and Z >= Z2 and Z <= l2end.Z:
+            if (Z >= Z1 - intersect_tolerance and Z <= l1end.Z + intersect_tolerance and
+                    Z >= Z2 - intersect_tolerance and Z <= l2end.Z + intersect_tolerance):
                 R = R2 + dR2/dZ2 * (Z - Z2)
                 return Point2D(R, Z)
             else:
@@ -1273,7 +1282,7 @@ class Equilibrium:
             else:
                 second_intersect = find_intersection(self.wall[i], self.wall[i+1], p1, p2)
                 if second_intersect is not None:
-                    assert numpy.abs(intersect.R - second_intersect.R) < 1.e-14 and numpy.abs(intersect.Z - second_intersect.Z) < 1.e-14, 'Multiple intersections with wall found'
+                    assert numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance and numpy.abs(intersect.Z - second_intersect.Z) < intersect_tolerance, 'Multiple intersections with wall found'
         # final segment between last and first point of wall
         if intersect is None:
             intersect = find_intersection(self.wall[-1], self.wall[0], p1, p2)

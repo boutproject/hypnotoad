@@ -6,7 +6,7 @@ import numpy
 import numbers
 from scipy.integrate import solve_ivp
 import warnings
-from equilibrium import Point2D, ContourParameters, PsiContour, EquilibriumRegion
+from equilibrium import calc_distance, Point2D, ContourParameters, PsiContour, EquilibriumRegion
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     """
@@ -243,6 +243,9 @@ class MeshRegion:
 
         # Number of this region in its y-group
         self.yGroupIndex = None
+
+        # Absolute tolerance for checking if two points are the same
+        self.atol = 1.e-7
 
         # get points in this region
         self.contours = []

@@ -1488,22 +1488,22 @@ class Equilibrium:
             return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
         except AttributeError:
             # wall vector interpolation functions not created yet
-            Rcomponents = [self[i+1].R - self[i].R for i in range(len(self)-1)]
-            Rcomponents.append(self[0].R - self[-1].R)
-            Rcomponents.append(self[1].R - self[0].R)
+            Rcomponents = [self.wall[i+1].R - self.wall[i].R for i in range(len(self.wall)-1)]
+            Rcomponents.append(self.wall[0].R - self.wall[-1].R)
+            Rcomponents.append(self.wall[1].R - self.wall[0].R)
 
-            Zcomponents = [self[i+1].Z - self[i].Z for i in range(len(self)-1)]
-            Zcomponents.append(self[0].Z - self[-1].Z)
-            Zcomponents.append(self[1].Z - self[0].Z)
+            Zcomponents = [self.wall[i+1].Z - self.wall[i].Z for i in range(len(self.wall)-1)]
+            Zcomponents.append(self.wall[0].Z - self.wall[-1].Z)
+            Zcomponents.append(self.wall[1].Z - self.wall[0].Z)
 
-            wallfraction = numpy.linspace(0., 1., len(wall))
+            wallfraction = numpy.linspace(0., 1., len(self.wall) + 1)
 
             # Vector along wall stays constant along each segment, as we assume the
             # segments are straight. Have calculated the vector at each vertex for the
             # following segment, so use 'previous' interpolation to just take the value
             # from the previous point
-            self.wallVectorRComponents = interp1d(wallfraction, Rcomponents, kind='previous', assume_sorted=True)
-            self.wallVectorZComponents = interp1d(wallfraction, Zcomponents, kind='previous', assume_sorted=True)
+            self.wallVectorRComponent = interp1d(wallfraction, Rcomponents, kind='previous', assume_sorted=True)
+            self.wallVectorZComponent = interp1d(wallfraction, Zcomponents, kind='previous', assume_sorted=True)
 
             return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
 

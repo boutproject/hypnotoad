@@ -767,9 +767,56 @@ class TestEquilibriumRegion:
         assert sfunc(n) == tight_approx(L)
         assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
 
-    def test_combineSfuncsIntegrated(self, eqReg):
+    def test_combineSfuncsIntegrated1(self, eqReg):
         # This test follows roughly the operations in
-        # MeshRegion.distributePointsNonorthogonal
+        # MeshRegion.distributePointsNonorthogonal for the default 'combined' option.
+        n = 10
+
+        c = PsiContour([], None, 0.)
+        for i in range(n):
+            c.append(Point2D(float(i), float(i)**2))
+        eqReg = eqReg.newRegionFromPsiContour(c)
+
+        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
+        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
+        eqReg.poloidalSpacingParameters.N_norm = 40
+
+        sfunc_orthogonal_original = eqReg.contourSfunc()
+
+        # as if lower_wall
+        intersect_index = 2
+        original_start = eqReg.startInd
+
+        eqReg.points.insert(intersect_index, eqReg.interpFunction()(2.5))
+
+        eqReg.recalculateDistance()
+
+        if original_start >= intersect_index:
+            original_start += 1
+        distance_at_original_start = eqReg.distance[original_start]
+
+        distance_at_wall = eqReg.distance[intersect_index]
+
+        sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
+
+        eqReg.startInd = intersect_index
+
+        d = eqReg.totalDistance()
+
+        sfunc_fixed_lower = eqReg.getSfuncFixedPerpSpacing(n, eqReg, [0., 1.], True)
+        sfunc_fixed_upper = eqReg.getSfuncFixedPerpSpacing(n, eqReg, [1., 0.], False)
+
+        sfunc = eqReg.combineSfuncs(sfunc_fixed_lower, sfunc_fixed_upper, sfunc_orthogonal, d)
+
+        assert sfunc(0.) == tight_approx(0.)
+        assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())
+
+    def test_combineSfuncsIntegrated2(self, eqReg):
+        # This test follows roughly the operations in
+        # MeshRegion.distributePointsNonorthogonal, for 'poloidal_orthogonal_combined'
+        # option
         n = 10
 
         c = PsiContour([], None, 0.)

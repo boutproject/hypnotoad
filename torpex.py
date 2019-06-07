@@ -208,9 +208,6 @@ class TORPEXMagneticField(Equilibrium):
         # put lower left leg first in list, go clockwise
         boundary = boundary[2::-1] + [boundary[3]]
 
-        boundaryPoints = tuple(self.wallPosition(s) for s in boundary)
-        print('boundaryPoints', boundaryPoints)
-
         legnames = ['inner_lower_divertor', 'inner_upper_divertor',
                 'outer_upper_divertor', 'outer_lower_divertor']
 
@@ -236,14 +233,17 @@ class TORPEXMagneticField(Equilibrium):
         psi_inner_sol = self.readOption('psi_inner_sol', psi_sol)
 
         self.regions = OrderedDict()
+        wall_vectors = OrderedDict()
         s = numpy.linspace(10.*atol, 1., npoints)
-        for i,point in enumerate(boundaryPoints):
+        for i,boundary_position in enumerate(boundary):
+            boundaryPoint = self.wallPosition(boundary_position)
             name = legnames[i]
-            legR = xpoint.R + s*(point.R - xpoint.R)
-            legZ = xpoint.Z + s*(point.Z - xpoint.Z)
+            legR = xpoint.R + s*(boundaryPoint.R - xpoint.R)
+            legZ = xpoint.Z + s*(boundaryPoint.Z - xpoint.Z)
             leg = EquilibriumRegion(self, name, 2, legoptions[name],
                     [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
             self.regions[name] = leg.getRefined(atol=atol, width=0.02)
+            wall_vectors[name] = self.wallVector(boundary_position)
 
         # Make the SeparatrixContours go around clockwise
         # Record the x-point position
@@ -310,6 +310,7 @@ class TORPEXMagneticField(Equilibrium):
             if reverse:
                 r.reverse()
                 r.xPointsAtEnd[1] = xpoint
+                r.surfaceAtStart = wall_vectors[name]
                 r.poloidalSpacingParameters.sqrt_b_lower = sqrt_b_target
                 r.poloidalSpacingParameters.sqrt_a_upper = sqrt_a_xpoint
                 r.poloidalSpacingParameters.sqrt_b_upper = 0.
@@ -319,6 +320,7 @@ class TORPEXMagneticField(Equilibrium):
                 r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_xpoint
             else:
                 r.xPointsAtStart[1] = xpoint
+                r.surfaceAtEnd = wall_vectors[name]
                 r.poloidalSpacingParameters.sqrt_a_lower = sqrt_a_xpoint
                 r.poloidalSpacingParameters.sqrt_b_lower = 0.
                 r.poloidalSpacingParameters.sqrt_b_upper = sqrt_b_target
@@ -421,6 +423,7 @@ if __name__ == '__main__':
     mesh.geometry()
 
     if plotStuff:
+        pyplot.figure()
         mesh.equilibrium.plotPotential()
         mesh.equilibrium.addWallToPlot()
         pyplot.plot(*mesh.equilibrium.x_points[0], 'rx')

@@ -283,12 +283,9 @@ class MeshRegion:
             contour.refine(width=self.regrid_width)
 
         if not self.meshParent.orthogonal:
-            for i,contour in enumerate(self.contours):
-                print('distributing points on contour:',
-                        str(i+1)+'/'+str(len(self.contours)), end = '\r')
-                contour.setSelfToContour(self.distributePointsNonorthogonal(contour))
+            self.distributePointsNonorthogonal()
 
-    def distributePointsNonorthogonal(self, contour):
+    def distributePointsNonorthogonal(self):
         # maximum number of times to extend the contour when it has not yet hit the wall
         max_extend = 100
 
@@ -298,127 +295,187 @@ class MeshRegion:
         # should the contour intersect a wall at the upper end?
         upper_wall = self.connections['upper'] is None
 
-        # point where contour intersects the lower wall
-        lower_intersect = None
+        # sfunc_orthogonal functions created after contour has been extended past wall (if
+        # necessary) but before adding the wall point to the contour (as adding this point
+        # makes the spacing of points on the contour not-smooth) and adjusted for the
+        # change in distance after redefining startInd to be at the wall
+        sfunc_orthogonal_list = []
 
-        # index of the segment of the contour that intersects the lower wall
-        lower_intersect_index = 0
+        # find wall intersections
+        for i_contour, contour in enumerate(self.contours):
+            print('finding wall intersections:',
+                    str(i_contour+1)+'/'+str(len(self.contours)), end = '\r')
 
-        # point where contour intersects the upper wall
-        upper_intersect = None
+            # point where contour intersects the lower wall
+            lower_intersect = None
 
-        # index of the segment of the contour that intersects the upper wall
-        upper_intersect_index = -2
-        if lower_wall:
+            # index of the segment of the contour that intersects the lower wall
+            lower_intersect_index = 0
+
+            # point where contour intersects the upper wall
+            upper_intersect = None
+
+            # index of the segment of the contour that intersects the upper wall
+            upper_intersect_index = -2
+            if lower_wall:
+                if upper_wall:
+                    starti = len(contour)//2
+                else:
+                    starti = len(contour) - 1
+
+                # find whether one of the segments of the contour already intersects the wall
+                for i in range(starti, 0, -1):
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(contour[i],
+                            contour[i-1])
+                    if lower_intersect is not None:
+                        lower_intersect_index = i-1
+                        break
+
+                count = 0
+                while lower_intersect is None:
+                    # contour has not yet intersected with wall, so make it longer and try
+                    # again
+                    contour.temporaryExtend(extend_lower=1)
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(contour[1],
+                            contour[0])
+                    count += 1
+                    assert count < max_extend, 'extended contour too far without finding wall'
+
             if upper_wall:
-                starti = len(contour)//2
-            else:
-                starti = len(contour) - 1
+                if lower_wall:
+                    starti = len(contour//2)
+                else:
+                    starti = 0
 
-            # find whether one of the segments of the contour already intersects the wall
-            for i in range(starti, 0, -1):
-                lower_intersect = self.meshParent.equilibrium.wallIntersection(contour[i],
-                        contour[i-1])
-                if lower_intersect is not None:
-                    lower_intersect_index = i-1
-                    break
+                # find whether one of the segments of the contour already intersects the wall
+                for i in range(starti, len(contour) - 1):
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(contour[i],
+                            contour[i+1])
+                    if upper_intersect is not None:
+                        upper_intersect_index = i
+                        break
 
-            count = 0
-            while lower_intersect is None:
-                # contour has not yet intersected with wall, so make it longer and try
-                # again
-                contour.temporaryExtend(extend_lower=1)
-                lower_intersect = self.meshParent.equilibrium.wallIntersection(contour[1],
-                        contour[0])
-                count += 1
-                assert count < max_extend, 'extended contour too far without finding wall'
+                count = 0
+                while upper_intersect is None:
+                    # contour has not yet intersected with wall, so make it longer and try
+                    # again
+                    contour.temporaryExtend(extend_upper=1)
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(contour[-2],
+                            contour[-1])
+                    count += 1
+                    assert count < max_extend, 'extended contour too far without finding wall'
 
-        if upper_wall:
+            # this sfunc would put the points at the positions along the contour where the
+            # grid would be orthogonal
+            sfunc_orthogonal_original = contour.contourSfunc()
+
+            # will use sfunc_orthogonal eventually, but we might redefine sfunc_orthogonal in
+            # terms of sfunc_orthogonal_original (if lower_wall==True), but need to avoid
+            # recursion
+            sfunc_orthogonal = sfunc_orthogonal_original
+
+            # now add points on the wall(s) to the contour
             if lower_wall:
-                starti = len(contour//2)
+                # need to construct a new sfunc which gives distance from the wall, not the
+                # distance from the original startInd
+
+                # now make lower_intersect_index the index where the point at the wall is
+                # check whether one of the points is already on the wall
+                if calc_distance(contour[lower_intersect_index], lower_intersect) < self.atol:
+                    pass
+                elif calc_distance(contour[lower_intersect_index+1], lower_intersect) < self.atol:
+                    lower_intersect_index = lower_intersect_index + 1
+                else:
+                    # otherwise insert a new point
+                    lower_intersect_index += 1
+                    contour.insert(lower_intersect_index, lower_intersect)
+
+                distance_at_original_start = contour.distance[contour.startInd]
+
+                distance_at_wall = contour.distance[lower_intersect_index]
+
+                # need to correct sfunc_orthogonal for the distance between the point at the
+                # lower wall and the original start-point
+                sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
+                # start contour from the wall
+                contour.startInd = lower_intersect_index
+
+            if upper_wall:
+                if lower_wall:
+                    # need to correct for point already added at lower wall
+                    upper_intersect_index += 1
+
+                # now make upper_intersect_index the index where the point at the wall is
+                # check whether one of the points is already on the wall
+                if calc_distance(contour[upper_intersect_index], upper_intersect) < self.atol:
+                    pass
+                elif calc_distance(contour[upper_intersect_index+1], upper_intersect) < self.atol:
+                    upper_intersect_index = upper_intersect_index + 1
+                else:
+                    # otherwise insert a new point
+                    upper_intersect_index += 1
+                    contour.insert(upper_intersect_index, upper_intersect)
+
+                # end point is now at the wall
+                contour.endInd = upper_intersect_index
+
+            sfunc_orthogonal_list.append(sfunc_orthogonal)
+
+            contour.refine(width=self.regrid_width)
+
+        # regrid the contours (which all now know where the wall is)
+        for i_contour, contour in enumerate(self.contours):
+            print('distributing points on contour:',
+                    str(i_contour+1)+'/'+str(len(self.contours)), end = '\r')
+
+            def surface_vec(lower):
+                if i_contour == 0:
+                    c_in = self.contours[0]
+                else:
+                    # contours are being changed, but start and end points are fixed so it is OK
+                    # to use contours[i_contour-1] anyway
+                    c_in = self.contours[i_contour-1]
+                if i_contour == len(self.contours) - 1:
+                    c_out = self.contours[i_contour]
+                else:
+                    c_out = self.contours[i_contour+1]
+                if lower:
+                    p_in = c_in[c_in.startInd]
+                    p_out = c_out[c_out.startInd]
+                else:
+                    p_in = c_in[c_in.endInd]
+                    p_out = c_out[c_out.endInd]
+                return [p_out.R - p_in.R, p_out.Z - p_in.Z]
+
+            if self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'orthogonal':
+                warnings.warn('\'orthogonal\' option is not currently compatible with '
+                        'extending grid past targets')
+                sfunc = sfunc_orthogonal_list[i_contour]
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_poloidal':
+                # this sfunc gives a fixed poloidal spacing at beginning and end of contours
+                sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
+                        2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'poloidal_orthogonal_combined':
+                sfunc = self.equilibriumRegion.combineSfuncsPoloidalSpacing(
+                        sfunc_orthogonal_list[i_contour], contour.totalDistance())
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_perp_lower':
+                sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
+                        2*self.ny_noguards + 1, contour, surface_vec(True), True)
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_perp_upper':
+                sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
+                        2*self.ny_noguards + 1, contour, surface_vec(False), False)
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
+                sfunc = self.equilibriumRegion.combineSfuncsPerpSpacing(contour,
+                        surface_vec(True), surface_vec(False),
+                        sfunc_orthogonal_list[i_contour])
             else:
-                starti = 0
+                raise ValueError('Unrecognized option \'' +
+                        str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)
+                        + '\' for nonorthogonal poloidal spacing function')
 
-            # find whether one of the segments of the contour already intersects the wall
-            for i in range(starti, len(contour) - 1):
-                upper_intersect = self.meshParent.equilibrium.wallIntersection(contour[i],
-                        contour[i+1])
-                if upper_intersect is not None:
-                    upper_intersect_index = i
-                    break
-
-            count = 0
-            while upper_intersect is None:
-                # contour has not yet intersected with wall, so make it longer and try
-                # again
-                contour.temporaryExtend(extend_upper=1)
-                upper_intersect = self.meshParent.equilibrium.wallIntersection(contour[-2],
-                        contour[-1])
-                count += 1
-                assert count < max_extend, 'extended contour too far without finding wall'
-
-        # this sfunc would put the points at the positions along the contour where the
-        # grid would be orthogonal
-        sfunc_orthogonal_original = contour.contourSfunc()
-        # will use sfunc_orthogonal eventually, but we might redefine sfunc_orthogonal in
-        # terms of sfunc_orthogonal_original (if lower_wall==True), but need to avoid
-        # recursion
-        sfunc_orthogonal = sfunc_orthogonal_original
-
-        # now add points on the wall(s) to the contour
-        if lower_wall:
-            # need to construct a new sfunc which gives distance from the wall, not the
-            # distance from the original startInd
-
-            # now make lower_intersect_index the index where the point at the wall is
-            lower_intersect_index += 1
-            contour.insert(lower_intersect_index, lower_intersect)
-
-            distance_at_original_start = contour.distance[contour.startInd]
-
-            distance_at_wall = contour.distance[lower_intersect_index]
-
-            # need to correct sfunc_orthogonal for the distance between the point at the
-            # lower wall and the original start-point
-            sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
-
-            # start contour from the wall
-            contour.startInd = lower_intersect_index
-
-        if upper_wall:
-            if lower_wall:
-                # need to correct for point already added at lower wall
-                upper_intersect_index += 1
-            # now make upper_intersect_index the index where the point at the wall is
-            upper_intersect_index += 1
-            contour.insert(upper_intersect_index, upper_intersect)
-
-            # end point is now at the wall
-            contour.endInd = upper_intersect_index
-
-        contour.refine(width=self.regrid_width)
-
-        # this sfunc gives a fixed poloidal spacing at beginning and end of contours
-        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(
-                2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
-
-        if self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'orthogonal':
-            warnings.warn('\'orthogonal\' option is not currently compatible with '
-                    'extending grid past targets')
-            sfunc = sfunc_orthogonal
-        elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed':
-            sfunc = sfunc_fixed_spacing
-        elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
-            sfunc = self.equilibriumRegion.combineSfuncs(sfunc_fixed_spacing,
-                    sfunc_fixed_spacing, sfunc_orthogonal, contour.totalDistance())
-        else:
-            raise ValueError('Unrecognized option \'' +
-                    str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)
-                    + '\' for nonorthogonal poloidal spacing function')
-
-        return contour.getRegridded(2*self.ny_noguards + 1, sfunc=sfunc,
-                width=self.regrid_width, extend_lower=self.equilibriumRegion.extend_lower,
-                extend_upper=self.equilibriumRegion.extend_upper)
+            contour.regrid(2*self.ny_noguards + 1, sfunc=sfunc, width=self.regrid_width,
+                    extend_lower=self.equilibriumRegion.extend_lower,
+                    extend_upper=self.equilibriumRegion.extend_upper)
 
     def fillRZ(self):
         """

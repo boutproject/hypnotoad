@@ -638,6 +638,13 @@ class EquilibriumRegion(PsiContour):
 
         self.xPointsAtStart = []
         self.xPointsAtEnd = []
+
+        # Set if this segment starts on a wall, with value of vector along wall
+        self.surfaceAtStart = None
+
+        # Set if this segment ends on a wall, with value of vector along wall
+        self.surfaceAtEnd = None
+
         self.connections = []
         self.psi_vals = []
         self.separatrix_radial_index = 0
@@ -710,7 +717,10 @@ class EquilibriumRegion(PsiContour):
 
     def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
         if method is None:
-            method = self.poloidalSpacingParameters.method
+            if self.equilibrium.orthogonal:
+                method = self.poloidalSpacingParameters.method
+            else:
+                method = 'nonorthogonal'
 
         if method == 'sqrt':
             return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
@@ -724,13 +734,179 @@ class EquilibriumRegion(PsiContour):
                     self.poloidalSpacingParameters.N_norm,
                     d_lower=self.poloidalSpacingParameters.polynomial_d_lower,
                     d_upper=self.poloidalSpacingParameters.polynomial_d_upper)
+        elif method == 'nonorthogonal':
+            nonorth_method = self.poloidalSpacingParameters.nonorthogonal_method
+            if nonorth_method == 'poloidal_orthogonal_combined':
+                raise ValueError('nonorth_method='+nonorth_method+' not implemented yet')
+            elif nonorth_method == 'combined':
+                if self.surfaceAtStart is not None:
+                    # surface is a wall
+                    lower_surface = self.surfaceAtStart
+                else:
+                    # No wall, surface is orthogonal to flux surfaces
+                    lower_surface = [self.equilibrium.f_R(*self[self.startInd]),
+                                     self.equilibrium.f_Z(*self[self.startInd])]
+
+                if self.surfaceAtEnd is not None:
+                    # surface is a wall
+                    upper_surface = self.surfaceAtEnd
+                else:
+                    # No wall, surface is orthogonal to flux surfaces
+                    upper_surface = [self.equilibrium.f_R(*self[self.endInd]),
+                                     self.equilibrium.f_Z(*self[self.endInd])]
+
+                return self.combineSfuncsPerpSpacing(self, lower_surface, upper_surface,
+                        None)
+            elif nonorth_method == 'orthogonal':
+                orth_method = self.poloidalSpacingParameters.method
+                return self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
+            else:
+                return self.getSfuncFixedSpacing(npoints, distance, method=nonorth_method)
         else:
             raise ValueError('Unrecognized option '
                              +str(self.poloidalSpacingParameters.method)
                              +' for poloidal spacing method')
 
-    def combineSfuncs(self, sfunc_fixed_lower, sfunc_fixed_upper, sfunc_orthogonal,
-            total_distance):
+    def combineSfuncsPoloidalSpacing(self, sfunc_orthogonal, total_distance):
+
+        # this sfunc gives a fixed poloidal spacing at beginning and end of contours
+        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(
+                2*self.ny_noguards + 1, total_distance, method='polynomial')
+
+        if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:
+            range_lower = self.poloidalSpacingParameters.nonorthogonal_range_lower
+        else:
+            range_lower = self.poloidalSpacingParameters.polynomial_d_lower
+
+        if self.poloidalSpacingParameters.nonorthogonal_range_upper is not None:
+            range_upper = self.poloidalSpacingParameters.nonorthogonal_range_upper
+        else:
+            range_upper = self.poloidalSpacingParameters.polynomial_d_upper
+
+        if range_lower is not None and range_upper is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
+
+                # define weight_lower so it is 1. at the lower boundary and 0. at the
+                # upper boundary and the gradient is zero at both boundaries
+                weight_lower = numpy.piecewise(sfixed,
+                        [sfixed < 0., sfixed > total_distance],
+                        [1., 0., lambda s: numpy.exp(-(s/range_lower)**2)
+                            * (0.5 + 0.5*numpy.cos(numpy.pi*s/total_distance))])
+
+                # define weight_upper so it is 1. at the upper boundary and 0. at the
+                # lower boundary and the gradient is zero at both boundaries
+                weight_upper = numpy.piecewise(sfixed,
+                    [sfixed < 0., sfixed > total_distance],
+                    [0., 1., lambda s: numpy.exp(-((total_distance - s)/range_upper)**2)
+                        * (0.5 - 0.5*numpy.cos(numpy.pi*s/total_distance))])
+
+                # make sure weight_lower + weight_upper <= 1
+                weight = weight_lower + weight_upper
+                weight_over_slice = weight[weight > 1.]
+                weight_lower[weight > 1.] /= weight_over_slice
+                weight_upper[weight > 1.] /= weight_over_slice
+
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncsPoloidalSpacing again
+                    # for this contour with sfunc_orthogonal from self.contourSfunc() then
+                    # we get the same spacing again. This is used to make the contours
+                    # along the separatrix keep the same values when pushing the other
+                    # contours towards orthogonal positions
+                    # s = weight_lower*sfixed + weight_upper*sfixed + (1. - weight_lower - weight_upper)*s
+                    sorth = (weight_lower*sfixed + weight_upper*sfixed) / (weight_lower + weight_upper)
+
+                return weight_lower*sfixed + weight_upper*sfixed + (1. - weight_lower - weight_upper)*sorth
+        elif range_lower is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
+
+                # define weight_lower so it is 1. at the lower boundary and 0. at the
+                # upper boundary
+                weight_lower = numpy.piecewise(sfixed,
+                        [sfixed < 0., sfixed > total_distance],
+                        [1., 0., lambda s: numpy.exp(-s/range_lower)
+                                           * (1. - s/total_distance)])
+
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncsPoloidalSpacing again
+                    # for this contour with sfunc_orthogonal from self.contourSfunc() then
+                    # we get the same spacing again. This is used to make the contours
+                    # along the separatrix keep the same values when pushing the other
+                    # contours towards orthogonal positions
+                    # s = weight_lower*sfixed + (1. - weight_lower)*s
+                    sorth = sfixed
+
+                return (weight_lower)*sfixed + (1. - weight_lower) * sorth
+        elif range_upper is not None:
+            def new_sfunc(i):
+                sfixed = sfunc_fixed_spacing(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
+
+                # define weight_upper so it is 1. at the upper boundary and 0. at the
+                # lower boundary
+                weight_upper = numpy.piecewise(sfixed,
+                    [sfixed < 0., sfixed > total_distance],
+                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
+                                       * s/total_distance])
+
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncsPoloidalSpacing again
+                    # for this contour with sfunc_orthogonal from self.contourSfunc() then
+                    # we get the same spacing again. This is used to make the contours
+                    # along the separatrix keep the same values when pushing the other
+                    # contours towards orthogonal positions
+                    # s = weight_upper*sfixed + (1. - weight_upper)*s
+                    sorth = sfixed
+
+                return (weight_upper)*sfixed + (1. - weight_upper) * sorth
+        else:
+            assert sfunc_orthogonal is not None, 'Without range_lower or range_upper, cannot use with sfunc_orthogonal=None'
+            def new_sfunc(i):
+                return sfunc_orthogonal(i)
+
+        # Check new_sfunc is monotonically increasing
+        indices = numpy.arange(-self.extend_lower, len(self)-self.extend_lower, dtype=float)
+        scheck = new_sfunc(indices)
+        if numpy.any(scheck[1:] < scheck[:-1]):
+            from matplotlib import pyplot
+            print('check ranges',range_lower, range_upper)
+            pyplot.figure()
+            pyplot.plot(scheck)
+            pyplot.axhline(0.)
+            pyplot.axhline(total_distance)
+            pyplot.show()
+            decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
+            raise ValueError('In region ' + self.name + 'combined spacing function is '
+                    + 'decreasing at indices ' + str(decreasing) + ' on contour of '
+                    + 'length ' + str(len(self)) + '. It may help to increase '
+                    + 'nonorthogonal_range_target or nonorthogonal_range_xpoint.')
+
+        return new_sfunc
+
+    def combineSfuncsPerpSpacing(self, contour, vec_lower, vec_upper, sfunc_orthogonal):
+
+        sfunc_fixed_lower, sperp_func_lower = self.getSfuncFixedPerpSpacing(
+                2*self.ny_noguards + 1, contour, vec_lower, True)
+        total_perp_distance_lower = sperp_func_lower(2.*self.ny_noguards + 1.)
+
+        sfunc_fixed_upper, sperp_func_upper = self.getSfuncFixedPerpSpacing(
+                2*self.ny_noguards + 1, contour, vec_upper, False)
+        total_perp_distance_upper = sperp_func_upper(2.*self.ny_noguards + 1.)
 
         if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:
             range_lower = self.poloidalSpacingParameters.nonorthogonal_range_lower
@@ -745,22 +921,29 @@ class EquilibriumRegion(PsiContour):
         if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
+                sperp_lower = sperp_func_lower(i)
+
                 sfixed_upper = sfunc_fixed_upper(i)
-                sorth = sfunc_orthogonal(i)
+                sperp_upper = sperp_func_upper(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
 
                 # define weight_lower so it is 1. at the lower boundary and 0. at the
-                # upper boundary
-                weight_lower = numpy.piecewise(sfixed_lower,
-                        [sfixed_lower < 0., sfixed_lower > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/range_lower)
-                                           * (1. - s/total_distance)])
+                # upper boundary and the gradient is zero at both boundaries
+                weight_lower = numpy.piecewise(sperp_lower,
+                        [sperp_lower < 0., sperp_lower > total_perp_distance_lower],
+                        [1., 0., lambda s: numpy.exp(-(s/range_lower)**2)
+                            * (0.5 + 0.5*numpy.cos(numpy.pi*s/total_perp_distance_lower))])
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
-                # lower boundary
-                weight_upper = numpy.piecewise(sfixed_upper,
-                    [sfixed_upper < 0., sfixed_upper > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
-                                       * s/total_distance])
+                # lower boundary and the gradient is zero at both boundaries
+                weight_upper = numpy.piecewise(sperp_upper,
+                    [sperp_upper < 0., sperp_upper > total_perp_distance_upper],
+                    [0., 1., lambda s: numpy.exp(-((total_perp_distance_upper - s)/range_upper)**2)
+                        * (0.5 - 0.5*numpy.cos(numpy.pi*s/total_perp_distance_upper))])
 
                 # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper
@@ -768,36 +951,93 @@ class EquilibriumRegion(PsiContour):
                 weight_lower[weight > 1.] /= weight_over_slice
                 weight_upper[weight > 1.] /= weight_over_slice
 
-                return weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight) * sorth
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncs again for this contour
+                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
+                    # spacing again. This is used to make the contours along the
+                    # separatrix keep the same values when pushing the other contours
+                    # towards orthogonal positions
+                    # s = weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight_lower - weight_upper)*s
+                    sorth = (weight_lower*sfixed_lower + weight_upper*sfixed_upper) / (weight_lower + weight_upper)
+
+                return weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight_lower - weight_upper)*sorth
         elif range_lower is not None:
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
-                sorth = sfunc_orthogonal(i)
+                sperp_lower = sperp_func_lower(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
 
                 # define weight_lower so it is 1. at the lower boundary and 0. at the
                 # upper boundary
-                weight_lower = numpy.piecewise(sfixed_lower,
-                        [sfixed_lower < 0., sfixed_lower > total_distance],
+                weight_lower = numpy.piecewise(sperp_lower,
+                        [sperp_lower < 0., sperp_lower > total_perp_distance_lower],
                         [1., 0., lambda s: numpy.exp(-s/range_lower)
-                                           * (1. - s/total_distance)])
+                                           * (1. - s/total_perp_distance_lower)])
+
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncs again for this contour
+                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
+                    # spacing again. This is used to make the contours along the
+                    # separatrix keep the same values when pushing the other contours
+                    # towards orthogonal positions
+                    # s = weight_lower*sperp_lower + (1. - weight_lower)*s
+                    sorth = sperp_lower
 
                 return (weight_lower)*sfixed_lower + (1. - weight_lower) * sorth
         elif range_upper is not None:
             def new_sfunc(i):
                 sfixed_upper = sfunc_fixed_upper(i)
-                sorth = sfunc_orthogonal(i)
+                sperp_upper = sperp_func_upper(i)
+
+                if sfunc_orthogonal is None:
+                    sorth = None
+                else:
+                    sorth = sfunc_orthogonal(i)
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary
-                weight_upper = numpy.piecewise(sfixed_upper,
-                    [sfixed_upper < 0., sfixed_upper > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
-                                       * s/total_distance])
+                weight_upper = numpy.piecewise(sperp_upper,
+                    [sperp_upper < 0., sperp_upper > total_perp_distance_upper],
+                    [0., 1., lambda s: numpy.exp(-(total_perp_distance_upper - s)/range_upper)
+                                       * s/total_perp_distance_upper])
+
+                if sorth is None:
+                    # Fix spacing so that if we call combineSfuncs again for this contour
+                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
+                    # spacing again. This is used to make the contours along the
+                    # separatrix keep the same values when pushing the other contours
+                    # towards orthogonal positions
+                    # s = weight_upper*sperp_upper + (1. - weight_upper)*s
+                    sorth = sperp_upper
 
                 return (weight_upper)*sfixed_upper + (1. - weight_upper) * sorth
         else:
+            assert sfunc_orthogonal is not None, 'Without range_lower or range_upper, cannot use with sfunc_orthogonal=None'
             def new_sfunc(i):
                 return sfunc_orthogonal(i)
+
+        # Check new_sfunc is monotonically increasing
+        indices = numpy.arange(-self.extend_lower, len(self)-self.extend_lower, dtype=float)
+        scheck = new_sfunc(indices)
+        if numpy.any(scheck[1:] < scheck[:-1]):
+            from matplotlib import pyplot
+            print('check ranges',range_lower, range_upper)
+            pyplot.figure()
+            pyplot.plot(scheck)
+            pyplot.axhline(0.)
+            pyplot.axhline(contour.totalDistance())
+            pyplot.plot(sperp_func_lower(indices))
+            pyplot.plot(sperp_func_upper(indices))
+            pyplot.show()
+            decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
+            raise ValueError('In region ' + self.name + 'combined spacing function is '
+                    + 'decreasing at indices ' + str(decreasing) + ' on contour of '
+                    + 'length ' + str(len(self)) + '. It may help to increase '
+                    + 'nonorthogonal_range_target or nonorthogonal_range_xpoint.')
 
         return new_sfunc
 
@@ -810,17 +1050,13 @@ class EquilibriumRegion(PsiContour):
         'surface_direction'.
         """
         N_norm = self.poloidalSpacingParameters.N_norm
-        if lower:
-            d_lower = self.poloidalSpacingParameters.polynomial_d_lower
-            d_upper = None
-        else:
-            d_upper = self.poloidalSpacingParameters.polynomial_d_upper
-            d_lower = None
+        d_lower = self.poloidalSpacingParameters.polynomial_d_lower
+        d_upper = self.poloidalSpacingParameters.polynomial_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getPolynomialPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
                 d_lower=d_lower, d_upper=d_upper)
-        return lambda i: s_of_sperp(sperp_func(i))
+        return lambda i: s_of_sperp(sperp_func(i)), sperp_func
 
     def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
             d_upper=None):

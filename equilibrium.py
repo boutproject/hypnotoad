@@ -280,6 +280,9 @@ class PsiContour:
         self.startInd = 0
         self.endInd = len(points) - 1
 
+        self.refine_width = 1.e-5
+        self.refine_atol = 2.e-8
+
         self.recalculateDistance()
 
         # Function that evaluates the vector potential at R,Z
@@ -388,10 +391,14 @@ class PsiContour:
         self.points = new.points
         self.distance = new.distance
 
-    def getRefined(self, width=1.e-5, atol=2.e-8):
+    def refinePoint(self, p, tangent):
         f = lambda R,Z: self.psi(R, Z) - self.psival
 
-        def perpLine(p, tangent, w):
+        if numpy.abs(f(*p)) < self.refine_atol*numpy.abs(self.psival):
+            # don't need to refine
+            return p
+
+        def perpLine(w):
             # p - point through which to draw perpLine
             # tangent - vector tangent to original curve, result will be perpendicular to this
             # w - width on either side of p to draw the perpLine to
@@ -399,46 +406,48 @@ class PsiContour:
             perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
             return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
 
-        def refinePoint(p, tangent):
-            if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
-                # don't need to refine
-                return p
-            converged = False
-            w = width
-            sp = []
-            ep = []
-            while not converged:
-                try:
-                    pline = perpLine(p, tangent, w)
-                    sp.append(pline(0.))
-                    ep.append(pline(1.))
-                    snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
-                    converged = info.converged
-                except ValueError:
-                    pass
-                w /= 2.
-                if w < atol:
-                    print('width =',width)
-                    from matplotlib import pyplot
-                    pline0 = perpLine(p, tangent, width)
-                    Rbox = numpy.linspace(p.R-.05,p.R+.05,100)[numpy.newaxis,:]
-                    Zbox = numpy.linspace(p.Z-.05,p.Z+.05,100)[:,numpy.newaxis]
-                    svals = numpy.linspace(0., 1., 40)
-                    pyplot.figure()
-                    pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox))
-                    pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
-                    pyplot.figure()
-                    pyplot.plot([f(*pline0(s)) for s in svals])
-                    pyplot.show()
-                    raise SolutionError("Could not find interval to refine point at "+str(p))
+        converged = False
+        w = self.refine_width
+        sp = []
+        ep = []
+        while not converged:
+            try:
+                pline = perpLine(w)
+                sp.append(pline(0.))
+                ep.append(pline(1.))
+                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=self.refine_atol, full_output=True)
+                converged = info.converged
+            except ValueError:
+                pass
+            w /= 2.
+            if w < self.refine_atol:
+                print('width =',self.refine_width)
+                from matplotlib import pyplot
+                pline0 = perpLine(self.refine_width)
+                Rbox = numpy.linspace(p.R-.05,p.R+.05,100)[numpy.newaxis,:]
+                Zbox = numpy.linspace(p.Z-.05,p.Z+.05,100)[:,numpy.newaxis]
+                svals = numpy.linspace(0., 1., 40)
+                pyplot.figure()
+                pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox))
+                pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
+                pyplot.figure()
+                pyplot.plot([f(*pline0(s)) for s in svals])
+                pyplot.show()
+                raise SolutionError("Could not find interval to refine point at "+str(p))
 
-            return pline(snew)
+        return pline(snew)
+
+    def getRefined(self, width=None, atol=None):
+        if width is not None:
+            self.refine_width = width
+        if atol is not None:
+            self.refine_atol = atol
 
         newpoints = []
-        newpoints.append(refinePoint(self.points[0], self.points[1] - self.points[0]))
+        newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0]))
         for i,p in enumerate(self.points[1:-1]):
-            newpoints.append(refinePoint(p, self.points[i+1] - self.points[i-1]))
-        newpoints.append(refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
+            newpoints.append(self.refinePoint(p, self.points[i+1] - self.points[i-1]))
+        newpoints.append(self.refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
         return self.newContourFromSelf(points=newpoints)
 

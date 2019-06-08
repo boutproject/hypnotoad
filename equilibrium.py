@@ -117,6 +117,9 @@ class Point2D:
         """
         return 'Point2D('+str(self.R)+','+str(self.Z)+')'
 
+    def as_ndarray(self):
+        return numpy.array((self.R, self.Z))
+
 def calc_distance(p1, p2):
     d = p2 - p1
     return numpy.sqrt(d.R**2 + d.Z**2)

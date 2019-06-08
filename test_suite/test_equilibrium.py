@@ -42,6 +42,11 @@ class TestPoints:
     def test_distance(self):
         assert calc_distance(self.p0, self.p1) == tight_approx(2.*numpy.sqrt(2.))
 
+    def test_as_ndarray(self):
+        p = self.p0.as_ndarray()
+        assert issubclass(type(p), numpy.ndarray)
+        assert p == tight_approx(numpy.array([1., 2.]))
+
 def test_find_intersectionRR1():
     l1start = Point2D(-1., -.1)
     l1end = Point2D(1., .1)

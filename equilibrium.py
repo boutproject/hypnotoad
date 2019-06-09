@@ -1075,9 +1075,12 @@ class EquilibriumRegion(PsiContour):
             from matplotlib import pyplot
             print('check ranges',range_lower, range_upper)
             pyplot.figure()
-            pyplot.plot(scheck)
+            pyplot.plot(scheck, label='combined')
+            pyplot.plot(sfunc_orthogonal(indices), label='orthogonal')
+            pyplot.plot(sfunc_fixed_spacing(indices), label='fixed poloidal')
             pyplot.axhline(0.)
             pyplot.axhline(total_distance)
+            pyplot.legend()
             pyplot.show()
             decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
             raise ValueError('In region ' + self.name + 'combined spacing function is '
@@ -1220,11 +1223,16 @@ class EquilibriumRegion(PsiContour):
             from matplotlib import pyplot
             print('check ranges',range_lower, range_upper)
             pyplot.figure()
-            pyplot.plot(scheck)
+            pyplot.plot(scheck, label='combined')
+            if sfunc_orthogonal is not None:
+                pyplot.plot(sfunc_orthogonal(indices), label='orthogonal')
+            if sfunc_fixed_lower is not None:
+                pyplot.plot(sperp_func_lower(indices), label='fixed perp lower')
+            if sfunc_fixed_upper is not None:
+                pyplot.plot(sperp_func_upper(indices), label='fixed perp upper')
             pyplot.axhline(0.)
             pyplot.axhline(contour.totalDistance())
-            pyplot.plot(sperp_func_lower(indices))
-            pyplot.plot(sperp_func_upper(indices))
+            pyplot.legend()
             pyplot.show()
             decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
             raise ValueError('In region ' + self.name + 'combined spacing function is '

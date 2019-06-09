@@ -939,8 +939,11 @@ class Mesh:
 
         # Set some global parameters for PsiContours
         contour_nfine = self.readOption('contour_nfine', None)
+        contour_atol = self.readOption('contour_atol', None)
         if contour_nfine is not None:
             ContourParameters['Nfine'] = contour_nfine
+        if contour_atol is not None:
+            ContourParameters['atol'] = contour_atol
 
         # Tolerances for following Grad(psi)
         self.follow_perpendicular_rtol = self.readOption('gradPsiRtol', 2.e-8)

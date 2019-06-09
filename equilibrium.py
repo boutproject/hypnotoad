@@ -17,7 +17,7 @@ class SolutionError(Exception):
     pass
 
 # Dictionary of global parameters for contours
-ContourParameters = {'Nfine':1000}
+ContourParameters = {'Nfine':1000, 'atol':1.e-8}
 
 # tolerance used to try and avoid missed intersections between lines
 # also if two sets of lines appear to intersect twice, only count it once if the
@@ -268,6 +268,201 @@ def find_intersection(l1start, l1end, l2start, l2end):
             else:
                 return None
 
+class FineContour:
+    """
+    Used to give a high-resolution representation of a contour.
+    Points in FineContour are uniformly spaced in poloidal distance along the contour.
+    """
+    def __init__(self, parentContour):
+        self.parentContour = parentContour
+        self.distance = None
+        Nfine = ContourParameters['Nfine']
+        atol = ContourParameters['atol']
+
+        endInd = self.parentContour.endInd
+        if endInd < 0:
+            # endInd might be negative, which would mean relative to the end of the list,
+            # but we need the actual index below
+            endInd += len(self.parentContour)
+        n_input = (endInd - self.parentContour.startInd + 1)
+
+        # Extend further than will be needed in the final contour, because extrapolation
+        # past the end of the fine contour is very bad.
+        extend_lower_fine = 2*(self.parentContour.extend_lower * Nfine) // n_input
+        extend_upper_fine = 2*(self.parentContour.extend_upper * Nfine) // n_input
+
+        indices_fine = numpy.linspace(-extend_lower_fine,
+                (Nfine - 1 + extend_upper_fine),
+                Nfine + extend_lower_fine + extend_upper_fine)
+
+        # initial guess from interpolation of psiContour, iterate to a more accurate
+        # version below
+        interp_input, distance_estimate = self.parentContour._coarseInterp()
+
+        sfine = distance_estimate / (Nfine - 1) * indices_fine
+
+        # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
+        self.positions = numpy.array(tuple(interp_input(s).as_ndarray() for s in sfine))
+
+        self.startInd = extend_lower_fine
+        self.endInd = Nfine - 1 + extend_lower_fine
+
+        self.refine()
+
+        self.calcDistance()
+
+        ds = self.distance[1:] - self.distance[:-1]
+        # want constant spacing, so ds has a constant value
+        ds_mean = numpy.mean(ds)
+        # maximum error
+        ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
+
+        while ds_error > atol:
+            sfine = self.totalDistance() / (Nfine - 1) * indices_fine
+
+            interpFunc = self.interpFunction()
+
+            # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
+            self.positions = numpy.array(tuple(interpFunc(s).as_ndarray() for s in sfine))
+
+            self.startInd = extend_lower_fine
+            self.endInd = Nfine - 1 + extend_lower_fine
+
+            self.refine()
+
+            self.calcDistance()
+
+            ds = self.distance[1:] - self.distance[:-1]
+            # want constant spacing, so ds has a constant value
+            ds_mean = numpy.mean(ds)
+            # maximum error
+            ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
+
+    def totalDistance(self):
+        return self.distance[self.endInd] - self.distance[self.startInd]
+
+    def calcDistance(self):
+        if self.distance is None:
+            self.distance = numpy.zeros(self.positions.shape[0])
+        deltaSquared = (self.positions[1:] - self.positions[:-1])**2
+        self.distance[1:] = numpy.cumsum(numpy.sqrt(numpy.sum(deltaSquared, axis=1)))
+
+    def interpFunction(self, *, kind='cubic'):
+        distance = self.distance - self.distance[self.startInd]
+
+        interpR = interp1d(distance, self.positions[:,0], kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        interpZ = interp1d(distance, self.positions[:,1], kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
+
+    def refine(self):
+        result = numpy.zeros(self.positions.shape)
+
+        p = self.positions[0, :]
+        tangent = self.positions[1, :] - self.positions[0, :]
+        result[0, :] = self.parentContour.refinePoint(Point2D(*p),
+                Point2D(*tangent)).as_ndarray()
+        for i in range(1, self.positions.shape[0] - 1):
+            p = self.positions[i, :]
+            tangent = self.positions[i+1, :] - self.positions[i-1, :]
+            result[i, :] = self.parentContour.refinePoint(Point2D(*p),
+                    Point2D(*tangent)).as_ndarray()
+        p = self.positions[-1, :]
+        tangent = self.positions[-1, :] - self.positions[-2, :]
+        result[-1, :] = self.parentContour.refinePoint(Point2D(*p),
+                Point2D(*tangent)).as_ndarray()
+
+        self.positions = result
+
+    def reverse(self):
+        if self.distance is not None:
+            self.distance = self.distance[-1] - self.distance[::-1]
+        self.positions = self.positions[::-1, :]
+
+        old_start = self.startInd
+        n = self.positions.shape[0]
+        self.startInd = n - 1 - self.endInd
+        self.endInd = n - 1 - old_start
+
+    def interpSSperp(self, vec, kind='cubic'):
+        """
+        Returns:
+        1. a function s(s_perp) for interpolating the poloidal distance along the contour
+           from the distance perpendicular to vec.
+           's_perp' is modified to be a monotonically increasing function along the
+           contour.
+        2. the total perpendicular distance between startInd and endInd of the contour.
+        """
+
+        # vec_perp is a vector in the direction of either increasing or decreasing sperp
+        vec_perp = numpy.zeros(2)
+        vec_perp[0] = -vec[1]
+        vec_perp[1] = vec[0]
+
+        # make vec_perp a unit vector
+        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
+        start_position = self.positions[self.startInd, :]
+
+        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from self[self.startInd]
+        s_perp = numpy.sum((self.positions - start_position)*vec_perp[numpy.newaxis, :],
+                axis=1)
+
+        # s_perp might not be monotonic in which case s(s_perp) is not well defined.
+        # To get around this, if d(s_perp) between two points is negative, flip its sign
+        # to make a fake 's_perp' that is always increasing.
+        # Note we only need s_perp to be good near one of the ends, the function using it
+        # will be multiplied by a weight that goes to zero far from the end.
+        # This correction means s_perp is always increasing, regardless of sign of
+        # vec_perp, so don't need to check sign of vec_perp when creating it.
+        for i in range(self.startInd + 1, len(s_perp)):
+            ds = s_perp[i] - s_perp[i-1]
+            if ds < 0.:
+                s_perp[i:] = 2.*s_perp[i-1] - s_perp[i:]
+        for i in range(self.startInd - 1, -1, -1):
+            ds = s_perp[i+1] - s_perp[i]
+            if ds < 0.:
+                s_perp[:i+1] = 2.*s_perp[i+1] - s_perp[:i+1]
+
+        s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
+
+        distance = self.distance - self.distance[self.startInd]
+        s_of_sperp = interp1d(s_perp, distance, kind=kind, assume_sorted=True,
+                fill_value = 'extrapolate')
+
+        return s_of_sperp, s_perp_total
+
+    def getDistance(self, p):
+        """
+        Return the distance of a point along the contour.
+        Assume p is a point on the contour so has the correct psi-value.
+        """
+        p = p.as_ndarray()
+
+        distance_from_points = numpy.sqrt(numpy.sum(
+            (self.positions - p[numpy.newaxis, :])**2, axis=1))
+
+        # index of closest point
+        i1 = numpy.argmin(distance_from_points)
+        d1 = distance_from_points[i1]
+
+        # index of next-closest point
+        if i1 + 1 >= len(distance_from_points):
+            i2 = i1 - 1
+        elif i1 - 1 < 0:
+            i2 = 1
+        elif distance_from_points[i1+1] < distance_from_points[i1-1]:
+            i2 = i1 + 1
+        else:
+            i2 = i1 - 1
+        d2 = distance_from_points[i2]
+
+        # linearly interpolate the distance of the two closest points in the same ratio as
+        # their distances from the point
+        r = d2 / (d1 + d2)
+
+        return r*self.distance[i1] + (1. - r)*self.distance[i2]
+
 class PsiContour:
     """
     Represents a contour as a collection of points.
@@ -277,13 +472,15 @@ class PsiContour:
     def __init__(self, points, psi, psival):
         self.points = points
 
-        self.startInd = 0
-        self.endInd = len(points) - 1
+        self._startInd = 0
+        self._endInd = len(points) - 1
 
         self.refine_width = 1.e-5
         self.refine_atol = 2.e-8
 
-        self.recalculateDistance()
+        self._fine_contour = None
+
+        self._distance = None
 
         # Function that evaluates the vector potential at R,Z
         self.psi = psi
@@ -297,6 +494,40 @@ class PsiContour:
         # startInd and endInd.
         self.extend_lower = 0
         self.extend_upper = 0
+
+    @property
+    def startInd(self):
+        return self._startInd
+
+    @startInd.setter
+    def startInd(self, val):
+        # self._fine_contour needs to be recalculated if the start position changes
+        self._fine_contour = None
+        self._distance = None
+        self._startInd = val
+
+    @property
+    def endInd(self):
+        # self._fine_contour needs to be recalculated if the end position changes
+        return self._endInd
+
+    @endInd.setter
+    def endInd(self, val):
+        self._fine_contour = None
+        self._distance = None
+        self._endInd = val
+
+    @property
+    def fine_contour(self):
+        if self._fine_contour is None:
+            self._fine_contour = FineContour(self)
+        return self._fine_contour
+
+    @property
+    def distance(self):
+        if self._distance is None:
+            self._distance = [self.fine_contour.getDistance(p) for p in self]
+        return self._distance
 
     def __iter__(self):
         return self.points.__iter__()
@@ -317,11 +548,12 @@ class PsiContour:
         self.points = deepcopy(contour.points)
         self.startInd = contour.startInd
         self.endInd = contour.endInd
-        self.distance = contour.distance
+        self._distance = contour._distance
         self.psi = contour.psi
         self.psival = contour.psival
         self.extend_lower = contour.extend_lower
         self.extend_upper = contour.extend_upper
+        self._fine_contour = contour._fine_contour
 
     def newContourFromSelf(self, *, points=None, psival=None):
         if points is None:
@@ -334,22 +566,23 @@ class PsiContour:
         new_contour.endInd = self.endInd
         new_contour.extend_lower = self.extend_lower
         new_contour.extend_upper = self.extend_upper
+        new_contour._fine_contour = self._fine_contour
 
         return new_contour
 
     def append(self, point):
+        self._fine_contour = None
+        self._distance = None
         self.points.append(point)
-        if len(self.distance) is 0:
-            self.distance = [0.]
-        else:
-            self.distance.append(
-                    self.distance[-1] + calc_distance(self.points[-2], self.points[-1]))
 
     def prepend(self, point):
+        self._fine_contour = None
+        self._distance = None
         self.points.insert(0, point)
-        self.recalculateDistance()
 
     def insert(self, index, point):
+        self._distance = None
+
         # Make sure index is positive, following behaviour of list.insert()
         if index < 0:
             index += len(self) + 1
@@ -357,23 +590,16 @@ class PsiContour:
                 index = 0
 
         self.points.insert(index, point)
+
+        # Note, only need to update self._fine_contour if the start or end point changes
         if index <= self.startInd:
             self.startInd += 1
+            self._fine_contour = None
         if index <= self.endInd:
             self.endInd += 1
+            self._fine_contour = None
         if self.endInd < 0 and index > len(self) + self.endInd:
             self.endInd -= 1
-
-        self.recalculateDistance()
-
-    def recalculateDistance(self):
-        if len(self.points) is 0:
-            self.distance = []
-        else:
-            self.distance = [0.]
-            for i in range(1, len(self.points)):
-                self.distance.append(
-                        self.distance[-1] + calc_distance(self.points[i-1], self.points[i]))
 
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
@@ -383,13 +609,16 @@ class PsiContour:
         old_start = self.startInd
         self.startInd = len(self) - 1 - self.endInd
         self.endInd = len(self) - 1 - old_start
-        self.distance.reverse()
-        self.distance = [self.distance[0] - d for d in self.distance]
+        if self._distance is not None:
+            self._distance.reverse()
+            self._distance = [self.distance[0] - d for d in self.distance]
+        if self._fine_contour is not None:
+            self._fine_contour.reverse()
 
     def refine(self, *args, **kwargs):
         new = self.getRefined(*args, **kwargs)
         self.points = new.points
-        self.distance = new.distance
+        self._distance = new._distance
 
     def refinePoint(self, p, tangent):
         f = lambda R,Z: self.psi(R, Z) - self.psival
@@ -452,23 +681,31 @@ class PsiContour:
         return self.newContourFromSelf(points=newpoints)
 
     def interpFunction(self):
-        distance = numpy.array(numpy.float64(self.distance)) - self.distance[self.startInd]
+        return self.fine_contour.interpFunction()
+
+    def _coarseInterp(self, *, kind='cubic'):
+        distance = [0.]
+        for i in range(len(self) - 1):
+            distance.append(distance[i] + calc_distance(self[i+1], self[i]))
+        distance = numpy.array(numpy.float64(distance)) - distance[self.startInd]
+
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
-        interpR = interp1d(distance, R, kind='cubic',
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, Z, kind='cubic',
-                           assume_sorted=True, fill_value='extrapolate')
-        return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self):
+        interpR = interp1d(distance, R, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        interpZ = interp1d(distance, Z, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        return lambda s: Point2D(interpR(s), interpZ(s)), distance[self.endInd]
+
+    def contourSfunc(self, kind='cubic'):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
         aren't affected by extrapolation errors.
         """
-        interpS = interp1d(numpy.arange(len(self), dtype=float), self.distance, kind='cubic', assume_sorted=True,
-                fill_value='extrapolate')
+        interpS = interp1d(numpy.arange(len(self), dtype=float),
+                self.distance, kind=kind, assume_sorted=True, fill_value='extrapolate')
         thisStartInd = self.startInd
         thisEndInd = self.endInd
         if thisEndInd < 0:
@@ -490,43 +727,7 @@ class PsiContour:
            contour.
         2. the total perpendicular distance between startInd and endInd of the contour.
         """
-
-        # vec_perp is a vector in the direction of either increasing or decreasing sperp
-        vec_perp = numpy.zeros(2)
-        vec_perp[0] = -vec[1]
-        vec_perp[1] = vec[0]
-
-        # make vec_perp a unit vector
-        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
-        Rstart = self[self.startInd].R
-        Zstart = self[self.startInd].Z
-
-        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from self[self.startInd]
-        s_perp = numpy.array([vec_perp[0]*(p.R - Rstart) + vec_perp[1]*(p.Z - Zstart) for p in self])
-
-        # s_perp might not be monotonic in which case s(s_perp) is not well defined.
-        # To get around this, if d(s_perp) between two points is negative, flip its sign
-        # to make a fake 's_perp' that is always increasing.
-        # Note we only need s_perp to be good near one of the ends, the function using it
-        # will be multiplied by a weight that goes to zero far from the end.
-        # This correction means s_perp is always increasing, regardless of sign of
-        # vec_perp, so don't need to check sign of vec_perp when creating it.
-        for i in range(self.startInd + 1, len(s_perp)):
-            ds = s_perp[i] - s_perp[i-1]
-            if ds < 0.:
-                s_perp[i:] = 2.*s_perp[i-1] - s_perp[i:]
-        for i in range(self.startInd - 1, -1, -1):
-            ds = s_perp[i+1] - s_perp[i]
-            if ds < 0.:
-                s_perp[:i+1] = 2.*s_perp[i+1] - s_perp[:i+1]
-
-        s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
-
-        distance = numpy.array(self.distance) - self.distance[self.startInd]
-        s_of_sperp = interp1d(s_perp, distance, kind='cubic', assume_sorted=True,
-                fill_value = 'extrapolate')
-
-        return s_of_sperp, s_perp_total
+        return self.fine_contour.interpSSperp(vec)
 
     def regrid(self, *args, **kwargs):
         """
@@ -535,7 +736,7 @@ class PsiContour:
         self.setSelfToContour(self.getRegridded(*args, **kwargs))
         return self
 
-    def getRegridded(self, npoints, *, width=1.e-5, atol=2.e-8, sfunc=None,
+    def getRegridded(self, npoints, *, width=None, atol=None, sfunc=None,
             extend_lower=None, extend_upper=None):
         """
         Interpolate onto set of npoints points, then refine positions.
@@ -548,44 +749,14 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
+        if width is not None:
+            self.refine_width = width
+        if atol is not None:
+            self.refine_atol = atol
         if extend_lower is not None:
             self.extend_lower = extend_lower
         if extend_upper is not None:
             self.extend_upper = extend_upper
-
-        Nfine = ContourParameters['Nfine']
-        # To make the new points accurate, first regrid onto a high-resolution contour,
-        # then interpolate.
-        # Extend further than will be needed in the final contour, because extrapolation
-        # past the end of the fine contour is very bad.
-        extend_lower_fine = 2*(self.extend_lower * Nfine) // npoints
-        extend_upper_fine = 2*(self.extend_upper * Nfine) // npoints
-
-        indices_fine = numpy.linspace(-extend_lower_fine,
-                (Nfine - 1 + extend_upper_fine),
-                Nfine + extend_lower_fine + extend_upper_fine)
-
-        if sfunc is not None:
-            sfine = sfunc(indices_fine*(npoints - 1)/(Nfine - 1))
-        else:
-            sfine = (self.distance[self.endInd] - self.distance[self.startInd]) / (Nfine - 1) * indices_fine
-
-        interp_self = self.interpFunction()
-
-        fine_contour = PsiContour([interp_self(x) for x in sfine], self.psi, self.psival)
-        fine_contour.startInd = extend_lower_fine
-        fine_contour.endInd = len(fine_contour) - 1 - extend_upper_fine
-        fine_contour.refine(width, atol)
-
-        # fine_contour does not have exactly the same total distance as the original,
-        # because it integrates on a finer grid. But sfunc was defined with the total
-        # distance of the original, so scale the distance of fine_contour to make the
-        # totals the same
-        if sfunc is not None:
-            scale_factor = (sfunc(npoints - 1.) - sfunc(0.)) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
-        else:
-            scale_factor = (self.distance[self.endInd] - self.distance[self.startInd]) / (fine_contour.distance[fine_contour.endInd] - fine_contour.distance[fine_contour.startInd])
-        fine_contour.distance = [scale_factor*d for d in fine_contour.distance]
 
         indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
                 npoints + self.extend_lower + self.extend_upper)
@@ -598,10 +769,10 @@ class PsiContour:
             s = (self.distance[self.endInd] - self.distance[self.startInd]) / (npoints - 1) * indices
             sbegin = 0.
 
-        interp_fine_unadjusted = fine_contour.interpFunction()
-        interp_fine = lambda s: interp_fine_unadjusted(s - sbegin)
+        interp_unadjusted = self.fine_contour.interpFunction()
+        interp = lambda s: interp_unadjusted(s - sbegin)
 
-        new_contour = self.newContourFromSelf(points=[interp_fine(x) for x in s])
+        new_contour = self.newContourFromSelf(points=[interp(x) for x in s])
         new_contour.startInd = self.extend_lower
         new_contour.endInd = len(new_contour) - 1 - self.extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
@@ -611,19 +782,23 @@ class PsiContour:
     def temporaryExtend(self, *, extend_lower=0, extend_upper=0):
         """
         Add temporary guard-cell points to the beginning and/or end of a contour
+        Use coarseInterp to extrapolate as using a bigger spacing gives a more stable
+        extrapolation.
         """
         if extend_lower > 0:
             ds = self.distance[1] - self.distance[0]
             for i in range(extend_lower):
-                new_point = self.interpFunction()(self.distance[0] - ds)
+                interp, null = self._coarseInterp()
+                new_point = interp(self.distance[0] - ds)
                 self.points.insert(0, new_point)
                 self.startInd += 1
                 self.endInd += 1
-                self.refine() # also re-calculates self.distance
+                self.refine()
         if extend_upper > 0:
             ds = self.distance[-1] - self.distance[-2]
             for i in range(extend_upper):
-                new_point = self.interpFunction()(self.distance[-1] + ds)
+                interp, null = self._coarseInterp()
+                new_point = interp(self.distance[-1] + ds)
                 self.points.append(new_point)
                 self.refine()
 
@@ -780,9 +955,8 @@ class EquilibriumRegion(PsiContour):
                              +' for poloidal spacing method')
 
     def combineSfuncsPoloidalSpacing(self, sfunc_orthogonal, total_distance):
-
         # this sfunc gives a fixed poloidal spacing at beginning and end of contours
-        sfunc_fixed_spacing = self.equilibriumRegion.getSfuncFixedSpacing(
+        sfunc_fixed_spacing = self.getSfuncFixedSpacing(
                 2*self.ny_noguards + 1, total_distance, method='polynomial')
 
         if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:

@@ -675,7 +675,8 @@ class PsiContour:
         newpoints = []
         newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0]))
         for i,p in enumerate(self.points[1:-1]):
-            newpoints.append(self.refinePoint(p, self.points[i+1] - self.points[i-1]))
+            # note i+1 here is the index of point p
+            newpoints.append(self.refinePoint(p, self.points[i+2] - self.points[i]))
         newpoints.append(self.refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
 
         return self.newContourFromSelf(points=newpoints)

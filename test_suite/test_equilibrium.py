@@ -322,26 +322,33 @@ def test_find_intersectionZZNone4():
 class TestContour:
     @pytest.fixture
     def testcontour(self):
-        psifunc = lambda R,Z: R**2 + Z**4
-        psi_xpoint = 0.
-
         # make a circle, not centred on origin
         class returnObject:
             npoints = 23
             r = 1.
             R0 = .2
             Z0 = .3
-            theta = numpy.linspace(0.,2.*numpy.pi,npoints)
-            R = R0 + r*numpy.cos(theta)
-            Z = Z0 + r*numpy.sin(theta)
-            c = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, psi_xpoint)
+            theta = numpy.linspace(0.,numpy.pi,npoints)
+
+            def __init__(self):
+                psifunc = lambda R,Z: (R - self.R0)**2 + (Z - self.Z0)**2
+
+                self.R = self.R0 + self.r*numpy.cos(self.theta)
+                self.Z = self.Z0 + self.r*numpy.sin(self.theta)
+
+                psi_xpoint = psifunc(self.R[0], self.Z[0])
+
+                self.c = PsiContour([Point2D(R,Z) for R,Z in zip(self.R,self.Z)], psifunc,
+                        psi_xpoint)
+                self.c.refine_width = 1.e-3
 
         return returnObject()
 
     def test_distance(self, testcontour):
-        segment_length = 2.*testcontour.r*numpy.sin(2.*numpy.pi/(testcontour.npoints-1)/2.)
-        assert testcontour.c.distance == tight_approx(segment_length*numpy.arange(23))
-
+        segment_length = testcontour.r*numpy.pi/(testcontour.npoints-1)
+        c = testcontour.c
+        assert testcontour.c.distance == pytest.approx(
+                segment_length*numpy.arange(testcontour.npoints), abs=1.e-4)
 
     def test_iter(self, testcontour):
         clist = list(testcontour.c)
@@ -357,9 +364,13 @@ class TestContour:
 
     def test_append(self, testcontour):
         c = testcontour.c
-        expected_distance = c.distance[-1] + numpy.sqrt((1.-c[-1].R)**2 + (1.-c[-1].Z)**2)
-        c.append(Point2D(1.,1.))
-        assert c.distance[-1] == tight_approx(expected_distance)
+        point_to_add = c[-2]
+        expected_distance = c.distance[-2]
+        del c.points[-1]
+        del c.points[-1]
+        c.endInd = -1
+        c.append(point_to_add)
+        assert c.distance[-1] == pytest.approx(expected_distance, abs=4.e-5)
 
     def test_reverse(self, testcontour):
         c = testcontour.c
@@ -386,27 +397,20 @@ class TestContour:
 
     def test_interpFunction(self, testcontour):
         f = testcontour.c.interpFunction()
-        p = f(0.5*testcontour.c.distance[-1])
-        assert p.R == tight_approx(testcontour.R0 - testcontour.r)
-        assert p.Z == tight_approx(testcontour.Z0)
+        p = f(numpy.pi*testcontour.r)
+        assert p.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.e-9)
+        assert p.Z == pytest.approx(testcontour.Z0, abs=1.e-5)
 
-    def test_getRegridded(self):
-        # make a circular contour in a circular psi
-        psifunc = lambda R,Z: R**2 + Z**2
-
-        npoints = 1000
-        r = 1.
-        theta = numpy.linspace(0., 2.*numpy.pi, npoints)
-        R = r*numpy.cos(theta)
-        Z = r*numpy.sin(theta)
-        orig = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, 1.)
+    def test_getRegridded(self, testcontour):
+        orig = testcontour.c
+        r = testcontour.r
 
         newNpoints = 97
-        sfunc_true = lambda i: numpy.sqrt(i / (newNpoints - 1)) * 2. * numpy.pi * r
+        sfunc_true = lambda i: numpy.sqrt(i / (newNpoints - 1)) * numpy.pi * r
         sfunc = lambda i: numpy.sqrt(i / (newNpoints - 1)) * orig.distance[-1]
         newTheta = sfunc_true(numpy.arange(newNpoints)) / r
-        newR = r*numpy.cos(newTheta)
-        newZ = r*numpy.sin(newTheta)
+        newR = testcontour.R0 + r*numpy.cos(newTheta)
+        newZ = testcontour.Z0 + r*numpy.sin(newTheta)
 
         new = orig.getRegridded(newNpoints, sfunc=sfunc, width=1.e-3)
 
@@ -414,26 +418,21 @@ class TestContour:
         assert [p.Z for p in new] == pytest.approx(newZ, abs=4.e-4)
 
     def test_getRegridded_extend(self, testcontour):
-        # make a circular contour in a circular psi
-        psifunc = lambda R,Z: R**2 + Z**2
-
-        npoints = 23
-        r = 1.
-        theta = numpy.linspace(0., 2.*numpy.pi, npoints)
-        R = r*numpy.cos(theta)
-        Z = r*numpy.sin(theta)
-        orig = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], psifunc, 1.)
+        orig = testcontour.c
 
         new = orig.getRegridded(testcontour.npoints, width=.1, extend_lower=1, extend_upper=2)
 
         assert numpy.array([[*p] for p in new[1:-2]]) == pytest.approx(numpy.array([[*p] for p in orig]), abs=1.e-8)
 
         # test the extend_lower
-        assert [*new[0]] == pytest.approx([*orig[-2]], abs=1.e-8)
+        assert [*new[0]] == pytest.approx(
+                [orig[1].R, 2.*testcontour.Z0-orig[1].Z], abs=1.e-10)
 
         # test the extend_upper
-        assert [*new[-2]] == pytest.approx([*orig[1]], abs=1.e-8)
-        assert [*new[-1]] == pytest.approx([*orig[2]], abs=1.e-7)
+        assert [*new[-2]] == pytest.approx(
+                [orig[-2].R, 2.*testcontour.Z0-orig[-2].Z], abs=1.e-10)
+        assert [*new[-1]] == pytest.approx(
+                [orig[-3].R, 2.*testcontour.Z0-orig[-3].Z], abs=1.e-10)
 
     def test_contourSfunc(self, testcontour):
         c = testcontour.c
@@ -453,16 +452,28 @@ class TestContour:
         c = testcontour.c
 
         # Make c.startInd > 0
-        c.insert(0, 2.*c[0] - c[1])
+        c.insert(0, Point2D(c[1].R, 2.*c[0].Z - c[1].Z))
 
         # 'vec' argument is in Z-direction, so 's_perp' is displacement in R-direction
         sfunc, s_perp_total = c.interpSSperp([0., 1.])
         assert sfunc(0.) == tight_approx(0.)
-        assert sfunc(1.) == pytest.approx(numpy.pi/2., abs=1.e-2)
-        assert sfunc(2.) == pytest.approx(numpy.pi, abs=2.e-2)
-        assert sfunc(3.) == pytest.approx(1.5*numpy.pi, abs=2.e-2)
-        assert sfunc(4.) == pytest.approx(2.*numpy.pi, abs=3.e-2)
-        assert s_perp_total == tight_approx(4.)
+        assert sfunc(1.) == pytest.approx(numpy.pi/2., abs=1.e-6)
+        assert sfunc(2.) == pytest.approx(numpy.pi, abs=2.e-6)
+        assert s_perp_total == tight_approx(2.)
+
+    def test_FineContour(self, testcontour):
+        testcontour.c.refine_width = 1.e-2
+
+        fc = FineContour(testcontour.c)
+
+        assert fc.totalDistance() == pytest.approx(numpy.pi, abs=1.e-5)
+
+        interpFunc = fc.interpFunction()
+        r = testcontour.r
+        for theta in numpy.linspace(0., numpy.pi, 17):
+            p = interpFunc(r*theta)
+            assert p.R == pytest.approx(testcontour.R0 + r*numpy.cos(theta), abs=1.e-4)
+            assert p.Z == pytest.approx(testcontour.Z0 + r*numpy.sin(theta), abs=1.e-4)
 
 class TestEquilibrium:
 
@@ -493,8 +504,12 @@ class TestEquilibriumRegion:
 
     @pytest.fixture
     def eqReg(self):
-        options = {'nx':1, 'ny':1, 'y_boundary_guards':1}
-        eqReg = EquilibriumRegion(Equilibrium(), '', 1, options, [], None, 0.)
+        options = {'nx':1, 'ny':5, 'y_boundary_guards':1}
+        equilib = Equilibrium()
+        equilib.psi = lambda R,Z: R - Z
+        n = 11.
+        points = [Point2D(i * 3. / (n - 1.), i * 3. / (n - 1.)) for i in numpy.arange(n)]
+        eqReg = EquilibriumRegion(equilib, '', 1, options, points, equilib.psi, 0.)
         return eqReg
 
     def test_getPolynomialPoloidalDistanceFuncLinear(self, eqReg):
@@ -682,110 +697,86 @@ class TestEquilibriumRegion:
         assert f(itest) == pytest.approx(L - 2.*a_upper*numpy.sqrt((N - itest)/N_norm)
                                          - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_combineSfuncsNoD(self, eqReg):
-        n = 20.
-        L = 3.
+    def test_combineSfuncsPoloidalSpacingNoD(self, eqReg):
+        n = len(eqReg)
+        L = eqReg.totalDistance()
 
-        # fixed spacing sfunc should not be used when
-        # poloidalSpacingParameters.d_lower=None and
-        # poloidalSpacingParameters.d_upper=None
-        sfunc_fixed_spacing = lambda i: -10000. * i
+        sfunc_orthogonal = lambda i: i/(n - 1.) * L
 
-        sfunc_orthogonal = lambda i: i/n * L
-
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
 
         assert sfunc(0.) == tight_approx(0.)
-        assert sfunc(n) == tight_approx(L)
+        assert sfunc((n - 1.)/3.) == tight_approx(L/3.)
+        assert sfunc(n - 1.) == tight_approx(L)
 
-    def test_combineSfuncsRangeLower(self, eqReg):
-        n = 10.
-        L = 3.
+    def test_combineSfuncsPoloidalSpacingRangeLower(self, eqReg):
+        n = len(eqReg)
+        L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = 1.
-
-        # fixed spacing sfunc should not be used when
-        # poloidalSpacingParameters.d_lower=None and
-        # poloidalSpacingParameters.d_upper=None
-        sfunc_fixed_spacing = lambda i: i/n * L
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
+        eqReg.poloidalSpacingParameters.N_norm = 40.
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
-                [100., lambda i: numpy.sqrt(i/n) * L])
+                [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
 
-        assert sfunc(-1.) == tight_approx(-1./n * L)
+        assert sfunc(-1.) == tight_approx(-1./(n - 1.) * L)
         assert sfunc(0.) == tight_approx(0.)
         itest = 0.0001
-        assert sfunc(itest) == pytest.approx(0.00003, rel=2.e-2)
-        assert sfunc(n) == tight_approx(L)
+        assert sfunc(itest) == pytest.approx(0.00001*3.*numpy.sqrt(2.), abs=1.e-11)
+        assert sfunc(n-1.) == tight_approx(L)
 
-    def test_combineSfuncsRangeUpper(self, eqReg):
-        n = 10.
-        L = 3.
+    def test_combineSfuncsPoloidalSpacingRangeUpper(self, eqReg):
+        n = len(eqReg)
+        L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = 1.
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
+        eqReg.poloidalSpacingParameters.N_norm = 40.
 
-        # fixed spacing sfunc should not be used when
-        # poloidalSpacingParameters.d_lower=None and
-        # poloidalSpacingParameters.d_upper=None
-        sfunc_fixed_spacing = lambda i: i/n * L
+        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n - 1.],
+                [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n],
-                [100., lambda i: numpy.sqrt(i/n) * L])
-
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
 
         assert sfunc(0.) == tight_approx(0.)
-        itest = n - 0.0001
-        assert L - sfunc(itest) == pytest.approx(0.00003, rel=1.e-2)
-        assert sfunc(n) == tight_approx(L)
-        assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
+        itest = n - 1. - 0.0001
+        assert L - sfunc(itest) == pytest.approx(0.00001*3.*numpy.sqrt(2.), abs=1.e-11)
+        assert sfunc(n - 1.) == tight_approx(L)
+        assert sfunc(float(n)) == tight_approx(n/(n - 1.) * L)
 
-    def test_combineSfuncsRangeBoth(self, eqReg):
-        n = 10.
-        L = 3.
+    def test_combineSfuncsPoloidalSpacingRangeBoth(self, eqReg):
+        n = len(eqReg)
+        L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
-        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
         eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
         eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
+        eqReg.poloidalSpacingParameters.N_norm = 40.
 
-        # fixed spacing sfunc should not be used when
-        # poloidalSpacingParameters.d_lower=None and
-        # poloidalSpacingParameters.d_upper=None
-        sfunc_fixed_spacing = lambda i: i/n * L
+        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n - 1.],
+                [-100., 100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n],
-                [-100., 100., lambda i: numpy.sqrt(i/n) * L])
+        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
 
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, L)
-
-        assert sfunc(-1.) == tight_approx(-1./n * L)
+        assert sfunc(-1.) == tight_approx(-1./(n - 1.) * L)
         assert sfunc(0.) == tight_approx(0.)
         itest = 1.e-6
-        assert sfunc(itest) == pytest.approx(3.e-7, rel=1.e-2)
-        itest = n - 1.e-6
-        assert L - sfunc(itest) == pytest.approx(3.e-7, rel=1.e-2)
-        assert sfunc(n) == tight_approx(L)
-        assert sfunc(n + 1.) == tight_approx((n + 1.)/n * L)
+        assert sfunc(itest) == pytest.approx(3.e-7*numpy.sqrt(2.), rel=1.e-7)
+        itest = n - 1. - 1.e-6
+        assert L - sfunc(itest) == pytest.approx(3.e-7*numpy.sqrt(2.), rel=1.e-7)
+        assert sfunc(n - 1.) == tight_approx(L)
+        assert sfunc(float(n)) == tight_approx(n/(n - 1.) * L)
 
-    def test_combineSfuncsIntegrated1(self, eqReg):
+    def test_combineSfuncsPerpSpacingIntegrated(self, eqReg):
         # This test follows roughly the operations in
         # MeshRegion.distributePointsNonorthogonal for the default 'combined' option.
-        n = 10
-
-        c = PsiContour([], None, 0.)
-        for i in range(n):
-            c.append(Point2D(float(i), float(i)**2))
-        eqReg = eqReg.newRegionFromPsiContour(c)
+        n = len(eqReg)
+        L = eqReg.totalDistance()
 
         eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
         eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .3
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .3
         eqReg.poloidalSpacingParameters.N_norm = 40
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
@@ -793,14 +784,13 @@ class TestEquilibriumRegion:
         # as if lower_wall
         intersect_index = 2
         original_start = eqReg.startInd
+        distance_at_original_start = eqReg.distance[original_start]
 
-        eqReg.points.insert(intersect_index, eqReg.interpFunction()(2.5))
-
-        eqReg.recalculateDistance()
+        d = 1.5*3. / (n - 1.)
+        eqReg.points.insert(intersect_index, Point2D(d, d))
 
         if original_start >= intersect_index:
             original_start += 1
-        distance_at_original_start = eqReg.distance[original_start]
 
         distance_at_wall = eqReg.distance[intersect_index]
 
@@ -810,40 +800,31 @@ class TestEquilibriumRegion:
 
         d = eqReg.totalDistance()
 
-        sfunc_fixed_lower = eqReg.getSfuncFixedPerpSpacing(n, eqReg, [0., 1.], True)
-        sfunc_fixed_upper = eqReg.getSfuncFixedPerpSpacing(n, eqReg, [1., 0.], False)
-
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_lower, sfunc_fixed_upper, sfunc_orthogonal, d)
+        sfunc = eqReg.combineSfuncsPerpSpacing(eqReg, [0., 1.], [1., 0.], sfunc_orthogonal)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())
 
-    def test_combineSfuncsIntegrated2(self, eqReg):
+    def test_combineSfuncsPoloidalSpacingIntegrated(self, eqReg):
         # This test follows roughly the operations in
         # MeshRegion.distributePointsNonorthogonal, for 'poloidal_orthogonal_combined'
         # option
-        n = 10
-
-        c = PsiContour([], None, 0.)
-        for i in range(n):
-            c.append(Point2D(float(i), float(i)**2))
-        eqReg = eqReg.newRegionFromPsiContour(c)
+        n = len(eqReg)
 
         eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
         eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .2
+        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .2
+        eqReg.poloidalSpacingParameters.N_norm = 40.
 
-        print(eqReg.startInd, eqReg.endInd, eqReg.totalDistance())
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
         # as if lower_wall
         intersect_index = 2
         original_start = eqReg.startInd
 
-        eqReg.points.insert(intersect_index, eqReg.interpFunction()(2.5))
-
-        eqReg.recalculateDistance()
+        d = 1.5*3. / (n - 1.)
+        eqReg.points.insert(intersect_index, Point2D(d, d))
 
         if original_start >= intersect_index:
             original_start += 1
@@ -857,9 +838,7 @@ class TestEquilibriumRegion:
 
         d = eqReg.totalDistance()
 
-        sfunc_fixed_spacing = eqReg.getSfuncFixedSpacing(n, d)
-
-        sfunc = eqReg.combineSfuncs(sfunc_fixed_spacing, sfunc_fixed_spacing, sfunc_orthogonal, d)
+        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, d)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())

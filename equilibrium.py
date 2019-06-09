@@ -970,6 +970,10 @@ class EquilibriumRegion(PsiContour):
         else:
             range_upper = self.poloidalSpacingParameters.polynomial_d_upper
 
+        N_norm = self.poloidalSpacingParameters.N_norm
+
+        index_length = 2.*self.ny_noguards
+
         if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
                 sfixed = sfunc_fixed_spacing(i)
@@ -981,17 +985,17 @@ class EquilibriumRegion(PsiContour):
 
                 # define weight_lower so it is 1. at the lower boundary and 0. at the
                 # upper boundary and the gradient is zero at both boundaries
-                weight_lower = numpy.piecewise(sfixed,
-                        [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-(s/range_lower)**2)
-                            * (0.5 + 0.5*numpy.cos(numpy.pi*s/total_distance))])
+                weight_lower = numpy.piecewise(i,
+                        [i < 0., i > index_length],
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)
+                            * (0.5 + 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary and the gradient is zero at both boundaries
-                weight_upper = numpy.piecewise(sfixed,
-                    [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-((total_distance - s)/range_upper)**2)
-                        * (0.5 - 0.5*numpy.cos(numpy.pi*s/total_distance))])
+                weight_upper = numpy.piecewise(i,
+                    [i < 0., i > index_length],
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)
+                        * (0.5 - 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper
@@ -1018,12 +1022,11 @@ class EquilibriumRegion(PsiContour):
                 else:
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_lower so it is 1. at the lower boundary and 0. at the
-                # upper boundary
-                weight_lower = numpy.piecewise(sfixed,
-                        [sfixed < 0., sfixed > total_distance],
-                        [1., 0., lambda s: numpy.exp(-s/range_lower)
-                                           * (1. - s/total_distance)])
+                # define weight_lower so it is 1. at the lower boundary and the gradient
+                # is zero at the lower boundary.
+                weight_lower = numpy.piecewise(i,
+                        [i < 0., i > index_length],
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncsPoloidalSpacing again
@@ -1044,12 +1047,11 @@ class EquilibriumRegion(PsiContour):
                 else:
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_upper so it is 1. at the upper boundary and 0. at the
-                # lower boundary
-                weight_upper = numpy.piecewise(sfixed,
-                    [sfixed < 0., sfixed > total_distance],
-                    [0., 1., lambda s: numpy.exp(-(total_distance - s)/range_upper)
-                                       * s/total_distance])
+                # define weight_upper so it is 1. at the upper boundary and the gradient
+                # is zero at the upper boundary.
+                weight_upper = numpy.piecewise(i,
+                    [i < 0., i > index_length],
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncsPoloidalSpacing again
@@ -1086,7 +1088,8 @@ class EquilibriumRegion(PsiContour):
         return new_sfunc
 
     def combineSfuncsPerpSpacing(self, contour, vec_lower, vec_upper, sfunc_orthogonal):
-
+        # this sfunc gives a fixed spacing perpendicular to vec_lower at beginning of the
+        # contour and perpendicular to vec_upper at the end contour
         sfunc_fixed_lower, sperp_func_lower = self.getSfuncFixedPerpSpacing(
                 2*self.ny_noguards + 1, contour, vec_lower, True)
         total_perp_distance_lower = sperp_func_lower(2.*self.ny_noguards + 1.)
@@ -1105,6 +1108,10 @@ class EquilibriumRegion(PsiContour):
         else:
             range_upper = self.poloidalSpacingParameters.polynomial_d_upper
 
+        N_norm = self.poloidalSpacingParameters.N_norm
+
+        index_length = 2.*self.ny_noguards
+
         if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
@@ -1120,17 +1127,17 @@ class EquilibriumRegion(PsiContour):
 
                 # define weight_lower so it is 1. at the lower boundary and 0. at the
                 # upper boundary and the gradient is zero at both boundaries
-                weight_lower = numpy.piecewise(sperp_lower,
-                        [sperp_lower < 0., sperp_lower > total_perp_distance_lower],
-                        [1., 0., lambda s: numpy.exp(-(s/range_lower)**2)
-                            * (0.5 + 0.5*numpy.cos(numpy.pi*s/total_perp_distance_lower))])
+                weight_lower = numpy.piecewise(i,
+                        [i < 0., i > index_length],
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)
+                            * (0.5 + 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary and the gradient is zero at both boundaries
-                weight_upper = numpy.piecewise(sperp_upper,
-                    [sperp_upper < 0., sperp_upper > total_perp_distance_upper],
-                    [0., 1., lambda s: numpy.exp(-((total_perp_distance_upper - s)/range_upper)**2)
-                        * (0.5 - 0.5*numpy.cos(numpy.pi*s/total_perp_distance_upper))])
+                weight_upper = numpy.piecewise(i,
+                    [i < 0., i > index_length],
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)
+                        * (0.5 - 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper
@@ -1158,12 +1165,11 @@ class EquilibriumRegion(PsiContour):
                 else:
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_lower so it is 1. at the lower boundary and 0. at the
-                # upper boundary
-                weight_lower = numpy.piecewise(sperp_lower,
-                        [sperp_lower < 0., sperp_lower > total_perp_distance_lower],
-                        [1., 0., lambda s: numpy.exp(-s/range_lower)
-                                           * (1. - s/total_perp_distance_lower)])
+                # define weight_lower so it is 1. at the lower boundary and the gradient
+                # is zero at the lower boundary.
+                weight_lower = numpy.piecewise(i,
+                        [i < 0., i > index_length],
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1185,12 +1191,11 @@ class EquilibriumRegion(PsiContour):
                 else:
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_upper so it is 1. at the upper boundary and 0. at the
-                # lower boundary
-                weight_upper = numpy.piecewise(sperp_upper,
-                    [sperp_upper < 0., sperp_upper > total_perp_distance_upper],
-                    [0., 1., lambda s: numpy.exp(-(total_perp_distance_upper - s)/range_upper)
-                                       * s/total_perp_distance_upper])
+                # define weight_upper so it is 1. at the upper boundary and the gradient
+                # is zero at the upper boundary.
+                weight_upper = numpy.piecewise(i,
+                    [i < 0., i > index_length],
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1208,7 +1213,8 @@ class EquilibriumRegion(PsiContour):
                 return sfunc_orthogonal(i)
 
         # Check new_sfunc is monotonically increasing
-        indices = numpy.arange(-self.extend_lower, len(self)-self.extend_lower, dtype=float)
+        indices = numpy.arange(-self.extend_lower,
+                2*self.ny_noguards + 1 - self.extend_lower, dtype=float)
         scheck = new_sfunc(indices)
         if numpy.any(scheck[1:] < scheck[:-1]):
             from matplotlib import pyplot

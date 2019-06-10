@@ -859,6 +859,8 @@ class EquilibriumRegion(PsiContour):
                 contour.points, contour.psi, contour.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
+        result.surfaceAtStart = deepcopy(self.surfaceAtStart)
+        result.surfaceAtEnd = deepcopy(self.surfaceAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
         result.poloidalSpacingParameters = self.poloidalSpacingParameters

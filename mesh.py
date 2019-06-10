@@ -305,6 +305,19 @@ class MeshRegion:
         sfunc_orthogonal_list = []
 
         # find wall intersections
+        def corrected_sfunc_orthogonal(contour):
+            # this sfunc would put the points at the positions along the contour where the
+            # grid would be orthogonal
+            sfunc_orthogonal_original = contour.contourSfunc()
+
+            distance_at_original_start = contour.distance[contour.startInd]
+
+            distance_at_wall = contour.distance[lower_intersect_index]
+
+            # correct sfunc_orthogonal for the distance between the point at the lower
+            # wall and the original start-point
+            return lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
+
         for i_contour, contour in enumerate(self.contours):
             print('finding wall intersections:',
                     str(i_contour+1)+'/'+str(len(self.contours)), end = '\r')
@@ -368,15 +381,6 @@ class MeshRegion:
                     count += 1
                     assert count < max_extend, 'extended contour too far without finding wall'
 
-            # this sfunc would put the points at the positions along the contour where the
-            # grid would be orthogonal
-            sfunc_orthogonal_original = contour.contourSfunc()
-
-            # will use sfunc_orthogonal eventually, but we might redefine sfunc_orthogonal in
-            # terms of sfunc_orthogonal_original (if lower_wall==True), but need to avoid
-            # recursion
-            sfunc_orthogonal = sfunc_orthogonal_original
-
             # now add points on the wall(s) to the contour
             if lower_wall:
                 # need to construct a new sfunc which gives distance from the wall, not the
@@ -393,13 +397,12 @@ class MeshRegion:
                     lower_intersect_index += 1
                     contour.insert(lower_intersect_index, lower_intersect)
 
-                distance_at_original_start = contour.distance[contour.startInd]
+                # contour.contourSfunc() would put the points at the positions along the
+                # contour where the grid would be orthogonal
+                # need to correct sfunc_orthogonal for the distance between the point at
+                # the lower wall and the original start-point
+                sfunc_orthogonal = corrected_sfunc_orthogonal(contour)
 
-                distance_at_wall = contour.distance[lower_intersect_index]
-
-                # need to correct sfunc_orthogonal for the distance between the point at the
-                # lower wall and the original start-point
-                sfunc_orthogonal = lambda i: sfunc_orthogonal_original(i) + distance_at_original_start - distance_at_wall
                 # start contour from the wall
                 contour.startInd = lower_intersect_index
 
@@ -418,6 +421,10 @@ class MeshRegion:
                     # otherwise insert a new point
                     upper_intersect_index += 1
                     contour.insert(upper_intersect_index, upper_intersect)
+
+                # this sfunc would put the points at the positions along the contour where the
+                # grid would be orthogonal
+                sfunc_orthogonal = contour.contourSfunc()
 
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index

@@ -448,6 +448,55 @@ class TestContour:
         assert f(-1.) == tight_approx(0.)
         assert f(n + 1.) == tight_approx(c.distance[c.endInd] - c.distance[c.startInd])
 
+    def test_contourSfunc_list(self, testcontour):
+        c1 = testcontour.c
+        c1.startInd = 2
+        c1.endInd = len(c1) - 2
+        n = c1.endInd - c1.startInd
+
+        npoints = len(c1)
+        r = testcontour.r
+        R0 = testcontour.R0
+        Z0 = testcontour.Z0
+        theta = numpy.linspace(0.,1.5*numpy.pi,npoints)
+
+        R = R0 + r*numpy.cos(theta)
+        Z = Z0 + r*numpy.sin(theta)
+
+        c2 = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], c1.psi,
+                c1.psival)
+        c2.refine_width = c1.refine_width
+        c2.startInd = 2
+        c2.endInd = len(c2) - 1
+
+        c_list = [c1, c2]
+        sfunc_list = []
+
+        # This does NOT work as desired - when the function added to 'sfunc_list' is
+        # evaluated, it takes 'sfunc_orig' from the enclosing scope, which means it uses
+        # the last value from the loop instead of the value when 'sfunc' was added to
+        # 'sfunc_list'
+        for c in c_list:
+            sfunc_orig = c.contourSfunc()
+            sfunc = lambda i: sfunc_orig(i) - 3.
+            sfunc_list.append(sfunc)
+
+        # notice we check that the first test *fails*
+        assert not sfunc_list[0](float(n)) == pytest.approx(n/(npoints - 1.) * numpy.pi*r - 3., abs=1.e-6)
+        assert sfunc_list[1](float(n)) == pytest.approx(n/(npoints - 1.) * 1.5*numpy.pi*r - 3., abs=4.e-6)
+
+        sfunc_list2 = []
+        # This version does work, because when the lambda is evaluated it uses
+        # 'sfunc_orig' from the scope of 'shift_sfunc' in which it was created.
+        def shift_sfunc(c):
+            sfunc_orig = c.contourSfunc()
+            return lambda i: sfunc_orig(i) - 3.
+        for c in c_list:
+            sfunc_list2.append(shift_sfunc(c))
+
+        assert sfunc_list2[0](float(n)) == pytest.approx(n/(npoints - 1.) * numpy.pi*r - 3., abs=1.e-6)
+        assert sfunc_list2[1](float(n)) == pytest.approx(n/(npoints - 1.) * 1.5*numpy.pi*r - 3., abs=4.e-6)
+
     def test_interpSSperp(self, testcontour):
         c = testcontour.c
 

@@ -752,7 +752,7 @@ class TestEquilibriumRegion:
 
         sfunc_orthogonal = lambda i: i/(n - 1.) * L
 
-        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc((n - 1.)/3.) == tight_approx(L/3.)
@@ -768,7 +768,7 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(-1.) == tight_approx(-1./(n - 1.) * L)
         assert sfunc(0.) == tight_approx(0.)
@@ -786,7 +786,7 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n - 1.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.) == tight_approx(0.)
         itest = n - 1. - 0.0001
@@ -805,7 +805,7 @@ class TestEquilibriumRegion:
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n - 1.],
                 [-100., 100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
 
-        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, L)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(-1.) == tight_approx(-1./(n - 1.) * L)
         assert sfunc(0.) == tight_approx(0.)
@@ -849,7 +849,7 @@ class TestEquilibriumRegion:
 
         d = eqReg.totalDistance()
 
-        sfunc = eqReg.combineSfuncsPerpSpacing(eqReg, [0., 1.], [1., 0.], sfunc_orthogonal)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal, [0., 1.], [1., 0.])
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())
@@ -887,7 +887,7 @@ class TestEquilibriumRegion:
 
         d = eqReg.totalDistance()
 
-        sfunc = eqReg.combineSfuncsPoloidalSpacing(sfunc_orthogonal, d)
+        sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.) == tight_approx(0.)
         assert sfunc(n - 1.) == tight_approx(eqReg.totalDistance())

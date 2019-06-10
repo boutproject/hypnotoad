@@ -1111,19 +1111,19 @@ class EquilibriumRegion(PsiContour):
 
         # Check new_sfunc is monotonically increasing
         indices = numpy.arange(-self.extend_lower,
-                2*self.ny_noguards + 1 - self.extend_lower, dtype=float)
+                2*self.ny_noguards + 1, dtype=float)
         scheck = new_sfunc(indices)
         if numpy.any(scheck[1:] < scheck[:-1]):
             from matplotlib import pyplot
             print('check ranges',range_lower, range_upper)
             pyplot.figure()
-            pyplot.plot(scheck, label='combined')
+            pyplot.plot(indices, scheck, label='combined')
             if sfunc_orthogonal is not None:
-                pyplot.plot(sfunc_orthogonal(indices), label='orthogonal')
+                pyplot.plot(indices, sfunc_orthogonal(indices), label='orthogonal')
             if sfunc_fixed_lower is not None:
-                pyplot.plot(sperp_func_lower(indices), label='fixed perp lower')
+                pyplot.plot(indices, sfunc_fixed_lower(indices), label='fixed perp lower')
             if sfunc_fixed_upper is not None:
-                pyplot.plot(sperp_func_upper(indices), label='fixed perp upper')
+                pyplot.plot(indices, sfunc_fixed_upper(indices), label='fixed perp upper')
             pyplot.axhline(0.)
             pyplot.axhline(contour.totalDistance())
             pyplot.legend()

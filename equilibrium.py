@@ -925,7 +925,7 @@ class EquilibriumRegion(PsiContour):
         elif method == 'nonorthogonal':
             nonorth_method = self.poloidalSpacingParameters.nonorthogonal_method
             if nonorth_method == 'poloidal_orthogonal_combined':
-                raise ValueError('nonorth_method='+nonorth_method+' not implemented yet')
+                return self.combineSfuncsPoloidalSpacing(None, self.totalDistance())
             elif nonorth_method == 'combined':
                 if self.surfaceAtStart is not None:
                     # surface is a wall

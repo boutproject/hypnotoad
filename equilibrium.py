@@ -51,6 +51,12 @@ class PoloidalSpacingParameters:
         # Distance for spacing function at upper end
         self.polynomial_d_upper = None
 
+        # Distance for perpendicular spacing function at lower end
+        self._perp_d_lower = None
+
+        # Distance for perpendicular spacing function at upper end
+        self._perp_d_upper = None
+
         # Normalization factor for number of points in contours, used to scale grid
         # spacing with total number of points, to keep functions consistent when
         # resolution is changed
@@ -66,6 +72,10 @@ class PoloidalSpacingParameters:
         # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
         # at the upper end. If 'None' then the value of polynomial_d_upper will be used instead.
         self.nonorthogonal_range_upper = None
+
+        # Small psi distance used to make perpendicular contours at x-point ends of
+        # separatrix segments
+        self.delta_psi = None
 
 class Point2D:
     """
@@ -828,10 +838,10 @@ class EquilibriumRegion(PsiContour):
         self.xPointsAtEnd = []
 
         # Set if this segment starts on a wall, with value of vector along wall
-        self.surfaceAtStart = None
+        self.wallSurfaceAtStart = None
 
         # Set if this segment ends on a wall, with value of vector along wall
-        self.surfaceAtEnd = None
+        self.wallSurfaceAtEnd = None
 
         self.connections = []
         self.psi_vals = []
@@ -859,8 +869,8 @@ class EquilibriumRegion(PsiContour):
                 contour.points, contour.psi, contour.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
-        result.surfaceAtStart = deepcopy(self.surfaceAtStart)
-        result.surfaceAtEnd = deepcopy(self.surfaceAtEnd)
+        result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
+        result.wallSurfaceAtEnd = deepcopy(self.wallSurfaceAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
         result.poloidalSpacingParameters = self.poloidalSpacingParameters
@@ -929,41 +939,33 @@ class EquilibriumRegion(PsiContour):
             if nonorth_method == 'poloidal_orthogonal_combined':
                 return self.combineSfuncs(self, None)
             elif nonorth_method == 'perp_orthogonal_combined':
-                if self.surfaceAtStart is not None:
+                if self.wallSurfaceAtStart is not None:
                     # surface is a wall
-                    lower_surface = self.surfaceAtStart
+                    lower_surface = self.wallSurfaceAtStart
                 else:
-                    # No wall, surface is orthogonal to flux surfaces
-                    lower_surface = [self.equilibrium.f_R(*self[self.startInd]),
-                                     self.equilibrium.f_Z(*self[self.startInd])]
+                    # Use fixed poloidal spacing when gridding the separatrix contour so that
+                    # the grid spacing is the same in different regions which share a
+                    # separatrix segment but have different perpendicular vectors at the
+                    # X-point
+                    lower_surface = None
 
-                if self.surfaceAtEnd is not None:
+                if self.wallSurfaceAtEnd is not None:
                     # surface is a wall
-                    upper_surface = self.surfaceAtEnd
+                    upper_surface = self.wallSurfaceAtEnd
                 else:
-                    # No wall, surface is orthogonal to flux surfaces
-                    upper_surface = [self.equilibrium.f_R(*self[self.endInd]),
-                                     self.equilibrium.f_Z(*self[self.endInd])]
+                    # Use fixed poloidal spacing when gridding the separatrix contour so that
+                    # the grid spacing is the same in different regions which share a
+                    # separatrix segment but have different perpendicular vectors at the
+                    # X-point
+                    upper_surface = None
 
                 return self.combineSfuncs(self, None, lower_surface, upper_surface)
             elif nonorth_method == 'combined':
-                if self.surfaceAtStart is not None:
-                    # surface is a wall, use poloidal spacing
-                    lower_surface = None
-                else:
-                    # No wall, surface is orthogonal to flux surfaces
-                    lower_surface = [self.equilibrium.f_R(*self[self.startInd]),
-                                     self.equilibrium.f_Z(*self[self.startInd])]
-
-                if self.surfaceAtEnd is not None:
-                    # surface is a wall, use poloidal spacing
-                    upper_surface = None
-                else:
-                    # No wall, surface is orthogonal to flux surfaces
-                    upper_surface = [self.equilibrium.f_R(*self[self.endInd]),
-                                     self.equilibrium.f_Z(*self[self.endInd])]
-
-                return self.combineSfuncs(self, None, lower_surface, upper_surface)
+                # Use fixed poloidal spacing when gridding the separatrix contour so that
+                # the grid spacing is the same in different regions which share a
+                # separatrix segment but have different perpendicular vectors at the
+                # X-point
+                return self.combineSfuncs(self, None)
             elif nonorth_method == 'orthogonal':
                 orth_method = self.poloidalSpacingParameters.method
                 return self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
@@ -1145,8 +1147,16 @@ class EquilibriumRegion(PsiContour):
         'surface_direction'.
         """
         N_norm = self.poloidalSpacingParameters.N_norm
-        d_lower = self.poloidalSpacingParameters.polynomial_d_lower
-        d_upper = self.poloidalSpacingParameters.polynomial_d_upper
+
+        if self.poloidalSpacingParameters._perp_d_lower is not None:
+            d_lower = self.poloidalSpacingParameters._perp_d_lower
+        else:
+            d_lower = self.poloidalSpacingParameters.polynomial_d_lower
+
+        if self.poloidalSpacingParameters._perp_d_upper is not None:
+            d_upper = self.poloidalSpacingParameters._perp_d_upper
+        else:
+            d_upper = self.poloidalSpacingParameters.polynomial_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getPolynomialPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,

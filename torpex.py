@@ -296,6 +296,7 @@ class TORPEXMagneticField(Equilibrium):
         nonorthogonal_range_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_range', None)
         nonorthogonal_range_target = self.readOption('nonorthogonal_target_poloidal_spacing_range', None)
         nonorthogonal_spacing_method = self.readOption('nonorthogonal_spacing_method', 'combined')
+        delta_psi = numpy.abs((psi_core - psi_sol)/20.)
         ny_total = sum(r.ny_noguards for r in self.regions.values())
 
         spacing_method = 'sqrt'
@@ -307,10 +308,11 @@ class TORPEXMagneticField(Equilibrium):
             r.poloidalSpacingParameters.method = spacing_method
             r.poloidalSpacingParameters.N_norm = ny_total
             r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
+            r.poloidalSpacingParameters.delta_psi = delta_psi
             if reverse:
                 r.reverse()
                 r.xPointsAtEnd[1] = xpoint
-                r.surfaceAtStart = wall_vectors[name]
+                r.wallSurfaceAtStart = wall_vectors[name]
                 r.poloidalSpacingParameters.sqrt_b_lower = sqrt_b_target
                 r.poloidalSpacingParameters.sqrt_a_upper = sqrt_a_xpoint
                 r.poloidalSpacingParameters.sqrt_b_upper = 0.
@@ -320,7 +322,7 @@ class TORPEXMagneticField(Equilibrium):
                 r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_xpoint
             else:
                 r.xPointsAtStart[1] = xpoint
-                r.surfaceAtEnd = wall_vectors[name]
+                r.wallSurfaceAtEnd = wall_vectors[name]
                 r.poloidalSpacingParameters.sqrt_a_lower = sqrt_a_xpoint
                 r.poloidalSpacingParameters.sqrt_b_lower = 0.
                 r.poloidalSpacingParameters.sqrt_b_upper = sqrt_b_target

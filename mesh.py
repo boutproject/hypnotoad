@@ -474,10 +474,26 @@ class MeshRegion:
             elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_perp_upper':
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                         2*self.ny_noguards + 1, contour, surface_vec(False), False)
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'perp_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
                         sfunc_orthogonal_list[i_contour],
                         surface_vec(True), surface_vec(False))
+            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
+                if self.equilibriumRegion.surfaceAtStart is not None:
+                    # use poloidal spacing near a wall
+                    surface_vec_lower = None
+                else:
+                    # use perp spacing
+                    surface_vec_lower = surface_vec(True)
+                if self.equilibriumRegion.surfaceAtEnd is not None:
+                    # use poloidal spacing near a wall
+                    surface_vec_upper = None
+                else:
+                    # use perp spacing
+                    surface_vec_upper = surface_vec(False)
+                sfunc = self.equilibriumRegion.combineSfuncs(contour,
+                        sfunc_orthogonal_list[i_contour],
+                        surface_vec_lower, surface_vec_upper)
             else:
                 raise ValueError('Unrecognized option \'' +
                         str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)

@@ -928,7 +928,7 @@ class EquilibriumRegion(PsiContour):
             nonorth_method = self.poloidalSpacingParameters.nonorthogonal_method
             if nonorth_method == 'poloidal_orthogonal_combined':
                 return self.combineSfuncs(self, None)
-            elif nonorth_method == 'combined':
+            elif nonorth_method == 'perp_orthogonal_combined':
                 if self.surfaceAtStart is not None:
                     # surface is a wall
                     lower_surface = self.surfaceAtStart
@@ -940,6 +940,24 @@ class EquilibriumRegion(PsiContour):
                 if self.surfaceAtEnd is not None:
                     # surface is a wall
                     upper_surface = self.surfaceAtEnd
+                else:
+                    # No wall, surface is orthogonal to flux surfaces
+                    upper_surface = [self.equilibrium.f_R(*self[self.endInd]),
+                                     self.equilibrium.f_Z(*self[self.endInd])]
+
+                return self.combineSfuncs(self, None, lower_surface, upper_surface)
+            elif nonorth_method == 'combined':
+                if self.surfaceAtStart is not None:
+                    # surface is a wall, use poloidal spacing
+                    lower_surface = None
+                else:
+                    # No wall, surface is orthogonal to flux surfaces
+                    lower_surface = [self.equilibrium.f_R(*self[self.startInd]),
+                                     self.equilibrium.f_Z(*self[self.startInd])]
+
+                if self.surfaceAtEnd is not None:
+                    # surface is a wall, use poloidal spacing
+                    upper_surface = None
                 else:
                     # No wall, surface is orthogonal to flux surfaces
                     upper_surface = [self.equilibrium.f_R(*self[self.endInd]),

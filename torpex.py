@@ -438,7 +438,14 @@ if __name__ == '__main__':
 
     mesh = createMesh(filename)
 
-    mesh.geometry()
+    try:
+        mesh.geometry()
+    except Exception as e:
+        import traceback
+        print('There was an exception in mesh.geometry:', str(e))
+        print('****************************************')
+        traceback.print_tb(e.__traceback__)
+        print('****************************************')
 
     if plotStuff:
         pyplot.figure()

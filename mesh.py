@@ -211,8 +211,7 @@ class MeshRegion:
     Note that these regions include cell face and boundary points, so there are
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
-    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex,
-                 *, regrid_width = 1.e-5):
+    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex):
         self.name = equilibriumRegion.name+'('+str(radialIndex)+')'
         print('creating region', myID, '-', self.name)
 
@@ -243,9 +242,6 @@ class MeshRegion:
 
         # Number of this region, counting radially outward
         self.radialIndex = radialIndex
-
-        # Width to use when regridding contours in this region
-        self.regrid_width = regrid_width
 
         # Number of this region in its y-group
         self.yGroupIndex = None
@@ -350,12 +346,13 @@ class MeshRegion:
 
         # refine the contours to make sure they are at exactly the right psi-value
         for contour in self.contours:
-            contour.refine(width=self.regrid_width)
+            contour.refine(width=self.user_options.refine_width)
 
         if not self.user_options.orthogonal:
+            self.addPointAtWallToContours()
             self.distributePointsNonorthogonal()
 
-    def distributePointsNonorthogonal(self):
+    def addPointAtWallToContours(self):
         # maximum number of times to extend the contour when it has not yet hit the wall
         max_extend = 100
 
@@ -369,7 +366,7 @@ class MeshRegion:
         # necessary) but before adding the wall point to the contour (as adding this point
         # makes the spacing of points on the contour not-smooth) and adjusted for the
         # change in distance after redefining startInd to be at the wall
-        sfunc_orthogonal_list = []
+        self.sfunc_orthogonal_list = []
 
         # find wall intersections
         def correct_sfunc_orthogonal(contour, sfunc_orthogonal_original):
@@ -497,11 +494,12 @@ class MeshRegion:
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
 
-            sfunc_orthogonal_list.append(sfunc_orthogonal)
+            self.sfunc_orthogonal_list.append(sfunc_orthogonal)
 
-            contour.refine(width=self.regrid_width)
+            contour.refine(width=self.user_options.refine_width)
 
-        # regrid the contours (which all now know where the wall is)
+    def distributePointsNonorthogonal(self):
+        # regrid the contours (which all know where the wall is)
         for i_contour, contour in enumerate(self.contours):
             print('distributing points on contour:',
                     str(i_contour+1)+'/'+str(len(self.contours)), end = '\r')
@@ -546,14 +544,14 @@ class MeshRegion:
             if self.user_options.nonorthogonal_spacing_method == 'orthogonal':
                 warnings.warn('\'orthogonal\' option is not currently compatible with '
                         'extending grid past targets')
-                sfunc = sfunc_orthogonal_list[i_contour]
+                sfunc = self.sfunc_orthogonal_list[i_contour]
             elif self.user_options.nonorthogonal_spacing_method == 'fixed_poloidal':
                 # this sfunc gives a fixed poloidal spacing at beginning and end of contours
                 sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
                         2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
             elif self.user_options.nonorthogonal_spacing_method == 'poloidal_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
-                        sfunc_orthogonal_list[i_contour])
+                        self.sfunc_orthogonal_list[i_contour])
             elif self.user_options.nonorthogonal_spacing_method == 'fixed_perp_lower':
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                         2*self.ny_noguards + 1, contour, surface_vec(True), True)
@@ -562,7 +560,7 @@ class MeshRegion:
                         2*self.ny_noguards + 1, contour, surface_vec(False), False)
             elif self.user_options.nonorthogonal_spacing_method == 'perp_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
-                        sfunc_orthogonal_list[i_contour],
+                        self.sfunc_orthogonal_list[i_contour],
                         surface_vec(True), surface_vec(False))
             elif self.user_options.nonorthogonal_spacing_method == 'combined':
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
@@ -578,14 +576,15 @@ class MeshRegion:
                     # use perp spacing
                     surface_vec_upper = surface_vec(False)
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
-                        sfunc_orthogonal_list[i_contour],
+                        self.sfunc_orthogonal_list[i_contour],
                         surface_vec_lower, surface_vec_upper)
             else:
                 raise ValueError('Unrecognized option \'' +
                         str(self.user_options.nonorthogonal_spacing_method)
                         + '\' for nonorthogonal poloidal spacing function')
 
-            contour.regrid(2*self.ny_noguards + 1, sfunc=sfunc, width=self.regrid_width,
+            contour.regrid(2*self.ny_noguards + 1, sfunc=sfunc,
+                    width=self.user_options.refine_width,
                     extend_lower=self.equilibriumRegion.extend_lower,
                     extend_upper=self.equilibriumRegion.extend_upper)
 
@@ -1041,7 +1040,7 @@ class Mesh:
     """
     Mesh represented by a collection of connected MeshRegion objects
     """
-    def __init__(self, equilibrium, *, regrid_width=1.e-5):
+    def __init__(self, equilibrium):
         self.user_options = equilibrium.user_options
         self.options = equilibrium.options
 
@@ -1065,25 +1064,27 @@ class Mesh:
                 self.region_lookup[(reg_name, i)] = region_number
 
         # Get connections between regions
-        connections = {}
+        self.connections = {}
         for region_id,(eq_reg,i) in enumerate(regionlist):
-            connections[region_id] = {}
+            self.connections[region_id] = {}
             region = equilibrium.regions[eq_reg]
             c = region.connections[i]
             for key, val in c.items():
                 if val is not None:
-                    connections[region_id][key] = self.region_lookup[val]
+                    self.connections[region_id][key] = self.region_lookup[val]
                 else:
-                    connections[region_id][key] = None
+                    self.connections[region_id][key] = None
 
+        self.makeRegions()
+
+    def makeRegions(self):
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name,i)]
                 eq_region_with_boundaries = eq_region.getRegridded(radialIndex=i,
-                                                                   width=regrid_width)
+                        width=self.user_options.refine_width)
                 self.regions[region_id] = MeshRegion(self, region_id,
-                        eq_region_with_boundaries, connections[region_id], i,
-                        regrid_width=regrid_width)
+                        eq_region_with_boundaries, self.connections[region_id], i)
 
         # create groups that connect in x
         self.x_groups = []
@@ -1123,6 +1124,14 @@ class Mesh:
                     # reached boundary or have all regions in a periodic group
                     break
             self.y_groups.append(group)
+
+    def redistributePoints(self, **kwargs):
+        self.user_options.set(**kwargs)
+
+        assert not self.user_options.orthogonal, 'redistributePoints would do nothing for an orthogonal grid.'
+        for region in self.regions.values():
+            region.equilibriumRegion.setupOptions(force=True)
+            region.distributePointsNonorthogonal()
 
     def geometry(self):
         """

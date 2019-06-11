@@ -803,31 +803,7 @@ class EquilibriumRegion(PsiContour):
         # Allow options to be overridden by kwargs
         self.options = self.options.push(kwargs)
 
-        # Set default values depending on options.kind
-        if self.options.kind.split('.')[0] == 'wall':
-            setDefault(self.options, 'sqrt_b_lower', user_options.target_poloidal_spacing_length)
-            setDefault(self.options, 'polynomial_d_lower', user_options.nonorthogonal_target_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_lower', user_options.nonorthogonal_target_poloidal_spacing_range)
-        elif self.options.kind.split('.')[0] == 'X':
-            setDefault(self.options, 'sqrt_a_lower', user_options.xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'sqrt_b_lower', 0.)
-            setDefault(self.options, 'polynomial_d_lower', user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_lower', user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        else:
-            raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
-        if self.options.kind.split('.')[1] == 'wall':
-            setDefault(self.options, 'sqrt_b_upper', user_options.target_poloidal_spacing_length)
-            setDefault(self.options, 'polynomial_d_upper', user_options.nonorthogonal_target_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_upper', user_options.nonorthogonal_target_poloidal_spacing_range)
-        elif self.options.kind.split('.')[1] == 'X':
-            setDefault(self.options, 'sqrt_a_upper', user_options.xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'sqrt_b_upper', 0.)
-            setDefault(self.options, 'polynomial_d_upper', user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_upper', user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        else:
-            raise ValueError('Unrecognized value before \'.\' in self.options.kind='
-                    + str(self.options.kind))
-
+        self.setupOptions(force=False)
         self.ny_noguards = self.options.ny
 
         self.xPointsAtStart = []
@@ -857,29 +833,34 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
-    def setupOptions(self):
-        print('setupOptions', self.options)
+    def setupOptions(self, *, force):
+        def setoption(key, val):
+            if force:
+                self.options[key] = val
+            else:
+                setDefault(self.options, key, val)
+
         # Set default values depending on options.kind
         if self.options.kind.split('.')[0] == 'wall':
-            setDefault(self.options, 'sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
-            setDefault(self.options, 'polynomial_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+            setoption('sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
+            setoption('polynomial_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
         elif self.options.kind.split('.')[0] == 'X':
-            setDefault(self.options, 'sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'sqrt_b_lower', 0.)
-            setDefault(self.options, 'polynomial_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+            setoption('sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
+            setoption('sqrt_b_lower', 0.)
+            setoption('polynomial_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
         else:
             raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
         if self.options.kind.split('.')[1] == 'wall':
-            setDefault(self.options, 'sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
-            setDefault(self.options, 'polynomial_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+            setoption('sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
+            setoption('polynomial_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
         elif self.options.kind.split('.')[1] == 'X':
-            setDefault(self.options, 'sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'sqrt_b_upper', 0.)
-            setDefault(self.options, 'polynomial_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setDefault(self.options, 'nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+            setoption('sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
+            setoption('sqrt_b_upper', 0.)
+            setoption('polynomial_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
         else:
             raise ValueError('Unrecognized value before \'.\' in self.options.kind='
                     + str(self.options.kind))

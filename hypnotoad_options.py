@@ -58,6 +58,9 @@ HypnotoadOptions = Options(
         follow_perpendicular_rtol = None,
         follow_perpendicular_atol = None,
 
+    ## Options for refining grids
+        refine_width = None,
+
     ## Accuracy options for FineContour
         finecontour_Nfine = 1000,
         finecontour_atol = 1.e-8,

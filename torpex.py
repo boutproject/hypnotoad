@@ -134,6 +134,7 @@ class TORPEXMagneticField(Equilibrium):
                 nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
                 follow_perpendicular_rtol = 2.e-8,
                 follow_perpendicular_atol = 1.e-8,
+                refine_width = 1.e-2,
                 )
 
         default_options = self.user_options.copy()
@@ -392,7 +393,7 @@ def createMesh(filename):
 
     equilibrium.makeRegions()
 
-    return BoutMesh(equilibrium, regrid_width=1.e-2)
+    return BoutMesh(equilibrium)
 
 def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None,
         filename='torpex_test.g'):

@@ -1356,6 +1356,8 @@ class BoutMesh(Mesh):
             self.writeArray('g_13', self.g_13, f)
             self.writeArray('g_23', self.g_23, f)
 
+            f.write('hypnotoad_inputs', self.equilibrium._getOptionsAsString())
+
     def plot2D(self, f, title=None):
         from matplotlib import pyplot
 
@@ -1373,3 +1375,6 @@ class BoutMesh(Mesh):
             pyplot.colorbar()
         except NameError:
             raise NameError('Some variable has not been defined yet: have you called Mesh.geometry()?')
+
+    def saveOptions(self, filename='hypnotoad_options.yaml'):
+        self.equilibrium.saveOptions(filename)

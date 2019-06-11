@@ -61,37 +61,40 @@ class TORPEXMagneticField(Equilibrium):
             )
 
     def __init__(self, equilibOptions, meshOptions, **kwargs):
-        if 'Coils' in equilibOptions:
-            self.coils = [Coil(**c) for c in equilibOptions['Coils']]
+
+        self.equilibOptions = equilibOptions
+
+        if 'Coils' in self.equilibOptions:
+            self.coils = [Coil(**c) for c in self.equilibOptions['Coils']]
 
             self.magneticFunctionsFromCoils()
 
-            Bt_axis = equilibOptions['Bt_axis']
-        elif 'gfile' in equilibOptions:
+            Bt_axis = self.equilibOptions['Bt_axis']
+        elif 'gfile' in self.equilibOptions:
             from hypnotoad2.dct_interpolation import DCT_2D
 
             # load a g-file
             try:
                 from pyEquilibrium.geqdsk import Geqdsk
-                gfile = Geqdsk(equilibOptions['gfile'])
+                gfile = Geqdsk(self.equilibOptions['gfile'])
             except AttributeError:
                 from boututils.geqdsk import Geqdsk
                 gfile = Geqdsk()
-                gfile.openFile(equilibOptions['gfile'])
+                gfile.openFile(self.equilibOptions['gfile'])
 
             R = numpy.linspace(gfile['rleft'], gfile['rleft'] + gfile['rdim'], gfile['nw'])
             Z = numpy.linspace(gfile['zmid'] - 0.5*gfile['zdim'], gfile['zmid'] + 0.5*gfile['zdim'], gfile['nh'])
             self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
 
             Bt_axis = gfile['bcentr']
-        elif 'matfile' in equilibOptions:
+        elif 'matfile' in self.equilibOptions:
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
             # double-precision
             from hypnotoad2.dct_interpolation import DCT_2D
 
             from scipy.io import loadmat
-            eqfile = loadmat(equilibOptions['matfile'])['eq']
+            eqfile = loadmat(self.equilibOptions['matfile'])['eq']
 
             R = eqfile['R'][0, 0]
             Z = eqfile['Z'][0, 0]

@@ -1748,6 +1748,26 @@ class Equilibrium:
             Z = [p.Z for p in region]
             pyplot.scatter(R, Z, marker='x', label=region.name)
 
+    def _getOptionsAsString(self):
+        import yaml
+
+        result = ""
+        result += yaml.dump(self.equilibOptions)
+
+        mesh_options_dict = {'Mesh':{}}
+        m = mesh_options_dict['Mesh']
+        for key,val in self.options.items():
+            if val is not None:
+                m[key] = val
+
+        result += yaml.dump(mesh_options_dict)
+
+        return result
+
+    def saveOptions(self, filename='hypnotoad_options.yaml'):
+        with open(filename, 'x') as f:
+            f.write(self._getOptionsAsString())
+
 class DoubleNull(Equilibrium):
     """
     Analyse tokamak equilibrium - single-null, connected double-null or disconnected

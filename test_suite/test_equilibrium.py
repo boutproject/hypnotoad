@@ -4,6 +4,8 @@ from copy import deepcopy
 from ..equilibrium import *
 from .utils_for_tests import *
 
+FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.e-8)
+
 class TestPoints:
     p0 = Point2D(1., 2.)
     p1 = Point2D(3., 4.)
@@ -554,12 +556,13 @@ class TestEquilibriumRegion:
 
     @pytest.fixture
     def eqReg(self):
-        options = {'nx':1, 'ny':5, 'y_boundary_guards':1}
+        user_options = HypnotoadOptions.push({'y_boundary_guards':1})
+        options = HypnotoadInternalOptions.push({'nx':1, 'ny':5, 'kind':'wall.wall'})
         equilib = Equilibrium()
         equilib.psi = lambda R,Z: R - Z
         n = 11.
         points = [Point2D(i * 3. / (n - 1.), i * 3. / (n - 1.)) for i in numpy.arange(n)]
-        eqReg = EquilibriumRegion(equilib, '', 1, options, points, equilib.psi, 0.)
+        eqReg = EquilibriumRegion(equilib, '', 1, user_options, options, points, equilib.psi, 0.)
         return eqReg
 
     def test_getPolynomialPoloidalDistanceFuncLinear(self, eqReg):
@@ -763,8 +766,8 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
-        eqReg.poloidalSpacingParameters.N_norm = 40.
+        eqReg.options.nonorthogonal_range_lower = .1
+        eqReg.options.N_norm = 40.
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -781,8 +784,8 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
-        eqReg.poloidalSpacingParameters.N_norm = 40.
+        eqReg.options.nonorthogonal_range_upper = .1
+        eqReg.options.N_norm = 40.
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n - 1.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -799,9 +802,9 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .1
-        eqReg.poloidalSpacingParameters.N_norm = 40.
+        eqReg.options.nonorthogonal_range_lower = .1
+        eqReg.options.nonorthogonal_range_upper = .1
+        eqReg.options.N_norm = 40.
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n - 1.],
                 [-100., 100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -823,11 +826,11 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
-        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .3
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .3
-        eqReg.poloidalSpacingParameters.N_norm = 40
+        eqReg.options.polynomial_d_lower = .1
+        eqReg.options.polynomial_d_upper = .1
+        eqReg.options.nonorthogonal_range_lower = .3
+        eqReg.options.nonorthogonal_range_upper = .3
+        eqReg.options.N_norm = 40
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -861,11 +864,11 @@ class TestEquilibriumRegion:
         # option
         n = len(eqReg)
 
-        eqReg.poloidalSpacingParameters.polynomial_d_lower = .1
-        eqReg.poloidalSpacingParameters.polynomial_d_upper = .1
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_lower = .2
-        eqReg.poloidalSpacingParameters.nonorthogonal_range_upper = .2
-        eqReg.poloidalSpacingParameters.N_norm = 40.
+        eqReg.options.polynomial_d_lower = .1
+        eqReg.options.polynomial_d_upper = .1
+        eqReg.options.nonorthogonal_range_lower = .2
+        eqReg.options.nonorthogonal_range_upper = .2
+        eqReg.options.N_norm = 40.
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 

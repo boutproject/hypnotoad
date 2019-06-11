@@ -223,10 +223,13 @@ class MeshRegion:
         self.myID = myID
 
         # EquilibriumRegion representing the segment associated with this region
-        self.equilibriumRegion = deepcopy(equilibriumRegion)
+        self.equilibriumRegion = equilibriumRegion.copy()
+
+        self.user_options = self.equilibriumRegion.user_options
+        self.options = self.equilibriumRegion.options
 
         # sizes of the grid in this MeshRegion, include boundary guard cells
-        self.nx = self.equilibriumRegion.nx[radialIndex]
+        self.nx = self.options.nx[radialIndex]
         self.ny = self.equilibriumRegion.ny(radialIndex)
         self.ny_noguards = self.equilibriumRegion.ny_noguards
 
@@ -261,9 +264,9 @@ class MeshRegion:
 
         # set sign of step in psi towards this region from primary separatrix
         if temp_psi_vals[-1] - self.equilibriumRegion.psival > 0:
-            psi_sep_plus_delta = self.equilibriumRegion.psival + self.equilibriumRegion.poloidalSpacingParameters.delta_psi
+            psi_sep_plus_delta = self.equilibriumRegion.psival + self.user_options.poloidal_spacing_delta_psi
         else:
-            psi_sep_plus_delta = self.equilibriumRegion.psival - self.equilibriumRegion.poloidalSpacingParameters.delta_psi
+            psi_sep_plus_delta = self.equilibriumRegion.psival - self.user_options.poloidal_spacing_delta_psi
 
         # Make vector along grad(psi) at start of equilibriumRegion
         vec_points = followPerpendicular(
@@ -271,8 +274,8 @@ class MeshRegion:
                 self.equilibriumRegion[self.equilibriumRegion.startInd],
                 self.equilibriumRegion.psival,
                 [self.equilibriumRegion.psival, psi_sep_plus_delta],
-                rtol=self.meshParent.follow_perpendicular_rtol,
-                atol=self.meshParent.follow_perpendicular_atol)
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtStart = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
         # Make vector along grad(psi) at end of equilibriumRegion
         vec_points = followPerpendicular(
@@ -280,8 +283,8 @@ class MeshRegion:
                 self.equilibriumRegion[self.equilibriumRegion.endInd],
                 self.equilibriumRegion.psival,
                 [self.equilibriumRegion.psival, psi_sep_plus_delta],
-                rtol=self.meshParent.follow_perpendicular_rtol,
-                atol=self.meshParent.follow_perpendicular_atol)
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtEnd = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
 
         # Calculate the perp_d_lower/perp_d_upper corresponding to d_lower/d_upper on the
@@ -302,7 +305,7 @@ class MeshRegion:
             # this gives abs(sin_angle), but that's OK because we only want the magnitude to
             # calculate perp_d
             sin_angle = numpy.sqrt(1. - cos_angle**2)
-            self.equilibriumRegion.poloidalSpacingParameters._perp_d_lower = self.equilibriumRegion.poloidalSpacingParameters.polynomial_d_lower * sin_angle
+            self.options.set(perp_d_lower=self.options.polynomial_d_lower * sin_angle)
         if self.equilibriumRegion.wallSurfaceAtEnd is None:
             # upper end
             unit_vec_separatrix = (
@@ -317,15 +320,15 @@ class MeshRegion:
             # this gives abs(sin_angle), but that's OK because we only want the magnitude to
             # calculate perp_d
             sin_angle = numpy.sqrt(1. - cos_angle**2)
-            self.equilibriumRegion.poloidalSpacingParameters._perp_d_upper = self.equilibriumRegion.poloidalSpacingParameters.polynomial_d_upper * sin_angle
+            self.options.set(perp_d_upper=self.options.polynomial_d_upper * sin_angle)
 
         print('Following perpendicular: ' + str(1) + '/'
                 + str(len(self.equilibriumRegion)), end='\r')
         perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                 self.meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
                 self.equilibriumRegion.psival, temp_psi_vals,
-                rtol=self.meshParent.follow_perpendicular_rtol,
-                atol=self.meshParent.follow_perpendicular_atol)
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol)
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
@@ -338,8 +341,8 @@ class MeshRegion:
             perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                     self.meshParent.equilibrium.f_Z, p,
                     self.equilibriumRegion.psival, temp_psi_vals,
-                    rtol=self.meshParent.follow_perpendicular_rtol,
-                    atol=self.meshParent.follow_perpendicular_atol)
+                    rtol=self.user_options.follow_perpendicular_rtol,
+                    atol=self.user_options.follow_perpendicular_atol)
             if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
                 perp_points.reverse()
             for j,point in enumerate(perp_points):
@@ -349,7 +352,7 @@ class MeshRegion:
         for contour in self.contours:
             contour.refine(width=self.regrid_width)
 
-        if not self.meshParent.orthogonal:
+        if not self.user_options.orthogonal:
             self.distributePointsNonorthogonal()
 
     def distributePointsNonorthogonal(self):
@@ -540,28 +543,28 @@ class MeshRegion:
                     p_out = c_out[c_out.endInd]
                 return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-            if self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'orthogonal':
+            if self.user_options.nonorthogonal_spacing_method == 'orthogonal':
                 warnings.warn('\'orthogonal\' option is not currently compatible with '
                         'extending grid past targets')
                 sfunc = sfunc_orthogonal_list[i_contour]
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_poloidal':
+            elif self.user_options.nonorthogonal_spacing_method == 'fixed_poloidal':
                 # this sfunc gives a fixed poloidal spacing at beginning and end of contours
                 sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
                         2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'poloidal_orthogonal_combined':
+            elif self.user_options.nonorthogonal_spacing_method == 'poloidal_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
                         sfunc_orthogonal_list[i_contour])
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_perp_lower':
+            elif self.user_options.nonorthogonal_spacing_method == 'fixed_perp_lower':
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                         2*self.ny_noguards + 1, contour, surface_vec(True), True)
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'fixed_perp_upper':
+            elif self.user_options.nonorthogonal_spacing_method == 'fixed_perp_upper':
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                         2*self.ny_noguards + 1, contour, surface_vec(False), False)
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'perp_orthogonal_combined':
+            elif self.user_options.nonorthogonal_spacing_method == 'perp_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
                         sfunc_orthogonal_list[i_contour],
                         surface_vec(True), surface_vec(False))
-            elif self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method == 'combined':
+            elif self.user_options.nonorthogonal_spacing_method == 'combined':
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
@@ -579,7 +582,7 @@ class MeshRegion:
                         surface_vec_lower, surface_vec_upper)
             else:
                 raise ValueError('Unrecognized option \'' +
-                        str(self.equilibriumRegion.poloidalSpacingParameters.nonorthogonal_method)
+                        str(self.user_options.nonorthogonal_spacing_method)
                         + '\' for nonorthogonal poloidal spacing function')
 
             contour.regrid(2*self.ny_noguards + 1, sfunc=sfunc, width=self.regrid_width,
@@ -723,7 +726,7 @@ class MeshRegion:
 
         self.hy = self.calcHy()
 
-        #if not self.meshParent.orthogonal:
+        #if not self.user_options.orthogonal:
         #    # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
         #    # Also calculate radial grid spacing
         #    self.beta, self.hrad = self.calcBeta()
@@ -750,7 +753,7 @@ class MeshRegion:
         has been called on the MeshRegion at the beginning of the y-group. To ensure this,
         call geometry() on all regions first, then calcMetric on all regions.
         """
-        if not self.meshParent.shiftedmetric:
+        if not self.user_options.shiftedmetric:
             # To implement the shiftedmetric==False case, would have to define a
             # consistent zShift=0 location for all regions, for example in the style of
             # Hypnotoad1. This could be done by a particular implementation of 'Mesh'
@@ -816,7 +819,7 @@ class MeshRegion:
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
-        if self.meshParent.orthogonal:
+        if self.user_options.orthogonal:
             warnings.warn('need to check that this is correct for non-orthogonal grids')
 
         # get positions at j+/-0.5
@@ -1038,22 +1041,14 @@ class Mesh:
     """
     Mesh represented by a collection of connected MeshRegion objects
     """
-    def __init__(self, equilibrium, meshOptions, *, regrid_width=1.e-5):
-        self.meshOptions = meshOptions
-        self.orthogonal = self.readOption('orthogonal', True)
-        self.shiftedmetric = self.readOption('shiftedmetric', True)
+    def __init__(self, equilibrium, *, regrid_width=1.e-5):
+        self.user_options = equilibrium.user_options
+        self.options = equilibrium.options
 
-        # Set some global parameters for PsiContours
-        contour_nfine = self.readOption('contour_nfine', None)
-        contour_atol = self.readOption('contour_atol', None)
-        if contour_nfine is not None:
-            ContourParameters['Nfine'] = contour_nfine
-        if contour_atol is not None:
-            ContourParameters['atol'] = contour_atol
-
-        # Tolerances for following Grad(psi)
-        self.follow_perpendicular_rtol = self.readOption('gradPsiRtol', 2.e-8)
-        self.follow_perpendicular_atol = self.readOption('gradPsiAtol', 1.e-8)
+        # Set some global parameters for FineContours
+        # Convert self.user_options to a dict so we can use it to set the values in
+        # FineContour.options using 'push'
+        FineContour.options = FineContour.options.push(dict(self.user_options))
 
         self.equilibrium = equilibrium
 
@@ -1129,16 +1124,6 @@ class Mesh:
                     break
             self.y_groups.append(group)
 
-    def readOption(self, name, default=None):
-        print('reading option', name, end='')
-        try:
-            value = self.meshOptions[name]
-            print(':', value)
-            return value
-        except KeyError:
-            print(' - not set - setting default:', default)
-            return default
-
     def geometry(self):
         """
         Calculate geometrical quantities for BOUT++
@@ -1197,13 +1182,13 @@ class BoutMesh(Mesh):
     positioning in the global logically rectangular grid. Regions are allowed to not be
     present (if they would have size 0).
     """
-    def __init__(self, equilibrium, meshOptions, *args, **kwargs):
+    def __init__(self, equilibrium, *args, **kwargs):
 
-        super().__init__(equilibrium, meshOptions, *args, **kwargs)
+        super().__init__(equilibrium, *args, **kwargs)
 
         # nx, ny both include boundary guard cells
         eq_region0 = next(iter(self.equilibrium.regions.values()))
-        self.nx = sum(eq_region0.nx)
+        self.nx = sum(eq_region0.options.nx)
 
         self.ny = sum(r.ny(0) for r in self.equilibrium.regions.values())
 
@@ -1211,8 +1196,8 @@ class BoutMesh(Mesh):
 
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
-        assert all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
-        x_sizes = [0] + list(eq_region0.nx)
+        assert all([r.options.nx == eq_region0.options.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
+        x_sizes = [0] + list(eq_region0.options.nx)
         x_startinds = numpy.cumsum(x_sizes)
         x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
                      for i in range(len(x_startinds)-1))
@@ -1263,13 +1248,13 @@ class BoutMesh(Mesh):
         self.Btxy = MultiLocationArray(self.nx, self.ny)
         self.Bxy = MultiLocationArray(self.nx, self.ny)
         self.hy = MultiLocationArray(self.nx, self.ny)
-        #if not self.orthogonal:
+        #if not self.user_options.orthogonal:
         #    self.beta = MultiLocationArray(self.nx, self.ny)
         #    self.eta = MultiLocationArray(self.nx, self.ny)
         self.dphidy = MultiLocationArray(self.nx, self.ny)
         self.d2phidxdy = MultiLocationArray(self.nx, self.ny)
         self.zShift = MultiLocationArray(self.nx, self.ny)
-        if not self.shiftedmetric:
+        if not self.user_options.shiftedmetric:
             self.sinty = MultiLocationArray(self.nx, self.ny)
         self.g11 = MultiLocationArray(self.nx, self.ny)
         self.g22 = MultiLocationArray(self.nx, self.ny)
@@ -1297,13 +1282,13 @@ class BoutMesh(Mesh):
             addFromRegion(self.Btxy, region.Btxy, region.myID)
             addFromRegion(self.Bxy, region.Bxy, region.myID)
             addFromRegion(self.hy, region.hy, region.myID)
-            #if not self.orthogonal:
+            #if not self.user_options.orthogonal:
             #    addFromRegion(self.beta, region.beta, region.myID)
             #    addFromRegion(self.eta, region.eta, region.myID)
             addFromRegion(self.dphidy, region.dphidy, region.myID)
             addFromRegion(self.d2phidxdy, region.d2phidxdy, region.myID)
             addFromRegion(self.zShift, region.zShift, region.myID)
-            if not self.shiftedmetric:
+            if not self.user_options.shiftedmetric:
                 addFromRegion(self.sinty, region.sinty, region.myID)
             addFromRegion(self.g11, region.g11, region.myID)
             addFromRegion(self.g22, region.g22, region.myID)
@@ -1330,7 +1315,7 @@ class BoutMesh(Mesh):
             f.write('nx', self.nx)
             # ny for BOUT++ excludes boundary guard cells
             f.write('ny', self.ny_noguards)
-            f.write('y_boundary_guards', self.equilibrium.y_boundary_guards)
+            f.write('y_boundary_guards', self.user_options.y_boundary_guards)
             self.writeArray('Rxy', self.Rxy, f)
             self.writeArray('Zxy', self.Zxy, f)
             self.writeArray('psixy', self.psixy, f)
@@ -1340,7 +1325,7 @@ class BoutMesh(Mesh):
             self.writeArray('Btxy', self.Btxy, f)
             self.writeArray('Bxy', self.Bxy, f)
             self.writeArray('hthe', self.hy, f)
-            #if not self.orthogonal:
+            #if not self.user_options.orthogonal:
             #    self.writeArray('beta', self.beta, f)
             #    self.writeArray('eta', self.eta, f)
             self.writeArray('dphidy', self.dphidy, f)
@@ -1354,7 +1339,7 @@ class BoutMesh(Mesh):
             # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
             # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
             # here. /JTO 19/5/2019
-            if not self.shiftedmetric:
+            if not self.user_options.shiftedmetric:
                 self.writeArray('sinty', self.sinty, f)
 
             self.writeArray('g11', self.g11, f)

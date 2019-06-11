@@ -44,7 +44,23 @@ class TORPEXMagneticField(Equilibrium):
     Zmin = -.2
     Zmax = .2
 
-    def __init__(self, equilibOptions, meshOptions):
+    # Add TORPEX-specific options and default values
+    user_options = HypnotoadOptions.add(
+            nx_core = None,
+            nx_sol = None,
+            ny_inner_lower_divertor = None,
+            ny_inner_upper_divertor = None,
+            ny_outer_upper_divertor = None,
+            ny_outer_lower_divertor = None,
+            psi_core = None,
+            psi_sol = None,
+            psi_inner_sol = None,
+            psi_pf = None,
+            psi_lower_pf = None,
+            psi_upper_pf = None,
+            )
+
+    def __init__(self, equilibOptions, meshOptions, **kwargs):
         if 'Coils' in equilibOptions:
             self.coils = [Coil(**c) for c in equilibOptions['Coils']]
 
@@ -106,8 +122,36 @@ class TORPEXMagneticField(Equilibrium):
         # TORPEX plasma pressure so low fpol is constant
         self.fpol = lambda psi: Bt_axis / self.Rcentre
 
-        self.options = meshOptions
-        self.orthogonal = self.readOption('orthogonal', True)
+        # Set up options read from user input
+        self.user_options = TORPEXMagneticField.user_options
+
+        # Set sensible defaults for options
+        self.user_options.set(
+                xpoint_poloidal_spacing_length = 5.e-2,
+                nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
+                follow_perpendicular_rtol = 2.e-8,
+                follow_perpendicular_atol = 1.e-8,
+                )
+
+        default_options = self.user_options.copy()
+        self.user_options.set(**meshOptions)
+        self.user_options = self.user_options.push(kwargs)
+
+        formatstring = '{:<50}|  {:<50}'
+        print('\nOptions\n-------')
+        print(formatstring.format('Name', 'Value'))
+        for name, value in self.user_options.items():
+            valuestring = str(value)
+            if value == default_options[name]:
+                valuestring += '\t(default)'
+            print(formatstring.format(name, valuestring))
+        print('')
+
+        # Set up internal options
+        # '.push(kwargs)' here lets the kwargs override any values (including for
+        # 'internal' options that should not need to be set by the user) set as defaults
+        # from HypnotoadOptions
+        self.options = HypnotoadInternalOptions.push(kwargs)
 
         # Make a set of points representing the wall
         self.wall = [self.TORPEX_wall(theta) for theta in
@@ -213,37 +257,39 @@ class TORPEXMagneticField(Equilibrium):
 
         legnames = ['inner_lower_divertor', 'inner_upper_divertor',
                 'outer_upper_divertor', 'outer_lower_divertor']
+        kinds = ['wall.X', 'X.wall', 'wall.X', 'X.wall']
 
         # create input options for EquilibriumRegions
         legoptions = {}
-        nx_core = self.readOption('nx_core')
-        nx_sol = self.readOption('nx_sol')
-        self.y_boundary_guards = self.readOption('y_boundary_guards')
-        for name in legnames:
+        for i,name in enumerate(legnames):
             options = {}
-            options['nx'] = [nx_core, nx_sol]
-            options['ny'] = self.readOption('ny_'+name)
-            options['y_boundary_guards'] = self.y_boundary_guards
-            options['orthogonal'] = self.orthogonal
+            options['nx'] = [self.user_options.nx_core, self.user_options.nx_sol]
+            options['ny'] = self.user_options['ny_'+name]
+            options['kind'] = kinds[i]
             legoptions[name] = options
 
-        psi_core = self.readOption('psi_core')
-        psi_pf = self.readOption('psi_pf', psi_core)
-        psi_lower_pf = self.readOption('psi_lower_pf', psi_pf)
-        psi_upper_pf = self.readOption('psi_upper_pf', psi_pf)
+        setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
+        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
+        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
 
-        psi_sol = self.readOption('psi_sol')
-        psi_inner_sol = self.readOption('psi_inner_sol', psi_sol)
+        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
+
+        # set hard-wired poloidal grid spacing options
+        ny_total = sum(opt['ny'] for opt in legoptions.values())
+        setDefault(self.options, 'N_norm', ny_total)
+        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
+                numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
 
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
         s = numpy.linspace(10.*atol, 1., npoints)
         for i,boundary_position in enumerate(boundary):
-            boundaryPoint = self.wallPosition(boundary_position)
             name = legnames[i]
+            boundaryPoint = self.wallPosition(boundary_position)
             legR = xpoint.R + s*(boundaryPoint.R - xpoint.R)
             legZ = xpoint.Z + s*(boundaryPoint.Z - xpoint.Z)
-            leg = EquilibriumRegion(self, name, 2, legoptions[name],
+            leg = EquilibriumRegion(self, legnames[i], 2, self.user_options,
+                    self.options.push(legoptions[name]),
                     [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
             self.regions[name] = leg.getRefined(atol=atol, width=0.02)
             wall_vectors[name] = self.wallVector(boundary_position)
@@ -253,12 +299,11 @@ class TORPEXMagneticField(Equilibrium):
         # Record the psi-values of segment boundaries
         # Record the desired radial grid spacing dpsidi at internal boundaries
 
-        self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
-        dpsidi_sep_inner = (psi_inner_sol - self.psi_sep[0]) / nx_sol
-        dpsidi_sep_outer = (psi_sol - self.psi_sep[0]) / nx_sol
-        dpsidi_sep_lower = (self.psi_sep[0] - psi_lower_pf) / nx_core
-        dpsidi_sep_upper = (self.psi_sep[0] - psi_upper_pf) / nx_core
-        if psi_lower_pf < psi_sol:
+        dpsidi_sep_inner = (self.user_options.psi_inner_sol - self.psi_sep[0]) / self.user_options.nx_sol
+        dpsidi_sep_outer = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
+        dpsidi_sep_lower = (self.psi_sep[0] - self.user_options.psi_lower_pf) / self.user_options.nx_core
+        dpsidi_sep_upper = (self.psi_sep[0] - self.user_options.psi_upper_pf) / self.user_options.nx_core
+        if self.user_options.psi_lower_pf < self.user_options.psi_sol:
             dpsidi_sep = min(dpsidi_sep_inner, dpsidi_sep_outer, dpsidi_sep_lower,
                     dpsidi_sep_upper)
         else:
@@ -267,72 +312,40 @@ class TORPEXMagneticField(Equilibrium):
 
         # decrease (assuming the factor is <1) the spacing around the separatrix by the
         # factor psi_spacing_separatrix_multiplier
-        if self.psi_spacing_separatrix_multiplier is not None:
-            dpsidi_sep = self.psi_spacing_separatrix_multiplier * dpsidi_sep
+        if self.user_options.psi_spacing_separatrix_multiplier is not None:
+            dpsidi_sep = self.user_options.psi_spacing_separatrix_multiplier * dpsidi_sep
 
         # lower PF
-        lower_psi_func = self.getPolynomialGridFunc(nx_core, psi_lower_pf,
-                self.psi_sep[0], grad_upper=dpsidi_sep)
-        lower_psi_vals = self.make1dGrid(nx_core, lower_psi_func)
+        lower_psi_func = self.getPolynomialGridFunc(self.user_options.nx_core,
+                self.user_options.psi_lower_pf, self.psi_sep[0], grad_upper=dpsidi_sep)
+        lower_psi_vals = self.make1dGrid(self.user_options.nx_core, lower_psi_func)
 
         # upper PF
-        upper_psi_func = self.getPolynomialGridFunc(nx_core, psi_upper_pf,
-                self.psi_sep[0], grad_upper=dpsidi_sep)
-        upper_psi_vals = self.make1dGrid(nx_core, upper_psi_func)
+        upper_psi_func = self.getPolynomialGridFunc(self.user_options.nx_core,
+                self.user_options.psi_upper_pf, self.psi_sep[0], grad_upper=dpsidi_sep)
+        upper_psi_vals = self.make1dGrid(self.user_options.nx_core, upper_psi_func)
 
         # inner SOL
-        inner_psi_func = self.getPolynomialGridFunc(nx_sol, self.psi_sep[0],
-                psi_inner_sol, grad_lower=dpsidi_sep)
-        inner_psi_vals = self.make1dGrid(nx_sol, inner_psi_func)
+        inner_psi_func = self.getPolynomialGridFunc(self.user_options.nx_sol,
+                self.psi_sep[0], self.user_options.psi_inner_sol, grad_lower=dpsidi_sep)
+        inner_psi_vals = self.make1dGrid(self.user_options.nx_sol, inner_psi_func)
 
         # outer SOL
-        outer_psi_func = self.getPolynomialGridFunc(nx_sol, self.psi_sep[0],
-                psi_sol, grad_lower=dpsidi_sep)
-        outer_psi_vals = self.make1dGrid(nx_sol, outer_psi_func)
-
-
-        # set poloidal grid spacing
-        sqrt_a_xpoint = self.readOption('xpoint_poloidal_spacing_length', 5.e-2)
-        sqrt_b_target = self.readOption('target_poloidal_spacing_length', None)
-        polynomial_d_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_length', 5.e-2)
-        polynomial_d_target = self.readOption('nonorthogonal_target_poloidal_spacing_length', None)
-        nonorthogonal_range_xpoint = self.readOption('nonorthogonal_xpoint_poloidal_spacing_range', None)
-        nonorthogonal_range_target = self.readOption('nonorthogonal_target_poloidal_spacing_range', None)
-        nonorthogonal_spacing_method = self.readOption('nonorthogonal_spacing_method', 'combined')
-        delta_psi = numpy.abs((psi_core - psi_sol)/20.)
-        ny_total = sum(r.ny_noguards for r in self.regions.values())
-
-        spacing_method = 'sqrt'
+        outer_psi_func = self.getPolynomialGridFunc(self.user_options.nx_sol,
+                self.psi_sep[0], self.user_options.psi_sol, grad_lower=dpsidi_sep)
+        outer_psi_vals = self.make1dGrid(self.user_options.nx_sol, outer_psi_func)
 
         def setupRegion(name, psi_vals1, psi_vals2, reverse):
             r = self.regions[name]
             r.psi_vals = [psi_vals1, psi_vals2]
             r.separatrix_radial_index = 1
-            r.poloidalSpacingParameters.method = spacing_method
-            r.poloidalSpacingParameters.N_norm = ny_total
-            r.poloidalSpacingParameters.nonorthogonal_method = nonorthogonal_spacing_method
-            r.poloidalSpacingParameters.delta_psi = delta_psi
             if reverse:
                 r.reverse()
                 r.xPointsAtEnd[1] = xpoint
                 r.wallSurfaceAtStart = wall_vectors[name]
-                r.poloidalSpacingParameters.sqrt_b_lower = sqrt_b_target
-                r.poloidalSpacingParameters.sqrt_a_upper = sqrt_a_xpoint
-                r.poloidalSpacingParameters.sqrt_b_upper = 0.
-                r.poloidalSpacingParameters.polynomial_d_lower = polynomial_d_target
-                r.poloidalSpacingParameters.polynomial_d_upper = polynomial_d_xpoint
-                r.poloidalSpacingParameters.nonorthogonal_range_lower = nonorthogonal_range_target
-                r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_xpoint
             else:
                 r.xPointsAtStart[1] = xpoint
                 r.wallSurfaceAtEnd = wall_vectors[name]
-                r.poloidalSpacingParameters.sqrt_a_lower = sqrt_a_xpoint
-                r.poloidalSpacingParameters.sqrt_b_lower = 0.
-                r.poloidalSpacingParameters.sqrt_b_upper = sqrt_b_target
-                r.poloidalSpacingParameters.polynomial_d_lower = polynomial_d_xpoint
-                r.poloidalSpacingParameters.polynomial_d_upper = polynomial_d_target
-                r.poloidalSpacingParameters.nonorthogonal_range_lower = nonorthogonal_range_xpoint
-                r.poloidalSpacingParameters.nonorthogonal_range_upper = nonorthogonal_range_target
 
         setupRegion('inner_lower_divertor', lower_psi_vals, inner_psi_vals, True)
         setupRegion('inner_upper_divertor', upper_psi_vals, inner_psi_vals, False)
@@ -376,7 +389,7 @@ def createMesh(filename):
 
     equilibrium.makeRegions()
 
-    return BoutMesh(equilibrium, meshOptions, regrid_width=1.e-2)
+    return BoutMesh(equilibrium, regrid_width=1.e-2)
 
 def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Zmax=None,
         filename='torpex_test.g'):

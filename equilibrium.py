@@ -20,66 +20,15 @@ class SolutionError(Exception):
     """
     pass
 
-# Dictionary of global parameters for contours
-ContourParameters = {'Nfine':1000, 'atol':1.e-8}
-
 # tolerance used to try and avoid missed intersections between lines
 # also if two sets of lines appear to intersect twice, only count it once if the
 # distance between the intersections is less than this
 intersect_tolerance = 1.e-14
 
-class PoloidalSpacingParameters:
-    def __init__(self):
-        # Method to use for poloidal spacing function:
-        #  - 'sqrt' for getSqrtPoloidalSpacingFunction
-        #  - 'polynomial' for getPolynomialPoloidalSpacingFunction
-        self.method = 'sqrt'
-
-        ## Parameters for sqrt spacing function
-        # Distance for polynomial part of spacing function at lower end
-        self.sqrt_b_lower = None
-
-        # Distance for polynomial part of spacing function at upper end
-        self.sqrt_b_upper = None
-
-        # Distance for sqrt part of spacing function (if used) at lower end
-        self.sqrt_a_lower = None
-
-        # Distance for sqrt part of spacing function (if used) at upper end
-        self.sqrt_a_upper = None
-
-        ## Parameters for polynomial spacing function
-        # Distance for spacing function at lower end
-        self.polynomial_d_lower = None
-
-        # Distance for spacing function at upper end
-        self.polynomial_d_upper = None
-
-        # Distance for perpendicular spacing function at lower end
-        self._perp_d_lower = None
-
-        # Distance for perpendicular spacing function at upper end
-        self._perp_d_upper = None
-
-        # Normalization factor for number of points in contours, used to scale grid
-        # spacing with total number of points, to keep functions consistent when
-        # resolution is changed
-        self.N_norm = None
-
-        # Method to use for spacing of points in non-orthogonal grid
-        self.nonorthogonal_method = 'combined'
-
-        # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-        # at the lower end. If 'None' then the value of polynomial_d_lower will be used instead.
-        self.nonorthogonal_range_lower = None
-
-        # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-        # at the upper end. If 'None' then the value of polynomial_d_upper will be used instead.
-        self.nonorthogonal_range_upper = None
-
-        # Small psi distance used to make perpendicular contours at x-point ends of
-        # separatrix segments
-        self.delta_psi = None
+def setDefault(options, name, default):
+    if options[name] is None:
+        options[name] = default
+    return options[name]
 
 class Point2D:
     """
@@ -287,11 +236,17 @@ class FineContour:
     Used to give a high-resolution representation of a contour.
     Points in FineContour are uniformly spaced in poloidal distance along the contour.
     """
+
+    options = Options(
+            finecontour_Nfine = None,
+            finecontour_atol = None
+            )
+
     def __init__(self, parentContour):
         self.parentContour = parentContour
         self.distance = None
-        Nfine = ContourParameters['Nfine']
-        atol = ContourParameters['atol']
+        Nfine = self.options.finecontour_Nfine
+        atol = self.options.finecontour_atol
 
         endInd = self.parentContour.endInd
         if endInd < 0:
@@ -828,15 +783,52 @@ class EquilibriumRegion(PsiContour):
     members giving the connections to other regions and to list the X-points at the
     boundaries where the contour starts or ends.
     """
-    def __init__(self, equilibrium, name, nSegments, options, *args, **kwargs):
+
+    def __init__(self, equilibrium, name, nSegments, user_options, options, *args,
+            **kwargs):
         super().__init__(*args, **kwargs)
         self.equilibrium = equilibrium
         self.name = name
         self.nSegments = nSegments
-        self.options = options
-        self.nx = self.options['nx']
-        self.ny_noguards = self.options['ny']
-        self.y_boundary_guards = self.options['y_boundary_guards']
+
+        self.user_options  = user_options
+
+        # Set up options for this object: poloidal spacing options need setting
+        self.options = options.copy()
+
+        # Set object-specific options
+        assert self.options.nx is not None, 'nx must be set'
+        assert self.options.ny is not None, 'ny must be set'
+
+        # Allow options to be overridden by kwargs
+        self.options = self.options.push(kwargs)
+
+        # Set default values depending on options.kind
+        if self.options.kind.split('.')[0] == 'wall':
+            setDefault(self.options, 'sqrt_b_lower', user_options.target_poloidal_spacing_length)
+            setDefault(self.options, 'polynomial_d_lower', user_options.nonorthogonal_target_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_lower', user_options.nonorthogonal_target_poloidal_spacing_range)
+        elif self.options.kind.split('.')[0] == 'X':
+            setDefault(self.options, 'sqrt_a_lower', user_options.xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'sqrt_b_lower', 0.)
+            setDefault(self.options, 'polynomial_d_lower', user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_lower', user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        else:
+            raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
+        if self.options.kind.split('.')[1] == 'wall':
+            setDefault(self.options, 'sqrt_b_upper', user_options.target_poloidal_spacing_length)
+            setDefault(self.options, 'polynomial_d_upper', user_options.nonorthogonal_target_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_upper', user_options.nonorthogonal_target_poloidal_spacing_range)
+        elif self.options.kind.split('.')[1] == 'X':
+            setDefault(self.options, 'sqrt_a_upper', user_options.xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'sqrt_b_upper', 0.)
+            setDefault(self.options, 'polynomial_d_upper', user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_upper', user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        else:
+            raise ValueError('Unrecognized value before \'.\' in self.options.kind='
+                    + str(self.options.kind))
+
+        self.ny_noguards = self.options.ny
 
         self.xPointsAtStart = []
         self.xPointsAtEnd = []
@@ -850,9 +842,6 @@ class EquilibriumRegion(PsiContour):
         self.connections = []
         self.psi_vals = []
         self.separatrix_radial_index = 0
-
-        # parameters for poloidal distance functions
-        self.poloidalSpacingParameters = PoloidalSpacingParameters()
 
         # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
         # of each segment, so they both have length=nSegments+1
@@ -868,16 +857,58 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
-    def newRegionFromPsiContour(self, contour):
-        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments, self.options,
-                contour.points, contour.psi, contour.psival)
+    def setupOptions(self):
+        print('setupOptions', self.options)
+        # Set default values depending on options.kind
+        if self.options.kind.split('.')[0] == 'wall':
+            setDefault(self.options, 'sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
+            setDefault(self.options, 'polynomial_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        elif self.options.kind.split('.')[0] == 'X':
+            setDefault(self.options, 'sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'sqrt_b_lower', 0.)
+            setDefault(self.options, 'polynomial_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        else:
+            raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
+        if self.options.kind.split('.')[1] == 'wall':
+            setDefault(self.options, 'sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
+            setDefault(self.options, 'polynomial_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        elif self.options.kind.split('.')[1] == 'X':
+            setDefault(self.options, 'sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'sqrt_b_upper', 0.)
+            setDefault(self.options, 'polynomial_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setDefault(self.options, 'nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        else:
+            raise ValueError('Unrecognized value before \'.\' in self.options.kind='
+                    + str(self.options.kind))
+
+    def copy(self):
+        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
+                self.user_options, self.options, deepcopy(self.points), self.psi, self.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
         result.wallSurfaceAtEnd = deepcopy(self.wallSurfaceAtEnd)
         result.connections = deepcopy(self.connections)
         result.psi_vals = deepcopy(self.psi_vals)
-        result.poloidalSpacingParameters = self.poloidalSpacingParameters
+        result.separatrix_radial_index = self.separatrix_radial_index
+        result.startInd = self.startInd
+        result.endInd = self.endInd
+        result.extend_lower = self.extend_lower
+        result.extend_upper = self.extend_upper
+        return result
+
+    def newRegionFromPsiContour(self, contour):
+        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
+                self.user_options, self.options, contour.points, contour.psi, contour.psival)
+        result.xPointsAtStart = deepcopy(self.xPointsAtStart)
+        result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
+        result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
+        result.wallSurfaceAtEnd = deepcopy(self.wallSurfaceAtEnd)
+        result.connections = deepcopy(self.connections)
+        result.psi_vals = deepcopy(self.psi_vals)
         result.separatrix_radial_index = self.separatrix_radial_index
         result.startInd = contour.startInd
         result.endInd = contour.endInd
@@ -890,9 +921,9 @@ class EquilibriumRegion(PsiContour):
         # cells
         result = self.ny_noguards
         if self.connections[radialIndex]['lower'] is None:
-            result += self.y_boundary_guards
+            result += self.user_options.y_boundary_guards
         if self.connections[radialIndex]['upper'] is None:
-            result += self.y_boundary_guards
+            result += self.user_options.y_boundary_guards
         return result
 
     def getRefined(self, *args, **kwargs):
@@ -907,11 +938,11 @@ class EquilibriumRegion(PsiContour):
                 raise ValueError("'"+wrong_argument+"' should not be given as an "
                         "argument to EquilibriumRegion.getRegridded")
         if self.connections[radialIndex]['lower'] is None:
-            extend_lower = 2*self.y_boundary_guards
+            extend_lower = 2*self.user_options.y_boundary_guards
         else:
             extend_lower = 0
         if self.connections[radialIndex]['upper'] is None:
-            extend_upper = 2*self.y_boundary_guards
+            extend_upper = 2*self.user_options.y_boundary_guards
         else:
             extend_upper = 0
         sfunc = self.getSfuncFixedSpacing(2*self.ny_noguards+1,
@@ -921,25 +952,22 @@ class EquilibriumRegion(PsiContour):
 
     def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
         if method is None:
-            if self.equilibrium.orthogonal:
-                method = self.poloidalSpacingParameters.method
+            if self.user_options.orthogonal:
+                method = self.user_options.poloidal_spacing_method
             else:
                 method = 'nonorthogonal'
 
         if method == 'sqrt':
             return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
-                    self.poloidalSpacingParameters.N_norm,
-                    b_lower=self.poloidalSpacingParameters.sqrt_b_lower,
-                    a_lower=self.poloidalSpacingParameters.sqrt_a_lower,
-                    b_upper=self.poloidalSpacingParameters.sqrt_b_upper,
-                    a_upper=self.poloidalSpacingParameters.sqrt_a_upper)
+                    self.options.N_norm, b_lower=self.options.sqrt_b_lower,
+                    a_lower=self.options.sqrt_a_lower, b_upper=self.options.sqrt_b_upper,
+                    a_upper=self.options.sqrt_a_upper)
         elif method == 'polynomial':
             return self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
-                    self.poloidalSpacingParameters.N_norm,
-                    d_lower=self.poloidalSpacingParameters.polynomial_d_lower,
-                    d_upper=self.poloidalSpacingParameters.polynomial_d_upper)
+                    self.options.N_norm, d_lower=self.options.polynomial_d_lower,
+                    d_upper=self.options.polynomial_d_upper)
         elif method == 'nonorthogonal':
-            nonorth_method = self.poloidalSpacingParameters.nonorthogonal_method
+            nonorth_method = self.user_options.nonorthogonal_spacing_method
             if nonorth_method == 'poloidal_orthogonal_combined':
                 return self.combineSfuncs(self, None)
             elif nonorth_method == 'perp_orthogonal_combined':
@@ -971,14 +999,14 @@ class EquilibriumRegion(PsiContour):
                 # X-point
                 return self.combineSfuncs(self, None)
             elif nonorth_method == 'orthogonal':
-                orth_method = self.poloidalSpacingParameters.method
+                orth_method = self.user_options.poloidal_spacing_method
                 return self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
             else:
                 return self.getSfuncFixedSpacing(npoints, distance, method=nonorth_method)
         else:
             raise ValueError('Unrecognized option '
-                             +str(self.poloidalSpacingParameters.method)
-                             +' for poloidal spacing method')
+                             + str(self.user_options.poloidal_spacing_method)
+                             + ' for poloidal spacing method')
 
     def combineSfuncs(self, contour, sfunc_orthogonal, vec_lower=None, vec_upper=None):
         # this sfunc gives:
@@ -1005,17 +1033,17 @@ class EquilibriumRegion(PsiContour):
             sfunc_fixed_upper, sperp_func_upper = self.getSfuncFixedPerpSpacing(
                     2*self.ny_noguards + 1, contour, vec_upper, False)
 
-        if self.poloidalSpacingParameters.nonorthogonal_range_lower is not None:
-            range_lower = self.poloidalSpacingParameters.nonorthogonal_range_lower
+        if self.options.nonorthogonal_range_lower is not None:
+            range_lower = self.options.nonorthogonal_range_lower
         else:
-            range_lower = self.poloidalSpacingParameters.polynomial_d_lower
+            range_lower = self.options.polynomial_d_lower
 
-        if self.poloidalSpacingParameters.nonorthogonal_range_upper is not None:
-            range_upper = self.poloidalSpacingParameters.nonorthogonal_range_upper
+        if self.options.nonorthogonal_range_upper is not None:
+            range_upper = self.options.nonorthogonal_range_upper
         else:
-            range_upper = self.poloidalSpacingParameters.polynomial_d_upper
+            range_upper = self.options.polynomial_d_upper
 
-        N_norm = self.poloidalSpacingParameters.N_norm
+        N_norm = self.options.N_norm
 
         index_length = 2.*self.ny_noguards
 
@@ -1138,7 +1166,8 @@ class EquilibriumRegion(PsiContour):
             raise ValueError('In region ' + self.name + 'combined spacing function is '
                     + 'decreasing at indices ' + str(decreasing) + ' on contour of '
                     + 'length ' + str(len(self)) + '. It may help to increase '
-                    + 'nonorthogonal_range_target or nonorthogonal_range_xpoint.')
+                    + 'nonorthogonal_target_poloidal_spacing_length or '
+                    + 'nonorthogonal_xpoint_poloidal_spacing_length.')
 
         return new_sfunc
 
@@ -1150,17 +1179,17 @@ class EquilibriumRegion(PsiContour):
         at the upper end, where s_perp is the distance normal to the vector
         'surface_direction'.
         """
-        N_norm = self.poloidalSpacingParameters.N_norm
+        N_norm = self.options.N_norm
 
-        if self.poloidalSpacingParameters._perp_d_lower is not None:
-            d_lower = self.poloidalSpacingParameters._perp_d_lower
+        if self.options.perp_d_lower is not None:
+            d_lower = self.options.perp_d_lower
         else:
-            d_lower = self.poloidalSpacingParameters.polynomial_d_lower
+            d_lower = self.options.polynomial_d_lower
 
-        if self.poloidalSpacingParameters._perp_d_upper is not None:
-            d_upper = self.poloidalSpacingParameters._perp_d_upper
+        if self.options.perp_d_upper is not None:
+            d_upper = self.options.perp_d_upper
         else:
-            d_upper = self.poloidalSpacingParameters.polynomial_d_upper
+            d_upper = self.options.polynomial_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getPolynomialPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
@@ -1428,7 +1457,7 @@ class Equilibrium:
 
         # Check nx of both segments is the same - otherwise the connection must be between
         # some wrong regions
-        assert lRegion.nx[lowerSegment] == uRegion.nx[upperSegment], 'nx should match across connection'
+        assert lRegion.options.nx[lowerSegment] == uRegion.options.nx[upperSegment], 'nx should match across connection'
 
         lRegion.connections[lowerSegment]['upper'] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
@@ -1696,16 +1725,6 @@ class Equilibrium:
             b = (grad_upper - 3*a*n**2 - c) / (2*n)
             return lambda i: a*i**3 + b*i**2 + c*i + d
 
-    def readOption(self, name, default=None):
-        print('reading option', name, end='')
-        try:
-            value = self.options[name]
-            print(':', value)
-            return value
-        except KeyError:
-            print(' - not set - setting default:', default)
-            return default
-
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
             ncontours=40):
         from matplotlib import pyplot
@@ -1735,44 +1754,53 @@ class DoubleNull(Equilibrium):
     double-null - with regions lined up according to BOUT++ requirements.
     """
 
-    def __init__(self, options):
-        self.options = options
+    # Add DoubleNull-specific options and default values
+    user_options = HypnotoadOptions.add(
+            nx_core = None,
+            nx_between = None,
+            nx_sol = None,
+            ny_inner_lower_divertor = None,
+            ny_inner_core = None,
+            ny_inner_upper_divertor = None,
+            ny_outer_upper_divertor = None,
+            ny_outer_core = None,
+            ny_outer_lower_divertor = None,
+            upper_target_y_boundary_guards = None,
+            psi_core = None,
+            psi_sol = None,
+            psi_inner_sol = None,
+            )
 
-        self.nx_core = self.readOption('nx_core')
-        self.nx_between = self.readOption('nx_between')
-        self.nx_sol = self.readOption('nx_sol')
-        self.ny_inner_lower_divertor = self.readOption('ny_inner_lower_divertor')
-        self.ny_inner_core = self.readOption('ny_inner_core')
-        self.ny_inner_upper_divertor = self.readOption('ny_inner_upper_divertor')
-        self.ny_outer_upper_divertor = self.readOption('ny_outer_upper_divertor')
-        self.ny_outer_core = self.readOption('ny_outer_core')
-        self.ny_outer_lower_divertor = self.readOption('ny_outer_lower_divertor')
+    def __init__(self, **kwargs):
+        self.user_options = DoubleNull.user_options.push(kwargs)
+        self.options = HypnotoadInternalOptions.push(kwargs)
 
-        self.psi_core = self.readOption('psi_core')
-        self.psi_lower_pf = self.readOption('psi_lower_pf', self.psi_core)
-        self.psi_upper_pf = self.readOption('psi_upper_pf', self.psi_core)
+        raise ValueError('need to set up options here')
 
-        self.psi_sol = self.readOption('psi_sol')
-        self.psi_inner_sol = self.readOption('psi_inner_sol', self.psi_sol)
+        setDefault(self.options, 'psi_lower_pf', self.user_options.psi_core)
+        setDefault(self.options, 'psi_upper_pf', self.user_options.psi_core)
+
+        setDefault(self.options, 'psi_inner_sol', self.options.psi_sol)
         # this option can only be set different from psi_sol in a double-null
         # configuration (i.e. if there are upper divertor legs)
-        if self.psi_sol != self.psi_inner_sol:
-            assert self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0, 'inner and outer SOL should be separated by an upper divertor, i.e. topology should be double-null'
+        if self.options.psi_sol != self.options.psi_inner_sol:
+            assert self.options.ny_inner_upper_divertor > 0 or self.options.ny_outer_upper_divertor > 0, 'inner and outer SOL should be separated by an upper divertor, i.e. topology should be double-null'
 
         self.psi_spacing_separatrix_multiplier = self.readOption('psi_spacing_separatrix_multiplier', None)
         if self.psi_spacing_separatrix_multiplier is not None:
-            if self.nx_between > 0:
+            if self.options.nx_between > 0:
                 raise ValueError("Cannot use psi_spacing_separatrix_multiplier when "
                                  "there are points between two separatrices - to get "
                                  "the same effect, increase the number of points in the "
                                  "between-separatrix region.")
 
-        self.y_boundary_guards = self.readOption('y_boundary_guards')
-
-        if ( (self.ny_inner_upper_divertor > 0 or self.ny_outer_upper_divertor > 0)
-                and (self.ny_inner_lower_divertor > 0 or self.ny_inner_core > 0
-                     or self.ny_outer_core > 0 or self.ny_outer_lower_divertor > 0) ):
+        if ( (self.options.ny_inner_upper_divertor > 0 or self.options.ny_outer_upper_divertor > 0)
+                and (self.options.ny_inner_lower_divertor > 0 or self.options.ny_inner_core > 0
+                     or self.options.ny_outer_core > 0 or self.options.ny_outer_lower_divertor > 0) ):
             # there are two distinct divertor/limiter targets
             #  - the upper divertor legs are not empty, and also the other regions are not
             #    all empty
-            self.upper_target_y_boundary_guards = self.y_boundary_guards
+            setDefault(self.options, 'upper_target_y_boundary_guards',
+                    self.options.y_boundary_guards)
+        else:
+            assert self.options.upper_target_y_boundary_guards is None, 'Does not make sense for upper target to have guard cells, because it does not exist'

@@ -1771,9 +1771,10 @@ class DoubleNull(Equilibrium):
             psi_inner_sol = None,
             )
 
-    def __init__(self, **kwargs):
-        self.user_options = DoubleNull.user_options.push(kwargs)
+    def __init__(self, equilibOptions, meshOptions, **kwargs):
+        self.user_options = DoubleNull.user_options.push(meshOptions).push(kwargs)
         self.options = HypnotoadInternalOptions.push(kwargs)
+        self.equilibOptions = equilibOptions
 
         raise ValueError('need to set up options here')
 

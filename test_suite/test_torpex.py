@@ -1,7 +1,7 @@
 import pytest
-from equilibrium import Equilibrium
-from torpex import *
-from test_utils import *
+from ..equilibrium import Equilibrium
+from ..torpex import *
+from .utils_for_tests import *
 
 class TestTORPEX:
 

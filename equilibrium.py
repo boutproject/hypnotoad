@@ -3,12 +3,16 @@ Functions for analysing an equilibrium for which an interpolating function is gi
 the potential.
 """
 
-import numpy
-from scipy.optimize import minimize_scalar, brentq, root
-from scipy.interpolate import interp1d
 from collections import OrderedDict
 from copy import deepcopy
 import warnings
+
+import numpy
+from options import Options
+from scipy.optimize import minimize_scalar, brentq, root
+from scipy.interpolate import interp1d
+
+from .hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
 
 class SolutionError(Exception):
     """
@@ -1430,7 +1434,7 @@ class Equilibrium:
         uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
 
     def magneticFunctionsFromGrid(self, R, Z, psiRZ):
-        from dct_interpolation import DCT_2D
+        from .dct_interpolation import DCT_2D
 
         self._dct = DCT_2D(R, Z, psiRZ)
 

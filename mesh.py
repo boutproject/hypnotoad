@@ -3,11 +3,13 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
 from copy import deepcopy
-import numpy
 import numbers
-from scipy.integrate import solve_ivp
 import warnings
-from equilibrium import calc_distance, Point2D, ContourParameters, PsiContour, EquilibriumRegion
+
+import numpy
+from scipy.integrate import solve_ivp
+
+from .equilibrium import calc_distance, Point2D, FineContour
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     """

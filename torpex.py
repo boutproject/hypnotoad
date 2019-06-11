@@ -13,13 +13,16 @@ centre of the cell.
 
 plotStuff = True
 
-import numpy
 from collections import OrderedDict
 import warnings
-from mesh import BoutMesh
-from equilibrium import Equilibrium, Point2D, EquilibriumRegion, SolutionError
+
 if plotStuff:
     from matplotlib import pyplot
+import numpy
+
+from hypnotoad2.mesh import BoutMesh
+from hypnotoad2.equilibrium import setDefault, Equilibrium, Point2D, EquilibriumRegion, SolutionError
+from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 
 # type for manipulating inforation about magnetic field coils
 from collections import namedtuple
@@ -49,7 +52,7 @@ class TORPEXMagneticField(Equilibrium):
 
             Bt_axis = equilibOptions['Bt_axis']
         elif 'gfile' in equilibOptions:
-            from dct_interpolation import DCT_2D
+            from hypnotoad2.dct_interpolation import DCT_2D
 
             # load a g-file
             try:
@@ -69,7 +72,7 @@ class TORPEXMagneticField(Equilibrium):
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
             # double-precision
-            from dct_interpolation import DCT_2D
+            from hypnotoad2.dct_interpolation import DCT_2D
 
             from scipy.io import loadmat
             eqfile = loadmat(equilibOptions['matfile'])['eq']

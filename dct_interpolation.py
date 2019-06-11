@@ -1,7 +1,7 @@
 from scipy.fftpack import dct
 import numpy
 
-from mesh import MultiLocationArray
+from .mesh import MultiLocationArray
 
 class DCT_2D:
     """

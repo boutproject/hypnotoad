@@ -1,8 +1,8 @@
 import numpy
 import pytest
 from copy import deepcopy
-from equilibrium import *
-from test_utils import *
+from ..equilibrium import *
+from .utils_for_tests import *
 
 class TestPoints:
     p0 = Point2D(1., 2.)
@@ -320,6 +320,7 @@ def test_find_intersectionZZNone4():
     assert intersect == None
 
 class TestContour:
+
     @pytest.fixture
     def testcontour(self):
         # make a circle, not centred on origin

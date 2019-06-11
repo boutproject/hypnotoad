@@ -1,8 +1,8 @@
 import numpy
 import pytest
 from copy import deepcopy
-from mesh import *
-from test_utils import *
+from ..mesh import *
+from .utils_for_tests import *
 
 class TestMultiLocationArray:
     nx = 4

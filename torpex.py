@@ -168,7 +168,7 @@ class TORPEXMagneticField(Equilibrium):
         print('\nOptions\n=======')
         print(formatstring.format('Name', 'Value'))
         print('----------------------------------------------------------------------------------------------------')
-        for name, value in self.user_options.items():
+        for name, value in sorted(self.user_options.items()):
             valuestring = str(value)
             if value == default_options[name]:
                 valuestring += '\t(default)'

@@ -141,9 +141,28 @@ class TORPEXMagneticField(Equilibrium):
         self.user_options.set(**meshOptions)
         self.user_options = self.user_options.push(kwargs)
 
+        setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
+        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
+        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
+
+        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
+
+        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
+                numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
+
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+
         formatstring = '{:<50}|  {:<50}'
-        print('\nOptions\n-------')
+        print('\nOptions\n=======')
         print(formatstring.format('Name', 'Value'))
+        print('----------------------------------------------------------------------------------------------------')
         for name, value in self.user_options.items():
             valuestring = str(value)
             if value == default_options[name]:
@@ -272,18 +291,10 @@ class TORPEXMagneticField(Equilibrium):
             options['kind'] = kinds[i]
             legoptions[name] = options
 
-        setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
-        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
-        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
-
-        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
-
         # set hard-wired poloidal grid spacing options
         ny_total = sum(opt['ny'] for opt in legoptions.values())
-        setDefault(self.options, 'N_norm', ny_total)
-        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
-                numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
 
+        setDefault(self.options, 'N_norm', ny_total)
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
         s = numpy.linspace(10.*atol, 1., npoints)

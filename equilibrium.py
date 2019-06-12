@@ -438,14 +438,14 @@ class PsiContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    def __init__(self, points, psi, psival):
+    def __init__(self, points, psi, psival, *, initial_refine_width=1.e-5, initial_refine_atol=2.e-8):
         self.points = points
 
         self._startInd = 0
         self._endInd = len(points) - 1
 
-        self.refine_width = 1.e-5
-        self.refine_atol = 2.e-8
+        self.refine_width = initial_refine_width
+        self.refine_atol = initial_refine_atol
 
         self._fine_contour = None
 
@@ -529,7 +529,9 @@ class PsiContour:
             points = deepcopy(self.points)
         if psival is None:
             psival = self.psival
-        new_contour = PsiContour(points, self.psi, psival)
+        new_contour = PsiContour(points, self.psi, psival,
+                initial_refine_width=self.refine_width,
+                initial_refine_atol=self.refine_atol)
 
         new_contour.startInd = self.startInd
         new_contour.endInd = self.endInd
@@ -746,8 +748,8 @@ class PsiContour:
         new_contour.startInd = self.extend_lower
         new_contour.endInd = len(new_contour) - 1 - self.extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
-        # a large width for refinement - use 1.e-5 instead of 'width'
-        return new_contour.getRefined(1.e-5, atol)
+        # a large width for refinement - use width/100. instead of 'width'
+        return new_contour.getRefined(width/100., atol)
 
     def temporaryExtend(self, *, extend_lower=0, extend_upper=0):
         """
@@ -884,7 +886,9 @@ class EquilibriumRegion(PsiContour):
 
     def copy(self):
         result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
-                self.user_options, self.options, deepcopy(self.points), self.psi, self.psival)
+                self.user_options, self.options, deepcopy(self.points), self.psi,
+                self.psival, initial_refine_width=self.refine_width,
+                initial_refine_atol=self.refine_atol)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
@@ -900,7 +904,9 @@ class EquilibriumRegion(PsiContour):
 
     def newRegionFromPsiContour(self, contour):
         result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
-                self.user_options, self.options, contour.points, contour.psi, contour.psival)
+                self.user_options, self.options, contour.points, contour.psi,
+                contour.psival, initial_refine_width=contour.refine_width,
+                initial_refine_atol=contour.refine_atol)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)

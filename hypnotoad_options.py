@@ -66,6 +66,7 @@ HypnotoadOptions = Options(
 
     ## Options for refining grids
         refine_width = None,
+        refine_atol = None,
 
     ## Accuracy options for FineContour
         finecontour_Nfine = 1000,

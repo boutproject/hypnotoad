@@ -134,7 +134,8 @@ class TORPEXMagneticField(Equilibrium):
                 nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
                 follow_perpendicular_rtol = 2.e-8,
                 follow_perpendicular_atol = 1.e-8,
-                refine_width = 1.e-2,
+                refine_width = 1.e-5,
+                refine_atol = 2.e-8,
                 )
 
         default_options = self.user_options.copy()
@@ -305,7 +306,9 @@ class TORPEXMagneticField(Equilibrium):
             legZ = xpoint.Z + s*(boundaryPoint.Z - xpoint.Z)
             leg = EquilibriumRegion(self, legnames[i], 2, self.user_options,
                     self.options.push(legoptions[name]),
-                    [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
+                    [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0],
+                    initial_refine_width=self.user_options.refine_width,
+                    initial_refine_atol=self.user_options.refine_atol)
             self.regions[name] = leg.getRefined(atol=atol, width=0.02)
             wall_vectors[name] = self.wallVector(boundary_position)
 

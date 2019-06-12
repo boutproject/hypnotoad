@@ -812,21 +812,66 @@ class MeshRegion:
         self.g_23 = self.dphidy*self.Rxy**2
 
         # check Jacobian is OK
-        check = numpy.abs(self.J - self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
-            + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2 - self.g22*self.g13**2
-            - self.g33*self.g12**2)) / numpy.abs(self.J) < 1.e-10
+        one_over_sqrt_g = self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
+                + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2
+                - self.g22*self.g13**2 - self.g33*self.g12**2)
+        # ignore grid points at X-points as J should diverge there (as Bp->0)
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
+            one_over_sqrt_g.corners[0, 0] = self.J.corners[0,0]
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
+            one_over_sqrt_g.corners[-1, 0] = self.J.corners[-1,0]
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
+            one_over_sqrt_g.corners[0, -1] = self.J.corners[0, -1]
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
+            one_over_sqrt_g.corners[-1, -1] = self.J.corners[-1, -1]
+
+        check = numpy.abs(self.J - one_over_sqrt_g) / numpy.abs(self.J) < self.user_options.geometry_rtol
+        def ploterror(location):
+            if location == 'centre':
+                thisJ = self.J.centre
+                this_one_over_sqrt_g = one_over_sqrt_g.centre
+            elif location == 'ylow':
+                thisJ = self.J.ylow
+                this_one_over_sqrt_g = one_over_sqrt_g.ylow
+            elif location == 'xlow':
+                thisJ = self.J.xlow
+                this_one_over_sqrt_g = one_over_sqrt_g.xlow
+            elif location == 'corners':
+                thisJ = self.J.corners
+                this_one_over_sqrt_g = one_over_sqrt_g.corners
+            else:
+                raise ValueError('wrong location argument: '+str(location))
+            print('rtol = ' + str(self.user_options.geometry_rtol))
+            from matplotlib import pyplot
+            pyplot.figure(location)
+            pyplot.subplot(221)
+            pyplot.pcolor(thisJ)
+            pyplot.title('J')
+            pyplot.colorbar()
+            pyplot.subplot(222)
+            pyplot.pcolor(this_one_over_sqrt_g)
+            pyplot.title('1/sqrt(g)')
+            pyplot.colorbar()
+            pyplot.subplot(223)
+            pyplot.pcolor(thisJ - this_one_over_sqrt_g)
+            pyplot.title('abs difference')
+            pyplot.colorbar()
+            pyplot.subplot(224)
+            pyplot.pcolor((thisJ - this_one_over_sqrt_g)/thisJ)
+            pyplot.title('rel difference')
+            pyplot.colorbar()
+            pyplot.show()
+        if not numpy.all(check.centre):
+            ploterror('centre')
+        if not numpy.all(check.ylow):
+            ploterror('ylow')
+        if not numpy.all(check.xlow):
+            ploterror('xlow')
+        if not numpy.all(check.corners):
+            ploterror('corners')
         assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-        # ignore grid points at X-points as J should diverge there (as Bp->0)
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
-            check.corners[0, 0] = True
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
-            check.corners[-1, 0] = True
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
-            check.corners[0, -1] = True
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
-            check.corners[-1, -1] = True
         assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
     def calcHy(self, ylow=False):

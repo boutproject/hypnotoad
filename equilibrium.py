@@ -1803,9 +1803,9 @@ class Equilibrium:
 
         mesh_options_dict = {'Mesh':{}}
         m = mesh_options_dict['Mesh']
-        for key,val in self.options.items():
+        for key,val in self.user_options.items():
             if val is not None:
-                m[key] = val
+                m[key] = str(val)
 
         result += yaml.dump(mesh_options_dict)
 

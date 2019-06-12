@@ -1231,6 +1231,12 @@ class Mesh:
                 pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker='+', c=c)
         pyplot.legend()
 
+    def plotPotential(self, *args, **kwargs):
+        """
+        Plot the flux function psi. Passes through to self.equilibrium.plotPotential.
+        """
+        return self.equilibrium.plotPotential(*args, **kwargs)
+
 def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     """
     Follow a line perpendicular to Bp from point p0 until magnetic potential A_target is

@@ -1100,15 +1100,13 @@ class EquilibriumRegion(PsiContour):
                 # upper boundary and the gradient is zero at both boundaries
                 weight_lower = numpy.piecewise(i,
                         [i < 0., i > index_length],
-                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)
-                            * (0.5 + 0.5*numpy.cos(numpy.pi*i/index_length))])
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)])
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary and the gradient is zero at both boundaries
                 weight_upper = numpy.piecewise(i,
                     [i < 0., i > index_length],
-                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)
-                        * (0.5 - 0.5*numpy.cos(numpy.pi*i/index_length))])
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)])
 
                 # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper

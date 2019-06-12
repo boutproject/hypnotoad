@@ -1341,7 +1341,7 @@ class BoutMesh(Mesh):
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
 
-        with DataFile(filename, create=True) as f:
+        with DataFile(filename, create=True, format='NETCDF4') as f:
             f.write('nx', self.nx)
             # ny for BOUT++ excludes boundary guard cells
             f.write('ny', self.ny_noguards)

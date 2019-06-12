@@ -394,11 +394,11 @@ def parseInput(filename):
     
     return equilib_inputs, mesh_inputs
 
-def createMesh(filename):
+def createMesh(filename, **kwargs):
     # parse input file
     equilibOptions, meshOptions = parseInput(filename)
 
-    equilibrium = TORPEXMagneticField(equilibOptions, meshOptions)
+    equilibrium = TORPEXMagneticField(equilibOptions, meshOptions, **kwargs)
 
     print('X-point',equilibrium.x_points[0],'with psi='+str(equilibrium.psi_sep[0]))
 

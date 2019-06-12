@@ -312,7 +312,8 @@ class TORPEXMagneticField(Equilibrium):
                     [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0],
                     initial_refine_width=self.user_options.refine_width,
                     initial_refine_atol=self.user_options.refine_atol)
-            self.regions[name] = leg.getRefined(atol=atol, width=0.02)
+            self.regions[name] = leg.getRefined(atol=atol,
+                    width=self.user_options.refine_width)
             wall_vectors[name] = self.wallVector(boundary_position)
 
         # Make the SeparatrixContours go around clockwise

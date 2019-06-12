@@ -628,6 +628,7 @@ class PsiContour:
                 Zbox = numpy.linspace(p.Z-.05,p.Z+.05,100)[:,numpy.newaxis]
                 svals = numpy.linspace(0., 1., 40)
                 pyplot.figure()
+                self.plot('+')
                 pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox))
                 pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
                 pyplot.figure()

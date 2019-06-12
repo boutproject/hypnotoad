@@ -624,8 +624,8 @@ class PsiContour:
                 print('width =',self.refine_width)
                 from matplotlib import pyplot
                 pline0 = perpLine(self.refine_width)
-                Rbox = numpy.linspace(p.R-.05,p.R+.05,100)[numpy.newaxis,:]
-                Zbox = numpy.linspace(p.Z-.05,p.Z+.05,100)[:,numpy.newaxis]
+                Rbox = numpy.linspace(p.R-.1,p.R+.1,100)[numpy.newaxis,:]
+                Zbox = numpy.linspace(p.Z-.1,p.Z+.1,100)[:,numpy.newaxis]
                 svals = numpy.linspace(0., 1., 40)
                 pyplot.figure()
                 self.plot('+')

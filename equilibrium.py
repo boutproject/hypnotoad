@@ -1552,17 +1552,37 @@ class Equilibrium:
 
         raise SolutionError("Neither minimum nor maximum found in interval")
 
-    def findSaddlePoint(self, Rmin, Rmax, Zmin, Zmax, atol=2.e-8):
+    def findSaddlePoint(self, p1, p2, atol=2.e-8):
         """
         Find a saddle point in the function self.psi atol is the tolerance on the position
-        of the saddle point {Rmin,Rmax}, {Zmin,Zmax} are the bounding values of the box to
-        search for a saddle point in.
+        of the saddle point. p1, p2 are the positions of two adjacent corners of the
+        square box to search for a saddle point in (the other corners p3 and p4 are taken
+        to be to the right of the line p1->p2).
         """
 
-        posTop, minTop = self.findExtremum_1d(Point2D(Rmin, Zmax), Point2D(Rmax, Zmax))
-        posBottom, minBottom = self.findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmax, Zmin))
-        posLeft, minLeft = self.findExtremum_1d(Point2D(Rmin, Zmin), Point2D(Rmin, Zmax))
-        posRight, minRight = self.findExtremum_1d(Point2D(Rmax, Zmin), Point2D(Rmax, Zmax))
+        # Note: in this method, Point2D objects are used as displacement vectors as well
+        # as as points.
+        def dot(v1, v2):
+            return v1.R*v2.R + v1.Z*v2.Z
+
+        # length of sides of the square
+        a = calc_distance(p1, p2)
+
+        # unit vector along p1->p2 or p4->p3
+        e1 = (p2 - p1) / a
+
+        # unit vector along p2->p3 or p1->p4
+        e2 = Point2D(e1.Z, -e1.R)
+
+        p3 = p2 + a*e2
+        p4 = p1 + a*e2
+
+        # For the purposes of naming variables here, take p1 to be 'bottom left', p2 to
+        # be 'top left', p3 to be 'top right' and p4 to be 'bottom right'
+        posLeft, minLeft = self.findExtremum_1d(p1, p2)
+        posTop, minTop = self.findExtremum_1d(p2, p3)
+        posRight, minRight = self.findExtremum_1d(p3, p4)
+        posBottom, minBottom = self.findExtremum_1d(p4, p1)
 
         assert minTop == minBottom, 'if minumum is found at top, should also be found at bottom'
         assert minLeft == minRight, 'if minumum is found at left, should also be found at right'
@@ -1578,20 +1598,26 @@ class Equilibrium:
         else:
             horizSearch = self.findMinimum_1d
 
-        extremumVert = Point2D(Rmin, Zmin)
-        extremumHoriz = Point2D(Rmax, Zmax)
+        extremumVert = p3
+        extremumHoriz = p1
 
         count = 0
         while calc_distance(extremumVert, extremumHoriz) > atol:
             count = count+1
 
             extremumVert = vertSearch(posBottom, posTop, 0.5*atol)
-            posLeft.Z = extremumVert.Z
-            posRight.Z = extremumVert.Z
+            # set position along e2 direction, keep position along e1 fixed (i.e. stay on
+            # left or right edge)
+            deltaz = dot(extremumVert - p1, e1)
+            posLeft = p1 + deltaz*e1
+            posRight = p4 + deltaz*e1
 
             extremumHoriz = horizSearch(posLeft, posRight, 0.5*atol)
-            posBottom.R = extremumHoriz.R
-            posTop.R = extremumHoriz.R
+            # set position along e1 direction, keep position along e2 fixed (i.e. stay on
+            # top or bottom edge)
+            deltar = dot(extremumHoriz - p1, e2)
+            posBottom = p1 + deltar*e2
+            posTop = p2 + deltar*e2
 
         print('findSaddlePoint took',count,'iterations to converge')
 
@@ -1773,7 +1799,7 @@ class Equilibrium:
             return lambda i: a*i**3 + b*i**2 + c*i + d
 
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
-            ncontours=40):
+            ncontours=40, **kwargs):
         from matplotlib import pyplot
 
         if Rmin is None: Rmin = self.Rmin
@@ -1784,8 +1810,8 @@ class Equilibrium:
         R = numpy.linspace(Rmin, Rmax, npoints)
         Z = numpy.linspace(Zmin, Zmax, npoints)
         ax = pyplot.axes(aspect='equal')
-        contours = ax.contour(
-                R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T, ncontours)
+        contours = ax.contour(R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T,
+                ncontours, **kwargs)
         pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
     def plotSeparatrix(self):

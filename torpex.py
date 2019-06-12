@@ -58,10 +58,8 @@ class TORPEXMagneticField(Equilibrium):
             psi_pf = None,
             psi_lower_pf = None,
             psi_upper_pf = None,
-            Roffset_inner = 0.05,
-            Roffset_outer = 0.05,
-            Zoffset_lower = 0.04,
-            Zoffset_upper = 0.04,
+            saddle_point_p1 = [0.85, -0.15],
+            saddle_point_p2 = [0.85, 0.15],
             )
 
     def __init__(self, equilibOptions, meshOptions, **kwargs):
@@ -187,10 +185,8 @@ class TORPEXMagneticField(Equilibrium):
 
         try:
             self.x_points = [self.findSaddlePoint(
-                self.Rmin + self.user_options.Roffset_inner,
-                self.Rmax - self.user_options.Roffset_outer,
-                self.Zmin + self.user_options.Zoffset_lower,
-                self.Zmax - self.user_options.Zoffset_upper)]
+                Point2D(*(self.user_options.saddle_point_p1)),
+                Point2D(*(self.user_options.saddle_point_p2)))]
             self.psi_sep = [self.psi(*self.x_points[0])]
         except SolutionError:
             warnings.warn('Warning: failed to find X-point. Equilibrium generation will '

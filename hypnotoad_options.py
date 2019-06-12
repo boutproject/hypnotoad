@@ -42,10 +42,16 @@ HypnotoadOptions = Options(
         # range near the X-point over which fixed poloidal position changes to
         # orthogonal position
         nonorthogonal_xpoint_poloidal_spacing_range = None,
+        nonorthogonal_xpoint_poloidal_spacing_range_inner = None,
+        nonorthogonal_xpoint_poloidal_spacing_range_outer = None,
 
         # range near the wall over which fixed poloidal position changes to
         # orthogonal position
         nonorthogonal_target_poloidal_spacing_range = None,
+        nonorthogonal_target_poloidal_spacing_range_inner = None,
+        nonorthogonal_target_poloidal_spacing_range_outer = None,
+
+        nonorthogonal_radial_range_power = 1.,
 
         # method used to determine poloidal spacing of non-orthogonal grid
         nonorthogonal_spacing_method = 'combined',
@@ -118,9 +124,13 @@ HypnotoadInternalOptions = Options(
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
     # at the lower end. If 'None' then the value of polynomial_d_lower will be used instead.
     nonorthogonal_range_lower = None,
+    nonorthogonal_range_lower_inner = None,
+    nonorthogonal_range_lower_outer = None,
 
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
     # at the upper end. If 'None' then the value of polynomial_d_upper will be used instead.
     nonorthogonal_range_upper = None,
+    nonorthogonal_range_upper_inner = None,
+    nonorthogonal_range_upper_outer = None,
 
     )

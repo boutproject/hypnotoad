@@ -331,6 +331,7 @@ class MeshRegion:
         for i,point in enumerate(perp_points):
             self.contours.append(self.equilibriumRegion.newContourFromSelf(points=[point],
                 psival=self.psi_vals[i]))
+            self.contours[i].global_xind = self.globalXInd(i)
         for i,p in enumerate(self.equilibriumRegion[1:]):
             print('Following perpendicular: ' + str(i+2) + '/'
                     + str(len(self.equilibriumRegion)), end='\r')
@@ -587,6 +588,20 @@ class MeshRegion:
                     width=self.user_options.refine_width,
                     extend_lower=self.equilibriumRegion.extend_lower,
                     extend_upper=self.equilibriumRegion.extend_upper)
+
+    def globalXInd(self, i):
+        """
+        Get the global x-index in the set of MeshRegions connected radially to this one of
+        the point with local x-index i. Define so globalXInd=0 is at the primary separatrix
+        """
+        if self.radialIndex >= self.equilibriumRegion.separatrix_radial_index:
+            # outside separatrix
+            return i + sum(2*n for n in
+                    self.equilibriumRegion.options.nx[self.equilibriumRegion.separatrix_radial_index:self.radialIndex])
+        else:
+            # inside separatrix
+            return i - sum(2*n for n in
+                    self.equilibriumRegion.options.nx[self.equilibriumRegion.separatrix_radial_index:self.radialIndex:-1])
 
     def fillRZ(self):
         """
@@ -1126,10 +1141,16 @@ class Mesh:
             self.y_groups.append(group)
 
     def redistributePoints(self, **kwargs):
+        warnings.warn('It is not recommended to use Mesh.redistributePoints() for '
+                '\'production\' output. Suggest saving the final settings to a .yaml '
+                'file and creating the \'production\' grid non-interactively to ensure '
+                'reproducibility.')
+
         self.user_options.set(**kwargs)
 
         assert not self.user_options.orthogonal, 'redistributePoints would do nothing for an orthogonal grid.'
         for region in self.regions.values():
+            print('redistributing', region.name)
             region.equilibriumRegion.setupOptions(force=True)
             region.distributePointsNonorthogonal()
 

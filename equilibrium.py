@@ -805,6 +805,7 @@ class EquilibriumRegion(PsiContour):
 
         self.setupOptions(force=False)
         self.ny_noguards = self.options.ny
+        self.global_xind = 0 # 0 since EquilibriumRegion represents the contour at the separatrix
 
         self.xPointsAtStart = []
         self.xPointsAtEnd = []
@@ -845,22 +846,38 @@ class EquilibriumRegion(PsiContour):
             setoption('sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
             setoption('polynomial_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
             setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+            setoption('nonorthogonal_range_lower_inner',
+                    self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
+            setoption('nonorthogonal_range_lower_outer',
+                    self.user_options.nonorthogonal_target_poloidal_spacing_range_outer)
         elif self.options.kind.split('.')[0] == 'X':
             setoption('sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
             setoption('sqrt_b_lower', 0.)
             setoption('polynomial_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
             setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+            setoption('nonorthogonal_range_lower_inner',
+                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
+            setoption('nonorthogonal_range_lower_outer',
+                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer)
         else:
             raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
         if self.options.kind.split('.')[1] == 'wall':
             setoption('sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
             setoption('polynomial_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
             setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
+            setoption('nonorthogonal_range_upper_inner',
+                    self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
+            setoption('nonorthogonal_range_upper_outer',
+                    self.user_options.nonorthogonal_target_poloidal_spacing_range_outer)
         elif self.options.kind.split('.')[1] == 'X':
             setoption('sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
             setoption('sqrt_b_upper', 0.)
             setoption('polynomial_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
             setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+            setoption('nonorthogonal_range_upper_inner',
+                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
+            setoption('nonorthogonal_range_upper_outer',
+                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer)
         else:
             raise ValueError('Unrecognized value before \'.\' in self.options.kind='
                     + str(self.options.kind))
@@ -906,6 +923,14 @@ class EquilibriumRegion(PsiContour):
         if self.connections[radialIndex]['upper'] is None:
             result += self.user_options.y_boundary_guards
         return result
+
+    def nxOutsideSeparatrix(self):
+        # Note: includes point at separatrix
+        return 1 + sum(2*n for n in self.options.nx[self.separatrix_radial_index:])
+
+    def nxInsideSeparatrix(self):
+        # Note: also includes point at separatrix
+        return 1 + sum(2*n for n in self.options.nx[:self.separatrix_radial_index])
 
     def getRefined(self, *args, **kwargs):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
@@ -1016,17 +1041,49 @@ class EquilibriumRegion(PsiContour):
 
         if self.options.nonorthogonal_range_lower is not None:
             range_lower = self.options.nonorthogonal_range_lower
+            range_lower_inner = self.options.nonorthogonal_range_lower_inner
+            range_lower_outer = self.options.nonorthogonal_range_lower_outer
         else:
             range_lower = self.options.polynomial_d_lower
+            range_lower_inner = self.options.polynomial_d_lower
+            range_lower_outer = self.options.polynomial_d_lower
 
         if self.options.nonorthogonal_range_upper is not None:
             range_upper = self.options.nonorthogonal_range_upper
+            range_upper_inner = self.options.nonorthogonal_range_upper_inner
+            range_upper_outer = self.options.nonorthogonal_range_upper_outer
         else:
             range_upper = self.options.polynomial_d_upper
+            range_upper_inner = self.options.polynomial_d_upper
+            range_upper_outer = self.options.polynomial_d_upper
 
         N_norm = self.options.N_norm
 
         index_length = 2.*self.ny_noguards
+
+        # Set up radial variation of weights
+        if range_lower is not None:
+            # this_range_lower is range_lower at separatrix, range_lower_outer at outer
+            # radial boundary, range_lower_inner at inner radial boundary and has zero
+            # radial derivative at the separatrix
+            ix = float(contour.global_xind)
+            if ix >= 0:
+                xweight = (ix / (self.nxOutsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
+                this_range_lower = (1. - xweight)*range_lower + xweight*range_lower_outer
+            else:
+                xweight = (-ix / (self.nxInsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
+                this_range_lower = (1. - xweight)*range_lower + xweight*range_lower_inner
+        if range_upper is not None:
+            # this_range_upper is range_upper at separatrix, range_upper_outer at outer
+            # radial boundary, range_upper_inner at inner radial boundary and has zero
+            # radial derivative at the separatrix
+            ix = float(contour.global_xind)
+            if ix >= 0:
+                xweight = (ix / (self.nxOutsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
+                this_range_upper = (1. - xweight)*range_upper + xweight*range_upper_outer
+            else:
+                xweight = (-ix / (self.nxInsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
+                this_range_upper = (1. - xweight)*range_upper + xweight*range_upper_inner
 
         if range_lower is not None and range_upper is not None:
             def new_sfunc(i):
@@ -1043,14 +1100,14 @@ class EquilibriumRegion(PsiContour):
                 # upper boundary and the gradient is zero at both boundaries
                 weight_lower = numpy.piecewise(i,
                         [i < 0., i > index_length],
-                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)
                             * (0.5 + 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary and the gradient is zero at both boundaries
                 weight_upper = numpy.piecewise(i,
                     [i < 0., i > index_length],
-                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)
                         * (0.5 - 0.5*numpy.cos(numpy.pi*i/index_length))])
 
                 # make sure weight_lower + weight_upper <= 1
@@ -1082,7 +1139,7 @@ class EquilibriumRegion(PsiContour):
                 # is zero at the lower boundary.
                 weight_lower = numpy.piecewise(i,
                         [i < 0., i > index_length],
-                        [1., 0., lambda i: numpy.exp(-(i/N_norm/range_lower)**2)])
+                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1107,7 +1164,7 @@ class EquilibriumRegion(PsiContour):
                 # is zero at the upper boundary.
                 weight_upper = numpy.piecewise(i,
                     [i < 0., i > index_length],
-                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/range_upper)**2)])
+                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)])
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1130,7 +1187,11 @@ class EquilibriumRegion(PsiContour):
         scheck = new_sfunc(indices)
         if numpy.any(scheck[1:] < scheck[:-1]):
             from matplotlib import pyplot
-            print('check ranges',range_lower, range_upper)
+            print('at global xind', contour.global_xind)
+            print('check lower ranges', range_lower_inner, range_lower, range_lower_outer,
+                    this_range_lower)
+            print('check upper ranges', range_upper_inner, range_upper, range_upper_outer,
+                    this_range_upper)
             pyplot.figure()
             pyplot.plot(indices, scheck, label='combined')
             if sfunc_orthogonal is not None:

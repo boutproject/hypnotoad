@@ -964,6 +964,29 @@ class EquilibriumRegion(PsiContour):
         return self.newRegionFromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
             extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
 
+    def _checkMonotonic(self, sfunc_list, *, xind=None, total_distance=0., prefix=''):
+        # Check new_sfunc is monotonically increasing
+        indices = numpy.arange(-self.extend_lower,
+                2*self.ny_noguards + self.extend_upper + 1, dtype=float)
+        scheck = sfunc_list[0][0](indices)
+        if numpy.any(scheck[1:] < scheck[:-1]):
+            from matplotlib import pyplot
+            print('at global xind', xind)
+            pyplot.figure()
+            for sfunc, label in sfunc_list:
+                if sfunc is not None:
+                    pyplot.plot(indices, sfunc(indices), label=label)
+            pyplot.axhline(0.)
+            pyplot.axhline(total_distance)
+            pyplot.legend()
+            pyplot.show()
+            decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
+            raise ValueError('In region ' + self.name + 'combined spacing function is '
+                    + 'decreasing at indices ' + str(decreasing) + ' on contour of '
+                    + 'length ' + str(len(self)) + '. It may help to increase/decrease '
+                    + prefix + 'target_poloidal_spacing_length or '
+                    + prefix + 'xpoint_poloidal_spacing_length.')
+
     def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
         if method is None:
             if self.user_options.orthogonal:
@@ -972,14 +995,18 @@ class EquilibriumRegion(PsiContour):
                 method = 'nonorthogonal'
 
         if method == 'sqrt':
-            return self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
+            sfunc = self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
                     self.options.N_norm, b_lower=self.options.sqrt_b_lower,
                     a_lower=self.options.sqrt_a_lower, b_upper=self.options.sqrt_b_upper,
                     a_upper=self.options.sqrt_a_upper)
+            self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
+            return sfunc
         elif method == 'polynomial':
-            return self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
+            sfunc = self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
                     self.options.N_norm, d_lower=self.options.polynomial_d_lower,
                     d_upper=self.options.polynomial_d_upper)
+            self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
+            return sfunc
         elif method == 'nonorthogonal':
             nonorth_method = self.user_options.nonorthogonal_spacing_method
             if nonorth_method == 'poloidal_orthogonal_combined':
@@ -1187,35 +1214,17 @@ class EquilibriumRegion(PsiContour):
             def new_sfunc(i):
                 return sfunc_orthogonal(i)
 
-        # Check new_sfunc is monotonically increasing
-        indices = numpy.arange(-self.extend_lower,
-                2*self.ny_noguards + 1, dtype=float)
-        scheck = new_sfunc(indices)
-        if numpy.any(scheck[1:] < scheck[:-1]):
-            from matplotlib import pyplot
-            print('at global xind', contour.global_xind)
+        try:
+            self._checkMonotonic([(new_sfunc, 'combined'), (sfunc_orthogonal, 'orthogonal'),
+                (sfunc_fixed_lower, 'fixed perp lower'), (sfunc_fixed_upper, 'fixed perp upper')],
+                xind=contour.global_xind, total_distance=contour.totalDistance(),
+                prefix='nonorthogonal_')
+        except ValueError:
             print('check lower ranges', range_lower_inner, range_lower, range_lower_outer,
                     this_range_lower)
             print('check upper ranges', range_upper_inner, range_upper, range_upper_outer,
                     this_range_upper)
-            pyplot.figure()
-            pyplot.plot(indices, scheck, label='combined')
-            if sfunc_orthogonal is not None:
-                pyplot.plot(indices, sfunc_orthogonal(indices), label='orthogonal')
-            if sfunc_fixed_lower is not None:
-                pyplot.plot(indices, sfunc_fixed_lower(indices), label='fixed perp lower')
-            if sfunc_fixed_upper is not None:
-                pyplot.plot(indices, sfunc_fixed_upper(indices), label='fixed perp upper')
-            pyplot.axhline(0.)
-            pyplot.axhline(contour.totalDistance())
-            pyplot.legend()
-            pyplot.show()
-            decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
-            raise ValueError('In region ' + self.name + 'combined spacing function is '
-                    + 'decreasing at indices ' + str(decreasing) + ' on contour of '
-                    + 'length ' + str(len(self)) + '. It may help to increase '
-                    + 'nonorthogonal_target_poloidal_spacing_length or '
-                    + 'nonorthogonal_xpoint_poloidal_spacing_length.')
+            raise
 
         return new_sfunc
 

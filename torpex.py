@@ -54,10 +54,10 @@ class TORPEXMagneticField(Equilibrium):
             ny_outer_lower_divertor = None,
             psi_core = None,
             psi_sol = None,
-            psi_inner_sol = None,
+            psi_sol_inner = None,
             psi_pf = None,
-            psi_lower_pf = None,
-            psi_upper_pf = None,
+            psi_pf_lower = None,
+            psi_pf_upper = None,
             saddle_point_p1 = [0.85, -0.15],
             saddle_point_p2 = [0.85, 0.15],
             )
@@ -84,10 +84,10 @@ class TORPEXMagneticField(Equilibrium):
         self.user_options = self.user_options.push(kwargs)
 
         setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
-        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
-        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
+        setDefault(self.user_options, 'psi_pf_lower', self.user_options.psi_pf)
+        setDefault(self.user_options, 'psi_pf_upper', self.user_options.psi_pf)
 
-        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
+        setDefault(self.user_options, 'psi_sol_inner', self.user_options.psi_sol)
 
         setDefault(self.user_options, 'poloidal_spacing_delta_psi',
                 numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
@@ -315,11 +315,11 @@ class TORPEXMagneticField(Equilibrium):
         # Record the psi-values of segment boundaries
         # Record the desired radial grid spacing dpsidi at internal boundaries
 
-        dpsidi_sep_inner = (self.user_options.psi_inner_sol - self.psi_sep[0]) / self.user_options.nx_sol
+        dpsidi_sep_inner = (self.user_options.psi_sol_inner - self.psi_sep[0]) / self.user_options.nx_sol
         dpsidi_sep_outer = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
-        dpsidi_sep_lower = (self.psi_sep[0] - self.user_options.psi_lower_pf) / self.user_options.nx_core
-        dpsidi_sep_upper = (self.psi_sep[0] - self.user_options.psi_upper_pf) / self.user_options.nx_core
-        if self.user_options.psi_lower_pf < self.user_options.psi_sol:
+        dpsidi_sep_lower = (self.psi_sep[0] - self.user_options.psi_pf_lower) / self.user_options.nx_core
+        dpsidi_sep_upper = (self.psi_sep[0] - self.user_options.psi_pf_upper) / self.user_options.nx_core
+        if self.user_options.psi_pf_lower < self.user_options.psi_sol:
             dpsidi_sep = min(dpsidi_sep_inner, dpsidi_sep_outer, dpsidi_sep_lower,
                     dpsidi_sep_upper)
         else:
@@ -333,17 +333,17 @@ class TORPEXMagneticField(Equilibrium):
 
         # lower PF
         lower_psi_func = self.getPolynomialGridFunc(self.user_options.nx_core,
-                self.user_options.psi_lower_pf, self.psi_sep[0], grad_upper=dpsidi_sep)
+                self.user_options.psi_pf_lower, self.psi_sep[0], grad_upper=dpsidi_sep)
         lower_psi_vals = self.make1dGrid(self.user_options.nx_core, lower_psi_func)
 
         # upper PF
         upper_psi_func = self.getPolynomialGridFunc(self.user_options.nx_core,
-                self.user_options.psi_upper_pf, self.psi_sep[0], grad_upper=dpsidi_sep)
+                self.user_options.psi_pf_upper, self.psi_sep[0], grad_upper=dpsidi_sep)
         upper_psi_vals = self.make1dGrid(self.user_options.nx_core, upper_psi_func)
 
         # inner SOL
         inner_psi_func = self.getPolynomialGridFunc(self.user_options.nx_sol,
-                self.psi_sep[0], self.user_options.psi_inner_sol, grad_lower=dpsidi_sep)
+                self.psi_sep[0], self.user_options.psi_sol_inner, grad_lower=dpsidi_sep)
         inner_psi_vals = self.make1dGrid(self.user_options.nx_sol, inner_psi_func)
 
         # outer SOL

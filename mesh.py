@@ -878,7 +878,7 @@ class MeshRegion:
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
-        if self.user_options.orthogonal:
+        if not self.user_options.orthogonal:
             warnings.warn('need to check that this is correct for non-orthogonal grids')
 
         # get positions at j+/-0.5

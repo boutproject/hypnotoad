@@ -1274,11 +1274,12 @@ class BoutMesh(Mesh):
         # because we don't want MeshRegion objects to depend on global indices
         assert all([r.options.nx == eq_region0.options.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
         x_sizes = [0] + list(eq_region0.options.nx)
-        x_startinds = numpy.cumsum(x_sizes)
-        x_regions = tuple(slice(x_startinds[i], x_startinds[i+1], None)
-                     for i in range(len(x_startinds)-1))
+        self.x_startinds = numpy.cumsum(x_sizes)
+        x_regions = tuple(slice(self.x_startinds[i], self.x_startinds[i+1], None)
+                     for i in range(len(self.x_startinds)-1))
         y_total = 0
         y_regions = {}
+        self.y_regions_noguards = []
         for regname, region in self.equilibrium.regions.items():
             # all segments must have the same ny, i.e. same number of y-boundary guard
             # cells
@@ -1286,6 +1287,7 @@ class BoutMesh(Mesh):
             assert all(region.ny(i) == this_ny for i in range(region.nSegments)), 'all radial segments in an equilibrium-region must have the same ny (i.e. same number of boundary guard cells) to be compatible with a global, logically-rectangular grid'
 
             y_total_new = y_total + this_ny
+            self.y_regions_noguards.append(region.ny_noguards)
             reg_slice = slice(y_total, y_total_new, None)
             y_total = y_total_new
             y_regions[regname] = reg_slice
@@ -1431,6 +1433,79 @@ class BoutMesh(Mesh):
             self.writeArray('g_12', self.g_12, f)
             self.writeArray('g_13', self.g_13, f)
             self.writeArray('g_23', self.g_23, f)
+
+            # Write topology-setting indices for BoutMesh
+            eq_region0 = next(iter(self.equilibrium.regions.values()))
+            if len(self.x_startinds) == 1:
+                # No separatrix in grid
+                if eq_region0.separatrix_radial_index == 0:
+                    # SOL only
+                    ixseps1 = -1
+                    ixseps2 = -1
+                else:
+                    # core only
+                    ixseps1 = self.nx
+                    ixseps2 = self.nx
+            elif len(self.x_startinds) == 2:
+                # One separatrix
+                ixseps1 = self.x_startinds[1]
+                ixseps2 = self.nx # note: this may be changed below for cases where the two separatrices are in the same radial location
+            elif len(self.x_startinds) == 3:
+                # Two separatrices
+                ixseps1 = self.x_startinds[1]
+                ixseps2 = self.x_startinds[2]
+            else:
+                raise ValueError('More than two separatrices not supported by BoutMesh')
+
+            if len(self.y_regions_noguards) == 1:
+                # No X-points
+                jyseps1_1 = -1
+                jyseps2_1 = self.ny//2
+                ny_inner = self.ny//2
+                jyseps1_2 = self.ny//2
+                jyseps2_2 = self.ny
+            elif len(self.y_regions_noguards) == 2:
+                raise ValueError('Unrecognized topology with 2 y-regions')
+            elif len(self.y_regions_noguards) == 3:
+                # single-null
+                jyseps1_1 = self.y_regions_noguards[0] - 1
+                jyseps2_1 = self.ny//2
+                ny_inner = self.ny//2
+                jyseps1_2 = self.ny//2
+                jyseps2_2 = sum(self.y_regions_noguards[:2]) - 1
+            elif len(self.y_regions_noguards) == 4:
+                # single X-point with all 4 legs ending on walls
+                jyseps1_1 = self.y_regions_noguards[0] - 1
+                jyseps2_1 = jyseps1_1
+                ny_inner = sum(self.y_regions_noguards[:2])
+                jyseps2_2 = sum(self.y_regions_noguards[:3]) - 1
+                jyseps1_2 = jyseps2_2
+
+                # for BoutMesh topology, this is equivalent to 2 X-points on top of each
+                # other, so there are 2 separatrices, in the same radial location
+                ixseps2 = ixseps1
+            elif len(self.y_regions_noguards) == 5:
+                raise ValueError('Unrecognized topology with 5 y-regions')
+            elif len(self.y_regions_noguards) == 6:
+                # double-null
+                jyseps1_1 = self.y_regions_noguards[0] - 1
+                jyseps2_1 = sum(self.y_regions_noguards[:2]) - 1
+                ny_inner = sum(self.y_regions_noguards[:3])
+                jyseps1_2 = sum(self.y_regions_noguards[:4]) - 1
+                jyseps2_2 = sum(self.y_regions_noguards[:5]) - 1
+
+                if ixseps2 == self.nx:
+                    # this is a connected-double-null configuration, with two separatrices
+                    # in the same radial location
+                    ixseps2 = ixseps1
+
+            f.write('ixseps1', ixseps1)
+            f.write('ixseps2', ixseps2)
+            f.write('jyseps1_1', jyseps1_1)
+            f.write('jyseps2_1', jyseps2_1)
+            f.write('ny_inner', ny_inner)
+            f.write('jyseps1_2', jyseps1_2)
+            f.write('jyseps2_2', jyseps2_2)
 
             f.write('hypnotoad_inputs', self.equilibrium._getOptionsAsString())
 

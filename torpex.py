@@ -66,6 +66,55 @@ class TORPEXMagneticField(Equilibrium):
 
         self.equilibOptions = equilibOptions
 
+        # Set up options read from user input
+        self.user_options = TORPEXMagneticField.user_options
+
+        # Set sensible defaults for options
+        self.user_options.set(
+                xpoint_poloidal_spacing_length = 5.e-2,
+                nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
+                follow_perpendicular_rtol = 2.e-8,
+                follow_perpendicular_atol = 1.e-8,
+                refine_width = 1.e-5,
+                refine_atol = 2.e-8,
+                )
+
+        default_options = self.user_options.copy()
+        self.user_options.set(**meshOptions)
+        self.user_options = self.user_options.push(kwargs)
+
+        setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
+        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
+        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
+
+        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
+
+        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
+                numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
+
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+
+        formatstring = '{:<50}|  {:<50}'
+        print('\nOptions\n=======')
+        print(formatstring.format('Name', 'Value'))
+        print('----------------------------------------------------------------------------------------------------')
+        for name, value in sorted(self.user_options.items()):
+            valuestring = str(value)
+            if value == default_options[name]:
+                valuestring += '\t(default)'
+            print(formatstring.format(name, valuestring))
+        print('')
+
+        # Call Equilibrium constructor after adding stuff to options
+        super().__init__(**kwargs)
+
         if 'Coils' in self.equilibOptions:
             self.coils = [Coil(**c) for c in self.equilibOptions['Coils']]
 
@@ -126,58 +175,6 @@ class TORPEXMagneticField(Equilibrium):
 
         # TORPEX plasma pressure so low fpol is constant
         self.fpol = lambda psi: Bt_axis / self.Rcentre
-
-        # Set up options read from user input
-        self.user_options = TORPEXMagneticField.user_options
-
-        # Set sensible defaults for options
-        self.user_options.set(
-                xpoint_poloidal_spacing_length = 5.e-2,
-                nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
-                follow_perpendicular_rtol = 2.e-8,
-                follow_perpendicular_atol = 1.e-8,
-                refine_width = 1.e-5,
-                refine_atol = 2.e-8,
-                )
-
-        default_options = self.user_options.copy()
-        self.user_options.set(**meshOptions)
-        self.user_options = self.user_options.push(kwargs)
-
-        setDefault(self.user_options, 'psi_pf', self.user_options.psi_core)
-        setDefault(self.user_options, 'psi_lower_pf', self.user_options.psi_pf)
-        setDefault(self.user_options, 'psi_upper_pf', self.user_options.psi_pf)
-
-        setDefault(self.user_options, 'psi_inner_sol', self.user_options.psi_sol)
-
-        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
-                numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
-
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
-
-        formatstring = '{:<50}|  {:<50}'
-        print('\nOptions\n=======')
-        print(formatstring.format('Name', 'Value'))
-        print('----------------------------------------------------------------------------------------------------')
-        for name, value in sorted(self.user_options.items()):
-            valuestring = str(value)
-            if value == default_options[name]:
-                valuestring += '\t(default)'
-            print(formatstring.format(name, valuestring))
-        print('')
-
-        # Set up internal options
-        # '.push(kwargs)' here lets the kwargs override any values (including for
-        # 'internal' options that should not need to be set by the user) set as defaults
-        # from HypnotoadOptions
-        self.options = HypnotoadInternalOptions.push(kwargs)
 
         # Make a set of points representing the wall
         self.wall = [self.TORPEX_wall(theta) for theta in

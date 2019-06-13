@@ -1489,6 +1489,25 @@ class Equilibrium:
         anti-clockwise order; assumed to be closed so last element and first are taken to
         be connected
     """
+    def __init__(self, **kwargs):
+        """
+        Does some generic setup common to all Equilibrium derived classes.
+        Note: should be called by derived class __init__() constructor after the
+        user_options have been initialized.
+        """
+
+        # Set up internal options
+        # '.push(kwargs)' here lets the kwargs override any values (including for
+        # 'internal' options that should not need to be set by the user) set as defaults
+        # from HypnotoadOptions
+        self.options = HypnotoadInternalOptions.push(kwargs)
+
+        # Set some global parameters for PsiContours and FineContours
+        # Convert self.user_options to a dict so we can use it to set the values in
+        # FineContour.options using 'push'
+        PsiContour.options = PsiContour.options.push(dict(self.user_options))
+        FineContour.options = FineContour.options.push(dict(self.user_options))
+
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """
         Make a connection between the upper edge of a certain segment of lowerRegion and

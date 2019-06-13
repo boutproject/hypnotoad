@@ -21,7 +21,7 @@ if plotStuff:
 import numpy
 
 from hypnotoad2.mesh import BoutMesh
-from hypnotoad2.equilibrium import setDefault, Equilibrium, Point2D, EquilibriumRegion, SolutionError
+from hypnotoad2.equilibrium import setDefault, Equilibrium, PsiContour, Point2D, EquilibriumRegion, SolutionError
 from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 
 # type for manipulating inforation about magnetic field coils
@@ -266,7 +266,7 @@ class TORPEXMagneticField(Equilibrium):
         self.Bp_Z = sympy.lambdify([R,Z], B_Z, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
 
-    def makeRegions(self, atol = 2.e-8, npoints=100):
+    def makeRegions(self, npoints=100):
         """
         Find the separatrix and create the regions to grid.
 
@@ -301,7 +301,7 @@ class TORPEXMagneticField(Equilibrium):
         setDefault(self.options, 'N_norm', ny_total)
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
-        s = numpy.linspace(10.*atol, 1., npoints)
+        s = numpy.linspace(10.*PsiContour.options.refine_atol, 1., npoints)
         for i,boundary_position in enumerate(boundary):
             name = legnames[i]
             boundaryPoint = self.wallPosition(boundary_position)
@@ -309,11 +309,8 @@ class TORPEXMagneticField(Equilibrium):
             legZ = xpoint.Z + s*(boundaryPoint.Z - xpoint.Z)
             leg = EquilibriumRegion(self, legnames[i], 2, self.user_options,
                     self.options.push(legoptions[name]),
-                    [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0],
-                    initial_refine_width=self.user_options.refine_width,
-                    initial_refine_atol=self.user_options.refine_atol)
-            self.regions[name] = leg.getRefined(atol=atol,
-                    width=self.user_options.refine_width)
+                    [Point2D(R,Z) for R,Z in zip(legR, legZ)], self.psi, self.psi_sep[0])
+            self.regions[name] = leg.getRefined()
             wall_vectors[name] = self.wallVector(boundary_position)
 
         # Make the SeparatrixContours go around clockwise

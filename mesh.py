@@ -1104,9 +1104,10 @@ class Mesh:
         self.user_options = equilibrium.user_options
         self.options = equilibrium.options
 
-        # Set some global parameters for FineContours
+        # Set some global parameters for PsiContours and FineContours
         # Convert self.user_options to a dict so we can use it to set the values in
         # FineContour.options using 'push'
+        PsiContour.options = PsiContour.options.push(dict(self.user_options))
         FineContour.options = FineContour.options.push(dict(self.user_options))
 
         self.equilibrium = equilibrium

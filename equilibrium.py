@@ -438,14 +438,15 @@ class PsiContour:
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    def __init__(self, points, psi, psival, *, initial_refine_width=1.e-5, initial_refine_atol=2.e-8):
+    options = Options(
+            refine_width = 1.e-5,
+            refine_atol = 2.e-8,
+            )
+    def __init__(self, points, psi, psival):
         self.points = points
 
         self._startInd = 0
         self._endInd = len(points) - 1
-
-        self.refine_width = initial_refine_width
-        self.refine_atol = initial_refine_atol
 
         self._fine_contour = None
 
@@ -529,9 +530,7 @@ class PsiContour:
             points = deepcopy(self.points)
         if psival is None:
             psival = self.psival
-        new_contour = PsiContour(points, self.psi, psival,
-                initial_refine_width=self.refine_width,
-                initial_refine_atol=self.refine_atol)
+        new_contour = PsiContour(points, self.psi, psival)
 
         new_contour.startInd = self.startInd
         new_contour.endInd = self.endInd
@@ -591,10 +590,15 @@ class PsiContour:
         self.points = new.points
         self._distance = new._distance
 
-    def refinePoint(self, p, tangent):
+    def refinePoint(self, p, tangent, width=None, atol=None):
+        if width is None:
+            width = PsiContour.options.refine_width
+        if atol is None:
+            atol = PsiContour.options.refine_atol
+
         f = lambda R,Z: self.psi(R, Z) - self.psival
 
-        if numpy.abs(f(*p)) < self.refine_atol*numpy.abs(self.psival):
+        if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
             # don't need to refine
             return p
 
@@ -607,7 +611,7 @@ class PsiContour:
             return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
 
         converged = False
-        w = self.refine_width
+        w = width
         sp = []
         ep = []
         while not converged:
@@ -615,15 +619,15 @@ class PsiContour:
                 pline = perpLine(w)
                 sp.append(pline(0.))
                 ep.append(pline(1.))
-                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=self.refine_atol, full_output=True)
+                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
                 converged = info.converged
             except ValueError:
                 pass
             w /= 2.
-            if w < self.refine_atol:
-                print('width =',self.refine_width)
+            if w < atol:
+                print('width =',width)
                 from matplotlib import pyplot
-                pline0 = perpLine(self.refine_width)
+                pline0 = perpLine(width)
                 Rbox = numpy.linspace(p.R-.1,p.R+.1,100)[numpy.newaxis,:]
                 Zbox = numpy.linspace(p.Z-.1,p.Z+.1,100)[:,numpy.newaxis]
                 svals = numpy.linspace(0., 1., 40)
@@ -638,18 +642,16 @@ class PsiContour:
 
         return pline(snew)
 
-    def getRefined(self, width=None, atol=None):
-        if width is not None:
-            self.refine_width = width
-        if atol is not None:
-            self.refine_atol = atol
-
+    def getRefined(self, **kwargs):
         newpoints = []
-        newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0]))
+        newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0],
+            **kwargs))
         for i,p in enumerate(self.points[1:-1]):
             # note i+1 here is the index of point p
-            newpoints.append(self.refinePoint(p, self.points[i+2] - self.points[i]))
-        newpoints.append(self.refinePoint(self.points[-1], self.points[-1] - self.points[-2]))
+            newpoints.append(self.refinePoint(p, self.points[i+2] - self.points[i],
+                **kwargs))
+        newpoints.append(self.refinePoint(self.points[-1], self.points[-1] -
+            self.points[-2], **kwargs))
 
         return self.newContourFromSelf(points=newpoints)
 
@@ -722,10 +724,11 @@ class PsiContour:
         Note: '*,' in the arguments list forces the following arguments to be passed as
         keyword, not positional, arguments
         """
-        if width is not None:
-            self.refine_width = width
-        if atol is not None:
-            self.refine_atol = atol
+        if width is None:
+            width = PsiContour.options.refine_width
+        if atol is None:
+            atol = PsiContour.options.refine_atol
+
         if extend_lower is not None:
             self.extend_lower = extend_lower
         if extend_upper is not None:
@@ -750,7 +753,7 @@ class PsiContour:
         new_contour.endInd = len(new_contour) - 1 - self.extend_upper
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use width/100. instead of 'width'
-        return new_contour.getRefined(width/100., atol)
+        return new_contour.getRefined(width=width/100., atol=atol)
 
     def temporaryExtend(self, *, extend_lower=0, extend_upper=0):
         """
@@ -888,8 +891,7 @@ class EquilibriumRegion(PsiContour):
     def copy(self):
         result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
                 self.user_options, self.options, deepcopy(self.points), self.psi,
-                self.psival, initial_refine_width=self.refine_width,
-                initial_refine_atol=self.refine_atol)
+                self.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
@@ -906,8 +908,7 @@ class EquilibriumRegion(PsiContour):
     def newRegionFromPsiContour(self, contour):
         result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
                 self.user_options, self.options, contour.points, contour.psi,
-                contour.psival, initial_refine_width=contour.refine_width,
-                initial_refine_atol=contour.refine_atol)
+                contour.psival)
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)

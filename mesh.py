@@ -805,7 +805,7 @@ class MeshRegion:
         self.J = self.hy / self.Bpxy
 
         self.g_11 = 1./self.g11 + (I*self.Rxy)**2
-        self.g_22 = self.hy**2 + (self.Rxy/self.dphidy)**2
+        self.g_22 = self.hy**2 + (self.Rxy*self.dphidy)**2
         self.g_33 = self.Rxy**2
         self.g_12 = self.Rxy**2*self.dphidy*I
         self.g_13 = self.Rxy**2*I

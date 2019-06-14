@@ -1407,7 +1407,7 @@ class BoutMesh(Mesh):
             #    self.writeArray('beta', self.beta, f)
             #    self.writeArray('eta', self.eta, f)
             self.writeArray('dphidy', self.dphidy, f)
-            self.writeArray('zShift', self.dphidy, f)
+            self.writeArray('zShift', self.zShift, f)
 
             # Haven't checked this is exactly the quantity needed by BOUT++...
             # ShiftTorsion is only used in Curl operator - Curl is rarely used.

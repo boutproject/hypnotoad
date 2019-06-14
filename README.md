@@ -19,7 +19,11 @@ Hypnotoad2 can be run either as an executable, which just reads from an input
 file, or interactively from a Python shell. To ensure reproducibility, it is
 suggested to create your final grid non-interactively. The interactive mode is
 intended to make it easier to prototype the grid and find a good set of input
-parameters.
+parameters. Once you have found a configuration you are happy with, you can
+save the current input parameters with
+Equilibrium.saveOptions(filename='hypnotoad\_options.yaml'); this may be
+especially useful if you have changed some options from the Python shell with
+keyword-arguments.
 
 Grid generation can take a while with the default options, which are set for
 high accuracy. When prototyping, it is suggested to temporarily use lower

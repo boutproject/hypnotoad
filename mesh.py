@@ -9,6 +9,8 @@ import warnings
 import numpy
 from scipy.integrate import solve_ivp
 
+from boututils.boutarray import BoutArray
+
 from .equilibrium import calc_distance, Point2D, FineContour
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -24,6 +26,8 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
     def __init__(self, nx, ny):
         self.nx = nx
         self.ny = ny
+        # Attributes that will be saved to output files along with the array
+        self.attributes = {}
 
     @property
     def centre(self):
@@ -1314,9 +1318,11 @@ class BoutMesh(Mesh):
             self.fields_to_output.append(name)
             f = MultiLocationArray(self.nx, self.ny)
             self.__dict__[name] = f
+            f.attributes = next(iter(self.regions.values())).__dict__[name].attributes
             for region in self.regions.values():
                 f_region = region.__dict__[name]
 
+                assert f.attributes == f_region.attributes, 'attributes of a field must be set consistently in every region'
                 if f_region._centre_array is not None:
                     f.centre[self.region_indices[region.myID]] = f_region.centre
                 if f_region._xlow_array is not None:
@@ -1364,8 +1370,8 @@ class BoutMesh(Mesh):
         addFromRegions('g_23')
 
     def writeArray(self, name, array, f):
-        f.write(name, BoutArray(array.centre))
-        f.write(name+'_ylow', BoutArray(array.ylow[:, :-1]))
+        f.write(name, BoutArray(array.centre, attributes=array.attributes))
+        f.write(name+'_ylow', BoutArray(array.ylow[:, :-1], attributes=array.attributes))
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile

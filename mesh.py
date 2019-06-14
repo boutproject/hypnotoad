@@ -756,9 +756,12 @@ class MeshRegion:
         # angle.
         self.dphidy = self.hy * self.Btxy / (self.Bpxy * self.Rxy)
 
-        self.d2phidxdy = MultiLocationArray(self.nx, self.ny)
-        self.d2phidxdy.centre = self.DDX_L2C(self.dphidy.xlow)
-        self.d2phidxdy.ylow = self.DDX_L2C(self.dphidy.corners, ylow=True)
+        # Here ShiftTorsion = d2phidxdy
+        # Haven't checked this is exactly the quantity needed by BOUT++...
+        # ShiftTorsion is only used in Curl operator - Curl is rarely used.
+        self.ShiftTorsion = MultiLocationArray(self.nx, self.ny)
+        self.ShiftTorsion.centre = self.DDX_L2C(self.dphidy.xlow)
+        self.ShiftTorsion.ylow = self.DDX_L2C(self.dphidy.corners, ylow=True)
 
     def calcMetric(self):
         """
@@ -1270,6 +1273,8 @@ class BoutMesh(Mesh):
 
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
 
+        self.fields_to_output = []
+
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
         assert all([r.options.nx == eq_region0.options.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
@@ -1305,86 +1310,62 @@ class BoutMesh(Mesh):
         # Call geometry() method of base class
         super().geometry()
 
-        def addFromRegion(f, f_region, regionID):
-            if f_region._centre_array is not None:
-                f.centre[self.region_indices[regionID]] = f_region.centre
-            if f_region._xlow_array is not None:
-                f.xlow[self.region_indices[regionID]] = f_region.xlow[:-1,:]
-            if f_region._ylow_array is not None:
-                f.ylow[self.region_indices[regionID]] = f_region.ylow[:,:-1]
-            if f_region._corners_array is not None:
-                f.corners[self.region_indices[regionID]] = f_region.corners[:-1,:-1]
+        def addFromRegions(name):
+            self.fields_to_output.append(name)
+            f = MultiLocationArray(self.nx, self.ny)
+            self.__dict__[name] = f
+            for region in self.regions.values():
+                f_region = region.__dict__[name]
 
-        self.Rxy = MultiLocationArray(self.nx, self.ny)
-        self.Zxy = MultiLocationArray(self.nx, self.ny)
-        self.psixy = MultiLocationArray(self.nx, self.ny)
-        self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dy = MultiLocationArray(self.nx, self.ny)
-        self.Brxy = MultiLocationArray(self.nx, self.ny)
-        self.Bzxy = MultiLocationArray(self.nx, self.ny)
-        self.Bpxy = MultiLocationArray(self.nx, self.ny)
-        self.Btxy = MultiLocationArray(self.nx, self.ny)
-        self.Bxy = MultiLocationArray(self.nx, self.ny)
-        self.hy = MultiLocationArray(self.nx, self.ny)
+                if f_region._centre_array is not None:
+                    f.centre[self.region_indices[region.myID]] = f_region.centre
+                if f_region._xlow_array is not None:
+                    f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1,:]
+                if f_region._ylow_array is not None:
+                    f.ylow[self.region_indices[region.myID]] = f_region.ylow[:,:-1]
+                if f_region._corners_array is not None:
+                    f.corners[self.region_indices[region.myID]] = f_region.corners[:-1,:-1]
+
+        addFromRegions('Rxy')
+        addFromRegions('Zxy')
+        addFromRegions('psixy')
+        addFromRegions('dx')
+        addFromRegions('dy')
+        addFromRegions('Brxy')
+        addFromRegions('Bzxy')
+        addFromRegions('Bpxy')
+        addFromRegions('Btxy')
+        addFromRegions('Bxy')
+        addFromRegions('hy')
         #if not self.user_options.orthogonal:
-        #    self.beta = MultiLocationArray(self.nx, self.ny)
-        #    self.eta = MultiLocationArray(self.nx, self.ny)
-        self.dphidy = MultiLocationArray(self.nx, self.ny)
-        self.d2phidxdy = MultiLocationArray(self.nx, self.ny)
-        self.zShift = MultiLocationArray(self.nx, self.ny)
+        #    addFromRegions('beta')
+        #    addFromRegions('eta')
+        addFromRegions('dphidy')
+        addFromRegions('ShiftTorsion')
+        addFromRegions('zShift')
+        # I think IntShiftTorsion should be the same as sinty in Hypnotoad1.
+        # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
+        # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
+        # here. /JTO 19/5/2019
         if not self.user_options.shiftedmetric:
-            self.sinty = MultiLocationArray(self.nx, self.ny)
-        self.g11 = MultiLocationArray(self.nx, self.ny)
-        self.g22 = MultiLocationArray(self.nx, self.ny)
-        self.g33 = MultiLocationArray(self.nx, self.ny)
-        self.g12 = MultiLocationArray(self.nx, self.ny)
-        self.g13 = MultiLocationArray(self.nx, self.ny)
-        self.g23 = MultiLocationArray(self.nx, self.ny)
-        self.J = MultiLocationArray(self.nx, self.ny)
-        self.g_11 = MultiLocationArray(self.nx, self.ny)
-        self.g_22 = MultiLocationArray(self.nx, self.ny)
-        self.g_33 = MultiLocationArray(self.nx, self.ny)
-        self.g_12 = MultiLocationArray(self.nx, self.ny)
-        self.g_13 = MultiLocationArray(self.nx, self.ny)
-        self.g_23 = MultiLocationArray(self.nx, self.ny)
-
-        for region in self.regions.values():
-            addFromRegion(self.Rxy, region.Rxy, region.myID)
-            addFromRegion(self.Zxy, region.Zxy, region.myID)
-            addFromRegion(self.psixy, region.psixy, region.myID)
-            addFromRegion(self.dx, region.dx, region.myID)
-            addFromRegion(self.dy, region.dy, region.myID)
-            addFromRegion(self.Brxy, region.Brxy, region.myID)
-            addFromRegion(self.Bzxy, region.Bzxy, region.myID)
-            addFromRegion(self.Bpxy, region.Bpxy, region.myID)
-            addFromRegion(self.Btxy, region.Btxy, region.myID)
-            addFromRegion(self.Bxy, region.Bxy, region.myID)
-            addFromRegion(self.hy, region.hy, region.myID)
-            #if not self.user_options.orthogonal:
-            #    addFromRegion(self.beta, region.beta, region.myID)
-            #    addFromRegion(self.eta, region.eta, region.myID)
-            addFromRegion(self.dphidy, region.dphidy, region.myID)
-            addFromRegion(self.d2phidxdy, region.d2phidxdy, region.myID)
-            addFromRegion(self.zShift, region.zShift, region.myID)
-            if not self.user_options.shiftedmetric:
-                addFromRegion(self.sinty, region.sinty, region.myID)
-            addFromRegion(self.g11, region.g11, region.myID)
-            addFromRegion(self.g22, region.g22, region.myID)
-            addFromRegion(self.g33, region.g33, region.myID)
-            addFromRegion(self.g12, region.g12, region.myID)
-            addFromRegion(self.g13, region.g13, region.myID)
-            addFromRegion(self.g23, region.g23, region.myID)
-            addFromRegion(self.J, region.J, region.myID)
-            addFromRegion(self.g_11, region.g_11, region.myID)
-            addFromRegion(self.g_22, region.g_22, region.myID)
-            addFromRegion(self.g_33, region.g_33, region.myID)
-            addFromRegion(self.g_12, region.g_12, region.myID)
-            addFromRegion(self.g_13, region.g_13, region.myID)
-            addFromRegion(self.g_23, region.g_23, region.myID)
+            addFromRegions('sinty')
+        addFromRegions('g11')
+        addFromRegions('g22')
+        addFromRegions('g33')
+        addFromRegions('g12')
+        addFromRegions('g13')
+        addFromRegions('g23')
+        addFromRegions('J')
+        addFromRegions('g_11')
+        addFromRegions('g_22')
+        addFromRegions('g_33')
+        addFromRegions('g_12')
+        addFromRegions('g_13')
+        addFromRegions('g_23')
 
     def writeArray(self, name, array, f):
-        f.write(name, array.centre)
-        f.write(name+'_ylow', array.ylow[:, :-1])
+        f.write(name, BoutArray(array.centre))
+        f.write(name+'_ylow', BoutArray(array.ylow[:, :-1]))
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
@@ -1394,45 +1375,10 @@ class BoutMesh(Mesh):
             # ny for BOUT++ excludes boundary guard cells
             f.write('ny', self.ny_noguards)
             f.write('y_boundary_guards', self.user_options.y_boundary_guards)
-            self.writeArray('Rxy', self.Rxy, f)
-            self.writeArray('Zxy', self.Zxy, f)
-            self.writeArray('psixy', self.psixy, f)
-            self.writeArray('dx', self.dx, f)
-            self.writeArray('dy', self.dy, f)
-            self.writeArray('Bpxy', self.Bpxy, f)
-            self.writeArray('Btxy', self.Btxy, f)
-            self.writeArray('Bxy', self.Bxy, f)
-            self.writeArray('hthe', self.hy, f)
-            #if not self.user_options.orthogonal:
-            #    self.writeArray('beta', self.beta, f)
-            #    self.writeArray('eta', self.eta, f)
-            self.writeArray('dphidy', self.dphidy, f)
-            self.writeArray('zShift', self.zShift, f)
 
-            # Haven't checked this is exactly the quantity needed by BOUT++...
-            # ShiftTorsion is only used in Curl operator - Curl is rarely used.
-            self.writeArray('ShiftTorsion', self.d2phidxdy, f)
-
-            # I think IntShiftTorsion should be the same as sinty in Hypnotoad1.
-            # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
-            # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
-            # here. /JTO 19/5/2019
-            if not self.user_options.shiftedmetric:
-                self.writeArray('sinty', self.sinty, f)
-
-            self.writeArray('g11', self.g11, f)
-            self.writeArray('g22', self.g22, f)
-            self.writeArray('g33', self.g33, f)
-            self.writeArray('g12', self.g12, f)
-            self.writeArray('g13', self.g13, f)
-            self.writeArray('g23', self.g23, f)
-            self.writeArray('J', self.J, f)
-            self.writeArray('g_11', self.g_11, f)
-            self.writeArray('g_22', self.g_22, f)
-            self.writeArray('g_33', self.g_33, f)
-            self.writeArray('g_12', self.g_12, f)
-            self.writeArray('g_13', self.g_13, f)
-            self.writeArray('g_23', self.g_23, f)
+            # write the 2d fields
+            for name in self.fields_to_output:
+                self.writeArray(name, self.__dict__[name], f)
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))

@@ -239,7 +239,8 @@ class FineContour:
 
     options = Options(
             finecontour_Nfine = None,
-            finecontour_atol = None
+            finecontour_atol = None,
+            finecontour_diagnose = None,
             )
 
     def __init__(self, parentContour):
@@ -286,6 +287,38 @@ class FineContour:
         # maximum error
         ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
 
+        if FineContour.options.finecontour_diagnose:
+            from matplotlib import pyplot
+            print('diagnosing FineContour.__init__()')
+            print('extend_lower_fine', extend_lower_fine)
+            print('extend_upper_fine', extend_upper_fine)
+            print('ds_error', ds_error)
+            count = 1
+
+            Rpoints = self.positions[:, 0]
+            Zpoints = self.positions[:, 1]
+            R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+            Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+            pyplot.figure()
+
+            pyplot.subplot(131)
+            pyplot.contour(R, Z, self.parentContour.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]))
+            pyplot.plot(Rpoints, Zpoints, marker='x')
+            pyplot.xlabel('R')
+            pyplot.xlabel('Z')
+
+            pyplot.subplot(132)
+            pyplot.plot(ds)
+            pyplot.ylabel('ds')
+
+            pyplot.subplot(133)
+            pyplot.plot(Rpoints, label='R')
+            pyplot.plot(Zpoints, label='Z')
+            pyplot.xlabel('index')
+            pyplot.legend()
+            pyplot.show()
+
         while ds_error > atol:
             sfine = self.totalDistance() / (Nfine - 1) * indices_fine
 
@@ -306,6 +339,34 @@ class FineContour:
             ds_mean = numpy.mean(ds)
             # maximum error
             ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
+
+            if FineContour.options.finecontour_diagnose:
+                print('iteration', count, '  ds_error', ds_error)
+                count += 1
+
+                Rpoints = self.positions[:, 0]
+                Zpoints = self.positions[:, 1]
+                R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+                Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+                pyplot.figure()
+
+                pyplot.subplot(131)
+                pyplot.contour(R, Z, self.parentContour.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]))
+                pyplot.plot(Rpoints, Zpoints, marker='x')
+                pyplot.xlabel('R')
+                pyplot.xlabel('Z')
+
+                pyplot.subplot(132)
+                pyplot.plot(ds)
+                pyplot.ylabel('ds')
+
+                pyplot.subplot(133)
+                pyplot.plot(Rpoints, label='R')
+                pyplot.plot(Zpoints, label='Z')
+                pyplot.xlabel('index')
+                pyplot.legend()
+                pyplot.show()
 
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]

@@ -74,6 +74,10 @@ HypnotoadOptions = Options(
 
     ## Accuracy options for geometry checking
         geometry_rtol = 1.e-10,
+
+    ## Switches for diagnostics to investigate when something is not converging
+    # Info for FineContour.__init__
+        finecontour_diagnose = False,
     )
 
 """

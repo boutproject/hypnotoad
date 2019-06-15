@@ -70,7 +70,7 @@ HypnotoadOptions = Options(
 
     ## Accuracy options for FineContour
         finecontour_Nfine = 1000,
-        finecontour_atol = 1.e-8,
+        finecontour_atol = 1.e-12,
 
     ## Accuracy options for geometry checking
         geometry_rtol = 1.e-10,

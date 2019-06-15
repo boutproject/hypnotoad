@@ -265,11 +265,18 @@ class FineContour:
                 (Nfine - 1 + extend_upper_fine),
                 Nfine + extend_lower_fine + extend_upper_fine)
 
-        # initial guess from interpolation of psiContour, iterate to a more accurate
-        # version below
-        interp_input, distance_estimate = self.parentContour._coarseInterp()
+        # Initial guess from interpolation of psiContour, iterate to a more accurate
+        # version below.
+        # Extend a copy of parentContour to make the extrapolation more stable.
+        # This makes parentCopy have twice the extra points as parentContour has.
+        parentCopy = parentContour.newContourFromSelf()
+        parentCopy.temporaryExtend(extend_lower=parentContour.extend_lower,
+                extend_upper=parentContour.extend_upper,
+                ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
+                ds_upper=calc_distance(parentCopy[-1], parentCopy[-2]))
+        interp_input, distance_estimate = parentCopy._coarseInterp()
 
-        sfine = distance_estimate / (Nfine - 1) * indices_fine
+        sfine = distance_estimate[parentCopy.endInd] / (Nfine - 1) * indices_fine
 
         # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
         self.positions = numpy.array(tuple(interp_input(s).as_ndarray() for s in sfine))
@@ -732,7 +739,7 @@ class PsiContour:
                            assume_sorted=True, fill_value='extrapolate')
         interpZ = interp1d(distance, Z, kind=kind,
                            assume_sorted=True, fill_value='extrapolate')
-        return lambda s: Point2D(interpR(s), interpZ(s)), distance[self.endInd]
+        return lambda s: Point2D(interpR(s), interpZ(s)), distance
 
     def contourSfunc(self, kind='cubic'):
         """
@@ -794,6 +801,7 @@ class PsiContour:
             self.extend_lower = extend_lower
         if extend_upper is not None:
             self.extend_upper = extend_upper
+        self.temporaryExtend(extend_lower=extend_lower, extend_upper=extend_upper)
 
         indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
                 npoints + self.extend_lower + self.extend_upper)
@@ -816,28 +824,35 @@ class PsiContour:
         # a large width for refinement - use width/100. instead of 'width'
         return new_contour.getRefined(width=width/100., atol=atol)
 
-    def temporaryExtend(self, *, extend_lower=0, extend_upper=0):
+    def temporaryExtend(self, *, extend_lower=0, extend_upper=0, ds_lower=None,
+            ds_upper=None):
         """
         Add temporary guard-cell points to the beginning and/or end of a contour
         Use coarseInterp to extrapolate as using a bigger spacing gives a more stable
         extrapolation.
         """
         if extend_lower > 0:
-            ds = self.distance[1] - self.distance[0]
+            if ds_lower is None:
+                ds = self.distance[1] - self.distance[0]
+            else:
+                ds = ds_lower
             for i in range(extend_lower):
-                interp, null = self._coarseInterp()
-                new_point = interp(self.distance[0] - ds)
-                self.points.insert(0, new_point)
-                self.startInd += 1
-                self.endInd += 1
-                self.refine()
+                interp, distance_estimate = self._coarseInterp()
+                new_point = interp(distance_estimate[0] - ds)
+                self.prepend(self.refinePoint(new_point, new_point - self[0]))
+                if self.startInd >= 0:
+                    self.startInd += 1
+                if self.endInd >= 0:
+                    self.endInd += 1
         if extend_upper > 0:
-            ds = self.distance[-1] - self.distance[-2]
+            if ds_upper is None:
+                ds = self.distance[-1] - self.distance[-2]
+            else:
+                ds = ds_upper
             for i in range(extend_upper):
-                interp, null = self._coarseInterp()
-                new_point = interp(self.distance[-1] + ds)
-                self.points.append(new_point)
-                self.refine()
+                interp, distance_estimate = self._coarseInterp()
+                new_point = interp(distance_estimate[-1] + ds)
+                self.points.append(self.refinePoint(new_point, new_point - self[-1]))
 
     def plot(self, *args, **kwargs):
         from matplotlib import pyplot

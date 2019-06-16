@@ -334,9 +334,6 @@ class FineContour:
             # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
             self.positions = numpy.array(tuple(interpFunc(s).as_ndarray() for s in sfine))
 
-            self.startInd = extend_lower_fine
-            self.endInd = Nfine - 1 + extend_lower_fine
-
             self.refine()
 
             self.calcDistance()

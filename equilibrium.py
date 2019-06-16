@@ -799,7 +799,9 @@ class PsiContour:
             self.extend_lower = extend_lower
         if extend_upper is not None:
             self.extend_upper = extend_upper
-        self.temporaryExtend(extend_lower=extend_lower, extend_upper=extend_upper)
+        self.temporaryExtend(extend_lower=self.extend_lower,
+                extend_upper=self.extend_upper, ds_lower=calc_distance(self[1], self[0]),
+                ds_upper=calc_distance(self[-2], self[-1]))
 
         indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
                 npoints + self.extend_lower + self.extend_upper)

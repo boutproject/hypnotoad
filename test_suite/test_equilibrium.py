@@ -399,11 +399,25 @@ class TestContour:
         for p in c:
             assert c.psi(p.R, p.Z) == tight_approx(.7)
 
+    def test_coarseInterp(self, testcontour):
+        c = testcontour.c
+        c.startInd = 2
+        f, distance_estimate = c._coarseInterp()
+        pstart = f(0.)
+        pend = f(distance_estimate[-1])
+        assert pstart.R == pytest.approx(c[2].R, abs=1.e-9)
+        assert pstart.Z == pytest.approx(c[2].Z, abs=1.e-5)
+        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.e-9)
+        assert pend.Z == pytest.approx(testcontour.Z0, abs=1.e-5)
+
     def test_interpFunction(self, testcontour):
         f = testcontour.c.interpFunction()
-        p = f(numpy.pi*testcontour.r)
-        assert p.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.e-9)
-        assert p.Z == pytest.approx(testcontour.Z0, abs=1.e-5)
+        pstart = f(0.)
+        pend = f(numpy.pi*testcontour.r)
+        assert pstart.R == pytest.approx(testcontour.R0 + testcontour.r, abs=1.e-9)
+        assert pstart.Z == pytest.approx(testcontour.Z0, abs=1.e-5)
+        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.e-9)
+        assert pend.Z == pytest.approx(testcontour.Z0, abs=1.e-5)
 
     def test_getRegridded(self, testcontour):
         orig = testcontour.c
@@ -422,9 +436,10 @@ class TestContour:
         assert [p.Z for p in new] == pytest.approx(newZ, abs=4.e-4)
 
     def test_getRegridded_extend(self, testcontour):
-        orig = testcontour.c
+        c = testcontour.c
+        orig = c.newContourFromSelf()
 
-        new = orig.getRegridded(testcontour.npoints, width=.1, extend_lower=1, extend_upper=2)
+        new = c.getRegridded(testcontour.npoints, width=.1, extend_lower=1, extend_upper=2)
 
         assert numpy.array([[*p] for p in new[1:-2]]) == pytest.approx(numpy.array([[*p] for p in orig]), abs=1.e-8)
 

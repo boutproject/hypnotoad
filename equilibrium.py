@@ -532,6 +532,16 @@ class FineContour:
 
         return r*self.distance[i1] + (1. - r)*self.distance[i2]
 
+    def plot(self, *args, plotPsi=False, **kwargs):
+        from matplotlib import pyplot
+        Rpoints = self.positions[:, 0]
+        Zpoints = self.positions[:, 1]
+        if plotPsi:
+            R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
+            Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
+            pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+
 class PsiContour:
     """
     Represents a contour as a collection of points.

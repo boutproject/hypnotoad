@@ -95,141 +95,176 @@ def swap_points(p1, p2):
     p2.R = tempR
     p2.Z = tempZ
 
-def find_intersection(l1start, l1end, l2start, l2end):
+def find_intersections(l1array, l2start, l2end):
     """
-    Find the intersection (if there is one) between the lines 'l1' and 'l2'
+    Find the intersection (if there is one) between the array of lines 'l1' and the line
+    'l2'.
     """
     # Copy so we don't change the inputs
-    l1start = deepcopy(l1start)
-    l1end = deepcopy(l1end)
+    l1array = l1array.copy()
     l2start = deepcopy(l2start)
     l2end = deepcopy(l2end)
 
-    R2 = l2start.R
-    Z2 = l2start.Z
-    dR2 = l2end.R - l2start.R
-    dZ2 = l2end.Z - l2start.Z
+    R1array = numpy.zeros([l1array.shape[0] - 1, 2])
+    R1array[:, 0] = l1array[:-1, 0]
+    R1array[:, 1] = l1array[1:, 0]
+    Z1array = numpy.zeros([l1array.shape[0] - 1, 2])
+    Z1array[:, 0] = l1array[:-1, 1]
+    Z1array[:, 1] = l1array[1:, 1]
 
-    if numpy.abs(l1end.R - l1start.R) > numpy.abs(l1end.Z - l1start.Z):
-        # if l1 is sensible, dR1 shouldn't be too small as it's bigger than dZ1
-        # l1 is Z = Z1 + dZ1/dR1 * (R - R1)
+    # for inds1, if l1 is sensible, dR1 shouldn't be too small as it's bigger than dZ1
+    # l1 is Z = Z1 + dZ1/dR1 * (R - R1)
+    # If the lines are parallel
+    inds_a = numpy.where(
+                numpy.abs(R1array[:, 0] - R1array[:, 1])
+                > numpy.abs(Z1array[:, 0] - Z1array[:, 1])
+            )[0]
+    thisR1_a = R1array[inds_a, :]
+    thisZ1_a = Z1array[inds_a, :]
 
-        # sort l1 points in R
-        if l1start.R > l1end.R:
-            swap_points(l1start, l1end)
-        R1 = l1start.R
-        Z1 = l1start.Z
-        dR1 = l1end.R - l1start.R
-        dZ1 = l1end.Z - l1start.Z
+    # sort inds_a points in R
+    sortinds = numpy.argsort(thisR1_a, axis=1)
+    na = thisR1_a.shape[0]
+    thisR1_a = thisR1_a[numpy.arange(na)[:, numpy.newaxis], sortinds]
+    thisZ1_a = thisZ1_a[numpy.arange(na)[:, numpy.newaxis], sortinds]
 
-        if numpy.abs(l2end.R - l2start.R) > numpy.abs(l2end.Z - l2start.Z):
-            # if l2 is sensible, dR2 shouldn't be too small as it's bigger than dZ2
-            # l2 is Z = Z2 + dZ2/dR2 * (R - R2)
+    # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
+    # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
+    inds_b = numpy.where(
+                numpy.abs(R1array[:, 0] - R1array[:, 1])
+                <= numpy.abs(Z1array[:, 0] - Z1array[:, 1])
+            )[0]
 
-            # sort l2 points in R
-            if l2start.R > l2end.R:
-                swap_points(l2start, l2end)
-            R2 = l2start.R
-            Z2 = l2start.Z
-            dR2 = l2end.R - l2start.R
-            dZ2 = l2end.Z - l2start.Z
+    thisR1_b = R1array[inds_b, :]
+    thisZ1_b = Z1array[inds_b, :]
 
-            if numpy.abs(dZ1/dR1 - dZ2/dR2) < 1.e-15:
-                # lines are parallel so cannot intersect
-                return None
+    # sort inds_b points in Z
+    sortinds = numpy.argsort(thisZ1_b, axis=1)
+    nb = thisR1_b.shape[0]
+    thisR1_b = thisR1_b[numpy.arange(nb)[:, numpy.newaxis], sortinds]
+    thisZ1_b = thisZ1_b[numpy.arange(nb)[:, numpy.newaxis], sortinds]
 
-            # intersection where
-            # Z1 + dZ1/dR1 * (R - R1) = Z2 + dZ2/dR2 * (R - R2)
-            # (dZ1/dR1 - dZ2/dR2)*R = Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2
-            R = (Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2) / (dZ1/dR1 - dZ2/dR2)
-            if (R >= R1 - intersect_tolerance and R <= l1end.R + intersect_tolerance and
-                    R >= R2 - intersect_tolerance and R <= l2end.R + intersect_tolerance):
-                Z = Z1 + dZ1/dR1 * (R - R1)
-                return Point2D(R, Z)
-            else:
-                return None
-        else:
-            # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
-            # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
+    if numpy.abs(l2end.R - l2start.R) > numpy.abs(l2end.Z - l2start.Z):
+        # if l2 is sensible, dR2 shouldn't be too small as it's bigger than dZ2
+        # l2 is Z = Z2 + dZ2/dR2 * (R - R2)
 
-            # sort l2 points in Z
-            if l2start.Z > l2end.Z:
-                swap_points(l2start, l2end)
-            R2 = l2start.R
-            Z2 = l2start.Z
-            dR2 = l2end.R - l2start.R
-            dZ2 = l2end.Z - l2start.Z
+        # sort l2 points in R
+        if l2start.R > l2end.R:
+            swap_points(l2start, l2end)
+        R2 = l2start.R
+        Z2 = l2start.Z
+        dR2 = l2end.R - l2start.R
+        dZ2 = l2end.Z - l2start.Z
 
-            # intersection where
-            # Z = Z1 + dZ1/dR1 * (R2 + dR2/dZ2 * (Z - Z2) - R1)
-            # (1 - dZ1*dR2/dR1/dZ2) * Z = Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)
-            Z = (Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)) / (1. - dZ1*dR2/(dR1*dZ2))
-            R = R2 + dR2/dZ2 * (Z - Z2)
-            if (R >= R1 - intersect_tolerance and R <= l1end.R + intersect_tolerance and
-                    Z >= Z2 - intersect_tolerance and Z <= l2end.Z + intersect_tolerance):
-                return Point2D(R, Z)
-            else:
-                return None
+        # Check intersections with 'a' lines
+        #
+        # If this condition is not true, lines are parallel so cannot intersect
+        condition = numpy.where(
+                numpy.abs((thisZ1_a[:,1]-thisZ1_a[:,0])/(thisR1_a[:,1]-thisR1_a[:,0]) - dZ2/dR2) >= 1.e-15
+                )
+        inds_a = inds_a[condition]
+        thisR1_a = thisR1_a[condition]
+        thisZ1_a = thisZ1_a[condition]
+
+        thisdR1 = thisR1_a[:, 1] - thisR1_a[:, 0]
+        thisdZ1 = thisZ1_a[:, 1] - thisZ1_a[:, 0]
+
+        # intersection where
+        # Z1 + dZ1/dR1 * (R - R1) = Z2 + dZ2/dR2 * (R - R2)
+        # (dZ1/dR1 - dZ2/dR2)*R = Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2
+        Rcross = (Z2 - thisZ1_a[:, 0] + thisdZ1/thisdR1*thisR1_a[:, 0] - dZ2/dR2*R2) / (thisdZ1/thisdR1 - dZ2/dR2)
+        intersect_inds = numpy.where(numpy.logical_and(
+            Rcross >= thisR1_a[:, 0] - intersect_tolerance,
+            numpy.logical_and(Rcross <= thisR1_a[:, 1] + intersect_tolerance,
+            numpy.logical_and(Rcross >= R2 - intersect_tolerance,
+            Rcross <= l2end.R + intersect_tolerance
+        ))))
+        Rintersect_a = Rcross[intersect_inds]
+        Zintersect_a = thisZ1_a[:, 0][intersect_inds] + thisdZ1[intersect_inds]/thisdR1[intersect_inds] * (Rintersect_a - thisR1_a[:, 0][intersect_inds])
+
+
+        # Check intersections with 'b' lines
+        #
+        thisdR1 = thisR1_b[:, 1] - thisR1_b[:, 0]
+        thisdZ1 = thisZ1_b[:, 1] - thisZ1_b[:, 0]
+
+        # intersection where
+        # R = R1 + dR1/dZ1 * (Z2 + dZ2/dR2 * (R - R2) - Z1)
+        # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
+        Rcross = (thisR1_b[:, 0] + thisdR1/thisdZ1 * (Z2 - dZ2/dR2*R2 - thisZ1_b[:, 0])) / (1. - thisdR1/thisdZ1 * dZ2/dR2)
+        Zcross = Z2 + dZ2/dR2 * (Rcross - R2)
+        intersect_inds = numpy.where(numpy.logical_and(
+            Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
+            numpy.logical_and(Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
+            numpy.logical_and(Rcross >= R2 - intersect_tolerance,
+            Rcross <= l2end.R + intersect_tolerance
+        ))))
+        Rintersect_b = Rcross[intersect_inds]
+        Zintersect_b = Zcross[intersect_inds]
     else:
-        # if l1 is sensible, dZ1 shouldn't be too small as it's bigger than dR1
-        # l1 is R = R1 + dR1/dZ1 * (Z - Z1)
+        # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
+        # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
 
-        # sort l1 points in Z
-        if l1start.Z > l1end.Z:
-            swap_points(l1start, l1end)
-        R1 = l1start.R
-        Z1 = l1start.Z
-        dR1 = l1end.R - l1start.R
-        dZ1 = l1end.Z - l1start.Z
+        # sort l2 points in Z
+        if l2start.Z > l2end.Z:
+            swap_points(l2start, l2end)
+        R2 = l2start.R
+        Z2 = l2start.Z
+        dR2 = l2end.R - l2start.R
+        dZ2 = l2end.Z - l2start.Z
 
-        if numpy.abs(dR2) > numpy.abs(dZ2):
-            # if l2 is sensible, dR2 shouldn't be too small as it's bigger than dZ2
-            # l2 is Z = Z2 + dZ2/dR2 * (R - R2)
+        # Check intersections with 'a' lines
+        #
+        thisdR1 = thisR1_a[:, 1] - thisR1_a[:, 0]
+        thisdZ1 = thisZ1_a[:, 1] - thisZ1_a[:, 0]
 
-            # sort l2 points in R
-            if l2start.R > l2end.R:
-                swap_points(l2start, l2end)
-            R2 = l2start.R
-            Z2 = l2start.Z
-            dR2 = l2end.R - l2start.R
-            dZ2 = l2end.Z - l2start.Z
+        # intersection where
+        # Z = Z1 + dZ1/dR1 * (R2 + dR2/dZ2 * (Z - Z2) - R1)
+        # (1 - dZ1*dR2/dR1/dZ2) * Z = Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)
+        Zcross = (thisZ1_a[:, 0] + thisdZ1/thisdR1 * (R2 - dR2/dZ2*Z2 - thisR1_a[:, 0])) / (1. - thisdZ1*dR2/(thisdR1*dZ2))
+        Rcross = R2 + dR2/dZ2 * (Zcross - Z2)
+        intersect_inds = numpy.where(numpy.logical_and(
+            Rcross >= thisR1_a[:, 0] - intersect_tolerance,
+            numpy.logical_and(Rcross <= thisR1_a[:, 1] + intersect_tolerance,
+            numpy.logical_and(Zcross >= Z2 - intersect_tolerance,
+            Zcross <= l2end.Z + intersect_tolerance
+        ))))
+        Rintersect_a = Rcross[intersect_inds]
+        Zintersect_a = Zcross[intersect_inds]
 
-            # intersection where
-            # R = R1 + dR1/dZ1 * (Z2 + dZ2/dR2 * (R - R2) - Z1)
-            # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
-            R = (R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)) / (1. - dR1/dZ1 * dZ2/dR2)
-            Z = Z2 + dZ2/dR2 * (R - R2)
-            if (Z >= Z1 - intersect_tolerance and Z <= l1end.Z + intersect_tolerance and
-                    R >= R2 - intersect_tolerance and R <= l2end.R + intersect_tolerance):
-                return Point2D(R, Z)
-            else:
-                return None
-        else:
-            # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
-            # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
+        # Check intersections with 'b' lines
+        #
+        # If this condition is not true, lines are parallel so cannot intersect
+        condition = numpy.where(
+                numpy.abs(dR2/dZ2 - (thisR1_b[:, 1] - thisR1_b[:, 0])/(thisZ1_b[:, 1] - thisZ1_b[:, 0])) >= 1.e-15
+                )
+        inds_b = inds_b[condition]
+        thisR1_b = thisR1_b[condition]
+        thisZ1_b = thisZ1_b[condition]
 
-            # sort l2 points in Z
-            if l2start.Z > l2end.Z:
-                swap_points(l2start, l2end)
-            R2 = l2start.R
-            Z2 = l2start.Z
-            dR2 = l2end.R - l2start.R
-            dZ2 = l2end.Z - l2start.Z
+        thisdR1 = thisR1_b[:, 1] - thisR1_b[:, 0]
+        thisdZ1 = thisZ1_b[:, 1] - thisZ1_b[:, 0]
 
-            if numpy.abs(dR2/dZ2 - dR1/dZ1) < 1.e-15:
-                # lines are parallel so cannot intersect
-                return None
+        # intersection where
+        # R2 + dR2/dZ2 * (Z - Z2) = R1 + dR1/dZ1 * (Z - Z1)
+        # (dR2/dZ2 - dR1*dZ1) * Z = R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1
+        Zcross = (thisR1_b[:, 0] - R2 + dR2/dZ2*Z2 - thisdR1/thisdZ1*thisZ1_b[:, 0]) / (dR2/dZ2 - thisdR1/thisdZ1)
+        intersect_inds = numpy.where(numpy.logical_and(
+            Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
+            numpy.logical_and(Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
+            numpy.logical_and(Zcross >= Z2 - intersect_tolerance,
+            Zcross <= l2end.Z + intersect_tolerance
+        ))))
+        Zintersect_b = Zcross[intersect_inds]
+        Rintersect_b = R2 + dR2/dZ2 * (Zintersect_b - Z2)
 
-            # intersection where
-            # R2 + dR2/dZ2 * (Z - Z2) = R1 + dR1/dZ1 * (Z - Z1)
-            # (dR2/dZ2 - dR1*dZ1) * Z = R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1
-            Z = (R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1) / (dR2/dZ2 - dR1/dZ1)
-            if (Z >= Z1 - intersect_tolerance and Z <= l1end.Z + intersect_tolerance and
-                    Z >= Z2 - intersect_tolerance and Z <= l2end.Z + intersect_tolerance):
-                R = R2 + dR2/dZ2 * (Z - Z2)
-                return Point2D(R, Z)
-            else:
-                return None
+    Rintersect = numpy.concatenate([Rintersect_a, Rintersect_b])
+    Zintersect = numpy.concatenate([Zintersect_a, Zintersect_b])
+
+    if len(Rintersect) > 0 or len(Zintersect) > 0:
+        return numpy.stack([Rintersect, Zintersect], axis=1)
+    else:
+        return None
 
 class FineContour:
     """
@@ -1833,21 +1868,17 @@ class Equilibrium:
         """
         Find the intersection, if any, between the wall and the line between p1 and p2
         """
-        intersect = None
-        for i in range(len(self.wall) - 1):
-            if intersect is None:
-                intersect = find_intersection(self.wall[i], self.wall[i+1], p1, p2)
-            else:
-                second_intersect = find_intersection(self.wall[i], self.wall[i+1], p1, p2)
-                if second_intersect is not None:
-                    assert numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance and numpy.abs(intersect.Z - second_intersect.Z) < intersect_tolerance, 'Multiple intersections with wall found'
-        # final segment between last and first point of wall
-        if intersect is None:
-            intersect = find_intersection(self.wall[-1], self.wall[0], p1, p2)
+        closed_wall = self.wall + [self.wall[0]]
+        wallarray = numpy.array([(p.R, p.Z) for p in closed_wall])
+        intersects = find_intersections(wallarray, p1, p2)
+        if intersects is not None:
+            intersect = Point2D(*intersects[0, :])
+            assert intersects.shape[0] < 3, 'too many intersections with wall'
+            if intersects.shape[0] > 1:
+                second_intersect = Point2D(*intersects[1, :])
+                assert numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance and numpy.abs(intersect.Z - second_intersect.Z) < intersect_tolerance, 'Multiple intersections with wall found'
         else:
-            second_intersect = find_intersection(self.wall[-1], self.wall[0], p1, p2)
-            if second_intersect is not None:
-                assert numpy.abs(intersect.R - second_intersect.R) < 1.e-14 and numpy.abs(intersect.Z - second_intersect.Z) < 1.e-14, 'Multiple intersections with wall found'
+            intersect = None
 
         return intersect
 

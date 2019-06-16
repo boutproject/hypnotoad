@@ -310,10 +310,10 @@ class FineContour:
             pyplot.figure()
 
             pyplot.subplot(131)
-            pyplot.contour(R, Z, self.parentContour.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]))
+            pyplot.contour(R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
             pyplot.plot(Rpoints, Zpoints, marker='x')
             pyplot.xlabel('R')
-            pyplot.xlabel('Z')
+            pyplot.ylabel('Z')
 
             pyplot.subplot(132)
             pyplot.plot(ds)
@@ -359,10 +359,10 @@ class FineContour:
                 pyplot.figure()
 
                 pyplot.subplot(131)
-                pyplot.contour(R, Z, self.parentContour.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]))
+                pyplot.contour(R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
                 pyplot.plot(Rpoints, Zpoints, marker='x')
                 pyplot.xlabel('R')
-                pyplot.xlabel('Z')
+                pyplot.ylabel('Z')
 
                 pyplot.subplot(132)
                 pyplot.plot(ds)

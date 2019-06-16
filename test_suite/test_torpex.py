@@ -3,11 +3,17 @@ from ..equilibrium import Equilibrium
 from ..torpex import *
 from .utils_for_tests import *
 
+class ThisEquilibrium(Equilibrium):
+    def __init__(self):
+        self.user_options = HypnotoadOptions.push({})
+        self.options = HypnotoadInternalOptions.push({})
+        super().__init__()
+
 class TestTORPEX:
 
     @pytest.fixture
     def equilib(self):
-        equilib = Equilibrium()
+        equilib = ThisEquilibrium()
         equilib.psi = lambda R, Z: (R - .98)**2 - .7*(Z - .04)**2
         equilib.psi_sep = [0.]
         equilib.fpol = lambda psi: 1.
@@ -29,7 +35,7 @@ class TestTORPEX:
         createEqdsk(equilib, nR=nR, Rmin=Rmin, Rmax=Rmax, nZ=nZ, Zmin=Zmin, Zmax=Zmax,
                 filename=testfile)
 
-        grid_equilib = TORPEXMagneticField({'gfile':testfile}, {})
+        grid_equilib = TORPEXMagneticField({'gfile':testfile}, {'psi_core':0., 'psi_sol':1.})
 
         R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
         Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]

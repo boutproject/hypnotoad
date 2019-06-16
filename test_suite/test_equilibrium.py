@@ -2,6 +2,7 @@ import numpy
 import pytest
 from copy import deepcopy
 from ..equilibrium import *
+from ..hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 from .utils_for_tests import *
 
 FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.e-8)
@@ -343,7 +344,7 @@ class TestContour:
 
                 self.c = PsiContour([Point2D(R,Z) for R,Z in zip(self.R,self.Z)], psifunc,
                         psi_xpoint)
-                self.c.refine_width = 1.e-3
+                PsiContour.options.set(refine_width = 1.e-3)
 
         return returnObject()
 
@@ -468,7 +469,6 @@ class TestContour:
 
         c2 = PsiContour([Point2D(R,Z) for R,Z in zip(R,Z)], c1.psi,
                 c1.psival)
-        c2.refine_width = c1.refine_width
         c2.startInd = 2
         c2.endInd = len(c2) - 1
 
@@ -527,11 +527,23 @@ class TestContour:
             assert p.R == pytest.approx(testcontour.R0 + r*numpy.cos(theta), abs=1.e-4)
             assert p.Z == pytest.approx(testcontour.Z0 + r*numpy.sin(theta), abs=1.e-4)
 
+class ThisEquilibrium(Equilibrium):
+    def __init__(self):
+        self.user_options = HypnotoadOptions.push({})
+        self.options = HypnotoadInternalOptions.push({})
+
+        # set some defaults
+        self.user_options.set(
+                refine_width = 1.e-5,
+                refine_atol = 2.e-8,
+                )
+        super().__init__()
+
 class TestEquilibrium:
 
     @pytest.fixture
     def eq(self):
-        eq = Equilibrium()
+        eq = ThisEquilibrium()
         eq.wall = [Point2D(-1., -1.), Point2D(1., -1.), Point2D(1., 1.), Point2D(-1., 1.)]
         return eq
 
@@ -557,8 +569,8 @@ class TestEquilibriumRegion:
     @pytest.fixture
     def eqReg(self):
         user_options = HypnotoadOptions.push({'y_boundary_guards':1})
-        options = HypnotoadInternalOptions.push({'nx':1, 'ny':5, 'kind':'wall.wall'})
-        equilib = Equilibrium()
+        options = HypnotoadInternalOptions.push({'nx':[1], 'ny':5, 'kind':'wall.wall'})
+        equilib = ThisEquilibrium()
         equilib.psi = lambda R,Z: R - Z
         n = 11.
         points = [Point2D(i * 3. / (n - 1.), i * 3. / (n - 1.)) for i in numpy.arange(n)]
@@ -766,8 +778,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.nonorthogonal_range_lower = .1
-        eqReg.options.N_norm = 40.
+        eqReg.options.set(
+                nonorthogonal_range_lower = .1,
+                nonorthogonal_range_lower_inner = .1,
+                nonorthogonal_range_lower_outer = .1,
+                N_norm = 40.,
+            )
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -784,8 +800,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.nonorthogonal_range_upper = .1
-        eqReg.options.N_norm = 40.
+        eqReg.options.set(
+                nonorthogonal_range_upper = .1,
+                nonorthogonal_range_upper_inner = .1,
+                nonorthogonal_range_upper_outer = .1,
+                N_norm = 40.,
+            )
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i > n - 1.],
                 [100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -802,9 +822,15 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.nonorthogonal_range_lower = .1
-        eqReg.options.nonorthogonal_range_upper = .1
-        eqReg.options.N_norm = 40.
+        eqReg.options.set(
+                nonorthogonal_range_lower = .1,
+                nonorthogonal_range_lower_inner = .1,
+                nonorthogonal_range_lower_outer = .1,
+                nonorthogonal_range_upper = .1,
+                nonorthogonal_range_upper_inner = .1,
+                nonorthogonal_range_upper_outer = .1,
+                N_norm = 40.,
+            )
 
         sfunc_orthogonal = lambda i: numpy.piecewise(i, [i < 0., i > n - 1.],
                 [-100., 100., lambda i: numpy.sqrt(i/(n - 1.)) * L])
@@ -826,11 +852,17 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.polynomial_d_lower = .1
-        eqReg.options.polynomial_d_upper = .1
-        eqReg.options.nonorthogonal_range_lower = .3
-        eqReg.options.nonorthogonal_range_upper = .3
-        eqReg.options.N_norm = 40
+        eqReg.options.set(
+                polynomial_d_lower = .1,
+                polynomial_d_upper = .1,
+                nonorthogonal_range_lower = .3,
+                nonorthogonal_range_lower_inner = .3,
+                nonorthogonal_range_lower_outer = .3,
+                nonorthogonal_range_upper = .3,
+                nonorthogonal_range_upper_inner = .3,
+                nonorthogonal_range_upper_outer = .3,
+                N_norm = 40,
+            )
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -864,11 +896,17 @@ class TestEquilibriumRegion:
         # option
         n = len(eqReg)
 
-        eqReg.options.polynomial_d_lower = .1
-        eqReg.options.polynomial_d_upper = .1
-        eqReg.options.nonorthogonal_range_lower = .2
-        eqReg.options.nonorthogonal_range_upper = .2
-        eqReg.options.N_norm = 40.
+        eqReg.options.set(
+                polynomial_d_lower = .1,
+                polynomial_d_upper = .1,
+                nonorthogonal_range_lower = .2,
+                nonorthogonal_range_lower_inner = .2,
+                nonorthogonal_range_lower_outer = .2,
+                nonorthogonal_range_upper = .2,
+                nonorthogonal_range_upper_inner = .2,
+                nonorthogonal_range_upper_outer = .2,
+                N_norm = 40.,
+            )
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 

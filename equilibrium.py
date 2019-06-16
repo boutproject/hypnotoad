@@ -1634,6 +1634,16 @@ class Equilibrium:
         PsiContour.options = PsiContour.options.push(dict(self.user_options))
         FineContour.options = FineContour.options.push(dict(self.user_options))
 
+        # Set some default options
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
+                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """
         Make a connection between the upper edge of a certain segment of lowerRegion and

@@ -92,15 +92,6 @@ class TORPEXMagneticField(Equilibrium):
         setDefault(self.user_options, 'poloidal_spacing_delta_psi',
                 numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
 
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
-
         formatstring = '{:<50}|  {:<50}'
         print('\nOptions\n=======')
         print(formatstring.format('Name', 'Value'))

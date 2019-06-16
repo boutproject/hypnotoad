@@ -601,7 +601,8 @@ class PsiContour:
         new_contour.endInd = self.endInd
         new_contour.extend_lower = self.extend_lower
         new_contour.extend_upper = self.extend_upper
-        new_contour._fine_contour = self._fine_contour
+        if points is None:
+            new_contour._fine_contour = self._fine_contour
 
         return new_contour
 

@@ -852,9 +852,15 @@ class PsiContour:
                 new_point = interp(distance_estimate[-1] + ds)
                 self.points.append(self.refinePoint(new_point, new_point - self[-1]))
 
-    def plot(self, *args, **kwargs):
+    def plot(self, *args, plotPsi=False, **kwargs):
         from matplotlib import pyplot
-        pyplot.plot([x.R for x in self], [x.Z for x in self], *args, **kwargs)
+        Rpoints = [p.R for p in self]
+        Zpoints = [p.Z for p in self]
+        if plotPsi:
+            R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
+            Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
+            pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
 
 class EquilibriumRegion(PsiContour):
     """

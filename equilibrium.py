@@ -572,8 +572,8 @@ class PsiContour:
         # This may be set even if the contour has not been extended yet, to specify how
         # many guard cells should be added when it is - this is extra information to
         # startInd and endInd.
-        self.extend_lower = 0
-        self.extend_upper = 0
+        self._extend_lower = 0
+        self._extend_upper = 0
 
     @property
     def startInd(self):
@@ -581,21 +581,47 @@ class PsiContour:
 
     @startInd.setter
     def startInd(self, val):
-        # self._fine_contour needs to be recalculated if the start position changes
-        self._fine_contour = None
-        self._distance = None
-        self._startInd = val
+        if self._startInd != val:
+            # self._fine_contour needs to be recalculated if the start position changes
+            self._fine_contour = None
+            self._distance = None
+            self._startInd = val
 
     @property
     def endInd(self):
-        # self._fine_contour needs to be recalculated if the end position changes
         return self._endInd
 
     @endInd.setter
     def endInd(self, val):
-        self._fine_contour = None
-        self._distance = None
-        self._endInd = val
+        if self._endInd != val:
+            # self._fine_contour needs to be recalculated if the end position changes
+            self._fine_contour = None
+            self._distance = None
+            self._endInd = val
+
+    @property
+    def extend_lower(self):
+        return self._extend_lower
+
+    @extend_lower.setter
+    def extend_lower(self, val):
+        if self._extend_lower != val:
+            # self._fine_contour needs to be recalculated if extend_lower changes, to add more
+            # points at the lower end
+            self._fine_contour = None
+            self._extend_lower = val
+
+    @property
+    def extend_upper(self):
+        return self._extend_upper
+
+    @extend_upper.setter
+    def extend_upper(self, val):
+        if self._extend_upper != val:
+            # self._fine_contour needs to be recalculated if extend_upper changes, to add more
+            # points at the upper end
+            self._fine_contour = None
+            self._extend_upper = val
 
     @property
     def fine_contour(self):

@@ -760,13 +760,6 @@ class MeshRegion:
         # angle.
         self.dphidy = self.hy * self.Btxy / (self.Bpxy * self.Rxy)
 
-        # Here ShiftTorsion = d2phidxdy
-        # Haven't checked this is exactly the quantity needed by BOUT++...
-        # ShiftTorsion is only used in Curl operator - Curl is rarely used.
-        self.ShiftTorsion = MultiLocationArray(self.nx, self.ny)
-        self.ShiftTorsion.centre = self.DDX_L2C(self.dphidy.xlow)
-        self.ShiftTorsion.ylow = self.DDX_L2C(self.dphidy.corners, ylow=True)
-
     def calcMetric(self):
         """
         Calculate the metrics using geometrical information calculated in geometry().
@@ -789,9 +782,7 @@ class MeshRegion:
                              "seem consistent in the private-flux region, or the "
                              "inner-SOL of a double-null configuration.")
             # integrated shear
-            self.sinty = MultiLocationArray(self.nx, self.ny)
-            self.sinty.centre = self.DDX_L2C(self.zShift.xlow)
-            self.sinty.ylow = self.DDX_L2C(self.zShift.corners, ylow=True)
+            self.sinty = self.DDX('zShift')
             I = self.sinty
         else:
             # Zero integrated shear, because the coordinate system is defined locally to
@@ -801,6 +792,11 @@ class MeshRegion:
             # means different (radial) regions can use different locations for where
             # zShift=0.
             I = MultiLocationArray(self.nx, self.ny).zero()
+
+        # Here ShiftTorsion = d2phidxdy
+        # Haven't checked this is exactly the quantity needed by BOUT++...
+        # ShiftTorsion is only used in Curl operator - Curl is rarely used.
+        self.ShiftTorsion = self.DDX('dphidy')
 
         self.g11 = (self.Rxy*self.Bpxy)**2
         self.g22 = 1./self.hy**2
@@ -1068,18 +1064,52 @@ class MeshRegion:
         else:
             return self.meshParent.regions[self.connections[face]]
 
-    def DDX_L2C(self, f, ylow=False):
-        # x-derivative at x-centre points, calculated by 2nd order central difference from
-        # x-staggered points.
-        # Assume the 'xlow' quantity f has nx+1 values and includes the outer point after
-        # the last cell-centre grid point.
-        assert f.shape[0] == self.nx + 1, 'input field f should be at xlow or corner, so should have x-size nx+1'
+    def DDX(self, name):
+        # x-derivative of a MultiLocationArray, calculated with 2nd order central
+        # differences
+        f = self.__dict__[name]
 
-        if not ylow:
-            dx = self.dx.centre
+        result = MultiLocationArray(self.nx, self.ny)
+
+        if f.xlow is not None:
+            result.centre[...] = (f.xlow[1:, :] - f.xlow[:-1, :]) / self.dx.centre
         else:
-            dx = self.dx.ylow
-        result = (f[1:, :] - f[:-1, :]) / dx
+            warnings.warn('No xlow field available to calculate DDX(' + name + ').centre')
+        if f.corners is not None:
+            result.ylow[...] = (f.corners[1:, :] - f.corners[:-1, :]) / self.dx.ylow
+        else:
+            warnings.warn('No corners field available to calculate DDX(' + name + ').ylow')
+
+        if f.centre is not None:
+            result.xlow[1:-1, :] = (f.centre[1:, :] - f.centre[:-1, :]) / self.dx.xlow[1:-1, :]
+            if self.connections['inner'] is not None:
+                f_inner = self.getNeighbour('inner').__dict__[name]
+                result.xlow[0, :] = (f.centre[0, :] - f_inner.centre[-1, :]) / self.dx.xlow[0, :]
+            else:
+                result.xlow[0, :] = (f.centre[0, :] - f.xlow[0, :]) / (self.dx.xlow[0, :]/2.)
+            if self.connections['outer'] is not None:
+                f_outer = self.getNeighbour('outer').__dict__[name]
+                result.xlow[-1, :] = (f_outer.centre[0, :] - f.centre[-1, :]) / self.dx.xlow[-1, :]
+            else:
+                result.xlow[-1, :] = (f.xlow[-1, :] - f.centre[-1, :]) / (self.dx.xlow[-1, :]/2.)
+        else:
+            warnings.warn('No centre field available to calculate DDX(' + name + ').xlow')
+
+        if f.ylow is not None:
+            result.corners[1:-1, :] = (f.ylow[1:, :] - f.ylow[:-1, :]) / self.dx.corners[1:-1, :]
+            if self.connections['inner'] is not None:
+                f_inner = self.getNeighbour('inner').__dict__[name]
+                result.corners[0, :] = (f.ylow[0, :] - f_inner.ylow[-1, :]) / self.dx.corners[0, :]
+            else:
+                result.corners[0, :] = (f.ylow[0, :] - f.corners[0, :]) / (self.dx.corners[0, :]/2.)
+            if self.connections['outer'] is not None:
+                f_outer = self.getNeighbour('outer').__dict__[name]
+                result.corners[-1, :] = (f_outer.ylow[0, :] - f.ylow[-1, :]) / self.dx.corners[-1, :]
+            else:
+                result.corners[-1, :] = (f.corners[-1, :] - f.ylow[-1, :]) / (self.dx.corners[-1, :]/2.)
+        else:
+            warnings.warn('No ylow field available to calculate DDX(' + name + ').corners')
+
         return result
 
 class Mesh:
@@ -1193,14 +1223,18 @@ class Mesh:
         """
         Calculate geometrical quantities for BOUT++
         """
+        print('Get RZ values')
         for region in self.regions.values():
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
+        print('Calculate geometry')
         for region in self.regions.values():
             region.geometry()
+        print('Calculate zShift')
         for region in self.regions.values():
             region.calcZShift()
+        print('Calculate Metric')
         for region in self.regions.values():
             region.calcMetric()
 

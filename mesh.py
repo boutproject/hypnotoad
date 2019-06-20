@@ -881,76 +881,55 @@ class MeshRegion:
         assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
-    def calcHy(self, ylow=False):
+    def calcHy(self):
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
         # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
         if not self.user_options.orthogonal:
             warnings.warn('need to check that this is correct for non-orthogonal grids')
 
-        # get positions at j+/-0.5
-        R = self.Rxy.ylow
-        Z = self.Zxy.ylow
-
         hy = MultiLocationArray(self.nx, self.ny)
-        hy.centre = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.centre
+        # contours have accurately calculated distances
+        # calculate distances between j+/-0.5
+        for i in range(self.nx):
+            d = numpy.array(self.contours[2*i + 1].distance)
+            hy.centre[i, :] = (d[2::2] - d[:-2:2])
+            hy.ylow[i, 1:-1] = (d[3:-1:2] - d[1:-3:2])
+            if self.connections['lower'] is not None:
+                cbelow = self.getNeighbour('lower').contours[2*i + 1]
+                hy.ylow[i, 0] = (d[1] - d[0] + cbelow.distance[-1] - cbelow.distance[-2])
+            else:
+                # no region below, so estimate distance to point before '0' as the same as
+                # from '0' to '1'
+                hy.ylow[i, 0] = 2.*(d[1] - d[0])
+            if self.connections['upper'] is not None:
+                cabove = self.getNeighbour('upper').contours[2*i + 1]
+                hy.ylow[i, -1] = (d[-1] - d[-2] + cabove.distance[1] - cabove.distance[0])
+            else:
+                # no region below, so estimate distance to point before '0' as the same as
+                # from '0' to '1'
+                hy.ylow[i, -1] = 2.*(d[-1] - d[-2])
 
-        # for hthe_ylow, need R, Z values from below the lower face of this region and
-        # above the upper face
-        R = numpy.zeros([self.nx, self.ny + 2])
-        R[:,1:-1] = self.Rxy.centre
-        Z = numpy.zeros([self.nx, self.ny + 2])
-        Z[:,1:-1] = self.Zxy.centre
-        if self.connections['lower'] is not None:
-            R[:,0] = self.getNeighbour('lower').Rxy.centre[:, -1]
-            Z[:,0] = self.getNeighbour('lower').Zxy.centre[:, -1]
-        else:
-            # dumb extrapolation, but should not need the affected guard cell value (the
-            # corresponding value at the upper boundary does not even exist, since we
-            # stagger to YLOW)
-            R[:,0] = 2.*self.Rxy.ylow[:,0] - self.Rxy.centre[:,0]
-            Z[:,0] = 2.*self.Zxy.ylow[:,0] - self.Zxy.centre[:,0]
-        if self.connections['upper'] is not None:
-            R[:,-1] = self.getNeighbour('upper').Rxy.centre[:,0]
-            Z[:,-1] = self.getNeighbour('upper').Zxy.centre[:,0]
-        else:
-            # dumb extrapolation, but should not need the affected guard cell value (the
-            # value will never even be passed to Mesh, since we stagger to YLOW)
-            R[:,-1] = 2.*self.Rxy.ylow[:,-1] - self.Rxy.centre[:,-1]
-            Z[:,-1] = 2.*self.Zxy.ylow[:,-1] - self.Zxy.centre[:,-1]
+        for i in range(self.nx + 1):
+            d = numpy.array(self.contours[2*i].distance)
+            hy.xlow[i, :] = (d[2::2] - d[:-2:2])
+            hy.corners[i, 1:-1] = (d[3:-1:2] - d[1:-3:2])
+            if self.connections['lower'] is not None:
+                cbelow = self.getNeighbour('lower').contours[2*i]
+                hy.corners[i, 0] = (d[1] - d[0] + cbelow.distance[-1] - cbelow.distance[-2])
+            else:
+                # no region below, so estimate distance to point before '0' as the same as
+                # from '0' to '1'
+                hy.corners[i, 0] = 2.*(d[1] - d[0])
+            if self.connections['upper'] is not None:
+                cabove = self.getNeighbour('upper').contours[2*i]
+                hy.corners[i, -1] = (d[-1] - d[-2] + cabove.distance[1] - cabove.distance[0])
+            else:
+                # no region below, so estimate distance to point before '0' as the same as
+                # from '0' to '1'
+                hy.corners[i, -1] = 2.*(d[-1] - d[-2])
 
-        hy.ylow =  numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.ylow
-
-        # for hthe_xlow, need R, Z values from the cell corners
-        R = self.Rxy.corners
-        Z = self.Zxy.corners
-
-        hy.xlow = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.xlow
-
-        # for hthecorners, need R, Z values from xlow
-        R = numpy.zeros([self.nx+1, self.ny+2])
-        Z = numpy.zeros([self.nx+1, self.ny+2])
-        R[:,1:-1] = self.Rxy.xlow
-        Z[:,1:-1] = self.Zxy.xlow
-        if self.connections['lower'] is not None:
-            R[:,0] = self.getNeighbour('lower').Rxy.xlow[:,-1]
-            Z[:,0] = self.getNeighbour('lower').Zxy.xlow[:,-1]
-        else:
-            # dumb extrapolation, but should not need the affected guard cell value (the
-            # corresponding value at the upper boundary does not even exist, since we
-            # stagger to YLOW)
-            R[:,0] = 2.*self.Rxy.corners[:,0] - self.Rxy.xlow[:,0]
-            Z[:,0] = 2.*self.Zxy.corners[:,0] - self.Zxy.xlow[:,0]
-        if self.connections['upper'] is not None:
-            R[:,-1] = self.getNeighbour('upper').Rxy.xlow[:,0]
-            Z[:,-1] = self.getNeighbour('upper').Zxy.xlow[:,0]
-        else:
-            # dumb extrapolation, but should not need the affected guard cell value (the
-            # will not even be stored in Mesh, since we stagger to YLOW)
-            R[:,-1] = 2.*self.Rxy.corners[:,-1] - self.Rxy.xlow[:,-1]
-            Z[:,-1] = 2.*self.Zxy.corners[:,-1] - self.Zxy.xlow[:,-1]
-
-        hy.corners = numpy.sqrt((R[:,1:] - R[:,:-1])**2 + (Z[:,1:] - Z[:,:-1])**2) / self.dy.corners
+        hy /= self.dy
 
         return hy
 

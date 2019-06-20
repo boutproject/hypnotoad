@@ -1092,6 +1092,15 @@ class Mesh:
 
         self.equilibrium = equilibrium
 
+        # Get current git-commit hash of Hypnotoad2 for version-tracking
+        from boututils.run_wrapper import shell_safe
+        from pathlib import Path
+        hypnotoad_path = str(Path(__file__).parent)
+        retval, self.git_hash = shell_safe('cd ' + hypnotoad_path +
+                '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
+                pipe=True)
+        self.git_hash = self.git_hash.strip()
+
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
 
@@ -1439,6 +1448,7 @@ class BoutMesh(Mesh):
             f.write('jyseps2_2', jyseps2_2)
 
             f.write('hypnotoad_inputs', self.equilibrium._getOptionsAsString())
+            f.write('hypnotoad_git_hash', self.git_hash)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

@@ -1148,18 +1148,23 @@ class EquilibriumRegion(PsiContour):
                 method = 'nonorthogonal'
 
         if method == 'sqrt':
+            if self.user_options.poloidalfunction_diagnose:
+                print('in sqrt method:')
+                print('N_norm =', self.options.N_norm)
+                print('a_lower =', self.options.sqrt_a_lower)
+                print('b_lower =', self.options.sqrt_b_lower)
+                print('a_upper =', self.options.sqrt_a_upper)
+                print('b_upper =', self.options.sqrt_b_upper)
             sfunc = self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
                     self.options.N_norm, b_lower=self.options.sqrt_b_lower,
                     a_lower=self.options.sqrt_a_lower, b_upper=self.options.sqrt_b_upper,
                     a_upper=self.options.sqrt_a_upper)
             self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
-            return sfunc
         elif method == 'polynomial':
             sfunc = self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
                     self.options.N_norm, d_lower=self.options.polynomial_d_lower,
                     d_upper=self.options.polynomial_d_upper)
             self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
-            return sfunc
         elif method == 'nonorthogonal':
             nonorth_method = self.user_options.nonorthogonal_spacing_method
             if nonorth_method == 'poloidal_orthogonal_combined':
@@ -1185,7 +1190,7 @@ class EquilibriumRegion(PsiContour):
                     # X-point
                     upper_surface = None
 
-                return self.combineSfuncs(self, None, lower_surface, upper_surface)
+                sfunc = self.combineSfuncs(self, None, lower_surface, upper_surface)
             elif nonorth_method == 'combined':
                 # Use fixed poloidal spacing when gridding the separatrix contour so that
                 # the grid spacing is the same in different regions which share a
@@ -1194,13 +1199,26 @@ class EquilibriumRegion(PsiContour):
                 return self.combineSfuncs(self, None)
             elif nonorth_method == 'orthogonal':
                 orth_method = self.user_options.poloidal_spacing_method
-                return self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
+                sfunc = self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
             else:
-                return self.getSfuncFixedSpacing(npoints, distance, method=nonorth_method)
+                sfunc = self.getSfuncFixedSpacing(npoints, distance, method=nonorth_method)
         else:
             raise ValueError('Unrecognized option '
                              + str(self.user_options.poloidal_spacing_method)
                              + ' for poloidal spacing method')
+
+        if self.user_options.poloidalfunction_diagnose:
+            from matplotlib import pyplot
+            indices = numpy.linspace(0., npoints - 1, 1000)
+            pyplot.plot(indices, sfunc(indices))
+            pyplot.axhline(0., color='r')
+            pyplot.axhline(distance, color='r')
+            pyplot.xlabel('index')
+            pyplot.ylabel('s')
+            pyplot.title(self.name + ' ' + method)
+            pyplot.show()
+
+        return sfunc
 
     def combineSfuncs(self, contour, sfunc_orthogonal, vec_lower=None, vec_upper=None):
         # this sfunc gives:

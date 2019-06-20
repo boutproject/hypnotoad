@@ -78,6 +78,7 @@ HypnotoadOptions = Options(
     ## Switches for diagnostics to investigate when something is not converging
     # Info for FineContour.__init__
         finecontour_diagnose = False,
+        poloidalfunction_diagnose = False,
     )
 
 """

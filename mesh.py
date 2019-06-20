@@ -1112,6 +1112,54 @@ class MeshRegion:
 
         return result
 
+    def DDY(self, name):
+        # y-derivative of a MultiLocationArray, calculated with 2nd order central
+        # differences
+        f = self.__dict__[name]
+
+        result = MultiLocationArray(self.nx, self.ny)
+
+        if f.ylow is not None:
+            result.centre[...] = (f.ylow[:, 1:] - f.ylow[:, :-1]) / self.dy.centre
+        else:
+            warnings.warn('No ylow field available to calculate DDY(' + name + ').centre')
+        if f.corners is not None:
+            result.xlow[...] = (f.corners[:, 1:] - f.corners[:, :-1]) / self.dy.xlow
+        else:
+            warnings.warn('No corners field available to calculate DDY(' + name + ').xlow')
+
+        if f.centre is not None:
+            result.ylow[:, 1:-1] = (f.centre[:, 1:] - f.centre[:, :-1]) / self.dy.ylow[:, 1:-1]
+            if self.connections['lower'] is not None:
+                f_lower = self.getNeighbour('lower').__dict__[name]
+                result.ylow[:, 0] = (f.centre[:, 0] - f_lower.centre[:, -1]) / self.dy.ylow[:, 0]
+            else:
+                result.ylow[:, 0] = (f.centre[:, 0] - f.ylow[:, 0]) / (self.dy.ylow[:, 0]/2.)
+            if self.connections['upper'] is not None:
+                f_upper = self.getNeighbour('upper').__dict__[name]
+                result.ylow[:, -1] = (f_upper.centre[:, 0] - f.centre[:, -1]) / self.dy.ylow[:, -1]
+            else:
+                result.ylow[:, -1] = (f.ylow[:, -1] - f.centre[:, -1]) / (self.dy.ylow[:, -1]/2.)
+        else:
+            warnings.warn('No centre field available to calculate DDY(' + name + ').ylow')
+
+        if f.xlow is not None:
+            result.corners[:, 1:-1] = (f.xlow[:, 1:] - f.xlow[:, :-1]) / self.dy.corners[:, 1:-1]
+            if self.connections['lower'] is not None:
+                f_lower = self.getNeighbour('lower').__dict__[name]
+                result.corners[:, 0] = (f.xlow[:, 0] - f_lower.xlow[:, -1]) / self.dy.corners[:, 0]
+            else:
+                result.corners[:, 0] = (f.xlow[:, 0] - f.corners[:, 0]) / (self.dy.corners[:, 0]/2.)
+            if self.connections['upper'] is not None:
+                f_upper = self.getNeighbour('upper').__dict__[name]
+                result.corners[:, -1] = (f_upper.xlow[:, 0] - f.xlow[:, -1]) / self.dy.corners[:, -1]
+            else:
+                result.corners[:, -1] = (f.corners[:, -1] - f.xlow[:, -1]) / (self.dy.corners[:, -1]/2.)
+        else:
+            warnings.warn('No xlow field available to calculate DDY(' + name + ').corners')
+
+        return result
+
 class Mesh:
     """
     Mesh represented by a collection of connected MeshRegion objects

@@ -1596,9 +1596,9 @@ class EquilibriumRegion(PsiContour):
             return lambda i: a*numpy.sqrt(i/N_norm) + d*i/N_norm + e*(i/N_norm)**2
         else:
             if a_lower is None:
-                a_lower = b_lower
+                a_lower = 0.
             if a_upper is None:
-                a_upper = b_upper
+                a_upper = 0.
             # s(iN) = a*sqrt(iN) - b*sqrt(N/N_norm-iN) + c + d*iN + e*iN^2 + f*iN^3
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # c = b*sqrt(N/N_norm)
@@ -1625,10 +1625,22 @@ class EquilibriumRegion(PsiContour):
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
             assert a >= 0., 'sqrt part of function should be positive at start'
-            assert b/(2.*numpy.sqrt(N/N_norm)) + d >= 0., 'gradient of non-singular part should be positive at start'
+            if a_lower == 0.:
+                # Gradient must be strictly positive as there is no positive a_lower piece
+                assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0., 'gradient of non-singular part should be positive at start'
+            else:
+                # Might be 0., so allow tolerance for small negative values due to
+                # rounding errors
+                assert b/(2.*numpy.sqrt(N/N_norm)) + d > -self.user_options.sfunc_checktol, 'gradient of non-singular part should be positive at start'
             # upper boundary:
             assert b >= 0., 'sqrt part of function should be positive at end'
-            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 >= 0., 'gradient of non-singular part should be positive at end'
+            if a_upper == 0.:
+                # Gradient must be strictly positive as there is no positive a_upper piece
+                assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 > 0., 'gradient of non-singular part should be positive at end'
+            else:
+                # Might be 0., so allow tolerance for small negative values due to
+                # rounding errors
+                assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 > - self.user_options.sfunc_checktol, 'gradient of non-singular part should be positive at end'
 
             return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3
 

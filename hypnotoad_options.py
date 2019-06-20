@@ -72,6 +72,9 @@ HypnotoadOptions = Options(
         finecontour_Nfine = 1000,
         finecontour_atol = 1.e-12,
 
+    ## Accuracy options for poloidal spacing functions
+        sfunc_checktol = 1.e-13,
+
     ## Accuracy options for geometry checking
         geometry_rtol = 1.e-10,
 

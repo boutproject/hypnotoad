@@ -4,6 +4,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 
 from copy import deepcopy
 import numbers
+import re
 import warnings
 
 import numpy
@@ -796,7 +797,7 @@ class MeshRegion:
         # Here ShiftTorsion = d2phidxdy
         # Haven't checked this is exactly the quantity needed by BOUT++...
         # ShiftTorsion is only used in Curl operator - Curl is rarely used.
-        self.ShiftTorsion = self.DDX('dphidy')
+        self.ShiftTorsion = self.DDX('#dphidy')
 
         self.g11 = (self.Rxy*self.Bpxy)**2
         self.g22 = 1./self.hy**2
@@ -1064,10 +1065,32 @@ class MeshRegion:
         else:
             return self.meshParent.regions[self.connections[face]]
 
-    def DDX(self, name):
+    def _eval_from_region(self, expr, region=None, component=None):
+        # Utility routine to evaluate an expression using different MeshRegions
+        # Names of fields belonging to the MeshRegion are indicated by a '#' in expr, e.g.
+        # if 'foo' and 'bar' are two member variables, we could have expr='#foo + #bar'
+
+        if region is None:
+            region_string = 'self'
+        else:
+            region_string = 'self.getNeighbour(\''+region+'\')'
+
+        if component is None:
+            component = ''
+        else:
+            component = '.' + component
+
+        # replace the name of the field with an expression to get that field from the
+        # MeshRegion 'region'
+        expr = re.sub('#(\\w+)', region_string + '.__dict__[\'\\1\']' + component, expr)
+
+        return eval(expr)
+
+    def DDX(self, expr):
         # x-derivative of a MultiLocationArray, calculated with 2nd order central
         # differences
-        f = self.__dict__[name]
+
+        f = self._eval_from_region(expr)
 
         result = MultiLocationArray(self.nx, self.ny)
 
@@ -1083,13 +1106,13 @@ class MeshRegion:
         if f.centre is not None:
             result.xlow[1:-1, :] = (f.centre[1:, :] - f.centre[:-1, :]) / self.dx.xlow[1:-1, :]
             if self.connections['inner'] is not None:
-                f_inner = self.getNeighbour('inner').__dict__[name]
-                result.xlow[0, :] = (f.centre[0, :] - f_inner.centre[-1, :]) / self.dx.xlow[0, :]
+                f_inner = self._eval_from_region(expr, 'inner', 'centre[-1, :]')
+                result.xlow[0, :] = (f.centre[0, :] - f_inner) / self.dx.xlow[0, :]
             else:
                 result.xlow[0, :] = (f.centre[0, :] - f.xlow[0, :]) / (self.dx.xlow[0, :]/2.)
             if self.connections['outer'] is not None:
-                f_outer = self.getNeighbour('outer').__dict__[name]
-                result.xlow[-1, :] = (f_outer.centre[0, :] - f.centre[-1, :]) / self.dx.xlow[-1, :]
+                f_outer = self._eval_from_region(expr, 'outer', 'centre[0, :]')
+                result.xlow[-1, :] = (f_outer - f.centre[-1, :]) / self.dx.xlow[-1, :]
             else:
                 result.xlow[-1, :] = (f.xlow[-1, :] - f.centre[-1, :]) / (self.dx.xlow[-1, :]/2.)
         else:
@@ -1098,13 +1121,13 @@ class MeshRegion:
         if f.ylow is not None:
             result.corners[1:-1, :] = (f.ylow[1:, :] - f.ylow[:-1, :]) / self.dx.corners[1:-1, :]
             if self.connections['inner'] is not None:
-                f_inner = self.getNeighbour('inner').__dict__[name]
-                result.corners[0, :] = (f.ylow[0, :] - f_inner.ylow[-1, :]) / self.dx.corners[0, :]
+                f_inner = self._eval_from_region(expr, 'inner', 'ylow[-1, :]')
+                result.corners[0, :] = (f.ylow[0, :] - f_inner) / self.dx.corners[0, :]
             else:
                 result.corners[0, :] = (f.ylow[0, :] - f.corners[0, :]) / (self.dx.corners[0, :]/2.)
             if self.connections['outer'] is not None:
-                f_outer = self.getNeighbour('outer').__dict__[name]
-                result.corners[-1, :] = (f_outer.ylow[0, :] - f.ylow[-1, :]) / self.dx.corners[-1, :]
+                f_outer = self._eval_from_region(expr, 'outer', 'ylow[0, :]')
+                result.corners[-1, :] = (f_outer - f.ylow[-1, :]) / self.dx.corners[-1, :]
             else:
                 result.corners[-1, :] = (f.corners[-1, :] - f.ylow[-1, :]) / (self.dx.corners[-1, :]/2.)
         else:
@@ -1112,10 +1135,10 @@ class MeshRegion:
 
         return result
 
-    def DDY(self, name):
+    def DDY(self, expr):
         # y-derivative of a MultiLocationArray, calculated with 2nd order central
         # differences
-        f = self.__dict__[name]
+        f = self._eval_from_region(expr)
 
         result = MultiLocationArray(self.nx, self.ny)
 
@@ -1131,13 +1154,13 @@ class MeshRegion:
         if f.centre is not None:
             result.ylow[:, 1:-1] = (f.centre[:, 1:] - f.centre[:, :-1]) / self.dy.ylow[:, 1:-1]
             if self.connections['lower'] is not None:
-                f_lower = self.getNeighbour('lower').__dict__[name]
-                result.ylow[:, 0] = (f.centre[:, 0] - f_lower.centre[:, -1]) / self.dy.ylow[:, 0]
+                f_lower = self._eval_from_region(expr, 'lower', 'centre[:, -1]')
+                result.ylow[:, 0] = (f.centre[:, 0] - f_lower) / self.dy.ylow[:, 0]
             else:
                 result.ylow[:, 0] = (f.centre[:, 0] - f.ylow[:, 0]) / (self.dy.ylow[:, 0]/2.)
             if self.connections['upper'] is not None:
-                f_upper = self.getNeighbour('upper').__dict__[name]
-                result.ylow[:, -1] = (f_upper.centre[:, 0] - f.centre[:, -1]) / self.dy.ylow[:, -1]
+                f_upper = self._eval_from_region(expr, 'upper', 'centre[:, 0]')
+                result.ylow[:, -1] = (f_upper - f.centre[:, -1]) / self.dy.ylow[:, -1]
             else:
                 result.ylow[:, -1] = (f.ylow[:, -1] - f.centre[:, -1]) / (self.dy.ylow[:, -1]/2.)
         else:
@@ -1146,13 +1169,13 @@ class MeshRegion:
         if f.xlow is not None:
             result.corners[:, 1:-1] = (f.xlow[:, 1:] - f.xlow[:, :-1]) / self.dy.corners[:, 1:-1]
             if self.connections['lower'] is not None:
-                f_lower = self.getNeighbour('lower').__dict__[name]
-                result.corners[:, 0] = (f.xlow[:, 0] - f_lower.xlow[:, -1]) / self.dy.corners[:, 0]
+                f_lower = self._eval_from_region(expr, 'lower', 'xlow[:, -1]')
+                result.corners[:, 0] = (f.xlow[:, 0] - f_lower) / self.dy.corners[:, 0]
             else:
                 result.corners[:, 0] = (f.xlow[:, 0] - f.corners[:, 0]) / (self.dy.corners[:, 0]/2.)
             if self.connections['upper'] is not None:
-                f_upper = self.getNeighbour('upper').__dict__[name]
-                result.corners[:, -1] = (f_upper.xlow[:, 0] - f.xlow[:, -1]) / self.dy.corners[:, -1]
+                f_upper = self._eval_from_region(expr, 'upper', 'xlow[:, 0]')
+                result.corners[:, -1] = (f_upper - f.xlow[:, -1]) / self.dy.corners[:, -1]
             else:
                 result.corners[:, -1] = (f.corners[:, -1] - f.xlow[:, -1]) / (self.dy.corners[:, -1]/2.)
         else:

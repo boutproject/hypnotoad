@@ -879,15 +879,68 @@ class MeshRegion:
         assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
         # curvature terms
-        self.curl_bOverB_x = ( -2.*self.bpsign*self.Bpxy*self.Btxy*self.Rxy
-                                / (self.hy*self.Bxy**3) * self.DDY('#Bxy') )
-        self.curl_bOverB_y = ( -self.bpsign*self.Bpxy/self.hy
-                                * self.DDX('#Btxy*#Rxy/#Bxy**2') )
-        self.curl_bOverB_z = ( self.Bpxy**3/(self.hy*self.Bxy**2)
-                                 * self.DDX('#hy/#Bpxy')
-                               - self.Btxy*self.Rxy/self.Bxy**2
-                                 * self.DDX('#Btxy/#Rxy')
-                               - I*self.curl_bOverB_x)
+        print('Calculate curvature')
+        self.calc_curvature()
+
+    def calc_curvature(self):
+        if False:
+            # calculate curl on x-y grid
+            self.curl_bOverB_x = ( -2.*self.bpsign*self.Bpxy*self.Btxy*self.Rxy
+                                    / (self.hy*self.Bxy**3) * self.DDY('#Bxy') )
+            self.curl_bOverB_y = ( -self.bpsign*self.Bpxy/self.hy
+                                    * self.DDX('#Btxy*#Rxy/#Bxy**2') )
+            self.curl_bOverB_z = ( self.Bpxy**3/(self.hy*self.Bxy**2)
+                                     * self.DDX('#hy/#Bpxy')
+                                   - self.Btxy*self.Rxy/self.Bxy**2
+                                     * self.DDX('#Btxy/#Rxy')
+                                   - I*self.curl_bOverB_x)
+        else:
+            # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
+            psi = self.equilibrium.psi
+            fpol = lambda R,Z: self.equilibrium.fpol(psi(R,Z))
+            fpolprime = lambda R,Z: self.equilibrium.fpolprime(psi(R,Z))
+            BR = self.equilibrium.Bp_R
+            BZ = self.equilibrium.Bp_Z
+            d2psidR2 = self.equilibrium.d2psidR2
+            d2psidZ2 = self.equilibrium.d2psidZ2
+            d2psidRdZ = self.equilibrium.d2psidRdZ
+
+            # Toroidal component of B
+            Bphi = lambda R,Z: fpol(R,Z) / R
+
+            # B^2
+            B2 = lambda R,Z: ( BR(R,Z)**2 + BZ(R,Z)**2 + Bphi(R,Z)**2 )
+
+            # d(B^2)/dR
+            dB2dR = lambda R,Z: ( -2./R * B2(R,Z)
+                    + 2./R * (-BZ(R,Z)*d2psidR2(R,Z) + BR(R,Z)*d2psidRdZ(R,Z)
+                              - fpol(R,Z)*fpolprime(R,Z)*BZ(R,Z)) )
+
+            # d(B^2)/dZ
+            dB2dZ = lambda R,Z: 2./R * (-BZ(R,Z)*d2psidRdZ(R,Z) + BR(R,Z)*d2psidZ2(R,Z)
+                                        + fpol(R,Z)*fpolprime(R,Z)*BR(R,Z))
+
+            # dBphi/dR
+            dBphidR = lambda R,Z: -fpolprime(R,Z)*BZ(R,Z) - fpol(R,Z)/R**2
+
+            # dBphi/dZ
+            dBphidZ = lambda R,Z: fpolprime(R,Z)*BR(R,Z)
+
+            # dBZ/dR
+            dBZdR = lambda R,Z: -d2psidR2(R,Z)/R - BZ(R,Z)/R
+
+            # dBR/dZ
+            dBRdZ = lambda R,Z: d2psidZ2(R,Z)/R
+
+            # curl(b/B)
+            curl_bOverB_R = lambda R,Z: dBphidZ(R,Z)/B2(R,Z) - Bphi(R,Z)/B2(R,Z)**2 * dB2dZ(R,Z)
+            curl_bOverB_Z = lambda R,Z: -dBphidR(R,Z)/B2(R,Z) + Bphi(R,Z)/B2(R,Z)**2 * dB2dR(R,Z)
+            curl_bOverB_phi = lambda R,Z: ( dBZdR(R,Z)/B2(R,Z) - BZ(R,Z)/B2(R,Z)**2 * dB2dR(R,Z)
+                                            - dBRdZ(R,Z)/B2(R,Z) + BR(R,Z)/B2(R,Z)**2 * dB2dZ(R,Z) )
+
+            curl_bOverB_R = curl_bOverB_R(self.Rxy, self.Zxy)
+            curl_bOverB_Z = curl_bOverB_Z(self.Rxy, self.Zxy)
+            curl_bOverB_phi = curl_bOverB_phi(self.Rxy, self.Zxy)
 
         if self.user_options.curvature_type == 'curl(b/B)':
             self.bxcvx = self.Bxy/2. * self.curl_bOverB_x
@@ -1484,6 +1537,12 @@ class BoutMesh(Mesh):
         addFromRegions('g_12')
         addFromRegions('g_13')
         addFromRegions('g_23')
+        addFromRegions('curl_bOverB_x')
+        addFromRegions('curl_bOverB_y')
+        addFromRegions('curl_bOverB_z')
+        addFromRegions('bxcvx')
+        addFromRegions('bxcvy')
+        addFromRegions('bxcvz')
 
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))

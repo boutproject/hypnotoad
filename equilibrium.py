@@ -1674,6 +1674,7 @@ class Equilibrium:
       - self.psi_sep: values of psi on the separatrices ordered the same as self.x_points
       - self.fpol: poloidal current function, takes one argument, psi, and returns fpol
         (function such that B_toroidal = fpol/R)
+      - self.fpolprime: psi-derivative of fpol
       - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a bounding
         box for the gridding
       - self.regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
@@ -1742,6 +1743,9 @@ class Equilibrium:
         self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
         self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
         self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
+        self.d2psidR2 = self._dct.d2dR2
+        self.d2psidZ2 = self._dct.d2dZ2
+        self.d2psidRdZ = self._dct.d2dRdZ
 
     def findMinimum_1d(self, pos1, pos2, atol=1.e-14):
         coords = lambda s: pos1 + s*(pos2-pos1)

@@ -166,6 +166,7 @@ class TORPEXMagneticField(Equilibrium):
 
         # TORPEX plasma pressure so low fpol is constant
         self.fpol = lambda psi: Bt_axis / self.Rcentre
+        self.fpolprime = lambda psi: 0.
 
         # Make a set of points representing the wall
         self.wall = [self.TORPEX_wall(theta) for theta in
@@ -242,6 +243,9 @@ class TORPEXMagneticField(Equilibrium):
         modGradpsiSquared = dpsidR**2 + dpsidZ**2
         B_R = dpsidZ/R
         B_Z = -dpsidR/R
+        d2psidR2 = sympy.diff(psi, R, R)
+        d2psidZ2 = sympy.diff(psi, Z, Z)
+        d2psidRdZ = sympy.diff(psi, R, Z)
 
         self.psi = sympy.lambdify([R,Z], psi, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
@@ -252,6 +256,12 @@ class TORPEXMagneticField(Equilibrium):
         self.Bp_R = sympy.lambdify([R,Z], B_R, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
         self.Bp_Z = sympy.lambdify([R,Z], B_Z, modules=['numpy',
+            {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+        self.d2psidR2 = sympy.lambdify([R,Z], d2psidR2, modules=['numpy',
+            {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+        self.d2psidZ2 = sympy.lambdify([R,Z], d2psidZ2, modules=['numpy',
+            {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
+        self.d2psidRdZ = sympy.lambdify([R,Z], d2psidRdZ, modules=['numpy',
             {'elliptic_k':scipy.special.ellipk, 'elliptic_e':scipy.special.ellipe}])
 
     def makeRegions(self, npoints=100):

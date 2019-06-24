@@ -18,6 +18,10 @@ HypnotoadOptions = Options(
         # Number of y-boundary guard cells
         y_boundary_guards = 0,
 
+        # Expression to use to calculate curvature operator 'bxcv'
+        # Possible values: 'Curl(b/B)' or 'bxkappa'
+        curvature_type = 'bxkappa',
+
     ## Radial spacing options
         psi_spacing_separatrix_multiplier = None,
 

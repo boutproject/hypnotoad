@@ -878,6 +878,29 @@ class MeshRegion:
         assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
+        # curvature terms
+        self.curl_bOverB_x = ( -2.*self.bpsign*self.Bpxy*self.Btxy*self.Rxy
+                                / (self.hy*self.Bxy**3) * self.DDY('#Bxy') )
+        self.curl_bOverB_y = ( -self.bpsign*self.Bpxy/self.hy
+                                * self.DDX('#Btxy*#Rxy/#Bxy**2') )
+        self.curl_bOverB_z = ( self.Bpxy**3/(self.hy*self.Bxy**2)
+                                 * self.DDX('#hy/#Bpxy')
+                               - self.Btxy*self.Rxy/self.Bxy**2
+                                 * self.DDX('#Btxy/#Rxy')
+                               - I*self.curl_bOverB_x)
+
+        if self.user_options.curvature_type == 'curl(b/B)':
+            self.bxcvx = self.Bxy/2. * self.curl_bOverB_x
+            self.bxcvy = self.Bxy/2. * self.curl_bOverB_y
+            self.bxcvz = self.Bxy/2. * self.curl_bOverB_z
+        elif self.user_options.curvature_type == 'bxkappa':
+            self.bxcvx = float('nan')
+            self.bxcvy = float('nan')
+            self.bxcvz = float('nan')
+        else:
+            raise ValueError('Unrecognized option \''
+                    + str(self.user_options.curvature_type) + '\' for curvature type')
+
     def calcHy(self):
         # hy = |Grad(theta)|
         # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal

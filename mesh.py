@@ -816,7 +816,7 @@ class MeshRegion:
         self.g_23 = self.dphidy*self.Rxy**2
 
         # check Jacobian is OK
-        one_over_sqrt_g = self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
+        Jcheck = self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
                 + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2
                 - self.g22*self.g13**2 - self.g33*self.g12**2)
         # ignore grid points at X-points as J should diverge there (as Bp->0)
@@ -829,20 +829,20 @@ class MeshRegion:
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
             one_over_sqrt_g.corners[-1, -1] = self.J.corners[-1, -1]
 
-        check = numpy.abs(self.J - one_over_sqrt_g) / numpy.abs(self.J) < self.user_options.geometry_rtol
+        check = numpy.abs(self.J - Jcheck) / numpy.abs(self.J) < self.user_options.geometry_rtol
         def ploterror(location):
             if location == 'centre':
                 thisJ = self.J.centre
-                this_one_over_sqrt_g = one_over_sqrt_g.centre
+                this_one_over_sqrt_g = Jcheck.centre
             elif location == 'ylow':
                 thisJ = self.J.ylow
-                this_one_over_sqrt_g = one_over_sqrt_g.ylow
+                this_one_over_sqrt_g = Jcheck.ylow
             elif location == 'xlow':
                 thisJ = self.J.xlow
-                this_one_over_sqrt_g = one_over_sqrt_g.xlow
+                this_one_over_sqrt_g = Jcheck.xlow
             elif location == 'corners':
                 thisJ = self.J.corners
-                this_one_over_sqrt_g = one_over_sqrt_g.corners
+                this_one_over_sqrt_g = Jcheck.corners
             else:
                 raise ValueError('wrong location argument: '+str(location))
             print('rtol = ' + str(self.user_options.geometry_rtol))

@@ -126,7 +126,55 @@ class TORPEXMagneticField(Equilibrium):
 
             R = numpy.linspace(gfile['rleft'], gfile['rleft'] + gfile['rdim'], gfile['nw'])
             Z = numpy.linspace(gfile['zmid'] - 0.5*gfile['zdim'], gfile['zmid'] + 0.5*gfile['zdim'], gfile['nh'])
-            self.magneticFunctionsFromGrid(R, Z, gfile['psirz'])
+            psirz = gfile['psirz']
+
+            # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
+            # plasma current
+            psi_axis = gfile['siaxis']
+            R_axis = gfile['rmaxis']
+            Z_axis = gfile['zmaxis']
+            psi_bndry = gfile['sibry']
+            Ip = gfile['current']
+            if psi_axis < psi_bndry:
+                # psi increases outward radially, so Bp is clockwise in the poloidal plane
+                # (outward in major radius at the top of the torus, inward at the bottom).
+                # This corresponds to plasma current in the anti-clockwise toroidal
+                # direction looking from above, so current should be positive
+                assert Ip >= 0., 'direction of plasma current should be anti-clockwise to be consistent with sign of grad(psi)'
+            else:
+                # psi decreases outward radially, so current should be in the opposite
+                # direction
+                assert Ip <= 0., 'direction of plasma current should be clockwise to be consistent with sign of grad(psi)'
+            # index of a point close to the magnetic axis
+            i_axis = numpy.searchsorted(R, R_axis)
+            j_axis = numpy.searchsorted(Z, Z_axis)
+
+            # Approximate value of psi at the magnetic axis from the psi array
+            grid_psi_axis = psirz[j_axis, i_axis]
+            if numpy.abs(psi_axis) > 1.e-10:
+                if numpy.abs(psi_axis + grid_psi_axis)/numpy.abs(psi_axis) < 1.e-2:
+                    # In some EFIT files, psirz might be defined with the 'wrong' sign, so
+                    # that it increases radially, in which case we would have
+                    # psi_axis ~ -grid_psi_axis and we need to flip the sign of psirz
+                    psirz = -psirz
+                else:
+                    if numpy.abs(psi_axis - grid_psi_axis)/numpy.abs(psi_axis) < 1.e-2:
+                        warnings.warn('psi_axis is not consistent with the value of psirz at (rmaxis, zmaxis)')
+            else:
+                # psi_axis is zero
+                if numpy.abs(grid_psi_axis) < 1.e-10:
+                    # [i_axis, j_axis] must have been right on the magnetic axis, so go
+                    # one point away to get a non-zero value
+                    test_psi = psirz[j_axis+1, i_axis+1]
+                else:
+                    test_psi = grid_psi_axis
+
+                if (test_psi > 0. and psi_bndry < 0.) or (test_psi < 0. and psi_bndry > 0.):
+                    # psi is changing (from 0) in the 'wrong' direction away from the
+                    # axis. Should be going towards psi_bndry. So flip the sign
+                    psirz = -psirz
+
+            self.magneticFunctionsFromGrid(R, Z, psirz)
 
             Bt_axis = gfile['bcentr']
         elif 'matfile' in self.equilibOptions:

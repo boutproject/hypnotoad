@@ -784,7 +784,7 @@ class MeshRegion:
                              "inner-SOL of a double-null configuration.")
             # integrated shear
             self.sinty = self.DDX('zShift')
-            I = self.sinty
+            self.I = self.sinty
         else:
             # Zero integrated shear, because the coordinate system is defined locally to
             # each value of y, and defined to have no shear.
@@ -792,7 +792,7 @@ class MeshRegion:
             # line - don't need to be able to take radial (x-direction) derivatives. This
             # means different (radial) regions can use different locations for where
             # zShift=0.
-            I = MultiLocationArray(self.nx, self.ny).zero()
+            self.I = MultiLocationArray(self.nx, self.ny).zero()
 
         # Here ShiftTorsion = d2phidxdy
         # Haven't checked this is exactly the quantity needed by BOUT++...
@@ -801,18 +801,18 @@ class MeshRegion:
 
         self.g11 = (self.Rxy*self.Bpxy)**2
         self.g22 = 1./self.hy**2
-        self.g33 = I*self.g11 + (self.dphidy/self.hy)**2 + 1./self.Rxy**2
+        self.g33 = self.I*self.g11 + (self.dphidy/self.hy)**2 + 1./self.Rxy**2
         self.g12 = MultiLocationArray(self.nx, self.ny).zero()
-        self.g13 = -I*self.g11
+        self.g13 = -self.I*self.g11
         self.g23 = -self.dphidy/self.hy**2
 
         self.J = self.hy / self.Bpxy
 
-        self.g_11 = 1./self.g11 + (I*self.Rxy)**2
+        self.g_11 = 1./self.g11 + (self.I*self.Rxy)**2
         self.g_22 = self.hy**2 + (self.Rxy*self.dphidy)**2
         self.g_33 = self.Rxy**2
-        self.g_12 = self.Rxy**2*self.dphidy*I
-        self.g_13 = self.Rxy**2*I
+        self.g_12 = self.Rxy**2*self.dphidy*self.I
+        self.g_13 = self.Rxy**2*self.I
         self.g_23 = self.dphidy*self.Rxy**2
 
         # check Jacobian is OK
@@ -893,7 +893,7 @@ class MeshRegion:
                                      * self.DDX('#hy/#Bpxy')
                                    - self.Btxy*self.Rxy/self.Bxy**2
                                      * self.DDX('#Btxy/#Rxy')
-                                   - I*self.curl_bOverB_x)
+                                   - self.I*self.curl_bOverB_x)
         else:
             # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
             psi = self.equilibrium.psi

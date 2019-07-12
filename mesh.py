@@ -1140,6 +1140,18 @@ class MeshRegion:
                 next_region.zShift.corners[:, 0] = region.zShift.corners[:, -1]
                 region = next_region
 
+        # Calculate ShiftAngle for closed field line regions
+        self.ShiftAngle = MultiLocationArray(self.nx, 1)
+        if self.connections['lower'] is not None:
+            # This is a periodic region (we already checked that the self.yGroupIndex is
+            # 0).
+            # 'region' is the last region in the y-group
+            self.ShiftAngle.centre = region.zShift.ylow[:, -1] - self.zShift.ylow[:, 0]
+            self.ShiftAngle.xlow = region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
+        else:
+            self.ShiftAngle.centre = float('nan')
+            self.ShiftAngle.xlow = float('nan')
+
     def getNeighbour(self, face):
         if self.connections[face] is None:
             return None
@@ -1459,6 +1471,7 @@ class BoutMesh(Mesh):
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
 
         self.fields_to_output = []
+        self.arrayXDirection_to_output = []
 
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
@@ -1513,6 +1526,27 @@ class BoutMesh(Mesh):
                 if f_region._corners_array is not None:
                     f.corners[self.region_indices[region.myID]] = f_region.corners[:-1,:-1]
 
+        def addFromRegionsXArray(name):
+            # Collects 1d arrays on a grid in the x-direction (no y-variation)
+            # Data taken from the first region in each y-group
+            self.arrayXDirection_to_output.append(name)
+            f = MultiLocationArray(self.nx, 1)
+            self.__dict__[name] = f
+            f.attributes = self.y_groups[0][0].__dict__[name].attributes
+            for y_group in self.y_groups:
+                # Get values from first region in each y_group
+                region = y_group[0]
+
+                f_region = region.__dict__[name]
+
+                assert f.attributes == f_region.attributes, 'attributes of a field must be set consistently in every region'
+                if f_region._centre_array is not None:
+                    f.centre[self.region_indices[region.myID]] = f_region.centre
+                if f_region._xlow_array is not None:
+                    f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1,:]
+                assert f_region._ylow_array is None, 'Cannot have an x-direction array at ylow'
+                assert f_region._corners_array is None, 'Cannot have an x-direction array at corners'
+
         addFromRegions('Rxy')
         addFromRegions('Zxy')
         addFromRegions('psixy')
@@ -1530,6 +1564,7 @@ class BoutMesh(Mesh):
         addFromRegions('dphidy')
         addFromRegions('ShiftTorsion')
         addFromRegions('zShift')
+        addFromRegionsXArray('ShiftAngle')
         # I think IntShiftTorsion should be the same as sinty in Hypnotoad1.
         # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
         # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
@@ -1560,6 +1595,9 @@ class BoutMesh(Mesh):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(name+'_ylow', BoutArray(array.ylow[:, :-1], attributes=array.attributes))
 
+    def writeArrayXDirection(self, name, array, f):
+        f.write(name, BoutArray(array.centre[:, 0], attributes=array.attributes))
+
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
 
@@ -1574,6 +1612,10 @@ class BoutMesh(Mesh):
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
+
+            # write the 1d fields
+            for name in self.arrayXDirection_to_output:
+                self.writeArrayXDirection(name, self.__dict__[name], f)
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))

@@ -1509,6 +1509,7 @@ class BoutMesh(Mesh):
         super().geometry()
 
         def addFromRegions(name):
+            # Collect a 2d field from the regions
             self.fields_to_output.append(name)
             f = MultiLocationArray(self.nx, self.ny)
             self.__dict__[name] = f
@@ -1526,8 +1527,11 @@ class BoutMesh(Mesh):
                 if f_region._corners_array is not None:
                     f.corners[self.region_indices[region.myID]] = f_region.corners[:-1,:-1]
 
+            # Set 'bout_type' so it gets saved in the grid file
+            f.attributes['bout_type'] = 'Field2D'
+
         def addFromRegionsXArray(name):
-            # Collects 1d arrays on a grid in the x-direction (no y-variation)
+            # Collects 1d arrays, defined on a grid in the x-direction (no y-variation)
             # Data taken from the first region in each y-group
             self.arrayXDirection_to_output.append(name)
             f = MultiLocationArray(self.nx, 1)
@@ -1546,6 +1550,9 @@ class BoutMesh(Mesh):
                     f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1,:]
                 assert f_region._ylow_array is None, 'Cannot have an x-direction array at ylow'
                 assert f_region._corners_array is None, 'Cannot have an x-direction array at corners'
+
+            # Set 'bout_type' so it gets saved in the grid file
+            f.attributes['bout_type'] = 'ArrayX'
 
         addFromRegions('Rxy')
         addFromRegions('Zxy')

@@ -1644,7 +1644,7 @@ class BoutMesh(Mesh):
             f.write('jyseps2_2', jyseps2_2)
 
             # BOUT++ ParallelTransform that metrics are compatible with
-            if shiftedmetric:
+            if self.user_options.shiftedmetric:
                 # Toroidal coordinates with shifts to calculate parallel derivatives
                 f.write('parallel_transform', 'shiftedmetric')
             else:

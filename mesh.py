@@ -896,14 +896,15 @@ class MeshRegion:
                                    - self.I*self.curl_bOverB_x)
         else:
             # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
-            psi = self.equilibrium.psi
-            fpol = lambda R,Z: self.equilibrium.fpol(psi(R,Z))
-            fpolprime = lambda R,Z: self.equilibrium.fpolprime(psi(R,Z))
-            BR = self.equilibrium.Bp_R
-            BZ = self.equilibrium.Bp_Z
-            d2psidR2 = self.equilibrium.d2psidR2
-            d2psidZ2 = self.equilibrium.d2psidZ2
-            d2psidRdZ = self.equilibrium.d2psidRdZ
+            equilib = self.meshParent.equilibrium
+            psi = equilib.psi
+            fpol = lambda R,Z: equilib.fpol(psi(R,Z))
+            fpolprime = lambda R,Z: equilib.fpolprime(psi(R,Z))
+            BR = equilib.Bp_R
+            BZ = equilib.Bp_Z
+            d2psidR2 = equilib.d2psidR2
+            d2psidZ2 = equilib.d2psidZ2
+            d2psidRdZ = equilib.d2psidRdZ
 
             # Toroidal component of B
             Bphi = lambda R,Z: fpol(R,Z) / R

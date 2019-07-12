@@ -879,7 +879,6 @@ class MeshRegion:
         assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
         # curvature terms
-        print('Calculate curvature')
         self.calc_curvature()
 
     def calc_curvature(self):
@@ -1383,12 +1382,15 @@ class Mesh:
             region.getRZBoundary()
         print('Calculate geometry')
         for region in self.regions.values():
+            print(region.name, end = '\r')
             region.geometry()
         print('Calculate zShift')
         for region in self.regions.values():
+            print(region.name, end = '\r')
             region.calcZShift()
         print('Calculate Metric')
         for region in self.regions.values():
+            print(region.name, end = '\r')
             region.calcMetric()
 
     def plotPoints(self, xlow=False, ylow=False, corners=False):

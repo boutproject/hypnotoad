@@ -111,7 +111,7 @@ class TORPEXMagneticField(Equilibrium):
 
             self.magneticFunctionsFromCoils()
 
-            Bt_axis = self.equilibOptions['Bt_axis']
+            self.Bt_axis = self.equilibOptions['Bt_axis']
         elif 'gfile' in self.equilibOptions:
             from hypnotoad2.dct_interpolation import DCT_2D
 
@@ -176,7 +176,7 @@ class TORPEXMagneticField(Equilibrium):
 
             self.magneticFunctionsFromGrid(R, Z, psirz)
 
-            Bt_axis = gfile['bcentr']
+            self.Bt_axis = gfile['bcentr']
         elif 'matfile' in self.equilibOptions:
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
@@ -208,12 +208,12 @@ class TORPEXMagneticField(Equilibrium):
             ZindMid = Bt.shape[0]//2
             assert eqfile['R'][0,0][ZindMid, RindMid] == 1.
             assert eqfile['Z'][0,0][ZindMid, RindMid] == 0.
-            Bt_axis = Bt[ZindMid, RindMid]
+            self.Bt_axis = Bt[ZindMid, RindMid]
         else:
             raise ValueError('Failed to initialise psi function from inputs')
 
         # TORPEX plasma pressure so low fpol is constant
-        self.fpol = lambda psi: Bt_axis / self.Rcentre
+        self.fpol = lambda psi: self.Bt_axis / self.Rcentre
         self.fpolprime = lambda psi: 0.
 
         # Make a set of points representing the wall

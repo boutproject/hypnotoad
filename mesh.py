@@ -1564,6 +1564,7 @@ class BoutMesh(Mesh):
             # ny for BOUT++ excludes boundary guard cells
             f.write('ny', self.ny_noguards)
             f.write('y_boundary_guards', self.user_options.y_boundary_guards)
+            f.write('curvature_type', self.user_options.curvature_type)
 
             # write the 2d fields
             for name in self.fields_to_output:

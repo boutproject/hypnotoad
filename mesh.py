@@ -1282,6 +1282,10 @@ class Mesh:
                 '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
                 pipe=True)
         self.git_hash = self.git_hash.strip()
+        retval, self.git_diff = shell_safe('cd ' + hypnotoad_path +
+                '&& git diff',
+                pipe=True)
+        self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -1654,6 +1658,7 @@ class BoutMesh(Mesh):
 
             f.write('hypnotoad_inputs', self.equilibrium._getOptionsAsString())
             f.write('hypnotoad_git_hash', self.git_hash)
+            f.write('hypnotoad_git_diff', self.git_diff)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

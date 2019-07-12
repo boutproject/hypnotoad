@@ -821,13 +821,13 @@ class MeshRegion:
                 - self.g22*self.g13**2 - self.g33*self.g12**2)
         # ignore grid points at X-points as J should diverge there (as Bp->0)
         if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
-            one_over_sqrt_g.corners[0, 0] = self.J.corners[0,0]
+            Jcheck.corners[0, 0] = self.J.corners[0,0]
         if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
-            one_over_sqrt_g.corners[-1, 0] = self.J.corners[-1,0]
+            Jcheck.corners[-1, 0] = self.J.corners[-1,0]
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
-            one_over_sqrt_g.corners[0, -1] = self.J.corners[0, -1]
+            Jcheck.corners[0, -1] = self.J.corners[0, -1]
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
-            one_over_sqrt_g.corners[-1, -1] = self.J.corners[-1, -1]
+            Jcheck.corners[-1, -1] = self.J.corners[-1, -1]
 
         check = numpy.abs(self.J - Jcheck) / numpy.abs(self.J) < self.user_options.geometry_rtol
         def ploterror(location):
@@ -845,7 +845,7 @@ class MeshRegion:
                 this_one_over_sqrt_g = Jcheck.corners
             else:
                 raise ValueError('wrong location argument: '+str(location))
-            print('rtol = ' + str(self.user_options.geometry_rtol))
+            print(self.name, 'rtol = ' + str(self.user_options.geometry_rtol))
             from matplotlib import pyplot
             pyplot.figure(location)
             pyplot.subplot(221)

@@ -1005,6 +1005,11 @@ class MeshRegion:
 
         hy /= self.dy
 
+        assert numpy.all(hy.centre > 0.), 'hy.centre should always be positive'
+        assert numpy.all(hy.xlow > 0.), 'hy.xlow should always be positive'
+        assert numpy.all(hy.ylow > 0.), 'hy.ylow should always be positive'
+        assert numpy.all(hy.corners > 0.), 'hy.corners should always be positive'
+
         return hy
 
     def calcBeta(self, ylow=False):

@@ -1,7 +1,9 @@
 Dependencies
 ------------
 
-- options module ('pip install options')
+- options module ('pip3 install --user options')
+- yaml module ('pip3 install --user PyYAML')
+- scipy (recent enough version, tested with 1.3.0 'pip3 install --user --upgrade scipy')
 
 
 Usage

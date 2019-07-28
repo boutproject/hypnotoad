@@ -1439,6 +1439,17 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     """
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])
+    # make sure rounding errors do not cause exception:
+    if Arange[1] - Arange[0] > 0:
+        # A increasing in this interval
+        if Avals[0] < Arange[0] and Arange[0]-Avals[0]<1.e-15*numpy.abs(Arange[0]):
+            # rounding error present, reset Avals[0]
+            Avals[0] = Arange[0]
+    else:
+        # A decreasing in this interval
+        if Avals[0] > Arange[0] and Avals[0]-Arange[0]<1.e-15*numpy.abs(Arange[0]):
+            # rounding error present, reset Avals[0]
+            Avals[0] = Arange[0]
     solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
             vectorized=True)
 

@@ -86,6 +86,9 @@ HypnotoadOptions = Options(
     # Info for FineContour.__init__
         finecontour_diagnose = False,
         poloidalfunction_diagnose = False,
+
+    ## Switches for fudges to get rid of spikes near the X-point
+        cap_Bp_ylow_xpoint = False,
     )
 
 """

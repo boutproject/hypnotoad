@@ -685,7 +685,7 @@ class MeshRegion:
             self.Rxy.corners[:,-1] = up.Rxy.corners[:,0]
             self.Zxy.corners[:,-1] = up.Zxy.corners[:,0]
 
-    def geometry(self):
+    def geometry1(self):
         """
         Calculate geometrical quantities for this region
         """
@@ -743,6 +743,18 @@ class MeshRegion:
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
+    def geometry2(self):
+        """
+        Continuation of geometry1(), but needs neighbours to have calculated Bp so called
+        after all regions call geometry1().
+        """
+
+        if self.user_options.cap_Bp_ylow_xpoint:
+            # (By default do _not_ do this)
+            # Get rid of minimum in Bpxy.ylow field, because it can cause large spikes in
+            # some metric coefficients, which may cause numerical problems in simulations
+            self.capBpYlowXpoint()
+
         self.hy = self.calcHy()
 
         #if not self.user_options.orthogonal:
@@ -761,12 +773,56 @@ class MeshRegion:
         # angle.
         self.dphidy = self.hy * self.Btxy / (self.Bpxy * self.Rxy)
 
+    def capBpYlowXpoint(self):
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
+            # Choose a minumum Bp as the average of the two values of Bpxy.centre
+            # nearest to the X-point
+            Bp_min = 0.5*(self.Bpxy.centre[0, 0]
+                    + self.getNeighbour('lower').Bpxy.centre[0, -1])
+            for i in range(self.nx):
+                if self.Bpxy.ylow[i, 0] < Bp_min:
+                    self.Bpxy.ylow[i, 0] = Bp_min
+                else:
+                    break
+        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
+            # Choose a minumum Bp as the average of the two values of Bpxy.centre
+            # nearest to the X-point
+            Bp_min = 0.5*(self.Bpxy.centre[-1, 0]
+                    + self.getNeighbour('lower').Bpxy.centre[-1, -1])
+            for i in range(self.nx):
+                if self.Bpxy.ylow[-i-1, 0] < Bp_min:
+                    self.Bpxy.ylow[-i-1, 0] = Bp_min
+                else:
+                    break
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
+            # Choose a minumum Bp as the average of the two values of Bpxy.centre
+            # nearest to the X-point
+            Bp_min = 0.5*(self.Bpxy.centre[0, -1]
+                    + self.getNeighbour('upper').Bpxy.centre[0, 0])
+            for i in range(self.nx):
+                if self.Bpxy.ylow[i, -1] < Bp_min:
+                    self.Bpxy.ylow[i, -1] = Bp_min
+                else:
+                    break
+        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
+            # Choose a minumum Bp as the average of the two values of Bpxy.centre
+            # nearest to the X-point
+            Bp_min = 0.5*(self.Bpxy.centre[-1, -1]
+                    + self.getNeighbour('upper').Bpxy.centre[-1, 0])
+            for i in range(self.nx):
+                if self.Bpxy.ylow[-i-1, -1] < Bp_min:
+                    self.Bpxy.ylow[-i-1, -1] = Bp_min
+                else:
+                    break
+
     def calcMetric(self):
         """
-        Calculate the metrics using geometrical information calculated in geometry().
+        Calculate the metrics using geometrical information calculated in geometry1() and
+        geometry2().
         Needs to be a separate method as zShift can only be calculated when calcZShift()
         has been called on the MeshRegion at the beginning of the y-group. To ensure this,
-        call geometry() on all regions first, then calcMetric on all regions.
+        call geometry1() and geometry2() on all regions first, then calcMetric on all
+        regions.
         """
         if not self.user_options.shiftedmetric:
             # To implement the shiftedmetric==False case, would have to define a
@@ -1398,8 +1454,11 @@ class Mesh:
             region.getRZBoundary()
         print('Calculate geometry')
         for region in self.regions.values():
-            print(region.name, end = '\r')
-            region.geometry()
+            print('1', region.name, end = '\r')
+            region.geometry1()
+        for region in self.regions.values():
+            print('2', region.name, end = '\r')
+            region.geometry2()
         print('Calculate zShift')
         for region in self.regions.values():
             print(region.name, end = '\r')

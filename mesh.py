@@ -759,13 +759,10 @@ class MeshRegion:
 
         self.hy = self.calcHy()
 
-        #if not self.user_options.orthogonal:
-        #    # Calculate beta (angle between x and y coordinates), used for non-orthogonal grid
-        #    # Also calculate radial grid spacing
-        #    self.beta, self.hrad = self.calcBeta()
-
-        #    # eta is the polodial non-orthogonality parameter
-        #    self.eta = numpy.sin(self.beta)
+        if not self.user_options.orthogonal:
+            # Calculate beta (angle between e_x and Grad(x), also the angle between e_y
+            # and Grad(y)), used for non-orthogonal grid
+            self.calcBeta()
         #else:
         #    self.beta.centre = 0.
         #    self.eta.centre = 0.
@@ -857,21 +854,43 @@ class MeshRegion:
         # ShiftTorsion is only used in Curl operator - Curl is rarely used.
         self.ShiftTorsion = self.DDX('#dphidy')
 
-        self.g11 = (self.Rxy*self.Bpxy)**2
-        self.g22 = 1./self.hy**2
-        self.g33 = self.I*self.g11 + (self.dphidy/self.hy)**2 + 1./self.Rxy**2
-        self.g12 = MultiLocationArray(self.nx, self.ny).zero()
-        self.g13 = -self.I*self.g11
-        self.g23 = -self.dphidy/self.hy**2
+        if self.user_options.orthogonal:
+            self.g11 = (self.Rxy*self.Bpxy)**2
+            self.g22 = 1./self.hy**2
+            self.g33 = self.I*self.g11 + (self.dphidy/self.hy)**2 + 1./self.Rxy**2
+            self.g12 = MultiLocationArray(self.nx, self.ny).zero()
+            self.g13 = -self.I*self.g11
+            self.g23 = -self.dphidy/self.hy**2
 
-        self.J = self.hy / self.Bpxy
+            self.J = self.hy / self.Bpxy
 
-        self.g_11 = 1./self.g11 + (self.I*self.Rxy)**2
-        self.g_22 = self.hy**2 + (self.Rxy*self.dphidy)**2
-        self.g_33 = self.Rxy**2
-        self.g_12 = self.Rxy**2*self.dphidy*self.I
-        self.g_13 = self.Rxy**2*self.I
-        self.g_23 = self.dphidy*self.Rxy**2
+            self.g_11 = 1./self.g11 + (self.I*self.Rxy)**2
+            self.g_22 = self.hy**2 + (self.Rxy*self.dphidy)**2
+            self.g_33 = self.Rxy**2
+            self.g_12 = self.Rxy**2*self.dphidy*self.I
+            self.g_13 = self.Rxy**2*self.I
+            self.g_23 = self.dphidy*self.Rxy**2
+        else:
+            self.g11 = (self.Rxy*self.Bpxy)**2
+            self.g22 = 1./(self.hy*self.cosBeta)**2
+            self.g33 = (1./self.Rxy**2 + (self.Rxy*self.Bpxy*self.I)**2
+                        + (self.dphidy/(self.hy*self.cosBeta))**2
+                        + 2.*self.Rxy*self.Bpxy*self.I*self.dphidy*self.tanBeta/self.hy)
+            self.g12 = self.Rxy*numpy.abs(self.Bpxy)*self.tanBeta/self.hy
+            self.g13 = (-self.Rxy*self.Bpxy*self.dphidy*self.tanBeta/self.hy
+                        - self.I*(self.Rxy*self.Bpxy)**2)
+            self.g23 = (-self.bpsign*self.dphidy/(self.hy*self.cosBeta)**2
+                        - self.Rxy*numpy.abs(self.Bpxy)*self.I*self.tanBeta/self.hy)
+
+            self.J = self.hy / self.Bpxy
+
+            self.g_11 = 1./(self.Rxy*self.Bpxy*self.cosBeta)**2 + (self.I*self.Rxy)**2
+            self.g_22 = self.hy**2 + (self.dphidy*self.Rxy)**2
+            self.g_33 = self.Rxy**2
+            self.g_12 = (self.bpsign*self.I*self.dphidy*self.Rxy**2
+                         - self.hy*self.tanBeta/(self.Rxy*numpy.abs(self.Bpxy)))
+            self.g_13 = self.I*self.Rxy**2
+            self.g_23 = self.bpsign*self.dphidy*self.Rxy**2
 
         # check Jacobian is OK
         Jcheck = self.bpsign*1./numpy.sqrt(self.g11*self.g22*self.g33
@@ -1069,56 +1088,71 @@ class MeshRegion:
 
         return hy
 
-    def calcBeta(self, ylow=False):
+    def calcBeta(self):
         """
-        beta is the angle between x and y coordinates, used for non-orthogonal grid.
-        Also calculate radial grid spacing, hrad
+        Calculate beta (angle between e_x and Grad(x), also the angle between e_y and
+        Grad(y)), used for non-orthogonal grid
         """
-        #raise ValueError("non-orthogonal grids not calculated yet")
-        warnings.warn("non-orthogonal grids not calculated yet")
 
-        #if not ylow:
-        #    # need to multiply f_R and f_Z by bpsign because we want the radially-outward
-        #    # vector perpendicular to psi contours, and if bpsign is negative then psi
-        #    # increases inward instead of outward so (f_R,f_Z) would be in the opposite
-        #    # direction
-        #    # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
-        #    angle_grad_psi = numpy.arctan2(
-        #            self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy, self.Zxy),
-        #            -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy, self.Zxy))
+        self.cosBeta = MultiLocationArray(self.nx, self.ny)
+        self.sinBeta = MultiLocationArray(self.nx, self.ny)
+        self.tanBeta = MultiLocationArray(self.nx, self.ny)
 
-        #    R = numpy.zeros([self.nx + 1, self.ny])
-        #    R[:-1, :] = self.Rxy_xlow
-        #    R[-1, :] = self.Rxy_extra_outer
-        #    Z = numpy.zeros([self.nx + 1, self.ny])
-        #    Z[:-1 :] = self.Zxy_xlow
-        #    Z[-1, :] = self.Zxy_extra_outer
-        #    # could calculate radial grid spacing - is it ever needed?
-        #    hrad = numpy.sqrt((R[1:,:] - R[:-1,:])**2 + (Z[1:,:] - Z[:-1,:])**2)
+        ## for centre points
 
-        #    dR = R[1:,:] - R[:-1,:]
-        #    dZ = Z[1:,:] - Z[:-1,:]
-        #    angle_dr = numpy.arctan2(dR, dZ)
-        #else:
-        #    # need to multiply f_R and f_Z by bpsign because we want the radially-outward
-        #    # vector perpendicular to psi contours, and if bpsign is negative then psi
-        #    # increases inward instead of outward so (f_R,f_Z) would be in the opposite
-        #    # direction
-        #    # Actually want the angle of the vector in the y-direction, i.e. (f_Z,-f_R)
-        #    angle_grad_psi = numpy.arctan2(
-        #            self.bpsign*self.meshParent.equilibrium.f_Z(self.Rxy_ylow, self.Zxy_ylow),
-        #            -self.bpsign*self.meshParent.equilibrium.f_R(self.Rxy_ylow, self.Zxy_ylow))
+        # vector from i-1/2 to i+1/2
+        delta_x = [self.Rxy.xlow[1:,:] - self.Rxy.xlow[:-1,:],
+                   self.Zxy.xlow[1:,:] - self.Zxy.xlow[:-1,:]]
+        # normalise to 1
+        mod_delta_x = numpy.sqrt(delta_x[0]**2 + delta_x[1]**2)
+        delta_x[0] /= mod_delta_x
+        delta_x[1] /= mod_delta_x
 
-        #    # could calculate radial grid spacing - is it ever needed?
-        #    ## for hrad at ylow, can use Rcorners and Zcorners
-        #    hrad = numpy.sqrt((self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1])**2 +
-        #                      (self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1])**2)
+        # vector in the Grad(psi) direction
+        delta_psi = [self.meshParent.equilibrium.f_R(self.Rxy.centre, self.Zxy.centre),
+                     self.meshParent.equilibrium.f_Z(self.Rxy.centre, self.Zxy.centre)]
+        # normalise to 1
+        mod_delta_psi = numpy.sqrt(delta_psi[0]**2 + delta_psi[1]**2)
+        delta_psi[0] /= mod_delta_psi
+        delta_psi[1] /= mod_delta_psi
 
-        #    dR = self.Rcorners[1:,:-1] - self.Rcorners[:-1,:-1]
-        #    dZ = self.Zcorners[1:,:-1] - self.Zcorners[:-1,:-1]
-        #    angle_dr = numpy.arctan2(dR, dZ)
+        # cosBeta = delta_x.delta_psi
+        self.cosBeta.centre = delta_x[0]*delta_psi[0] + delta_x[1]*delta_psi[1]
 
-        #return (angle_grad_psi - angle_dr - numpy.pi/2.), hrad
+        # Rotate delta_psi 90 degrees clockwise gives unit vector in e_y direction
+        delta_y = [delta_psi[1], -delta_psi[0]]
+
+        # sin(beta) = cos(pi/2 - beta) = e_x_hat.e_y_hat = delta_x.delta_y
+        self.sinBeta.centre = delta_x[0]*delta_y[0] + delta_x[1]*delta_y[1]
+
+        ## for ylow points
+
+        # vector from i-1/2 to i+1/2
+        delta_x = [self.Rxy.corners[1:,:] - self.Rxy.corners[:-1,:],
+                   self.Zxy.corners[1:,:] - self.Zxy.corners[:-1,:]]
+        # normalise to 1
+        mod_delta_x = numpy.sqrt(delta_x[0]**2 + delta_x[1]**2)
+        delta_x[0] /= mod_delta_x
+        delta_x[1] /= mod_delta_x
+
+        # unit vector in the Grad(psi) direction
+        delta_psi = [self.meshParent.equilibrium.f_R(self.Rxy.ylow, self.Zxy.ylow),
+                     self.meshParent.equilibrium.f_Z(self.Rxy.ylow, self.Zxy.ylow)]
+        # normalise to 1
+        mod_delta_psi = numpy.sqrt(delta_psi[0]**2 + delta_psi[1]**2)
+        delta_psi[0] /= mod_delta_psi
+        delta_psi[1] /= mod_delta_psi
+
+        # cosBeta = delta_x.delta_psi
+        self.cosBeta.ylow = delta_x[0]*delta_psi[0] + delta_x[1]*delta_psi[1]
+
+        # Rotate delta_psi 90 degrees clockwise gives unit vector in e_y direction
+        delta_y = [delta_psi[1], -delta_psi[0]]
+
+        # sin(beta) = cos(pi/2 - beta) = e_x.e_y = delta_x.delta_y
+        self.sinBeta.ylow = delta_x[0]*delta_y[0] + delta_x[1]*delta_y[1]
+
+        self.tanBeta = self.sinBeta/self.cosBeta
 
     def calcZShift(self):
         """

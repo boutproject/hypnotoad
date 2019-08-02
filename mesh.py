@@ -779,8 +779,8 @@ class MeshRegion:
         if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = 0.5*(self.Bpxy.centre[0, 0]
-                    + self.getNeighbour('lower').Bpxy.centre[0, -1])
+            Bp_min = min(self.Bpxy.centre[0, 0],
+                    self.getNeighbour('lower').Bpxy.centre[0, -1])
             for i in range(self.nx):
                 if self.Bpxy.ylow[i, 0] < Bp_min:
                     self.Bpxy.ylow[i, 0] = Bp_min
@@ -789,8 +789,8 @@ class MeshRegion:
         if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = 0.5*(self.Bpxy.centre[-1, 0]
-                    + self.getNeighbour('lower').Bpxy.centre[-1, -1])
+            Bp_min = min(self.Bpxy.centre[-1, 0],
+                    self.getNeighbour('lower').Bpxy.centre[-1, -1])
             for i in range(self.nx):
                 if self.Bpxy.ylow[-i-1, 0] < Bp_min:
                     self.Bpxy.ylow[-i-1, 0] = Bp_min
@@ -799,8 +799,8 @@ class MeshRegion:
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = 0.5*(self.Bpxy.centre[0, -1]
-                    + self.getNeighbour('upper').Bpxy.centre[0, 0])
+            Bp_min = min(self.Bpxy.centre[0, -1],
+                    self.getNeighbour('upper').Bpxy.centre[0, 0])
             for i in range(self.nx):
                 if self.Bpxy.ylow[i, -1] < Bp_min:
                     self.Bpxy.ylow[i, -1] = Bp_min
@@ -809,8 +809,8 @@ class MeshRegion:
         if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = 0.5*(self.Bpxy.centre[-1, -1]
-                    + self.getNeighbour('upper').Bpxy.centre[-1, 0])
+            Bp_min = min(self.Bpxy.centre[-1, -1],
+                    self.getNeighbour('upper').Bpxy.centre[-1, 0])
             for i in range(self.nx):
                 if self.Bpxy.ylow[-i-1, -1] < Bp_min:
                     self.Bpxy.ylow[-i-1, -1] = Bp_min

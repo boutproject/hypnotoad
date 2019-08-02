@@ -97,10 +97,12 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
             if not isinstance(x, self._HANDLED_TYPES + (MultiLocationArray,)):
                 return NotImplemented
 
+        MLArrays = [self] + [x for x in inputs if isinstance(x, MultiLocationArray)]
+
         result = MultiLocationArray(self.nx, self.ny)
 
         # Defer to the implementation of the ufunc on unwrapped values.
-        if self._centre_array is not None:
+        if all(x._centre_array is not None for x in MLArrays):
             this_inputs = tuple(x._centre_array if isinstance(x, MultiLocationArray)
                     else x for x in inputs)
             if out:
@@ -125,7 +127,7 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
                 result.centre = this_result
 
         # Defer to the implementation of the ufunc on unwrapped values.
-        if self._xlow_array is not None:
+        if all(x._xlow_array is not None for x in MLArrays):
             this_inputs = tuple(x._xlow_array if isinstance(x, MultiLocationArray)
                     else x for x in inputs)
             if out:
@@ -150,7 +152,7 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
                 result.xlow = this_result
 
         # Defer to the implementation of the ufunc on unwrapped values.
-        if self._ylow_array is not None:
+        if all(x._ylow_array is not None for x in MLArrays):
             this_inputs = tuple(x._ylow_array if isinstance(x, MultiLocationArray)
                     else x for x in inputs)
             if out:
@@ -175,7 +177,7 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
                 result.ylow = this_result
 
         # Defer to the implementation of the ufunc on unwrapped values.
-        if self._corners_array is not None:
+        if all(x._corners_array is not None for x in MLArrays):
             this_inputs = tuple(x._corners_array if isinstance(x, MultiLocationArray)
                     else x for x in inputs)
             if out:

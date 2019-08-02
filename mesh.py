@@ -946,14 +946,16 @@ class MeshRegion:
             ploterror('centre')
         if not numpy.all(check.ylow):
             ploterror('ylow')
-        if not numpy.all(check.xlow):
-            ploterror('xlow')
-        if not numpy.all(check.corners):
-            ploterror('corners')
         assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
         assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-        assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-        assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+        if check._xlow_array is not None:
+            if not numpy.all(check.xlow):
+                ploterror('xlow')
+            assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+        if check._corners_array is not None:
+            if not numpy.all(check.corners):
+                ploterror('corners')
+            assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
 
         # curvature terms
         self.calc_curvature()

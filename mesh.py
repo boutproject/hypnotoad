@@ -1506,7 +1506,7 @@ class Mesh:
             print(region.name, end = '\r')
             region.calcMetric()
 
-    def plotPoints(self, xlow=False, ylow=False, corners=False):
+    def plotPoints(self, xlow=False, ylow=False, corners=False, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
@@ -1514,13 +1514,14 @@ class Mesh:
         for region in self.regions.values():
             c = next(colors)
             pyplot.scatter(region.Rxy.centre, region.Zxy.centre, marker='x', c=c,
-                    label=region.myID)
+                    label=region.myID, **kwargs)
             if xlow:
-                pyplot.scatter(region.Rxy.xlow, region.Zxy.xlow, marker='1', c=c)
+                pyplot.scatter(region.Rxy.xlow, region.Zxy.xlow, marker='1', c=c, **kwargs)
             if ylow:
-                pyplot.scatter(region.Rxy.ylow, region.Zxy.ylow, marker='2', c=c)
+                pyplot.scatter(region.Rxy.ylow, region.Zxy.ylow, marker='2', c=c, **kwargs)
             if corners:
-                pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker='+', c=c)
+                pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker='+', c=c,
+                        **kwargs)
         pyplot.legend()
 
     def plotPotential(self, *args, **kwargs):

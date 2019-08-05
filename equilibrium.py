@@ -2021,7 +2021,7 @@ class Equilibrium:
             return lambda i: a*i**3 + b*i**2 + c*i + d
 
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
-            ncontours=40, **kwargs):
+            ncontours=40, labels=True, **kwargs):
         from matplotlib import pyplot
 
         if Rmin is None: Rmin = self.Rmin
@@ -2034,7 +2034,8 @@ class Equilibrium:
         ax = pyplot.axes(aspect='equal')
         contours = ax.contour(R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T,
                 ncontours, **kwargs)
-        pyplot.clabel(contours, inline=False, fmt='%1.3g')
+        if labels:
+            pyplot.clabel(contours, inline=False, fmt='%1.3g')
 
     def plotSeparatrix(self):
         from matplotlib import pyplot

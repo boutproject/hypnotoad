@@ -1506,21 +1506,36 @@ class Mesh:
             print(region.name, end = '\r')
             region.calcMetric()
 
-    def plotPoints(self, xlow=False, ylow=False, corners=False, **kwargs):
+    def plotPoints(self, xlow=False, ylow=False, corners=False, markers=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
         colors = cycle(pyplot.rcParams['axes.prop_cycle'].by_key()['color'])
+
+        if markers is None:
+            markers = ['x']
+            if xlow:
+                markers.append('1')
+            if ylow:
+                markers.append('2')
+            if corners:
+                markers.append('+')
+        try:
+            markers[0]
+        except TypeError:
+            markers = list(markers)
+
         for region in self.regions.values():
             c = next(colors)
-            pyplot.scatter(region.Rxy.centre, region.Zxy.centre, marker='x', c=c,
+            m = iter(markers)
+            pyplot.scatter(region.Rxy.centre, region.Zxy.centre, marker=next(m), c=c,
                     label=region.myID, **kwargs)
             if xlow:
-                pyplot.scatter(region.Rxy.xlow, region.Zxy.xlow, marker='1', c=c, **kwargs)
+                pyplot.scatter(region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs)
             if ylow:
-                pyplot.scatter(region.Rxy.ylow, region.Zxy.ylow, marker='2', c=c, **kwargs)
+                pyplot.scatter(region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs)
             if corners:
-                pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker='+', c=c,
+                pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker=next(m), c=c,
                         **kwargs)
         pyplot.legend()
 

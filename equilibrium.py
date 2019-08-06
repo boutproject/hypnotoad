@@ -692,7 +692,7 @@ class PsiContour:
 
         # Make sure index is positive, following behaviour of list.insert()
         if index < 0:
-            index += len(self) + 1
+            index += len(self)
             if index < 0:
                 index = 0
 

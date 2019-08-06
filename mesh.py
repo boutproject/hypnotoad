@@ -496,8 +496,9 @@ class MeshRegion:
                     upper_intersect_index = upper_intersect_index + 1
                 else:
                     # otherwise insert a new point
-                    upper_intersect_index += 1
-                    contour.insert(upper_intersect_index, upper_intersect)
+                    contour.insert(upper_intersect_index+1, upper_intersect)
+                    if upper_intersect_index >= 0:
+                        upper_intersect_index += 1
 
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index

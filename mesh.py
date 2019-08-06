@@ -1542,7 +1542,8 @@ class Mesh:
             if corners:
                 pyplot.scatter(region.Rxy.corners, region.Zxy.corners, marker=next(m), c=c,
                         **kwargs)
-        pyplot.legend()
+        l = pyplot.legend()
+        l.set_draggable(True)
 
     def plotPotential(self, *args, **kwargs):
         """

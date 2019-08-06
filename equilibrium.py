@@ -923,7 +923,7 @@ class PsiContour:
             for i in range(extend_upper):
                 interp, distance_estimate = self._coarseInterp()
                 new_point = interp(distance_estimate[-1] + ds)
-                self.points.append(self.refinePoint(new_point, new_point - self[-1]))
+                self.append(self.refinePoint(new_point, new_point - self[-1]))
 
     def plot(self, *args, plotPsi=False, **kwargs):
         from matplotlib import pyplot

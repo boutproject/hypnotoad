@@ -1511,6 +1511,27 @@ class Mesh:
             print(region.name, end = '\r')
             region.calcMetric()
 
+    def plotGridLines(self, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        colors = cycle(pyplot.rcParams['axes.prop_cycle'].by_key()['color'])
+
+        for region in self.regions.values():
+            c = next(colors)
+            label = region.myID
+            for i in range(region.nx):
+                pyplot.plot(region.Rxy.centre[i,:], region.Zxy.centre[i,:], c=c,
+                        label=label, **kwargs)
+                label=None
+            label = region.myID
+            for j in range(region.ny):
+                pyplot.plot(region.Rxy.centre[:,j], region.Zxy.centre[:,j], c=c,
+                        label=None, **kwargs)
+                label=None
+        l = pyplot.legend()
+        l.set_draggable(True)
+
     def plotPoints(self, xlow=False, ylow=False, corners=False, markers=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle

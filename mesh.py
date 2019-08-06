@@ -898,14 +898,18 @@ class MeshRegion:
                 + 2.*self.g12*self.g13*self.g23 - self.g11*self.g23**2
                 - self.g22*self.g13**2 - self.g33*self.g12**2)
         # ignore grid points at X-points as J should diverge there (as Bp->0)
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
-            Jcheck.corners[0, 0] = self.J.corners[0,0]
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
-            Jcheck.corners[-1, 0] = self.J.corners[-1,0]
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
-            Jcheck.corners[0, -1] = self.J.corners[0, -1]
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
-            Jcheck.corners[-1, -1] = self.J.corners[-1, -1]
+        if Jcheck._corners_array is not None:
+            # If Jcheck was not calculated at the corners location, no check is needed.
+            # Skip these fixes because they would initialise Jcheck.corners, which we do
+            # not want to do.
+            if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
+                Jcheck.corners[0, 0] = self.J.corners[0,0]
+            if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
+                Jcheck.corners[-1, 0] = self.J.corners[-1,0]
+            if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
+                Jcheck.corners[0, -1] = self.J.corners[0, -1]
+            if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
+                Jcheck.corners[-1, -1] = self.J.corners[-1, -1]
 
         check = numpy.abs(self.J - Jcheck) / numpy.abs(self.J) < self.user_options.geometry_rtol
         def ploterror(location):

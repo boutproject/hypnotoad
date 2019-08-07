@@ -631,10 +631,9 @@ class TestEquilibriumRegion:
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*b_lower*sqrt(i/N_norm) + b_lower*i/N_norm
+        # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*b_lower*numpy.sqrt(itest/N_norm)
-                                         + b_lower*itest/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(b_lower*itest/N_norm, abs=1.e-5)
 
     def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
         b_upper = 0.01
@@ -646,10 +645,9 @@ class TestEquilibriumRegion:
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for (N-i)<<1, f ~ L - 2*b_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
+        # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*b_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
     def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
         b_lower = 0.1
@@ -662,14 +660,12 @@ class TestEquilibriumRegion:
         assert f(0.) == tight_approx(0.)
         # f(N) = L
         assert f(N) == tight_approx(L)
-        # for i<<1, f ~ 2*b_lower*sqrt(i/N_norm) + b_lower*i/N_norm
+        # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
-        assert f(itest) == pytest.approx(2.*b_lower*numpy.sqrt(itest/N_norm)
-                                         + b_lower*itest/N_norm, abs=1.e-5)
-        # for (N-i)<<1, f ~ L - 2*b_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
+        assert f(itest) == pytest.approx(b_lower*itest/N_norm, abs=1.e-5)
+        # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
-        assert f(itest) == pytest.approx(L - 2.*b_upper*numpy.sqrt((N - itest)/N_norm)
-                                         - b_upper*(N - itest)/N_norm, abs=1.e-5)
+        assert f(itest) == pytest.approx(L - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
     def test_getSqrtPoloidalDistanceFuncBothLower(self, eqReg):
         b_lower = 0.01

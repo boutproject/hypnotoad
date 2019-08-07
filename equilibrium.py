@@ -698,13 +698,10 @@ class PsiContour:
 
         self.points.insert(index, point)
 
-        # Note, only need to update self._fine_contour if the start or end point changes
         if index <= self.startInd:
             self.startInd += 1
-            self._fine_contour = None
         if index <= self.endInd:
             self.endInd += 1
-            self._fine_contour = None
         if self.endInd < 0 and index > len(self) + self.endInd:
             self.endInd -= 1
 

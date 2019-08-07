@@ -544,57 +544,13 @@ class TestEquilibriumRegion:
         eqReg = EquilibriumRegion(equilib, '', 1, user_options, options, points, equilib.psi, 0.)
         return eqReg
 
-    def test_getPolynomialPoloidalDistanceFuncLinear(self, eqReg):
-        L = 2.
-        N = 10.
-        N_norm = 1
-        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm)
-        # f(0) = 0
-        assert f(0.) == tight_approx(0.)
-        # f(N) = L
-        assert f(10.) == tight_approx(2.)
-        # f(i) = i/N*L
-        assert f(3.) == tight_approx(0.6)
-
-    def test_getPolynomialPoloidalDistanceFuncDLower(self, eqReg):
-        d_lower = 0.01
-        L = 2.
-        N = 10.
-        N_norm = 40.
-        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower)
-        # f(0) = 0
-        assert f(0.) == tight_approx(0.)
-        # f(N) = L
-        assert f(N) == tight_approx(L)
-        # for i<<1, f = d_lower*i/N_norm
-        itest = 0.01
-        assert f(itest) == pytest.approx(d_lower*itest/N_norm, abs=1.e-5)
-        # for i<<1, d2f/di2 = 0
-        assert f(itest) - f(0) == pytest.approx(f(2.*itest) - f(itest), abs=1.e-5)
-
-    def test_getPolynomialPoloidalDistanceFuncDUpper(self, eqReg):
-        d_upper = 0.01
-        L = 2.
-        N = 10.
-        N_norm = 40.
-        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_upper = d_upper)
-        # f(0) = 0
-        assert f(0.) == tight_approx(0.)
-        # f(N) = L
-        assert f(N) == tight_approx(L)
-        # for N-i<<1, f = L - d_upper*i/N_norm
-        itest = 0.01
-        assert f(N - itest) == pytest.approx(L - d_upper*itest/N_norm, abs=1.e-5)
-        # for N-i<<1, d2f/di2 = 0
-        assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
-
-    def test_getPolynomialPoloidalDistanceFuncDBoth(self, eqReg):
+    def test_getMonotonicPoloidalDistanceFunc(self, eqReg):
         d_lower = 0.02
         d_upper = 0.01
         L = 2.
         N = 10.
         N_norm = 40.
-        f = eqReg.getPolynomialPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
+        f = eqReg.getMonotonicPoloidalDistanceFunc(L, N, N_norm, d_lower = d_lower, d_upper = d_upper)
         # f(0) = 0
         assert f(0.) == tight_approx(0.)
         # f(N) = L
@@ -602,12 +558,8 @@ class TestEquilibriumRegion:
         # for i<<1, f = d_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(d_lower*itest/N_norm, abs=1.e-5)
-        # for i<<1, d2f/di2 = 0
-        assert f(itest) - f(0) == pytest.approx(f(2.*itest) - f(itest), abs=1.e-5)
         # for N-i<<1, f = L - d_upper*i/N_norm
         assert f(N - itest) == pytest.approx(L - d_upper*itest/N_norm, abs=1.e-5)
-        # for N-i<<1, d2f/di2 = 0
-        assert f(N - itest) - f(N) == pytest.approx(f(N - 2.*itest) - f(N - itest), abs=1.e-5)
 
     def test_getSqrtPoloidalDistanceFuncLinear(self, eqReg):
         L = 2.
@@ -725,9 +677,15 @@ class TestEquilibriumRegion:
         assert f(itest) == pytest.approx(L - 2.*a_upper*numpy.sqrt((N - itest)/N_norm)
                                          - b_upper*(N - itest)/N_norm, abs=1.e-5)
 
-    def test_combineSfuncsPoloidalSpacingNoD(self, eqReg):
+    def test_combineSfuncsPoloidalSpacing(self, eqReg):
         n = len(eqReg)
         L = eqReg.totalDistance()
+
+        eqReg.options.set(
+                monotonic_d_lower = L,
+                monotonic_d_upper = L,
+                N_norm = n-1,
+            )
 
         sfunc_orthogonal = lambda i: i/(n - 1.) * L
 
@@ -742,6 +700,8 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.options.set(
+                monotonic_d_lower = L*40./(n-1),
+                monotonic_d_upper = L*40./(n-1),
                 nonorthogonal_range_lower = .1,
                 nonorthogonal_range_lower_inner = .1,
                 nonorthogonal_range_lower_outer = .1,
@@ -764,6 +724,8 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.options.set(
+                monotonic_d_lower = L*40./(n-1),
+                monotonic_d_upper = L*40./(n-1),
                 nonorthogonal_range_upper = .1,
                 nonorthogonal_range_upper_inner = .1,
                 nonorthogonal_range_upper_outer = .1,
@@ -786,6 +748,8 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.options.set(
+                monotonic_d_lower = L*40./(n-1),
+                monotonic_d_upper = L*40./(n-1),
                 nonorthogonal_range_lower = .1,
                 nonorthogonal_range_lower_inner = .1,
                 nonorthogonal_range_lower_outer = .1,
@@ -816,8 +780,8 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.options.set(
-                polynomial_d_lower = .1,
-                polynomial_d_upper = .1,
+                monotonic_d_lower = .1,
+                monotonic_d_upper = .1,
                 nonorthogonal_range_lower = .3,
                 nonorthogonal_range_lower_inner = .3,
                 nonorthogonal_range_lower_outer = .3,
@@ -860,8 +824,8 @@ class TestEquilibriumRegion:
         n = len(eqReg)
 
         eqReg.options.set(
-                polynomial_d_lower = .1,
-                polynomial_d_upper = .1,
+                monotonic_d_lower = .1,
+                monotonic_d_upper = .1,
                 nonorthogonal_range_lower = .2,
                 nonorthogonal_range_lower_inner = .2,
                 nonorthogonal_range_lower_outer = .2,

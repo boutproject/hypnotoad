@@ -308,7 +308,7 @@ class MeshRegion:
             # this gives abs(sin_angle), but that's OK because we only want the magnitude to
             # calculate perp_d
             sin_angle = numpy.sqrt(1. - cos_angle**2)
-            self.options.set(perp_d_lower=self.options.polynomial_d_lower * sin_angle)
+            self.options.set(perp_d_lower=self.options.monotonic_d_lower * sin_angle)
         if self.equilibriumRegion.wallSurfaceAtEnd is None:
             # upper end
             unit_vec_separatrix = (
@@ -323,7 +323,7 @@ class MeshRegion:
             # this gives abs(sin_angle), but that's OK because we only want the magnitude to
             # calculate perp_d
             sin_angle = numpy.sqrt(1. - cos_angle**2)
-            self.options.set(perp_d_upper=self.options.polynomial_d_upper * sin_angle)
+            self.options.set(perp_d_upper=self.options.monotonic_d_upper * sin_angle)
 
         print('Following perpendicular: ' + str(1) + '/'
                 + str(len(self.equilibriumRegion)), end='\r')
@@ -557,7 +557,7 @@ class MeshRegion:
             elif self.user_options.nonorthogonal_spacing_method == 'fixed_poloidal':
                 # this sfunc gives a fixed poloidal spacing at beginning and end of contours
                 sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
-                        2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
+                        2*self.ny_noguards + 1, contour.totalDistance(), method='monotonic')
             elif self.user_options.nonorthogonal_spacing_method == 'poloidal_orthogonal_combined':
                 sfunc = self.equilibriumRegion.combineSfuncs(contour,
                         self.sfunc_orthogonal_list[i_contour])

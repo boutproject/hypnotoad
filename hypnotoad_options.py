@@ -28,7 +28,7 @@ HypnotoadOptions = Options(
     ## Input parameters for poloidal spacing functions
         # Method to use for poloidal spacing function:
         #  - 'sqrt' for getSqrtPoloidalSpacingFunction
-        #  - 'polynomial' for getPolynomialPoloidalSpacingFunction
+        #  - 'monotonic' for getMonotonicPoloidalDistanceFunc
         poloidal_spacing_method = 'sqrt',
 
         # spacing at the X-point end of a region
@@ -122,12 +122,12 @@ HypnotoadInternalOptions = Options(
     # Distance for sqrt part of spacing function (if used) at upper end
     sqrt_a_upper = None,
 
-    ## Parameters for polynomial spacing function
+    ## Parameters for monotonic spacing function
     # Distance for spacing function at lower end
-    polynomial_d_lower = None,
+    monotonic_d_lower = None,
 
     # Distance for spacing function at upper end
-    polynomial_d_upper = None,
+    monotonic_d_upper = None,
 
     # Distance for perpendicular spacing function at lower end
     perp_d_lower = None,
@@ -141,13 +141,13 @@ HypnotoadInternalOptions = Options(
     N_norm = None,
 
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-    # at the lower end. If 'None' then the value of polynomial_d_lower will be used instead.
+    # at the lower end. If 'None' then the value of monotonic_d_lower will be used instead.
     nonorthogonal_range_lower = None,
     nonorthogonal_range_lower_inner = None,
     nonorthogonal_range_lower_outer = None,
 
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-    # at the upper end. If 'None' then the value of polynomial_d_upper will be used instead.
+    # at the upper end. If 'None' then the value of monotonic_d_upper will be used instead.
     nonorthogonal_range_upper = None,
     nonorthogonal_range_upper_inner = None,
     nonorthogonal_range_upper_outer = None,

@@ -1000,7 +1000,7 @@ class EquilibriumRegion(PsiContour):
         # Set default values depending on options.kind
         if self.options.kind.split('.')[0] == 'wall':
             setoption('sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
-            setoption('polynomial_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setoption('monotonic_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
             setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
             setoption('nonorthogonal_range_lower_inner',
                     self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
@@ -1009,7 +1009,7 @@ class EquilibriumRegion(PsiContour):
         elif self.options.kind.split('.')[0] == 'X':
             setoption('sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
             setoption('sqrt_b_lower', 0.)
-            setoption('polynomial_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setoption('monotonic_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
             setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
             setoption('nonorthogonal_range_lower_inner',
                     self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
@@ -1019,7 +1019,7 @@ class EquilibriumRegion(PsiContour):
             raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
         if self.options.kind.split('.')[1] == 'wall':
             setoption('sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
-            setoption('polynomial_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
+            setoption('monotonic_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
             setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
             setoption('nonorthogonal_range_upper_inner',
                     self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
@@ -1028,7 +1028,7 @@ class EquilibriumRegion(PsiContour):
         elif self.options.kind.split('.')[1] == 'X':
             setoption('sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
             setoption('sqrt_b_upper', 0.)
-            setoption('polynomial_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
+            setoption('monotonic_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
             setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
             setoption('nonorthogonal_range_upper_inner',
                     self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
@@ -1157,10 +1157,10 @@ class EquilibriumRegion(PsiContour):
                     a_lower=self.options.sqrt_a_lower, b_upper=self.options.sqrt_b_upper,
                     a_upper=self.options.sqrt_a_upper)
             self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
-        elif method == 'polynomial':
-            sfunc = self.getPolynomialPoloidalDistanceFunc(distance, npoints-1,
-                    self.options.N_norm, d_lower=self.options.polynomial_d_lower,
-                    d_upper=self.options.polynomial_d_upper)
+        elif method == 'monotonic':
+            sfunc = self.getMonotonicPoloidalDistanceFunc(distance, npoints-1,
+                    self.options.N_norm, d_lower=self.options.monotonic_d_lower,
+                    d_upper=self.options.monotonic_d_upper)
             self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
         elif method == 'nonorthogonal':
             nonorth_method = self.user_options.nonorthogonal_spacing_method
@@ -1230,14 +1230,14 @@ class EquilibriumRegion(PsiContour):
         #   same spacing is given
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
-                    2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
+                    2*self.ny_noguards + 1, contour.totalDistance(), method='monotonic')
         else:
             sfunc_fixed_lower, sperp_func_lower = self.getSfuncFixedPerpSpacing(
                     2*self.ny_noguards + 1, contour, vec_lower, True)
 
         if vec_upper is None:
             sfunc_fixed_upper = self.getSfuncFixedSpacing(
-                    2*self.ny_noguards + 1, contour.totalDistance(), method='polynomial')
+                    2*self.ny_noguards + 1, contour.totalDistance(), method='monotonic')
         else:
             sfunc_fixed_upper, sperp_func_upper = self.getSfuncFixedPerpSpacing(
                     2*self.ny_noguards + 1, contour, vec_upper, False)
@@ -1247,18 +1247,18 @@ class EquilibriumRegion(PsiContour):
             range_lower_inner = self.options.nonorthogonal_range_lower_inner
             range_lower_outer = self.options.nonorthogonal_range_lower_outer
         else:
-            range_lower = self.options.polynomial_d_lower
-            range_lower_inner = self.options.polynomial_d_lower
-            range_lower_outer = self.options.polynomial_d_lower
+            range_lower = self.options.monotonic_d_lower
+            range_lower_inner = self.options.monotonic_d_lower
+            range_lower_outer = self.options.monotonic_d_lower
 
         if self.options.nonorthogonal_range_upper is not None:
             range_upper = self.options.nonorthogonal_range_upper
             range_upper_inner = self.options.nonorthogonal_range_upper_inner
             range_upper_outer = self.options.nonorthogonal_range_upper_outer
         else:
-            range_upper = self.options.polynomial_d_upper
-            range_upper_inner = self.options.polynomial_d_upper
-            range_upper_outer = self.options.polynomial_d_upper
+            range_upper = self.options.monotonic_d_upper
+            range_upper_inner = self.options.monotonic_d_upper
+            range_upper_outer = self.options.monotonic_d_upper
 
         N_norm = self.options.N_norm
 
@@ -1409,20 +1409,19 @@ class EquilibriumRegion(PsiContour):
         if self.options.perp_d_lower is not None:
             d_lower = self.options.perp_d_lower
         else:
-            d_lower = self.options.polynomial_d_lower
+            d_lower = self.options.monotonic_d_lower
 
         if self.options.perp_d_upper is not None:
             d_upper = self.options.perp_d_upper
         else:
-            d_upper = self.options.polynomial_d_upper
+            d_upper = self.options.monotonic_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
-        sperp_func = self.getPolynomialPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
+        sperp_func = self.getMonotonicPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
                 d_lower=d_lower, d_upper=d_upper)
         return lambda i: s_of_sperp(sperp_func(i)), sperp_func
 
-    def getPolynomialPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower=None,
-            d_upper=None):
+    def getMonotonicPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower, d_upper):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
@@ -1430,94 +1429,145 @@ class EquilibriumRegion(PsiContour):
         choice for N_norm.
         sN(0) = 0
         sN(N/N_norm) = L
-        ds/diN(0) = d_lower at iN=0
-        d2s/diN2(0) = 0 if d_lower is not None
-        sN(iN) = d_lower*iN for iN < 0 if d_lower is given
-        ds/diN(N/N_norm) = d_upper at iN=N_norm
-        d2s/diN2(N/N_norm) = 0 if d_upper is not None
-        sN(iN) = L + d_upper*(iN - N/N_norm) for iN > N/N_norm if d_upper is given
+        dsN/diN(0) = d_lower at iN=0
+        dsN/diN(N/N_norm) = d_upper at iN=N_norm
+        sN(iN) = d_lower*iN for iN < 0
+        sN(iN) = L + d_upper*(iN - N/N_norm) for iN > N/N_norm
+
+        Define sprime=dsN/diN.
+        Want sprime to be a positive definite function in the interval {0, N/N_norm}, with
+        sprime(0) = d_lower and sprime(N/N_norm) = d_upper, and \int(diN sprime) = L
+
+        If we chose a linear function
+          sprime = a*iN + b
+        then we would have
+          sprime(0) = d_lower = b
+          sprime(N/N_norm) = d_upper = a*N/N_norm + b
+                         a = (d_upper - b)*N_norm/N
+                           = (d_upper - d_lower)*N_norm/N,
+        and so
+          \int(diN sprime) = 1/2*a*(N/N_norm)^2 + b*N/N_norm
+                           = 1/2*(d_upper - d_lower)*N/N_norm + d_lower*N/N_norm
+                           = 1/2*(d_upper + d_lower)*N/N_norm.
+        We need
+          \int(diN sprime) = L
+        so if
+          L < 1/2*(d_upper + d_lower)*N/N_norm
+        sprime has to be a concave function (curves below a straight line) and otherwise
+        sprime has to be a convex function (bulges above a straight line).
+        In the second case sprime is always going to be positive, and we can use a
+        quadratic function for sprime (so sN will be a cubic).
+        In the first case it is harder to guarantee that sprime is always positive. Here
+        is one attempt:
+        # Define a function, l(iN), proportional to something like 1/iN that goes through d_lower
+          at 0 and 0 at N/N_norm
+            l(iN) = l1/(iN + l2) - l3 with l1, l2, l3 > 0
+            l(0) = d_lower
+                 = l1/l2 - l3
+            l(N/N_norm) = 0
+                        = l1/(N/N_norm + l2) - l3
+          If we parameterise the family of these functions by l1, we can solve for l2, l3
+          as
+            d_lower = l1/l2 - l1/(N/N_norm + l2)
+            d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2 = l1*N/N_norm
+            l2 = (-d_lower*N/N_norm + sqrt(d_lower^2*(N/N_norm)^2 + 4*d_lower*l1*N/N_norm)) / (2*d_lower)
+          taking the positive sign so that l2 > 0
+            l3 = l1/l2 - d_lower
+        # Define another function, r(iN), proportional to something like -1/iN that goes
+          through 0 at 0 and d_upper at N/N_norm
+            r(iN) = r1/(r2 + N/N_norm - iN) - r3 where r1, r2, r3 > 0
+            r(0) = 0 = r1/(r2 + N/N_norm) - r3
+            r(N/N_norm) = d_upper = r1/r2 - r3
+          (these are identical to equations above for l1, l2, l3 but with l->r and
+          d_lower->d_upper)
+            r2 = (-d_upper*N/N_norm + sqrt(d_upper^2*(N/N_norm)^2 + 4*d_upper*r1*N/N_norm)) / (2*d_upper)
+            r3 = r1/r2 - d_upper
+        # Let
+            sprime(iN) = l(iN) + r(iN).
+          We have two free parameters, l1 and r1, but only one constraint that the
+          integral should be L, so arbitrarily choose l1=r1 to reduce to one free
+          parameter.
+        # Impose the constraint.
+            int(diN l) = int(diN l1/(iN + l2) - l3)
+                       = [l1*ln(iN + l2) - l3*iN]_{0}^{N/N_norm}
+                       = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+            int(diN r) = int(diN r1/(r2 + N/N_norm - iN) - r3)
+                       = [-r1*ln(r2 + N/N_norm - iN) - r3*iN]_{0}^{N/N_norm}
+                       = r1*ln(1 + N/(N_norm*r2) - r3*N/N_norm)
+            L = int(diN l) + int(diN r)
+              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm)
+              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm).
+          This is a horrible equation with logs in and l1 both inside and outside logs,
+          probably can't solve by hand, but should have a unique solution and be a
+          monotonic function of l1, so solve numerically.
+
+        In the first case we have
+          s(iN) = a*iN^2 + b*iN + c
+          s(0) = d_lower = c
+          s(N/N_norm) = d_upper = a*(N/N_norm)^2 + b*N/N_norm + d_lower
+                    b = (d_upper - d_lower)*N_norm/N - a*N/N_norm
+        The constraint on the integral gives
+          L = int(diN s) = int(diN (a*iN^2 + b*iN + c))
+            = 1/3*a*(N/N_norm)^3 + 1/2*b*(N/N_norm)^2 + c*N/N_norm
+            = 1/3*a*(N/N_norm)^3 + 1/2*(d_upper - d_lower)*N/N_norm - 1/2*a*(N/N_norm)^3 + d_lower*N/N_norm
+          1/6*(N/N_norm)^3*a = 1/2(d_upper + d_lower)*N/N_norm - L
+          a = 3*(d_upper + d_lower)*(N_norm/N)^2 - 6*L*(N_norm/N)^3
         """
-        if d_lower is None and d_upper is None:
-            # always monotonic
-            return lambda i: i*length/N
-        elif d_lower is None:
-            # s(iN) = a + b*iN + c*iN^2 + d*iN^3
-            # s(0) = 0 = a
-            # d2s/diN2(N/N_norm) = 0 = 2*c + 6*d*N/N_norm
-            # c = -3*d*N/N_norm
-            # ds/diN(N/N_norm) = d_upper = b + 2*c*N/N_norm + 3*d*(N/N_norm)^2
-            #                            = b - 3*d*(N/N_norm)^2
-            # b = d_upper + 3*d*(N/N_norm)^2
-            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3
-            #                 = 0 + d_upper*N/N_Norm + 3*d*(N/N_norm)^3 - 3*d*(N/N_norm)^3 + d*(N/N_norm)^3
-            #               d = L*(N_norm/N)^3 - d_upper*(N_norm/N)^2
-            d = length*(N_norm/N)**3 - d_upper*(N_norm/N)**2
-            b = d_upper + 3*d*(N/N_norm)**2
-            c = -3.*d*N/N_norm
+        # Add a small tolerance (1.e-8*length) here because when the concave case gets
+        # very close to linear l1 will get very large so the root-finding might possibly
+        # fail, but very close to the linear case, the quadratic expression in the convex
+        # case should be a good one
+        if length < 0.5*(d_upper + d_lower)*N/N_norm - 1.e-8*length:
+            # concave case
 
-            # check function is monotonic: gradients at beginning and end should both be
-            # positive.
-            # lower boundary:
-            assert b >= 0., 'gradient at start should be positive'
-            # upper boundary:
-            assert b + 2.*c*N/N_norm + 3.*d*(N/N_norm)**2 >= 0., 'gradient at end should be positive'
+            # Make coefficients as functions of l1
+            l2 = lambda l1: (-d_lower*N/N_norm + numpy.sqrt((d_lower*N/N_norm)**2
+                             + 4.*d_lower*l1*N/N_norm)) / (2.*d_lower)
+            l3 = lambda l1: l1/l2(l1) - d_lower
+            r2 = lambda l1: (-d_upper*N/N_norm + numpy.sqrt((d_upper*N/N_norm)**2
+                             + 4.*d_upper*l1*N/N_norm)) / (2.*d_upper)
+            r3 = lambda l1: l1/r2(l1) - d_upper
 
-            return lambda i: numpy.piecewise(i, i > N,
-                    [lambda i: length + d_upper*(i - N)/N_norm,
-                     lambda i: b*i/N_norm + c*(i/N_norm)**2 + d*(i/N_norm)**3])
-        elif d_upper is None:
-            # s(iN) = a + b*iN + c*iN^2 + d*iN^3
-            # s(0) = 0 = a
-            # ds/diN(0) = d_lower = b
-            # d2s/diN2(0) = 0 = 2.*c
-            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3
-            #                 = 0 + d_lower*N/N_norm + 0 + d*(N/N_norm)^3
-            # d = L*(N_norm/N)^3 - d_lower*(N_norm/N)^2
-            d = length*(N_norm/N)**3 - d_lower*(N_norm/N)**2
-            b = d_lower
+            # Make constraint function to find value of l1 where the integral equals L
+            constraint = lambda l1: (l1*numpy.log(N/(N_norm*l2(l1)) + 1.)
+                                     - l3(l1)*N/N_norm
+                                     + l1*numpy.log(N/(N_norm*r2(l1)) + 1.)
+                                     - r3(l1)*N/N_norm
+                                     - length)
+            l1 = brentq(constraint, 1.e-15, 1.e10, xtol=1.e-15, rtol=1.e-10)
+            l3 = l3(l1)
+            l2 = l2(l1)
+            r3 = r3(l1)
+            r2 = r2(l1)
 
-            # check function is monotonic: gradients at beginning and end should both be
-            # positive.
-            # lower boundary:
-            assert b >= 0., 'gradient at start should be positive'
-            # upper boundary:
-            assert b + 3.*d*(N/N_norm)**2 > 0., 'gradient at end should be positive'
+            # coefficients should all be positive
+            assert l1 > 0.
+            assert l2 > 0.
+            assert l3 > 0.
+            assert r2 > 0.
+            assert r3 > 0.
 
-            return lambda i: numpy.piecewise(i, i < 0.,
-                    [lambda i: d_lower*i/N_norm, lambda i: b*i/N_norm + d*(i/N_norm)**3])
-        else:
-            # s(iN) = a + b*iN + c*iN^2 + d*iN^3 + e*iN^4 + f*iN^5
-            # s(0) = 0 = a
-            # ds/diN(0) = d_lower = b
-            # d2s/diN2(0) = 0 = 2.*c
-            # s(N/N_norm) = L = a + b*N/N_norm + c*(N/N_norm)^2 + d*(N/N_norm)^3 + e*(N/N_norm)^4 + f*(N/N_norm)^5
-            #                 = 0 + d_lower*N/N_norm + 0 + d*(N/N_norm)^3 + e*(N/N_norm)^4 + f*(N/N_norm)^5
-            # ds/diN(N/N_norm) = d_upper = b + 2*c*(N/N_norm) + 3*d(N/N_norm)^2 + 4*e*(N/N_norm)^3 + 5*f*(N/N_norm)^4
-            #                            = d_lower + 0 + 3*d(N/N_norm)^2 + 4*e*(N/N_norm)^3 + 5*f*(N/N_norm)^4
-            # d2s/diN2(N/N_norm) = 0 = 2*c + 6*d*(N/N_norm) + 12*e*(N/N_norm)^2 + 20*f*(N/N_norm)^3
-            #                        = 0 + 6*d*(N/N_norm) + 12*e*(N/N_norm)^2 + 20*f*(N/N_norm)^3
-            # 0 = 3*d + 6*e*N/N_norm + 10*f*(N/N_norm)^2
-            # d_upper - d_lower = -2*e*(N/N_norm)^3 - 5*f*(N/N_norm)^4
-            # 3*L = 3*d_lower*N/N_norm - 3*e*(N/N_norm)^4 - 7*f*(N/N_norm)^5
-            # 6*L - 3*d_upper*N/N_norm + 3*d_lower*N/N_norm = 6*d_lower*N/N_norm + f*(N/N_norm)^5
-            # f = 6*L*(N_norm/N)^5 - 3*(d_upper + d_lower)*(N_norm/N)^4
-            f = 6.*length*(N_norm/N)**5 - 3*(d_upper + d_lower)*(N_norm/N)**4
-            e = -1./2.*(d_upper - d_lower)*(N_norm/N)**3 - 5./2.*f*N/N_norm
-            d = -2.*e*N/N_norm - 10./3.*f*(N/N_norm)**2
-            b = d_lower
-
-            # check function is monotonic: gradients at beginning and end should both be
-            # positive. Only check the boundaries here, should really add a check that
-            # gradient does not reverse in the middle somewhere...
-            # lower boundary:
-            assert b >= 0., 'gradient at start should be positive'
-            # upper boundary:
-            assert b + 3.*d*(N/N_norm)**2 + 4.*e*(N/N_norm)**3 + 5.*f*(N/N_norm)**4 >= 0., 'gradient at end should be positive'
-
+            # sN(iN) = int(diN sprime)
+            #        = int(diN l1/(iN + l2) - l3 + l1/(r2 + N/N_norm - iN) - r3
+            #        = l1*ln(iN + l2) - l1*ln(l2) - l3*iN - l1*ln(r2 + N/N_norm - iN) + l1*ln(r2 + N/N_norm) - r3*iN
+            #        = l1*ln(iN/l2 + 1.) - l3*iN - l1*ln(1. - iN/(r2 + N/N_norm)) - r3*iN
             return lambda i: numpy.piecewise(i, [i < 0., i > N],
                     [lambda i: d_lower*i/N_norm,
                      lambda i:length + d_upper*(i - N)/N_norm,
-                     lambda i: b*i/N_norm + d*(i/N_norm)**3 + e*(i/N_norm)**4 + f*(i/N_norm)**5])
+                     lambda i: (l1*numpy.log(i/N_norm/l2 + 1.) - l3*i/N_norm
+                              - l1*numpy.log(1. - i/(N_norm*(r2 + N/N_norm))) - r3*i/N_norm)])
+        else:
+            # convex case
+            a = 3.*(d_upper + d_lower)*(N_norm/N)**2 - 6.*length*(N_norm/N)**3
+            b = (d_upper - d_lower)*N_norm/N - a*N/N_norm
+            c = d_lower
+
+            # sN(iN) = int(diN sprime)
+            #        = 1/3*a*iN^3 + 1/2*b*iN^2 + c*iN
+            return lambda i: numpy.piecewise(i, [i < 0., i > N],
+                    [lambda i: d_lower*i/N_norm,
+                     lambda i:length + d_upper*(i - N)/N_norm,
+                     lambda i: 1./3.*a*(i/N_norm)**3 + 0.5*b*(i/N_norm)**2 + c*i/N_norm])
 
     def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, b_lower=None, a_lower=None,
             b_upper=None, a_upper=None):

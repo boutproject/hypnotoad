@@ -1594,7 +1594,7 @@ class EquilibriumRegion(PsiContour):
         elif b_lower is None:
             assert a_lower is None, 'cannot set a_lower unless b_lower is set'
             if a_upper is None:
-                a_upper = b_upper
+                a_upper = 0.
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ a_upper/sqrt(N/N_norm-iN)+b_upper
@@ -1620,7 +1620,7 @@ class EquilibriumRegion(PsiContour):
             return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
         elif b_upper is None:
             if a_lower is None:
-                a_lower = b_lower
+                a_lower = 0.
             assert a_upper is None
             # s(iN) = a*sqrt(iN) + c + d*iN + e*iN^2
             # s(0) = 0 = c

@@ -130,7 +130,12 @@ class TORPEXMagneticField(Equilibrium):
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
             # plasma current
-            psi_axis = gfile['siaxis']
+            try:
+                # called siaxis by boututils.geqdsk.Geqdsk
+                psi_axis = gfile['siaxis']
+            except KeyError:
+                # called simag by pyEquilibrium.geqdsk.Geqdsk
+                psi_axis = gfile['simag']
             R_axis = gfile['rmaxis']
             Z_axis = gfile['zmaxis']
             psi_bndry = gfile['sibry']

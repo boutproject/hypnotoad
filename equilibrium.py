@@ -929,6 +929,53 @@ class PsiContour:
                            assume_sorted=True, fill_value='extrapolate')
         return lambda s: Point2D(interpR(s), interpZ(s)), distance
 
+    def _coarseExtrapLower(self, reference_ind, *, kind='cubic'):
+        """
+        Returns an interpolation/extrapolation function for points near the beginning of
+        this PsiContour, with distances relative to the point at 'reference_ind'.
+        """
+
+        npoints = reference_ind + 4
+
+        distance = [0.]
+        for i in range(npoints - 1):
+            distance.append(distance[i] + calc_distance(self[i+1], self[i]))
+        distance = numpy.array(numpy.float64(distance)) - distance[reference_ind]
+
+        R = numpy.array(numpy.float64([p.R for p in self.points[:npoints]]))
+        Z = numpy.array(numpy.float64([p.Z for p in self.points[:npoints]]))
+
+        interpR = interp1d(distance, R, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        interpZ = interp1d(distance, Z, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        return lambda s: Point2D(interpR(s), interpZ(s))
+
+    def _coarseExtrapUpper(self, reference_ind, *, kind='cubic'):
+        """
+        Returns an interpolation/extrapolation function for points near the beginning of
+        this PsiContour, with distances relative to the point at 'reference_ind'.
+        """
+
+        if reference_ind < 0:
+            reference_ind += len(self)
+
+        npoints = (len(self) - 1 - reference_ind) + 4
+
+        distance = [0.]
+        for i in range(reference_ind - 3, len(self) - 1):
+            distance.append(distance[-1] + calc_distance(self[i+1], self[i]))
+        distance = numpy.array(numpy.float64(distance)) - distance[3]
+
+        R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
+        Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))
+
+        interpR = interp1d(distance, R, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        interpZ = interp1d(distance, Z, kind=kind,
+                           assume_sorted=True, fill_value='extrapolate')
+        return lambda s: Point2D(interpR(s), interpZ(s))
+
     def contourSfunc(self, kind='cubic'):
         """
         Function interpolating distance as a function of index for the current state of
@@ -1027,8 +1074,8 @@ class PsiContour:
             else:
                 ds = ds_lower
             for i in range(extend_lower):
-                interp, distance_estimate = self._coarseInterp()
-                new_point = interp(distance_estimate[0] - ds)
+                extrap = self._coarseExtrapLower(0)
+                new_point = extrap(-ds)
                 self.prepend(self.refinePoint(new_point, new_point - self[0]))
                 if self.startInd >= 0:
                     self.startInd += 1
@@ -1040,9 +1087,11 @@ class PsiContour:
             else:
                 ds = ds_upper
             for i in range(extend_upper):
-                interp, distance_estimate = self._coarseInterp()
-                new_point = interp(distance_estimate[-1] + ds)
+                extrap = self._coarseExtrapUpper(-1)
+                new_point = extrap(ds)
                 self.append(self.refinePoint(new_point, new_point - self[-1]))
+                if self.endInd < 0:
+                    self.endInd -= 1
 
     def plot(self, *args, plotPsi=False, **kwargs):
         from matplotlib import pyplot

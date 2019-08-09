@@ -1061,6 +1061,56 @@ class PsiContour:
         # a large width for refinement - use width/100. instead of 'width'
         return new_contour.getRefined(width=width/100., atol=atol)
 
+    def checkFineContourExtend(self):
+        """
+        Ensure that self._fine_contour extends past the first and last points of this
+        PsiContour
+        """
+
+        # check first point
+        p = numpy.array([*self[0]])
+        distances = numpy.sqrt(
+                numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :])**2, axis=1))
+        minind = numpy.argmin(distances)
+        # if minind > 0, or the distance to point 1 is less than the distance between
+        # point 0 and point 1 of the fine_contour, then fine_contour extends past p so
+        # does not need to be extended
+        if (minind == 0
+            and distances[1] > numpy.sqrt(numpy.sum(
+                (self.fine_contour.positions[1, :]
+                 - self.fine_contour.positions[0, :])**2))):
+
+            ds = self.fine_contour.distance[1] - self.fine_contour.distance[0]
+            n_extend_lower = max(int(numpy.ceil(distances[0]/ds)), 1)
+        else:
+            n_extend_lower = 0
+
+        # check last point
+        p = numpy.array([*self[-1]])
+        distances = numpy.sqrt(
+                numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :])**2, axis=1))
+        minind = numpy.argmin(distances)
+        # if minind < len(distances)-1, or the distance to the last point is less than the
+        # distance between the last and second-last of the fine_contour, then fine_contour
+        # extends past p so does not need to be extended
+        if (minind == len(distances) - 1
+            and distances[-2] > numpy.sqrt(numpy.sum(
+                (self.fine_contour.positions[-1, :]
+                 - self.fine_contour.positions[-2, :])**2))):
+
+            ds = self.fine_contour.distance[-1] - self.fine_contour.distance[-2]
+            n_extend_upper = max(int(numpy.ceil(distances[-1]/ds)), 1)
+        else:
+            n_extend_upper = 0
+
+        if n_extend_lower == 0 and n_extend_upper == 0:
+            return
+        else:
+            self.fine_contour.extend(extend_lower=n_extend_lower,
+                                     extend_upper=n_extend_upper)
+            # Call recursively to check extending has gone far enough
+            self.checkFineContourExtend()
+
     def temporaryExtend(self, *, extend_lower=0, extend_upper=0, ds_lower=None,
             ds_upper=None):
         """

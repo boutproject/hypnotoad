@@ -196,8 +196,9 @@ class TORPEXMagneticField(Equilibrium):
             # TORPEX psi uses different sign convention from us
             psi = -eqfile['psi'][0, 0]
 
-            Rinds = (R[0, :] >= self.Rmin - 0.02) * (R[0, :] <= self.Rmax + 0.02)
-            Zinds = (Z[:, 0] >= self.Zmin - 0.02) * (Z[:, 0] <= self.Zmax + 0.02)
+            extra = 0.04
+            Rinds = (R[0, :] >= self.Rmin - extra) * (R[0, :] <= self.Rmax + extra)
+            Zinds = (Z[:, 0] >= self.Zmin - extra) * (Z[:, 0] <= self.Zmax + extra)
 
             R = R[:, Rinds]
             R = R[Zinds, :]

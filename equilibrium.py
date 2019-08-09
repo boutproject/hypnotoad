@@ -834,9 +834,10 @@ class PsiContour:
         old_start = self.startInd
         self.startInd = len(self) - 1 - self.endInd
         self.endInd = len(self) - 1 - old_start
-        if self._distance is not None:
-            self._distance.reverse()
-            self._distance = [self.distance[0] - d for d in self.distance]
+
+        # reset distance - will be recalculated from self._fine_contour
+        self._distance = None
+
         if self._fine_contour is not None:
             self._fine_contour.reverse()
 

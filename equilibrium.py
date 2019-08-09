@@ -1080,7 +1080,12 @@ class PsiContour:
 
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use width/100. instead of 'width'
-        return new_contour.getRefined(width=width/100., atol=atol)
+        new_contour.refine(width=width/100., atol=atol)
+
+        # Pass already converged fine_contour to new_contour
+        new_contour._fine_contour = self.fine_contour
+
+        return new_contour
 
     def checkFineContourExtend(self):
         """

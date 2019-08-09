@@ -788,6 +788,44 @@ class PsiContour:
         if self.endInd < 0 and index > len(self) + self.endInd:
             self.endInd -= 1
 
+    def insertFindPosition(self, point):
+        """
+        Insert a point into the PsiContour, finding its position in the list. Input point
+        should be on the correct psi-value already. If the point being inserted is very
+        close to an existing point, do not insert and return the index of the existing
+        point.
+
+        Returns
+        -------
+        int
+            index where the point was inserted.
+        """
+        d = [calc_distance(point, p) for p in self]
+        minind = numpy.argmin(d)
+
+        # check if point to be inserted is very close to existing point
+        if calc_distance(point, self[minind]) < self.options.refine_atol:
+            return minind
+
+        if minind == 0 and d[1] > calc_distance(self[0], self[1]):
+            self.prepend(point)
+            return 0
+        elif minind == 0:
+            self.insert(1, point)
+            return 1
+        elif minind == len(self) - 1 and d[-2] > calc_distance(self[-1], self[-2]):
+            self.append(point)
+            return minind + 1
+        elif minind == len(self)-1:
+            self.insert(minind, point)
+            return minind
+        elif d[minind - 1] > d[minind + 1]:
+            self.insert(minind + 1, point)
+            return minind + 1
+        else:
+            self.insert(minind, point)
+            return minind
+
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
 

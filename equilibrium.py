@@ -320,6 +320,81 @@ class FineContour:
 
         self.equaliseSpacing()
 
+
+    def extend(self, *, extend_lower=0, extend_upper=0):
+
+        atol = self.options.finecontour_atol
+        Nfine = self.options.finecontour_Nfine
+
+        parentCopy = self.parentContour.newContourFromSelf()
+
+        new_positions = numpy.zeros(
+                [self.positions.shape[0] + extend_lower + extend_upper, 2])
+
+        if extend_upper is 0:
+            new_positions[extend_lower:] = self.positions
+        else:
+            new_positions[extend_lower:-extend_upper] = self.positions
+
+        if extend_lower is not 0:
+            self.extend_lower_fine += extend_lower
+
+            ds_lower = self.distance[1] - self.distance[0]
+
+            # distances from the first point in the FineContour to put initial guesses for
+            # new points
+            new_s_lower = numpy.arange(-extend_lower, 0.)*ds_lower
+
+            # Extend parentCopy to cover range of new_s_lower.
+            ds_coarse = calc_distance(parentCopy[0], parentCopy[1])
+            coarse_extend = int(extend_lower*ds_lower/ds_coarse)
+            parentCopy.temporaryExtend(extend_lower=coarse_extend, ds_lower=ds_coarse)
+
+            # Make sure parentCopy has point at start of existing FineContour - then
+            # measure distances where initial guesses for new points are inserted relative
+            # to that point, ensures points in new_positions are in the right order
+            first_point = Point2D(*self.positions[0, :])
+            reference_ind = parentCopy.insertFindPosition(first_point)
+
+            extrap_coarse = parentCopy._coarseExtrapLower(reference_ind)
+
+            new_positions[:extend_lower, :] = [tuple(extrap_coarse(s)) for s in new_s_lower]
+
+        if extend_upper is not 0:
+            self.extend_upper_fine += extend_upper
+
+            ds_upper = self.distance[-1] - self.distance[-2]
+
+            # distances from the last point in the FineContour to put initial guesses for
+            # new points
+            new_s_upper = numpy.arange(1., extend_upper+1)*ds_upper
+
+            # Extend parentCopy to cover range of new_s_upper.
+            ds_coarse = calc_distance(parentCopy[-2], parentCopy[-1])
+            coarse_extend = int(extend_upper*ds_upper/ds_coarse)
+            parentCopy.temporaryExtend(extend_upper=coarse_extend, ds_upper=ds_coarse)
+
+            # Make sure parentCopy has point at end of existing FineContour - then
+            # measure distances where initial guesses for new points are inserted relative
+            # to that point, ensures points in new_positions are in the right order
+            last_point = Point2D(*self.positions[-1, :])
+            reference_ind = parentCopy.insertFindPosition(last_point)
+
+            extrap_coarse = parentCopy._coarseExtrapUpper(reference_ind)
+
+            new_positions[-extend_upper:, :] = [tuple(extrap_coarse(s)) for s in new_s_upper]
+
+        self.positions = new_positions
+
+        self.indices_fine = numpy.linspace(-self.extend_lower_fine,
+                (Nfine - 1 + self.extend_upper_fine),
+                Nfine + self.extend_lower_fine + self.extend_upper_fine)
+
+        self.startInd = self.extend_lower_fine
+        self.endInd = Nfine - 1 + self.extend_lower_fine
+
+        self.equaliseSpacing(reallocate=True)
+
     def equaliseSpacing(self, *, reallocate=False):
     #def equaliseSpacing(self, *, reallocate=False, check=False):
         """
@@ -329,7 +404,7 @@ class FineContour:
 
         self.refine()
 
-        self.calcDistance()
+        self.calcDistance(reallocate=reallocate)
 
         ds = self.distance[1:] - self.distance[:-1]
         # want constant spacing, so ds has a constant value
@@ -418,8 +493,8 @@ class FineContour:
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
 
-    def calcDistance(self):
-        if self.distance is None:
+    def calcDistance(self, *, reallocate=False):
+        if self.distance is None or reallocate:
             self.distance = numpy.zeros(self.positions.shape[0])
         deltaSquared = (self.positions[1:] - self.positions[:-1])**2
         self.distance[1:] = numpy.cumsum(numpy.sqrt(numpy.sum(deltaSquared, axis=1)))

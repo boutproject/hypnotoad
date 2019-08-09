@@ -506,6 +506,7 @@ class MeshRegion:
             self.sfunc_orthogonal_list.append(sfunc_orthogonal)
 
             contour.refine(width=self.user_options.refine_width)
+            contour.checkFineContourExtend()
 
     def distributePointsNonorthogonal(self):
         # regrid the contours (which all know where the wall is)

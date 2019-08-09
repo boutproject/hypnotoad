@@ -1051,12 +1051,33 @@ class PsiContour:
             s = (self.distance[self.endInd] - self.distance[self.startInd]) / (npoints - 1) * indices
             sbegin = 0.
 
+        # Check s does not go beyond the end of self.fine_contour
+        # If self._fine_contour is reset to None later on, this extension will be lost,
+        # but it should not be reset after a contour is re-gridded, because the
+        # re-gridding should be the last change that is made to a PsiContour
+        orig_extend_lower = self.fine_contour.extend_lower_fine
+        orig_extend_upper = self.fine_contour.extend_upper_fine
+
+        tol_lower = 0.25*(self.fine_contour.distance[1] - self.fine_contour.distance[0])
+        while s[0] < -self.fine_contour.distance[self._fine_contour.startInd] - tol_lower:
+            new_extend_lower = self.fine_contour.extend_lower_fine + max(orig_extend_lower,1)
+            self._fine_contour.extend(extend_lower=max(orig_extend_lower,1))
+
+        tol_upper = 0.25*(self.fine_contour.distance[-1] - self.fine_contour.distance[-2])
+        while s[-1] > self.fine_contour.distance[-1] - self.fine_contour.distance[self.fine_contour.startInd] + tol_upper:
+            new_extend_upper = self.fine_contour.extend_upper_fine + max(orig_extend_upper, 1)
+            self._fine_contour.extend(extend_upper=max(orig_extend_upper,1))
+
         interp_unadjusted = self.fine_contour.interpFunction()
         interp = lambda s: interp_unadjusted(s - sbegin)
 
         new_contour = self.newContourFromSelf(points=[interp(x) for x in s])
         new_contour.startInd = self.extend_lower
         new_contour.endInd = len(new_contour) - 1 - self.extend_upper
+        new_contour._distance = None
+        # re-use the extended fine_contour for new_contour
+        new_contour._fine_contour = self.fine_contour
+
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use width/100. instead of 'width'
         return new_contour.getRefined(width=width/100., atol=atol)

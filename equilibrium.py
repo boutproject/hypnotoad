@@ -282,7 +282,6 @@ class FineContour:
         self.parentContour = parentContour
         self.distance = None
         Nfine = self.options.finecontour_Nfine
-        atol = self.options.finecontour_atol
 
         endInd = self.parentContour.endInd
         if endInd < 0:
@@ -293,31 +292,40 @@ class FineContour:
 
         # Extend further than will be needed in the final contour, because extrapolation
         # past the end of the fine contour is very bad.
-        extend_lower_fine = 2*(self.parentContour.extend_lower * Nfine) // n_input
-        extend_upper_fine = 2*(self.parentContour.extend_upper * Nfine) // n_input
+        self.extend_lower_fine = 2*(self.parentContour.extend_lower * Nfine) // n_input
+        self.extend_upper_fine = 2*(self.parentContour.extend_upper * Nfine) // n_input
 
-        indices_fine = numpy.linspace(-extend_lower_fine,
-                (Nfine - 1 + extend_upper_fine),
-                Nfine + extend_lower_fine + extend_upper_fine)
+        self.indices_fine = numpy.linspace(-self.extend_lower_fine,
+                (Nfine - 1 + self.extend_upper_fine),
+                Nfine + self.extend_lower_fine + self.extend_upper_fine)
 
         # Initial guess from interpolation of psiContour, iterate to a more accurate
         # version below.
         # Extend a copy of parentContour to make the extrapolation more stable.
         # This makes parentCopy have twice the extra points as parentContour has.
-        parentCopy = parentContour.newContourFromSelf()
-        parentCopy.temporaryExtend(extend_lower=parentContour.extend_lower,
-                extend_upper=parentContour.extend_upper,
+        parentCopy = self.parentContour.newContourFromSelf()
+        parentCopy.temporaryExtend(extend_lower=self.parentContour.extend_lower,
+                extend_upper=self.parentContour.extend_upper,
                 ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
                 ds_upper=calc_distance(parentCopy[-1], parentCopy[-2]))
         interp_input, distance_estimate = parentCopy._coarseInterp()
 
-        sfine = distance_estimate[parentCopy.endInd] / (Nfine - 1) * indices_fine
+        sfine = distance_estimate[parentCopy.endInd] / (Nfine - 1) * self.indices_fine
 
         # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
         self.positions = numpy.array(tuple(interp_input(s).as_ndarray() for s in sfine))
 
-        self.startInd = extend_lower_fine
-        self.endInd = Nfine - 1 + extend_lower_fine
+        self.startInd = self.extend_lower_fine
+        self.endInd = Nfine - 1 + self.extend_lower_fine
+
+        self.equaliseSpacing()
+
+    def equaliseSpacing(self, *, reallocate=False):
+    #def equaliseSpacing(self, *, reallocate=False, check=False):
+        """
+        Adjust the positions of points in this FineContour so they have a constant
+        distance between them.
+        """
 
         self.refine()
 
@@ -332,8 +340,8 @@ class FineContour:
         if FineContour.options.finecontour_diagnose:
             from matplotlib import pyplot
             print('diagnosing FineContour.__init__()')
-            print('extend_lower_fine', extend_lower_fine)
-            print('extend_upper_fine', extend_upper_fine)
+            print('extend_lower_fine', self.extend_lower_fine)
+            print('extend_upper_fine', self.extend_upper_fine)
             print('ds_error', ds_error)
             count = 1
 
@@ -361,8 +369,8 @@ class FineContour:
             pyplot.legend()
             pyplot.show()
 
-        while ds_error > atol:
-            sfine = self.totalDistance() / (Nfine - 1) * indices_fine
+        while ds_error > self.options.finecontour_atol:
+            sfine = self.totalDistance() / (self.options.finecontour_Nfine - 1) * self.indices_fine
 
             interpFunc = self.interpFunction()
 

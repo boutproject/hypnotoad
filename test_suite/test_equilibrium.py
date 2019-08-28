@@ -531,6 +531,64 @@ class TestEquilibrium:
         assert intersect.R == tight_approx(1.)
         assert intersect.Z == tight_approx(1.)
 
+    def test_getPolynomialGridFuncGradLower(self, eq):
+        grad_lower = 0.2
+        lower = .4
+        upper = 2.
+        N = 10.
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower = grad_lower)
+        # f(0) = lower
+        assert f(0.) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == tight_approx(upper)
+        # for i<<1, df/di = grad_lower
+        itest = 1.e-3
+        assert (f(itest) - f(0.))/itest == pytest.approx(grad_lower, abs=1.e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.) - 2.*f(itest) + f(2.*itest)) / itest**2 == pytest.approx(0.,
+                                                                               abs=1.e-5)
+
+    def test_getPolynomialGridFuncGradUpper(self, eq):
+        grad_upper = 0.1
+        lower = .4
+        upper = 2.
+        N = 10.
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper = grad_upper)
+        # f(0) = lower
+        assert f(0.) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == tight_approx(upper)
+        # for N-i<<1, df/di = grad_upper
+        itest = 1.e-3
+        assert (f(N) - f(N - itest))/itest == pytest.approx(grad_upper, abs=1.e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (f(N) - 2.*f(N - itest) + f(N - 2.*itest)) / itest**2 == pytest.approx(0.,
+                                                                               abs=1.e-5)
+
+    def test_getPolynomialGridFuncGradBoth(self, eq):
+        grad_lower = 0.2
+        grad_upper = 0.1
+        lower = .4
+        upper = 2.
+        N = 10.
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower = grad_lower,
+                grad_upper = grad_upper)
+        # f(0) = lower
+        assert f(0.) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == tight_approx(upper)
+        # for i<<1, df/di = grad_lower
+        itest = 5.e-4
+        assert (f(itest) - f(0.))/itest == pytest.approx(grad_lower, abs=1.e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.) - 2.*f(itest) + f(2.*itest)) / itest**2 == pytest.approx(0.,
+                                                                               abs=1.e-5)
+        # for N-i<<1, df/di = grad_upper
+        assert (f(N) - f(N - itest))/itest == pytest.approx(grad_upper, abs=1.e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (f(N) - 2.*f(N - itest) + f(N - 2.*itest)) / itest**2 == pytest.approx(0.,
+                                                                               abs=1.e-5)
+
 class TestEquilibriumRegion:
 
     @pytest.fixture

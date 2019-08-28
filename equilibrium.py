@@ -2276,43 +2276,67 @@ class Equilibrium:
     def getPolynomialGridFunc(self, n, lower, upper, *, grad_lower=None, grad_upper=None):
         """
         A polynomial function with value 'lower' at 0 and 'upper' at n, used to
-        non-uniformly place grid point values in index space. Optionally matches the
-        gradient grad_lower at the lower end and grad_upper at the upper end. Linear if
-        neither gradient given, quadritic if one given, cubic if both given.
+        non-uniformly place grid point values in index space.
+        Optionally matches the gradient grad_lower at the lower end and grad_upper at the
+        upper end.
+        If the gradient is specified, the second derivative is set to zero, to ensure that
+        the derivative of the grid spacing is zero, and so the grid spacing will be smooth
+        across boundaries.
+        Linear if neither gradient given, cubic if one given, quintic if both given.
         """
         if grad_lower is None and grad_upper is None:
             return lambda i: lower + (upper - lower)*i/n
         elif grad_lower is None:
-            # psi(i) = a*i^2 + b*i + c
-            # psi(0) = lower = c
-            # psi(n) = upper = a*n**2 + b*n + c
-            # dpsidi(n) = grad_upper = 2*a*n + b
-            # n*a - c/n = grad_upper - upper/n
-            c = lower
-            a = (grad_upper - upper/n + c/n) / n
-            b = grad_upper - 2.*a*n
-            return lambda i: a*i**2 + b*i + c
-        elif grad_upper is None:
-            # psi(i) = a*i^2 + b*i + c
-            # psi(0) = lower = c
-            # psi(n) = upper = a*n**2 + b*n + c
-            # dpsidi(0) = grad_lower = b
-            c = lower
-            b = grad_lower
-            a = (upper - b*n - c) / n**2
-            return lambda i: a*i**2 + b*i + c
-        else:
             # psi(i) = a*i^3 + b*i^2 + c*i + d
             # psi(0) = lower = d
-            # dpsidi(0) = grad_lower = c
-            # dpsidi(n) = grad_upper = 3*a*n^2 + 2*b*n + c
             # psi(n) = upper = a*n^3 + b*n^2 + c*n + d
-            # grad_upper - 2*upper/n = a*n^2 - c - d/n
+            # dpsidi(n) = grad_upper = 3*a*n^2 + 2*b*n + c
+            # d2psidi2(n) = 0 = 6*a*n + 2*b
+            # a = -b/(3*n)
+            # grad_upper = -b*n + 2*b*n + c
+            #            = b*n + c
+            # b = (grad_upper - c)/n
+            # upper = -(grad_upper - c)*n/3 + (grad_upper - c)*n + c*n + d
+            #       = 2*grad_upper*n/3 + c*n/3 + d
+            # c = 3.*(upper - d - 2.*grad_upper*n/3.)/n
+            d = lower
+            c = 3.*(upper - d - 2.*grad_upper*n/3.)/n
+            b = (grad_upper - c)/n
+            a = -b/(3.*n)
+            return lambda i: a*i**3 + b*i**2 + c*i + d
+        elif grad_upper is None:
+            # psi(i) = a*i^3 + b*i^2 + c*i + d
+            # psi(0) = lower = d
+            # psi(n) = upper = a*n^3 + b*n^2 + c*n + d
+            # dpsidi(0) = grad_lower = c
+            # d2psidi2(0) = 0 = 2*b
             d = lower
             c = grad_lower
-            a = (grad_upper - 2*upper/n + c + d/n) / n**2
-            b = (grad_upper - 3*a*n**2 - c) / (2*n)
+            b = 0.
+            a = (upper - b*n**2 - c*n - d) / n**3
             return lambda i: a*i**3 + b*i**2 + c*i + d
+        else:
+            # psi(i) = a*i^5 + b*i^4 + c*i^3 + d*i^2 + e*i + f
+            # psi(0) = lower = f
+            # dpsidi(0) = grad_lower = e
+            # d2psidi2(0) = 0 = 2*d
+            # psi(n) = upper = a*n^5 + b*n^4 + c*n^3 + e*n + f
+            # dpsidi(n) = grad_upper = 5*a*n^4 + 4*b*n^3 + 3*c*n^2 + e
+            # d2psidi2(n) = 0 = 20*a*n^3 + 12*b*n^2 + 6*c*n
+            # grad_upper = (4-3)*b*n^3 + (3-3/2)*c*n^2 + e
+            #            = b*n^3 + 3*c*n^2/2 + e
+            # upper = (1-3/5)*b*n^4 + (1-3/10)*c*n^3 + e*n + f
+            #       = 2*b*n^4/5 + 7*c*n^3/10 + e*n + f
+            # n*grad_upper - 5*upper/2 = (3/2 - 7/4)*c*n^3 + (1-5/2)*e*n - 5*f/2
+            #                          = -c*n^3/4 - 3*e*n/2 - 5*f/2
+            # c = 4*(5*upper/2 - n*grad_upper - 3*e*n/2 - 5*f/2)/n^3
+            f = lower
+            e = grad_lower
+            d = 0.
+            c = 4.*(5.*upper/2. - n*grad_upper - 3.*e*n/2. - 5.*f/2.)/n**3
+            b = (grad_upper - 3.*c*n**2/2. - e)/n**3
+            a = -(6.*b*n + 3*c)/(10.*n**2)
+            return lambda i: a*i**5 + b*i**4 + c*i**3 + d*i**2 + e*i + f
 
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
             ncontours=40, labels=True, **kwargs):

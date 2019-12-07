@@ -1,0 +1,42 @@
+# Input for TORPEX grid generator
+# Currents here are positive anti-clockwise, matches TORPEX convention
+# Note the currents here are I=(number of turns in coil)*(coil current)
+# 'B' coils (smaller R) are 32 turns; had 225A => 7200 A.turns
+# 'E' coils (larger R) are 8 turns; had -63A => 504 A.turns
+Coils:
+  - R: 0.7667
+    Z: 0.5262
+    I: 7200.
+  - R: 0.7667
+    Z: -0.5262
+    I: 7200.
+  - R: 1.381
+    Z: 0.5262
+    I: -504.
+  - R: 1.381
+    Z: -0.5262
+    I: -504.
+Bt_axis: 77.e-3
+
+Mesh:
+  curvature_type: 'curl(b/B)'
+  nx_core: 8
+  nx_sol: 8
+  ny_inner_lower_divertor: 8
+  ny_inner_upper_divertor: 8
+  ny_outer_upper_divertor: 8
+  ny_outer_lower_divertor: 8
+  psi_core: -1.55e-3
+  psi_sol: -1.47e-3
+  psi_sol_inner: -1.44e-3
+  psi_spacing_separatrix_multiplier: 0.2
+  xpoint_poloidal_spacing_length: 0.15
+
+  y_boundary_guards: 1
+
+  refine_width: 4.e-2
+  geometry_rtol: 1.e-8
+  finecontour_Nfine: 20
+  gradPsiRtol: 2.e-6
+  gradPsiAtol: 1.e-6
+  #finecontour_diagnose: True

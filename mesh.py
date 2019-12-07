@@ -967,7 +967,7 @@ class MeshRegion:
         self.calc_curvature()
 
     def calc_curvature(self):
-        if False:
+        if self.user_options.curvature_type == 'curl(b/B) with x-y derivatives':
             # calculate curl on x-y grid
             self.curl_bOverB_x = ( -2.*self.bpsign*self.Bpxy*self.Btxy*self.Rxy
                                     / (self.hy*self.Bxy**3) * self.DDY('#Bxy') )
@@ -978,8 +978,15 @@ class MeshRegion:
                                    - self.Btxy*self.Rxy/self.Bxy**2
                                      * self.DDX('#Btxy/#Rxy')
                                    - self.I*self.curl_bOverB_x)
-        else:
+            self.bxcvx = self.Bxy/2. * self.curl_bOverB_x
+            self.bxcvy = self.Bxy/2. * self.curl_bOverB_y
+            self.bxcvz = self.Bxy/2. * self.curl_bOverB_z
+        elif self.user_options.curvature_type == 'curl(b/B)':
             # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
+            # This calculates contravariant components of a curvature vector
+
+            raise ValueError('This option needs checking carefully before it is used')
+
             equilib = self.meshParent.equilibrium
             psi = equilib.psi
             fpol = lambda R,Z: equilib.fpol(psi(R,Z))
@@ -998,8 +1005,9 @@ class MeshRegion:
 
             # d(B^2)/dR
             dB2dR = lambda R,Z: ( -2./R * B2(R,Z)
-                    + 2./R * (-BZ(R,Z)*d2psidR2(R,Z) + BR(R,Z)*d2psidRdZ(R,Z)
-                              - fpol(R,Z)*fpolprime(R,Z)*BZ(R,Z)) )
+                                  + 2./R * (-BZ(R,Z)*d2psidR2(R,Z)
+                                            + BR(R,Z)*d2psidRdZ(R,Z)
+                                            - fpol(R,Z)*fpolprime(R,Z)*BZ(R,Z)) )
 
             # d(B^2)/dZ
             dB2dZ = lambda R,Z: 2./R * (-BZ(R,Z)*d2psidRdZ(R,Z) + BR(R,Z)*d2psidZ2(R,Z)
@@ -1017,21 +1025,54 @@ class MeshRegion:
             # dBR/dZ
             dBRdZ = lambda R,Z: d2psidZ2(R,Z)/R
 
-            # curl(b/B)
-            curl_bOverB_R = lambda R,Z: dBphidZ(R,Z)/B2(R,Z) - Bphi(R,Z)/B2(R,Z)**2 * dB2dZ(R,Z)
-            curl_bOverB_Z = lambda R,Z: -dBphidR(R,Z)/B2(R,Z) + Bphi(R,Z)/B2(R,Z)**2 * dB2dR(R,Z)
-            curl_bOverB_phi = lambda R,Z: ( dBZdR(R,Z)/B2(R,Z) - BZ(R,Z)/B2(R,Z)**2 * dB2dR(R,Z)
-                                            - dBRdZ(R,Z)/B2(R,Z) + BR(R,Z)/B2(R,Z)**2 * dB2dZ(R,Z) )
+            # In cylindrical coords curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat
+            #                                  + 1/R*(d(R A_zeta)/dR - d(AR)/dzeta) * Zhat
+            #                                  + (d(AR)/dZ - d(AZ)/dR) * zetahat
+            # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
+            #
+            # curl(b/B) = curl((BR/B2), (BZ/B2), (Bzeta/B2))
+            # curl(b/B)_R = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            #             = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            # curl(b/B)_Z = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
+            #             = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
+            # remembering d/dzeta=0 for axisymmetric equilibrium
+            curl_bOverB_R = lambda R,Z: -dBphidZ(R,Z)/B2(R,Z) + Bphi(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
+            curl_bOverB_phi = lambda R,Z: ( dBRdZ(R,Z)/B2(R,Z) - BR(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
+                                            - dBZdR(R,Z)/B2(R,Z) + BZ(R,Z)/B2(R,Z)**2*dB2dR(R,Z) )
+            curl_bOverB_Z = lambda R,Z: Bphi(R,Z)/(R*B2(R,Z)) + dBphidR(R,Z)/B2(R,Z) - Bphi(R,Z)/B2(R,Z)**2*dB2dR(R,Z)
 
-            curl_bOverB_R = curl_bOverB_R(self.Rxy, self.Zxy)
-            curl_bOverB_Z = curl_bOverB_Z(self.Rxy, self.Zxy)
-            curl_bOverB_phi = curl_bOverB_phi(self.Rxy, self.Zxy)
+            # A^x = A.Grad(x)
+            # A^y = A.Grad(y)
+            # A^z = A.Grad(z)
+            # dpsi/dR = -R*Bp_Z
+            # dpsi/dZ = R*Bp_R
+            curl_bOverBx = lambda R,Z: (curl_bOverB_R(R,Z)*(-R*BZ(R,Z))
+                                        + curl_bOverB_Z(R,Z)*(R*BR(R,Z)))
+            self.curl_bOverBx = curl_bOverBx(self.Rxy, self.Zxy)
 
-        if self.user_options.curvature_type == 'curl(b/B)':
-            self.bxcvx = self.Bxy/2. * self.curl_bOverB_x
-            self.bxcvy = self.Bxy/2. * self.curl_bOverB_y
-            self.bxcvz = self.Bxy/2. * self.curl_bOverB_z
+            # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
+            #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)/(Bp*hy*cosBeta)
+            #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
+            curl_bOverBy = ((curl_bOverB_R(self.Rxy, self.Zxy)
+                               *(BR(self.Rxy, self.Zxy)-BZ(self.Rxy, self.Zxy)*self.tanBeta)
+                             + curl_bOverB_Z(self.Rxy, self.Zxy)
+                                 *(BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy)*self.tanBeta))
+                            /(self.Bpxy*self.hy))
+            self.curl_bOverBy = curl_bOverBy
+
+            curl_bOverBz = lambda R,Z: curl_bOverB_phi(R,Z)/R
+            self.curl_bOverBz = curl_bOverBz(self.Rxy, self.Zxy)
+
+            # bxcv is calculated this way for backward compatibility with Hypnotoad.
+            # bxcv stands for 'b x kappa' where kappa is the field-line curvature, which
+            # is not exactly equivalent to the result here, but this is how Hypnotoad
+            # passed 'curvature' calculated as curl(b/B)
+            self.bxcvx = self.Bxy/2. * self.curl_bOverBx
+            self.bxcvy = self.Bxy/2. * self.curl_bOverBy
+            self.bxcvz = self.Bxy/2. * self.curl_bOverBz
         elif self.user_options.curvature_type == 'bxkappa':
+            raise ValueError('bxkappa form of curvature not implemented yet')
             self.bxcvx = float('nan')
             self.bxcvy = float('nan')
             self.bxcvz = float('nan')
@@ -1743,9 +1784,14 @@ class BoutMesh(Mesh):
         addFromRegions('g_12')
         addFromRegions('g_13')
         addFromRegions('g_23')
-        addFromRegions('curl_bOverB_x')
-        addFromRegions('curl_bOverB_y')
-        addFromRegions('curl_bOverB_z')
+        if self.user_options.curvature_type == 'curl(b/B) with x-y derivatives':
+            addFromRegions('curl_bOverB_x')
+            addFromRegions('curl_bOverB_y')
+            addFromRegions('curl_bOverB_z')
+        elif self.user_options.curvature_type == 'curl(b/B)':
+            addFromRegions('curl_bOverBx')
+            addFromRegions('curl_bOverBy')
+            addFromRegions('curl_bOverBz')
         addFromRegions('bxcvx')
         addFromRegions('bxcvy')
         addFromRegions('bxcvz')

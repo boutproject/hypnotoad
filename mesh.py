@@ -1037,10 +1037,10 @@ class MeshRegion:
             #             = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
             # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
             # remembering d/dzeta=0 for axisymmetric equilibrium
-            curl_bOverB_R = lambda R,Z: -dBphidZ(R,Z)/B2(R,Z) + Bphi(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
-            curl_bOverB_phi = lambda R,Z: ( dBRdZ(R,Z)/B2(R,Z) - BR(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
+            curl_bOverB_R = lambda R,Z: -dBzetadZ(R,Z)/B2(R,Z) + Bzeta(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
+            curl_bOverB_zeta = lambda R,Z: ( dBRdZ(R,Z)/B2(R,Z) - BR(R,Z)/B2(R,Z)**2*dB2dZ(R,Z)
                                             - dBZdR(R,Z)/B2(R,Z) + BZ(R,Z)/B2(R,Z)**2*dB2dR(R,Z) )
-            curl_bOverB_Z = lambda R,Z: Bphi(R,Z)/(R*B2(R,Z)) + dBphidR(R,Z)/B2(R,Z) - Bphi(R,Z)/B2(R,Z)**2*dB2dR(R,Z)
+            curl_bOverB_Z = lambda R,Z: Bzeta(R,Z)/(R*B2(R,Z)) + dBzetadR(R,Z)/B2(R,Z) - Bzeta(R,Z)/B2(R,Z)**2*dB2dR(R,Z)
 
             # A^x = A.Grad(x)
             # A^y = A.Grad(y)
@@ -1061,8 +1061,10 @@ class MeshRegion:
                             /(self.Bpxy*self.hy))
             self.curl_bOverBy = curl_bOverBy
 
-            curl_bOverBz = lambda R,Z: curl_bOverB_phi(R,Z)/R
-            self.curl_bOverBz = curl_bOverBz(self.Rxy, self.Zxy)
+            # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
+            self.curl_bOverBz = (curl_bOverB_zeta(self.Rxy, self.Zxy)/self.Rxy
+                                 - self.Btxy*self.hy/(self.Bpxy*self.Rxy)*self.curl_bOveryBy
+                                 - self.I*self.curl_bOverBx)
 
             # bxcv is calculated this way for backward compatibility with Hypnotoad.
             # bxcv stands for 'b x kappa' where kappa is the field-line curvature, which

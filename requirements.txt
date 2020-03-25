@@ -1,1 +1,3 @@
 options 
+PyYAML
+scipy>=1.3.0

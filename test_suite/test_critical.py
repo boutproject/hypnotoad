@@ -8,7 +8,7 @@ def test_one_opoint():
     ny = 65
     
     r1d = np.linspace(1.0, 2.0, nx)
-    z1d = np.linspace(-1.0, 1.0, nx)
+    z1d = np.linspace(-1.0, 1.0, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
     r0 = 1.5
@@ -30,7 +30,7 @@ def test_one_xpoint():
     ny = 65
     
     r1d = np.linspace(1.0, 2.0, nx)
-    z1d = np.linspace(-1.0, 1.0, nx)
+    z1d = np.linspace(-1.0, 1.0, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
     r0 = 1.5
@@ -52,7 +52,7 @@ def test_doublet():
     ny = 65
     
     r1d = np.linspace(1.0, 2.0, nx)
-    z1d = np.linspace(-1.0, 1.0, nx)
+    z1d = np.linspace(-1.0, 1.0, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
     r0 = 1.5

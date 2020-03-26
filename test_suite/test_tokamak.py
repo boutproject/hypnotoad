@@ -157,3 +157,101 @@ def test_read_geqdsk():
         assert np.isclose(eq.f_Z(r, z), dpsi_dz(r, z) / np.sqrt(dpsi_dr(r, z)**2 +
                                                                 dpsi_dz(r, z)**2),
                           atol=1e-3)
+
+def test_bounding():
+    nx = 65
+    ny = 65
+
+    # Limits of the domain
+    Rmin = 1.1
+    Rmax = 2.32
+    Zmin = -1.314
+    Zmax = 0.93
+
+    eq = tokamak.TokamakEquilibrium(np.linspace(Rmin, Rmax, nx),
+                                    np.linspace(Zmin, Zmax, ny),
+                                    np.zeros((nx, ny)), # psi2d
+                                    [], []) # psi1d, fpol
+
+    assert np.isclose(eq.Rmin, Rmin)
+    assert np.isclose(eq.Rmax, Rmax)
+    assert np.isclose(eq.Zmin, Zmin)
+    assert np.isclose(eq.Zmax, Zmax)
+
+def test_xpoint():
+    nx = 65
+    ny = 65
+    
+    r1d = np.linspace(1.0, 2.0, nx)
+    z1d = np.linspace(-1.0, 1.0, ny)
+    r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
+
+    r0 = 1.5
+    z0 = -0.3
+
+    # This has two O-points, and one x-point at (r0, z0)
+    def psi_func(R,Z):
+        return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
+    
+    eq = tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
+                                    [], []) # psi1d, fpol
+
+    assert len(eq.x_points) == 1
+    assert len(eq.psi_sep) == 1
+
+    assert np.isclose(eq.x_points[0].R, r0, atol = 1./nx)
+    assert np.isclose(eq.x_points[0].Z, z0, atol = 1./ny)
+
+    assert np.isclose(eq.psi_sep[0], psi_func(r0, z0), rtol=1./nx)
+
+def test_wall_anticlockwise():
+    nx = 65
+    ny = 65
+
+    # Limits of the domain
+    Rmin = 1.1
+    Rmax = 2.32
+    Zmin = -1.314
+    Zmax = 0.93
+
+    # Wall going anti-clockwise
+    wall = [(Rmin, Zmin), (Rmax, Zmin), (Rmax, Zmax), (Rmin, Zmax)]
+    
+    eq = tokamak.TokamakEquilibrium(np.linspace(Rmin, Rmax, nx),
+                                    np.linspace(Zmin, Zmax, ny),
+                                    np.zeros((nx, ny)), # psi2d
+                                    [], [], # psi1d, fpol
+                                    wall = wall)
+    assert len(eq.wall) == 4
+    # Wall ordering unchanged
+    assert eq.wall[0].R == Rmin
+    assert eq.wall[0].Z == Zmin
+    assert eq.wall[1].R == Rmax
+    assert eq.wall[1].Z == Zmin
+    
+def test_wall_clockwise():
+    nx = 65
+    ny = 65
+
+    # Limits of the domain
+    Rmin = 1.1
+    Rmax = 2.32
+    Zmin = -1.314
+    Zmax = 0.93
+
+    # Wall going clockwise. This should be reversed by TokamakEquilibrium
+    wall = [(Rmin, Zmax), (Rmax, Zmax), (Rmax, Zmin), (Rmin, Zmin)]
+    
+    eq = tokamak.TokamakEquilibrium(np.linspace(Rmin, Rmax, nx),
+                                    np.linspace(Zmin, Zmax, ny),
+                                    np.zeros((nx, ny)), # psi2d
+                                    [], [], # psi1d, fpol
+                                    wall = wall)
+    
+    assert len(eq.wall) == 4
+    # Wall ordering reversed
+    assert eq.wall[0].R == Rmin
+    assert eq.wall[0].Z == Zmin
+    assert eq.wall[1].R == Rmax
+    assert eq.wall[1].Z == Zmin
+    

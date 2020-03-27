@@ -255,3 +255,69 @@ def test_wall_clockwise():
     assert eq.wall[1].R == Rmax
     assert eq.wall[1].Z == Zmin
     
+
+def make_lower_single_null():
+    nx = 65
+    ny = 65
+    
+    r1d = np.linspace(1.2, 1.8, nx)
+    z1d = np.linspace(-0.5, 0.5, ny)
+    r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
+
+    r0 = 1.5
+    z0 = -0.3
+
+    # This has two O-points, and one x-point at (r0, z0)
+    def psi_func(R,Z):
+        return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
+    
+    return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
+                                      [], []) # psi1d, fpol
+
+def test_findlegs():
+    eq = make_lower_single_null()
+    legs = eq.findLegs(eq.x_points[0])
+
+    # Check both inner and outer legs are present
+    assert "inner" in legs
+    assert "outer" in legs
+
+    # The first point in both legs should be the same (the X-point)
+    assert legs["inner"][0] == legs["outer"][0]
+    
+    # The inner leg should terminate at a smaller major radius than the outer leg 
+    assert legs["inner"][-1].R < legs["outer"][-1].R
+
+    
+def make_upper_single_null():
+    nx = 65
+    ny = 65
+    
+    r1d = np.linspace(1.2, 1.8, nx)
+    z1d = np.linspace(-0.5, 0.5, ny)
+    r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
+
+    r0 = 1.5
+    z0 = -0.3
+
+    # This has two O-points, and one x-point at (r0, z0)
+    def psi_func(R,Z):
+        Z = -Z # Upside-down
+        return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
+    
+    return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
+                                      [], []) # psi1d, fpol
+
+def test_findlegs_upper():
+    eq = make_upper_single_null()
+    legs = eq.findLegs(eq.x_points[0])
+
+    # Check both inner and outer legs are present
+    assert "inner" in legs
+    assert "outer" in legs
+
+    # The first point in both legs should be the same (the X-point)
+    assert legs["inner"][0] == legs["outer"][0]
+    
+    # The inner leg should terminate at a smaller major radius than the outer leg 
+    assert legs["inner"][-1].R < legs["outer"][-1].R

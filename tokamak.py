@@ -4,6 +4,7 @@
 
 import numpy as np
 from scipy import interpolate
+from scipy.integrate import solve_ivp
 import warnings
 from collections import OrderedDict
 
@@ -23,6 +24,7 @@ class TokamakEquilibrium(Equilibrium):
     Data members
     - x_points: list of Point2D objects giving the position of the X-points ordered
                 from primary X-point (nearest the core) outward
+    - o_point: Point2D object for the magnetic O-point
     - psi_sep: values of psi on the separatrices ordered the same as self.x_points
     - Rmin, Rmax, Zmin, Zmax: positions of the corners of a bounding
                               box for the gridding
@@ -68,7 +70,7 @@ class TokamakEquilibrium(Equilibrium):
         psi_pf_lower = None,     # Default: psinorm_pf_lower
         psi_pf_upper = None)     # Default: psinorm_pf_upper
     
-    def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D, wall=[], psi_axis=None):
+    def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D, wall=None, psi_axis=None):
         # Create a 2D spline interpolation for psi
         self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
 
@@ -91,11 +93,12 @@ class TokamakEquilibrium(Equilibrium):
         else:
             if psi_axis is None:
                 psi_axis = opoints[0][2] # Psi on magnetic axis
+            self.o_point = Point2D(opoints[0][0], opoints[0][1])
         self.psi_axis = psi_axis
-        
+                               
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")
-        
+            
         self.x_points = [Point2D(r, z) for r, z, psi in xpoints]
         self.psi_sep = [psi for r, z, psi in xpoints]
 
@@ -104,8 +107,16 @@ class TokamakEquilibrium(Equilibrium):
         self.Rmax = max(R1D)
         self.Zmin = min(Z1D)
         self.Zmax = max(Z1D)
-
+        
         # Wall geometry. Note: should be anti-clockwise
+        if wall is None:
+            # No wall given, so add one which is just inside the domain edge
+            offset = 1e-2 # in m
+            wall = [(self.Rmin + offset, self.Zmin + offset),
+                    (self.Rmax - offset, self.Zmin + offset),
+                    (self.Rmax - offset, self.Zmax - offset),
+                    (self.Rmin + offset, self.Zmax - offset)]
+            
         if polygons.clockwise(wall):
             wall = wall[::-1] # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r,z) for r,z in wall]
@@ -128,6 +139,118 @@ class TokamakEquilibrium(Equilibrium):
                 valuestring += '\t(default)'
             result += formatstring.format(name, valuestring)
         return result
+    
+    def findLegs(self, xpoint, radius=0.01, step=0.01):
+        """Find the divertor legs coming from a given X-point
+        
+        xpoint   Point2D object giving position
+        radius   Search distance from X-point, in meters
+        step     Integration step size, in meters
+        """
+
+        psi_sep = self.psi(xpoint.R, xpoint.Z) # Value of psi
+
+        # Draw a half-circle around this X-point
+        if xpoint.Z < self.o_point.Z:
+            # If the X-point is below the O-point, choose only angles
+            # between pi and 2pi
+            angles = np.linspace(np.pi, 2.*np.pi, 50, endpoint=True)
+        else:
+            # X-point above O-point
+            angles = np.linspace(0.0, np.pi, 50, endpoint=True)
+            
+        rvals = xpoint.R + radius * np.cos(angles)
+        zvals = xpoint.Z + radius * np.sin(angles)
+        psivals = self.psi(rvals, zvals)
+        # Note: If psivals crosses psi_sep, the value becomes negative
+        inds = np.nonzero((psivals[1:] - psi_sep) * (psivals[:-1] - psi_sep) < 0.0)[0]
+        
+        # Currently only handle standard X-points (no snowflakes)
+        assert len(inds) == 2
+        
+        # Divide-and-conquer to get a points on the leg
+        # This goes into a list leg_points = [(r,z),..]
+        # These are arranged anticlockwise
+        leg_points = []
+        for ind in inds:
+            # Define the line along which the flux surface lies
+            # e.g r = r0 + dr * s
+            r0 = rvals[ind]
+            z0 = zvals[ind]
+            dr = rvals[ind+1] - r0
+            dz = zvals[ind+1] - z0
+
+            s1 = 0.0
+            s2 = 1.0
+            psi1 = psivals[ind]  # s = 0
+            psi2 = psivals[ind+1] # s = 1
+            
+            while s2 - s1 > 1e-5:
+                smid = 0.5 * (s1 + s2)
+                psi_mid = self.psi(r0 + smid * dr,
+                                   z0 + smid * dz)
+
+                if (psi_mid - psi_sep) * (psi1 - psi_sep) < 0.0:
+                    # Between psi_mid and psi1
+                    psi2 = psi_mid
+                    s2 = smid
+                else:
+                    psi1 = psi_mid
+                    s1 = smid
+            smid = 0.5 * (s1 + s2)
+            r = r0 + smid * dr
+            z = z0 + smid * dz
+            leg_points.append((r, z))
+
+        # For each leg, calculate whether the poloidal field is towards
+        # or away from the X-point
+        leg_lines = []
+        for leg in leg_points:
+            line = [xpoint] # Start with the X-point
+            
+            Br = self.Bp_R(*leg)
+            Bz = self.Bp_Z(*leg)
+            # Dot product vector from X-point to leg with Bp
+            # The sign is used to tell which way to integrate
+            sign = np.sign((leg[0] - xpoint.R) * Br +
+                           (leg[1] - xpoint.Z) * Bz)
+
+            # Integrate in this direction until the wall is intersected
+            # This is affected by sign, which determines which way to integrate
+            def dpos_dl(distance, pos):
+                r = pos[0]
+                z = pos[1]
+                Br = self.Bp_R(r, z)
+                Bz = self.Bp_Z(r, z)
+                B = np.sqrt(Br**2 + Bz**2)
+                return [sign * Br / B, sign * Bz / B]
+            
+            pos = leg  # Starting position
+            while True:
+                # Integrate a distance "step" along the leg
+                solve_result = solve_ivp(dpos_dl, (0.0, step), pos)
+                newpos = (solve_result.y[0][1], solve_result.y[1][1])
+
+                # Check if we have crossed the boundary
+                # somewhere between pos and newpos
+
+                intersect = self.wallIntersection(Point2D(*pos), Point2D(*newpos))
+                if intersect is not None:
+                    line.append(intersect) # Put the intersection in the line
+                    break
+                pos = newpos
+                line.append(Point2D(*pos))
+                
+            # Should now have an intersect with the wall
+            # which is a Point2D object
+            leg_lines.append(line)
+
+        # Now have a list of 2 legs. Check which one is the inner leg
+        # by comparing the major radius of the strike points
+        if leg_lines[0][-1].R > leg_lines[1][-1].R:
+            leg_lines = leg_lines[::-1]
+        return {"inner": leg_lines[0],
+                "outer": leg_lines[1]}
         
     def makeRegions(self, **kwargs):
         assert 0 < len(self.x_points) <= 2

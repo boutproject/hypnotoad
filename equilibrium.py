@@ -2484,7 +2484,7 @@ class Equilibrium:
             return lambda i: a*i**5 + b*i**4 + c*i**3 + d*i**2 + e*i + f
 
     def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
-            ncontours=40, labels=True, **kwargs):
+                      ncontours=40, labels=True, axis=None, **kwargs):
         from matplotlib import pyplot
 
         if Rmin is None: Rmin = self.Rmin
@@ -2494,11 +2494,16 @@ class Equilibrium:
 
         R = numpy.linspace(Rmin, Rmax, npoints)
         Z = numpy.linspace(Zmin, Zmax, npoints)
-        ax = pyplot.axes(aspect='equal')
-        contours = ax.contour(R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T,
+        
+        if axis is None:
+            axis = pyplot.axes(aspect='equal')
+
+        contours = axis.contour(R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T,
                 ncontours, **kwargs)
         if labels:
             pyplot.clabel(contours, inline=False, fmt='%1.3g')
+
+        return axis
 
     def plotSeparatrix(self):
         from matplotlib import pyplot

@@ -757,9 +757,9 @@ class MeshRegion:
                         "private flux region)")
         else:
             if self.bpsign < 0.:
-                raise ValueError("Sign of Bp should be negative? (note this check will "
-                        "raise an exception when bpsign was correct if you only have a "
-                        "private flux region)")
+                warnings.warn("Sign of Bp should be negative? (note this check will "
+                              "raise an exception when bpsign was correct if you only have a "
+                              "private flux region)")
 
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
@@ -967,21 +967,24 @@ class MeshRegion:
             pyplot.title('rel difference')
             pyplot.colorbar()
             pyplot.show()
+            
         if not numpy.all(check.centre):
             ploterror('centre')
+            warnings.warn('Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+
         if not numpy.all(check.ylow):
             ploterror('ylow')
-        assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-        assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+            warnings.warn('Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+        
         if check._xlow_array is not None:
-            if not numpy.all(check.xlow):
-                ploterror('xlow')
-            assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+             if not numpy.all(check.xlow):
+                 ploterror('xlow')
+                 warnings.warn('Geometry: Jacobian at xlow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
         if check._corners_array is not None:
             if not numpy.all(check.corners):
-                ploterror('corners')
-            assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-
+                 ploterror('corners')
+                 warnings.warn('Geometry: Jacobian at corners should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+        
         # curvature terms
         self.calc_curvature()
 
@@ -1653,8 +1656,12 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
         if Avals[0] > Arange[0] and Avals[0]-Arange[0]<1.e-15*numpy.abs(Arange[0]):
             # rounding error present, reset Avals[0]
             Avals[0] = Arange[0]
-    solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
-            vectorized=True)
+    try:
+        solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
+                             vectorized=True)
+    except ValueError:
+        print(Arange, Avals)
+        raise
 
     return [Point2D(*p) for p in solution.y.T]
 

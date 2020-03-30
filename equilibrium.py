@@ -30,6 +30,7 @@ import numpy
 from options import Options
 from scipy.optimize import minimize_scalar, brentq, root
 from scipy.interpolate import interp1d
+from scipy.integrate import solve_ivp
 
 from .hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
 
@@ -651,9 +652,10 @@ class PsiContour:
     Mostly behaves like a list
     """
     options = Options(
-            refine_width = 1.e-5,
-            refine_atol = 2.e-8,
-            )
+        refine_width = 1.e-5,
+        refine_atol = 2.e-8,
+        refine_methods = "line"
+    )
     def __init__(self, points, psi, psival):
         self.points = points
 
@@ -865,18 +867,50 @@ class PsiContour:
         self.points = new.points
         self._distance = new._distance
 
-    def refinePoint(self, p, tangent, width=None, atol=None):
-        if width is None:
-            width = PsiContour.options.refine_width
-        if atol is None:
-            atol = PsiContour.options.refine_atol
 
-        f = lambda R,Z: self.psi(R, Z) - self.psival
+    def refinePointNewton(self, p, tangent, width, atol):
+        """Use Newton iteration to refine point.
+        This should converge quickly if the original point is sufficiently close
+        """
+        f = lambda s: self.psi(*(p + s * tangent)) - self.psival
+        
+        def dfds(s, eps=1e-10):
+            return (f(s + eps) - f(s))/eps
+        
+        fprev = f(0.0)
 
-        if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
+        if numpy.abs(fprev) < atol*numpy.abs(self.psival):
             # don't need to refine
             return p
 
+        attempts = [(0.0, fprev, -1)]
+        
+        fnext = 0.0
+        s = 0.0
+        count = 0
+        while True:
+            # Take another iteration
+            s -= fprev / dfds(s)
+            fnext = f(s)
+            attempts.append((count, s, fnext))
+            if abs(fnext) < atol:
+                # Converged
+                return p + s * tangent
+            if abs(fnext) > abs(fprev) or count > 10:
+                raise RuntimeError("Diverging newton iteration")
+            count += 1
+            fprev = fnext
+
+    def refinePointLinesearch(self, p, tangent, width, atol):
+        """Refines the location of a point p, using a line search method 
+        along the tangent vector
+        """
+        f = lambda R,Z: self.psi(R, Z) - self.psival
+        
+        if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
+            # don't need to refine
+            return p
+        
         def perpLine(w):
             # p - point through which to draw perpLine
             # tangent - vector tangent to original curve, result will be perpendicular to this
@@ -885,38 +919,115 @@ class PsiContour:
             perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
             return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
 
-        converged = False
         w = width
-        sp = []
-        ep = []
-        while not converged:
+        while True:
             try:
                 pline = perpLine(w)
-                sp.append(pline(0.))
-                ep.append(pline(1.))
                 snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
-                converged = info.converged
+                if info.converged:
+                    return pline(snew)
+                
             except ValueError:
                 pass
             w /= 2.
             if w < atol:
-                print('width =',width)
-                from matplotlib import pyplot
-                pline0 = perpLine(width)
-                Rbox = numpy.linspace(p.R-.1,p.R+.1,100)[numpy.newaxis,:]
-                Zbox = numpy.linspace(p.Z-.1,p.Z+.1,100)[:,numpy.newaxis]
-                svals = numpy.linspace(0., 1., 40)
-                pyplot.figure()
-                self.plot('+')
-                pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox), 200)
-                pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
-                pyplot.figure()
-                pyplot.plot([f(*pline0(s)) for s in svals])
-                pyplot.show()
+                if False:
+                    print('width =',width)
+                    print("p = ", p)
+                    print("psi = {}, psival = {}".format(self.psi(*p), self.psival))
+                    print("Range: {} -> {}".format(f(*pline(0.)), f(*pline(1.))))
+                    
+                    pline0 = perpLine(width)
+                    Rbox = numpy.linspace(p.R-.1,p.R+.1,100)[numpy.newaxis,:]
+                    Zbox = numpy.linspace(p.Z-.1,p.Z+.1,100)[:,numpy.newaxis]
+                    svals = numpy.linspace(0., 1., 40)
+                    
+                    from matplotlib import pyplot
+                    pyplot.figure()
+                    self.plot('+')
+                    pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox), 200)
+                    pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
+                    pyplot.figure()
+                    pyplot.plot([f(*pline0(s)) for s in svals])
+                    pyplot.show()
                 raise SolutionError("Could not find interval to refine point at "+str(p))
+    
+    def refinePointIntegrate(self, p, tangent, width, atol):
+        """Integrates across flux surfaces from p
+        
+        Integrates this:
+        dR/dpsi = dpsi/dR / ((dpsi/dZ)**2 + (dpsi/dR)**2)
+        dZ/dpsi = dpsi/dZ / ((dpsi/dZ)**2 + (dpsi/dR)**2)
 
-        return pline(snew)
+        Note: This is the method used in the original Hypnotoad
+        """
 
+        def func(psi, position, eps=1e-10):
+            R = position[0]
+            Z = position[1]
+            psi0 = self.psi(R, Z) # Note: This should be close to psi
+            # Calculate derivatives using finite difference
+            dpsidr = (self.psi(R + eps, Z) - psi0) / eps
+            dpsidz = (self.psi(R, Z + eps) - psi0) / eps
+            norm = 1. / (dpsidr**2 + dpsidz**2) # Common factor
+            return [dpsidr * norm, dpsidz * norm]
+
+        result = solve_ivp(func,
+                           (self.psi(*p), self.psival), # Range of psi
+                           [p.R, p.Z])  # Starting location
+        if not result.success:
+            raise SolutionError("refinePointIntegrate failed to converge")
+        return Point2D(*result.y[:,1])
+    
+    def refinePoint(self, p, tangent, width=None, atol=None, methods=None):
+        """Starting from point p, find a nearby point where 
+        self.psi(p) is close to self.psival, by moving along
+        the tangent vector.
+        
+        methods   A comma-separated list of methods to use. 
+                  This overrides options.refine_methods
+        
+                  Valid names are:
+                  - "newton"       Newton iteration
+                  - "line"         A line search
+                  - "integrate"    Integrate along psi gradient
+                  - "none"         No refinement
+        
+        """
+
+        # Available methods. Note: Currently this selection
+        # is done for every point. This would be better done once
+        # during __init__ and then re-used.
+        available_methods = {"newton" : self.refinePointNewton,
+                             "line" : self.refinePointLinesearch,
+                             "integrate" : self.refinePointIntegrate,
+                             "none" : lambda p, tangent, width, atol: p}
+        
+        if width is None:
+            width = PsiContour.options.refine_width
+        if atol is None:
+            atol = PsiContour.options.refine_atol
+
+        assert width is not None
+        assert atol is not None
+        
+        if methods is None:
+            methods = PsiContour.options.refine_methods
+            if methods is None:
+                methods = "line" # For now, original method
+        
+        for method in methods.split(","):
+            try:
+                # Try each method
+                return available_methods[method.strip()](p, tangent, width, atol)
+            except:
+                # If it fails, try the next one
+                pass
+        
+        # All methods failed. If the user wants to continue anyway,
+        # the last method in the methods list can be set to "none"
+        raise SolutionError("refinePoint failed to converge with methods: " + methods)
+        
     def getRefined(self, **kwargs):
         newpoints = []
         newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0],

@@ -7,11 +7,11 @@ from scipy import interpolate
 from scipy.integrate import solve_ivp
 import warnings
 from collections import OrderedDict
+import functools
 
-from .equilibrium import Equilibrium  # Base class 
-from .equilibrium import Point2D 
-from .equilibrium import setDefault # For options 
+from .equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
 from .hypnotoad_options import HypnotoadOptions
+from .mesh import MultiLocationArray
 
 from . import critical
 from . import polygons
@@ -70,9 +70,23 @@ class TokamakEquilibrium(Equilibrium):
         psi_pf_lower = None,     # Default: psinorm_pf_lower
         psi_pf_upper = None)     # Default: psinorm_pf_upper
     
-    def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D, wall=None, psi_axis=None):
-        # Create a 2D spline interpolation for psi
-        self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
+    def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D,
+                 wall=None, psi_axis=None, dct=False, **kwargs):
+        
+        if dct:
+            # Create an interpolation
+            # This sets the functions
+            #   self.psi
+            #   self.f_R
+            #   self.f_Z
+            #   self.Bp_R
+            #   self.Bp_Z
+            #   self.d2psidR2
+            #   self.d2psidZ2
+            #   self.d2psidRdZ
+            self.magneticFunctionsFromGrid(R1D, Z1D, psi2D)
+        else:
+            self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
 
         if len(fpol1D) > 0:
             # Spline for interpolation of f = R*Bt
@@ -120,8 +134,24 @@ class TokamakEquilibrium(Equilibrium):
         if polygons.clockwise(wall):
             wall = wall[::-1] # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r,z) for r,z in wall]
-        
 
+        self.user_options = TokamakEquilibrium.default_options
+        # Set sensible defaults for options
+        self.user_options.set(
+            xpoint_poloidal_spacing_length = 5.e-2,
+            nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
+            follow_perpendicular_rtol = 2.e-8,
+            follow_perpendicular_atol = 1.e-8,
+            refine_width = 1.e-2,
+            refine_atol = 2.e-8,
+            refine_methods = "integrate+newton",
+            finecontour_Nfine = 100,
+            finecontour_diagnose = False,
+            finecontour_maxits = 200,
+            curvature_type = 'curl(b/B) with x-y derivatives')
+        
+        super().__init__(**kwargs)
+        
     def optionsTableStr(self):
         """Return a string containing a table of options set"""
         formatstring = '{:<50}|  {:<30}\n'
@@ -202,8 +232,8 @@ class TokamakEquilibrium(Equilibrium):
             z = z0 + smid * dz
             leg_points.append((r, z))
 
-        # For each leg, calculate whether the poloidal field is towards
-        # or away from the X-point
+        # For each leg, follow the magnetic field away from the X-point
+        # until the line intersects the wall
         leg_lines = []
         for leg in leg_points:
             line = [xpoint] # Start with the X-point
@@ -287,6 +317,9 @@ class TokamakEquilibrium(Equilibrium):
                    psinorm_to_psi(self.user_options.psinorm_pf_lower))
         setDefault(self.user_options, 'psi_pf_upper',
                    psinorm_to_psi(self.user_options.psinorm_pf_upper))
+
+        setDefault(self.user_options, 'poloidal_spacing_delta_psi',
+                np.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
         
         # Print the table of options
         print(self.optionsTableStr())
@@ -297,15 +330,92 @@ class TokamakEquilibrium(Equilibrium):
             # Single null. Could be lower or upper
 
             # Lower Single Null
-            # Regions ordered clockwise, starting lower inner divertor
-            legnames = ['inner_lower_divertor', 'sol', 'outer_lower_divertor']
-            kinds = ['wall.X', 'X.X', 'X.wall']
+            
+            # Default options for equilibrium regions
+            # Here the total number of poloidal grid cells
+            setDefault(self.options, 'N_norm', (self.user_options.ny_inner_lower_divertor +
+                                                self.user_options.ny_inner_sol +
+                                                self.user_options.ny_outer_sol +
+                                                self.user_options.ny_outer_lower_divertor))
 
-            # Average grid spacing
+            # Find lines along the legs from X-point to target
+            legs = self.findLegs(self.x_points[0])
+
+            # Move the first point of each leg slightly away from the X-point
+            diff = 0.1 #100.*self.user_options.refine_atol
+            for leg in legs.values():
+                leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
+
+            # wall_vector = {"inner": self.wallVector(legs["inner"][-1]),
+            #               "outer": self.wallVector(legs["outer"][-1])}
+            
+            self.regions['inner_lower_divertor'] = EquilibriumRegion(
+                self,
+                'inner_lower_divertor',     # Name
+                2,   # nSegments, the number of radial regions
+                self.user_options,
+                self.options.push(
+                    {"nx": [self.user_options.nx_pf_lower, self.user_options.nx_sol],
+                     "ny": self.user_options.ny_inner_lower_divertor,
+                     "kind": "wall.X"}),
+                # The following arguments are passed through to PsiContour
+                legs["inner"],  # list of Point2D objects on the line
+                self.psi,   # Function to calculate the poloidal flux
+                self.psi_sep[0])
+            
+            # Average radial grid spacing in each region
             dpsidi_sol = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
             dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
             dpsidi_pf = (self.psi_sep[0] - self.user_options.psi_pf_lower) / self.user_options.nx_pf_lower
 
+            # Get the smallest absolute grid spacing for the separatrix
+            dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs)
+
+            # decrease (assuming the factor is <1) the spacing around the separatrix by the
+            # factor psi_spacing_separatrix_multiplier
+            if self.user_options.psi_spacing_separatrix_multiplier is not None:
+                dpsidi_sep = self.user_options.psi_spacing_separatrix_multiplier * dpsidi_sep
+
+            # Private Flux
+            pf_psi_func = self.getPolynomialGridFunc(
+                self.user_options.nx_pf_lower,
+                self.user_options.psi_pf_lower, self.psi_sep[0], grad_upper=dpsidi_sep)
+
+            pf_psi_vals = self.make1dGrid(self.user_options.nx_pf_lower, pf_psi_func)
+            
+            # Core
+            core_psi_func = self.getPolynomialGridFunc(
+                self.user_options.nx_core,
+                self.user_options.psi_core, self.psi_sep[0], grad_upper=dpsidi_sep)
+
+            core_psi_vals = self.make1dGrid(self.user_options.nx_core, core_psi_func)
+
+            # SOL
+            sol_psi_func = self.getPolynomialGridFunc(
+                self.user_options.nx_sol,
+                self.psi_sep[0], self.user_options.psi_sol, grad_upper=dpsidi_sep)
+
+            sol_psi_vals = self.make1dGrid(self.user_options.nx_sol, sol_psi_func)
+            
+            def setupRegion(name, psi_vals1, psi_vals2, reverse):
+                r = self.regions[name]
+                r.psi_vals = [psi_vals1, psi_vals2]
+                r.separatrix_radial_index = 1
+                if reverse:
+                    r.reverse()
+                    r.xPointsAtEnd[1] = self.x_points[0]
+                    r.wallSurfaceAtStart = wall_vectors[name]
+                else:
+                    r.xPointsAtStart[1] = self.x_points[0]
+                    r.wallSurfaceAtEnd = wall_vectors[name]
+
+            r = self.regions['inner_lower_divertor']
+            r.psi_vals = [pf_psi_vals, sol_psi_vals]
+            r.separatrix_radial_index = 1
+            r.reverse()
+            r.xPointsAtEnd[1] = self.x_points[0]
+            r.wallSurfaceAtStart = [0., 0.] #wall_vector["inner"]
+            
             
         else:
             # Double null
@@ -316,29 +426,54 @@ class TokamakEquilibrium(Equilibrium):
             kinds = ['wall.X', 'X.X', 'X.wall',
                      'wall.X', 'X.X', 'X.wall']
             
-        
+    def handleMultiLocationArray(getResult):
+        @functools.wraps(getResult)
+        # Define a function which handles MultiLocationArray arguments
+        def handler(self, R, Z):
+            if isinstance(R, MultiLocationArray):
+                assert isinstance(Z, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
+                result = MultiLocationArray(R.nx, R.ny)
+                if R.centre is not None and Z.centre is not None:
+                    result.centre = getResult(self, R.centre, Z.centre)
+                    
+                if R.xlow is not None and Z.xlow is not None:
+                    result.xlow = getResult(self, R.xlow, Z.xlow)
+                        
+                if R.ylow is not None and Z.ylow is not None:
+                    result.ylow = getResult(self, R.ylow, Z.ylow)
 
-        
+                if R.corners is not None and Z.corners is not None:
+                    result.corners = getResult(self, R.corners, Z.corners)
+            else:
+                result = getResult(self, R, Z)
+            return result
+        return handler
+
+    @handleMultiLocationArray
     def psi(self, R, Z):
         "Return the poloidal flux at the given (R,Z) location"
         return self.psi_func(R, Z, grid=False)
 
+    @handleMultiLocationArray
     def f_R(self, R, Z):
         """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
         dpsidR = self.psi_func(R, Z, dx=1, grid=False)
         dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
         return dpsidR / np.sqrt(dpsidR**2 + dpsidZ**2)
 
+    @handleMultiLocationArray
     def f_Z(self, R, Z):
         """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
         dpsidR = self.psi_func(R, Z, dx=1, grid=False)
         dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
         return dpsidZ / np.sqrt(dpsidR**2 + dpsidZ**2)
 
+    @handleMultiLocationArray
     def Bp_R(self, R, Z):
         """returns the R component of the poloidal magnetic field."""
         return -self.psi_func(R, Z, dy=1, grid=False) / R
 
+    @handleMultiLocationArray
     def Bp_Z(self, R, Z):
         """returns the Z component of the poloidal magnetic field."""
         return self.psi_func(R, Z, dx=1, grid=False) / R
@@ -392,7 +527,6 @@ def read_geqdsk(filehandle):
                               data["fpol"], # fpol1D
                               wall=wall)
 
-    
 def example():
     nx = 65
     ny = 65
@@ -411,11 +545,18 @@ def example():
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
                             [], []) # psi1d, fpol
 
+    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    
+    from .mesh import BoutMesh
+    mesh = BoutMesh(eq)
+    mesh.geometry()
+    
     import matplotlib.pyplot as plt
 
     eq.plotPotential()
+    #eq.addWallToPlot()
     plt.plot(*eq.x_points[0], 'rx')
+    
+    mesh.plotPoints(xlow=True, ylow=True, corners=True)
+    
     plt.show()
-    
-    eq.makeRegions()
-    

@@ -327,7 +327,7 @@ def core_mask(R, Z, psi, opoint, xpoint=[], psi_bndry=None):
     return mask
 
 
-def find_psisurface(eq, psifunc, r0,z0, r1,z1, psival=1.0, n=100, axis=None):
+def find_psisurface(eq, r0, z0, r1,z1, psival=1.0, n=100, axis=None):
     """
     eq      - Equilibrium object
     (r0,z0) - Start location inside separatrix
@@ -353,22 +353,16 @@ def find_psisurface(eq, psifunc, r0,z0, r1,z1, psival=1.0, n=100, axis=None):
     if axis is not None:
         axis.plot(r,z)
 
-    pnorm = psifunc(r, z, grid=False)
-   
-    if hasattr(psival, "__len__"):
-        pass
-        
-    else:
-        # Only one value
-        ind = argmax(pnorm > psival)
+    psidiff = eq.psi(r, z) - psival
 
-        #Edited by Bhavin 31/07/18
-        #Changed 1.0 to psival in f
-        #make f gradient to psival surface
-        f = (pnorm[ind] - psival)/(pnorm[ind] - pnorm[ind-1])
+    # Find the first index this crosses zero
+    ind = np.argmax(psidiff[1:] * psidiff[0:-1] < 0.0)
+    # between ind and ind-1
+    
+    f = psidiff[ind]/(psidiff[ind] - psidiff[ind-1])
         
-        r = (1. - f) * r[ind] + f * r[ind-1]
-        z = (1. - f) * z[ind] + f * z[ind-1]
+    r = (1. - f) * r[ind] + f * r[ind-1]
+    z = (1. - f) * z[ind] + f * z[ind-1]
     
     if axis is not None:
         axis.plot(r,z,'bo')

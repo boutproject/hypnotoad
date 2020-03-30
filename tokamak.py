@@ -144,7 +144,7 @@ class TokamakEquilibrium(Equilibrium):
             follow_perpendicular_atol = 1.e-8,
             refine_width = 1.e-2,
             refine_atol = 2.e-8,
-            refine_methods = "integrate+newton",
+            refine_methods = "integrate+newton, integrate",
             finecontour_Nfine = 100,
             finecontour_diagnose = False,
             finecontour_maxits = 200,
@@ -362,6 +362,67 @@ class TokamakEquilibrium(Equilibrium):
                 legs["inner"],  # list of Point2D objects on the line
                 self.psi,   # Function to calculate the poloidal flux
                 self.psi_sep[0])
+
+            self.regions['outer_lower_divertor'] = EquilibriumRegion(
+                self,
+                'outer_lower_divertor',     # Name
+                2,   # nSegments, the number of radial regions
+                self.user_options,
+                self.options.push(
+                    {"nx": [self.user_options.nx_pf_lower, self.user_options.nx_sol],
+                     "ny": self.user_options.ny_outer_lower_divertor,
+                     "kind": "X.wall"}),
+                # The following arguments are passed through to PsiContour
+                legs["outer"],  # list of Point2D objects on the line
+                self.psi,   # Function to calculate the poloidal flux
+                self.psi_sep[0])
+            
+            # Core region
+            ax = None
+            if False:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots()
+                self.plotPotential(axis=ax)
+            
+            r0, z0 = self.o_point.R, self.o_point.Z # Location of O-point
+            # Find the angle of the X-point from the O-point
+            angle_xpt = np.arctan2(self.x_points[0].Z -self.o_point.Z,
+                                   self.x_points[0].R -self.o_point.R)
+            
+            npoints = 100
+            dtheta = np.pi / npoints
+
+            points = [Point2D(*critical.find_psisurface(self,
+                                                        r0, z0,
+                                                        r0 + 8.*np.cos(angle),
+                                                        z0 + 8.*np.sin(angle),
+                                                        psival=self.psi_sep[0],
+                                                        axis=ax))
+                      for angle in np.linspace(angle_xpt + dtheta,
+                                               angle_xpt + 2*np.pi - dtheta,
+                                               npoints)]
+            if ax is not None:
+                plt.show()
+
+            # Add points to the beginning and end near (but not at) the X-point
+            diff = 0.1
+            points = ([(1.0 - diff) * self.x_points[0] + diff * points[0]] +
+                      points +
+                      [(1.0 - diff) * self.x_points[0] + diff * points[-1]])
+
+            self.regions['core'] = EquilibriumRegion(
+                self,
+                'core',     # Name
+                2,   # nSegments, the number of radial regions
+                self.user_options,
+                self.options.push(
+                    {"nx": [self.user_options.nx_core, self.user_options.nx_sol],
+                     "ny": self.user_options.ny_inner_sol + self.user_options.ny_outer_sol,
+                     "kind": "X.X"}),
+                # The following arguments are passed through to PsiContour
+                points,  # list of Point2D objects on the line
+                self.psi,   # Function to calculate the poloidal flux
+                self.psi_sep[0])
             
             # Average radial grid spacing in each region
             dpsidi_sol = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
@@ -415,7 +476,31 @@ class TokamakEquilibrium(Equilibrium):
             r.reverse()
             r.xPointsAtEnd[1] = self.x_points[0]
             r.wallSurfaceAtStart = [0., 0.] #wall_vector["inner"]
+
+            r = self.regions['outer_lower_divertor']
+            r.psi_vals = [pf_psi_vals, sol_psi_vals]
+            r.separatrix_radial_index = 1
+            r.xPointsAtStart[1] = self.x_points[0]
+            r.wallSurfaceAtEnd = [0., 0.] #wall_vector["inner"]
             
+            r = self.regions['core']
+            r.psi_vals = [core_psi_vals, sol_psi_vals]
+            r.separatrix_radial_index = 1
+            r.xPointsAtEnd[1] = self.x_points[0]
+            r.xPointsAtStart[1] = self.x_points[0]
+
+            # Connections between regions
+            # inner lower PF -> outer lower PF
+            #self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)
+
+            # inner lower PF -> Core
+            #self.makeConnection('inner_lower_divertor', 1, 'core', 1)
+
+            # Core -> outer lower PF
+            #self.makeConnection('core', 1, 'outer_lower_divertor', 1)
+
+            # Core -> core
+            #self.makeConnection('core', 0, 'core', 0)
             
         else:
             # Double null
@@ -546,16 +631,19 @@ def example():
                             [], []) # psi1d, fpol
 
     eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+
     
     from .mesh import BoutMesh
     mesh = BoutMesh(eq)
     mesh.geometry()
     
     import matplotlib.pyplot as plt
-
     eq.plotPotential()
     #eq.addWallToPlot()
     plt.plot(*eq.x_points[0], 'rx')
+    
+    #for region in eq.regions.values():
+    #    plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
     
     mesh.plotPoints(xlow=True, ylow=True, corners=True)
     

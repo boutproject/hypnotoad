@@ -296,6 +296,7 @@ class FineContour:
             finecontour_Nfine = None,
             finecontour_atol = None,
             finecontour_diagnose = None,
+            finecontour_maxits = None
             )
 
     def __init__(self, parentContour):
@@ -438,8 +439,7 @@ class FineContour:
             print('extend_lower_fine', self.extend_lower_fine)
             print('extend_upper_fine', self.extend_upper_fine)
             print('ds_error', ds_error)
-            count = 1
-
+            
             Rpoints = self.positions[:, 0]
             Zpoints = self.positions[:, 1]
             R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
@@ -463,8 +463,14 @@ class FineContour:
             pyplot.xlabel('index')
             pyplot.legend()
             pyplot.show()
-
+            
+        count = 1
         while ds_error > self.options.finecontour_atol:
+
+            if self.options.finecontour_maxits and count > self.options.finecontour_maxits:
+                warnings.warn("FineContour: maximum iterations ({}) exceeded with ds_error {}".format(self.options.finecontour_maxits, ds_error))
+                break
+            
             sfine = self.totalDistance() / (self.options.finecontour_Nfine - 1) * self.indices_fine
 
             interpFunc = self.interpFunction()
@@ -482,9 +488,10 @@ class FineContour:
             # maximum error
             ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
 
+            count += 1
+            
             if FineContour.options.finecontour_diagnose:
                 print('iteration', count, '  ds_error', ds_error)
-                count += 1
 
                 Rpoints = self.positions[:, 0]
                 Zpoints = self.positions[:, 1]

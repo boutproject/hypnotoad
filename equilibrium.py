@@ -998,8 +998,11 @@ class PsiContour:
                   - "newton"       Newton iteration
                   - "line"         A line search
                   - "integrate"    Integrate along psi gradient
-                  - "none"         No refinement
+                  - "integrate+newton"  Integrate, then refine with Newton
+                  - "none"         No refinement (always succeeds)
         
+        If all the methods specified fail, a SolutionError is raised.
+
         """
 
         # Available methods. Note: Currently this selection
@@ -1008,6 +1011,11 @@ class PsiContour:
         available_methods = {"newton" : self.refinePointNewton,
                              "line" : self.refinePointLinesearch,
                              "integrate" : self.refinePointIntegrate,
+                             "integrate+newton" : (lambda p, tangent, width, atol:
+                                                   self.refinePointNewton(
+                                                       self.refinePointIntegrate(
+                                                           p, tangent, width, atol),
+                                                       tangent, width, atol)),
                              "none" : lambda p, tangent, width, atol: p}
         
         if width is None:

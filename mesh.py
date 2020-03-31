@@ -1297,8 +1297,8 @@ class MeshRegion:
                                         + i_corners_upper
 
             next_region = region.getNeighbour('upper')
-            if (next_region is None) or (next_region is region):
-                # Note: If periodic, next_region is region
+            if (next_region is None) or (next_region is self):
+                # Note: If periodic, next_region is self (back to start)
                 break
             else:
                 next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)

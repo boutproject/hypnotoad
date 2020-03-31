@@ -486,21 +486,22 @@ class TokamakEquilibrium(Equilibrium):
             r = self.regions['core']
             r.psi_vals = [core_psi_vals, sol_psi_vals]
             r.separatrix_radial_index = 1
+            r.reverse()
             r.xPointsAtEnd[1] = self.x_points[0]
             r.xPointsAtStart[1] = self.x_points[0]
 
             # Connections between regions
             # inner lower PF -> outer lower PF
-            #self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)
+            self.makeConnection('inner_lower_divertor', 0, 'outer_lower_divertor', 0)
 
             # inner lower PF -> Core
-            #self.makeConnection('inner_lower_divertor', 1, 'core', 1)
+            self.makeConnection('inner_lower_divertor', 1, 'core', 1)
 
             # Core -> outer lower PF
-            #self.makeConnection('core', 1, 'outer_lower_divertor', 1)
+            self.makeConnection('core', 1, 'outer_lower_divertor', 1)
 
             # Core -> core
-            #self.makeConnection('core', 0, 'core', 0)
+            self.makeConnection('core', 0, 'core', 0)
             
         else:
             # Double null

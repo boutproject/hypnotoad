@@ -1297,7 +1297,8 @@ class MeshRegion:
                                         + i_corners_upper
 
             next_region = region.getNeighbour('upper')
-            if next_region is None:
+            if (next_region is None) or (next_region is region):
+                # Note: If periodic, next_region is region
                 break
             else:
                 next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)
@@ -1311,8 +1312,10 @@ class MeshRegion:
             # This is a periodic region (we already checked that the self.yGroupIndex is
             # 0).
             # 'region' is the last region in the y-group
-            self.ShiftAngle.centre = region.zShift.ylow[:, -1] - self.zShift.ylow[:, 0]
-            self.ShiftAngle.xlow = region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
+            self.ShiftAngle.centre = (region.zShift.ylow[:, -1]
+                                      - self.zShift.ylow[:, 0]).reshape((-1,1))
+            self.ShiftAngle.xlow = (region.zShift.corners[:, -1]
+                                    - self.zShift.corners[:, 0]).reshape((-1,1))
         else:
             self.ShiftAngle.centre = float('nan')
             self.ShiftAngle.xlow = float('nan')

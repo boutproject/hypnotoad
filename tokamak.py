@@ -369,7 +369,7 @@ class TokamakEquilibrium(Equilibrium):
             legs = self.findLegs(self.x_points[0])
 
             # Move the first point of each leg slightly away from the X-point
-            diff = 0.1 #100.*self.user_options.refine_atol
+            diff = 0.1
             for leg in legs.values():
                 leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
 
@@ -578,6 +578,12 @@ class TokamakEquilibrium(Equilibrium):
             # Find lines along the legs from X-point to target
             lower_legs = self.findLegs(lower_x_point)
             upper_legs = self.findLegs(upper_x_point)
+
+            # Move the first point of each leg slightly away from the X-point
+            diff = 0.1
+            for legs in [lower_legs, upper_legs]:
+                for leg in legs.values():
+                    leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
             
             # Average radial grid spacing in each region
             dpsidi_sol_inner = (self.user_options.psi_sol_inner - self.psi_sep[0]) / self.user_options.nx_sol_inner
@@ -666,7 +672,16 @@ class TokamakEquilibrium(Equilibrium):
                                               'xpoint_at_end': lower_x_point,
                                               'psi_at_start': upper_psi,
                                               'psi_at_end': lower_psi}}
-                
+
+                connections = [('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
+                               ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
+                               ('inner_core', 0, 'outer_core', 0),
+                               ('outer_core', 0, 'inner_core', 0),
+                               ('inner_lower_divertor', 1, 'inner_core', 1),
+                               ('inner_core', 1, 'inner_upper_divertor', 1),
+                               ('outer_upper_divertor', 1, 'outer_core', 1),
+                               ('outer_core', 1, 'outer_lower_divertor', 1)]
+                               
             else:
                 print("Generating a disconnected double null")
                 
@@ -872,6 +887,9 @@ class TokamakEquilibrium(Equilibrium):
                     eqreg.wallSurfaceAtEnd = region['wall_at_end']
 
                 self.regions[name] = eqreg
+
+            for connection in connections:
+                self.makeConnection(*connection)
             
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)

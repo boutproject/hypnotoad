@@ -1646,6 +1646,25 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     Follow a line perpendicular to Bp from point p0 until magnetic potential A_target is
     reached.
     """
+
+    # A0 might be in somewhere in the range of Avals, rather than at one end
+    if min(Avals) < A0 < max(Avals):
+        # Integrate in each direction, then put together
+        # Partition into left and right halves
+        if Avals[0] < A0:
+            left = [A for A in Avals if A < A0]
+            right = [A for A in Avals if A >= A0]
+        else:
+            left = [A for A in Avals if A >= A0]
+            right = [A for A in Avals if A < A0]
+
+        return (followPerpendicular(f_R, f_Z, p0, A0, left[::-1], rtol=rtol, atol=atol)[::-1] +
+                followPerpendicular(f_R, f_Z, p0, A0, right, rtol=rtol, atol=atol))    
+
+    if abs(Avals[-1] - A0) < abs(Avals[0] - A0):
+        # Closer at the end than the start -> Reverse
+        return followPerpendicular(f_R, f_Z, p0, A0, Avals[::-1], rtol=rtol, atol=atol)[::-1]
+    
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])
     # make sure rounding errors do not cause exception:

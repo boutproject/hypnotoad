@@ -831,14 +831,14 @@ class TokamakEquilibrium(Equilibrium):
                                                         'psi': upper_psi,
                                                         'wall_at_start': [0,0],
                                                         'xpoints_at_end': upper_pf_xpoints}}
-                
+
             # Create a new dictionary, which will contain all regions
             # including core and legs
             all_regions = leg_regions.copy()
-            
+
             # number of points in each core region
             npoints = 100
-            
+
             # Loop through core regions, calculate points along the lines,
             # and put into the all_regions dictionary
             for name, region in core_regions.items(): 
@@ -847,13 +847,13 @@ class TokamakEquilibrium(Equilibrium):
                     "Return the first non-None value in list, or None"
                     return next((val for val in values if val is not None),
                                 None) # Default
-                
-                
+
+
                 start_x = any_value(region['xpoints_at_start'])
                 end_x = any_value(region['xpoints_at_end'])
                 start_psi = region['psi_at_start']
                 end_psi = region['psi_at_end']
-                
+
                 # Range of angles. Note: This angle goes anticlockwise
                 # so core regions need to be reversed
                 start_angle = np.arctan2(start_x.Z - self.o_point.Z,
@@ -878,7 +878,7 @@ class TokamakEquilibrium(Equilibrium):
                     # Smoother step function (Ken Perlin)
                     # https://en.wikipedia.org/wiki/Smoothstep
                     norm = 6.*norm**5 - 15.*norm**4 + 10.*norm**3
-                    
+
                     return norm * end_psi + (1. - norm) * start_psi
 
                 # Iterate in angle from start to end
@@ -898,7 +898,7 @@ class TokamakEquilibrium(Equilibrium):
                                     points +
                                     [(1.0 - diff) * end_x + diff * points[-1]])
 
-                region["psi"] = 0.5 * (start_psi + end_psi) # Average psi along line
+                region["psi"] = None # Not all points on the same flux surface
                 
                 all_regions[name] = region
 
@@ -1114,7 +1114,7 @@ def example():
     mesh.geometry()
     
     import matplotlib.pyplot as plt
-    eq.plotPotential()
+    eq.plotPotential(ncontours=40)
     #eq.addWallToPlot()
     plt.plot(*eq.x_points[0], 'rx')
     

@@ -1005,6 +1005,10 @@ class PsiContour:
 
         """
 
+        if self.psival is None:
+            # Can't refine
+            return p
+
         # Available methods. Note: Currently this selection
         # is done for every point. This would be better done once
         # during __init__ and then re-used.

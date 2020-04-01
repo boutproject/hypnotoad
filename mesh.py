@@ -284,27 +284,39 @@ class MeshRegion:
         else:
             temp_psi_vals = self.psi_vals
 
-        # set sign of step in psi towards this region from primary separatrix
-        if temp_psi_vals[-1] - self.equilibriumRegion.psival > 0:
-            psi_sep_plus_delta = self.equilibriumRegion.psival + self.user_options.poloidal_spacing_delta_psi
-        else:
-            psi_sep_plus_delta = self.equilibriumRegion.psival - self.user_options.poloidal_spacing_delta_psi
+        
 
         # Make vector along grad(psi) at start of equilibriumRegion
+        # Here we assume that the equilibriumRegion at a separatrix
+        # at the beginning and end, but not necessarily in between.
+        # This is to handle disconnected double null
+        start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
+        start_psi = self.equilibriumRegion.psi(*start_point)
+
+        # set sign of step in psi towards this region from primary separatrix
+        if temp_psi_vals[-1] - start_psi > 0:
+            psi_sep_plus_delta = start_psi + self.user_options.poloidal_spacing_delta_psi
+        else:
+            psi_sep_plus_delta = start_psi - self.user_options.poloidal_spacing_delta_psi
+        
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
-                self.equilibriumRegion[self.equilibriumRegion.startInd],
-                self.equilibriumRegion.psival,
-                [self.equilibriumRegion.psival, psi_sep_plus_delta],
+                start_point,
+                start_psi,
+                [start_psi, psi_sep_plus_delta],
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtStart = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
+        
         # Make vector along grad(psi) at end of equilibriumRegion
+        end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
+        end_psi = self.equilibriumRegion.psi(*end_point)
+        
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
-                self.equilibriumRegion[self.equilibriumRegion.endInd],
-                self.equilibriumRegion.psival,
-                [self.equilibriumRegion.psival, psi_sep_plus_delta],
+                end_point,
+                end_psi,
+                [start_psi, psi_sep_plus_delta],
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtEnd = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
@@ -346,14 +358,17 @@ class MeshRegion:
 
         print('Following perpendicular: ' + str(1) + '/'
                 + str(len(self.equilibriumRegion)), end='\r')
+        
         perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                 self.meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
-                self.equilibriumRegion.psival, temp_psi_vals,
+                self.equilibriumRegion.psi(*self.equilibriumRegion[0]), temp_psi_vals,
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
+        
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
+            
         for i,point in enumerate(perp_points):
             self.contours.append(self.equilibriumRegion.newContourFromSelf(points=[point],
                 psival=self.psi_vals[i]))
@@ -361,9 +376,10 @@ class MeshRegion:
         for i,p in enumerate(self.equilibriumRegion[1:]):
             print('Following perpendicular: ' + str(i+2) + '/'
                     + str(len(self.equilibriumRegion)), end='\r')
+            
             perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                     self.meshParent.equilibrium.f_Z, p,
-                    self.equilibriumRegion.psival, temp_psi_vals,
+                    self.equilibriumRegion.psi(*p), temp_psi_vals,
                     rtol=self.user_options.follow_perpendicular_rtol,
                     atol=self.user_options.follow_perpendicular_atol)
             if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
@@ -752,9 +768,9 @@ class MeshRegion:
             print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
             self.Bpxy = -self.Bpxy
             if self.bpsign > 0.:
-                raise ValueError("Sign of Bp should be negative? (note this check will "
-                        "raise an exception when bpsign was correct if you only have a "
-                        "private flux region)")
+                warnings.warn("Sign of Bp should be negative? (note this check will "
+                              "raise an exception when bpsign was correct if you only have a "
+                              "private flux region)")
         else:
             if self.bpsign < 0.:
                 warnings.warn("Sign of Bp should be negative? (note this check will "

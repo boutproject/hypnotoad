@@ -1021,12 +1021,12 @@ class TokamakEquilibrium(Equilibrium):
     @handleMultiLocationArray
     def Bp_R(self, R, Z):
         """returns the R component of the poloidal magnetic field."""
-        return -self.psi_func(R, Z, dy=1, grid=False) / R
+        return self.psi_func(R, Z, dy=1, grid=False) / R
 
     @handleMultiLocationArray
     def Bp_Z(self, R, Z):
         """returns the Z component of the poloidal magnetic field."""
-        return self.psi_func(R, Z, dx=1, grid=False) / R
+        return -self.psi_func(R, Z, dx=1, grid=False) / R
 
     def fpol(self, psi):
         """poloidal current function, 
@@ -1100,7 +1100,7 @@ def example():
         def psi_func(R,Z):
             #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
             #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
-            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
+            return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
 
         
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),

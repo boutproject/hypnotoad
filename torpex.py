@@ -44,7 +44,7 @@ from hypnotoad2.mesh import BoutMesh
 from hypnotoad2.equilibrium import setDefault, Equilibrium, PsiContour, Point2D, EquilibriumRegion, SolutionError
 from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 
-# type for manipulating inforation about magnetic field coils
+# type for manipulating information about magnetic field coils
 from collections import namedtuple
 Coil = namedtuple('Coil', 'R, Z, I')
 

@@ -146,7 +146,7 @@ class TokamakEquilibrium(Equilibrium):
             follow_perpendicular_atol = 1.e-8,
             refine_width = 1.e-2,
             refine_atol = 2.e-8,
-            refine_methods = "integrate+newton, integrate, none",
+            refine_methods = "integrate+newton, integrate",
             finecontour_Nfine = 100,
             finecontour_diagnose = False,
             finecontour_maxits = 200,
@@ -293,10 +293,9 @@ class TokamakEquilibrium(Equilibrium):
 
         # Radial grid cells in PF regions
         setDefault(self.user_options, 'nx_pf', self.user_options.nx_core)
-        setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
-        setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
 
         # Radial grid cells in SOL regions (for double null)
+        # Note: Currently these can't be varied due to BOUT++ limitations
         setDefault(self.user_options, 'nx_sol_inner', self.user_options.nx_sol)
         setDefault(self.user_options, 'nx_sol_outer', self.user_options.nx_sol)
         
@@ -334,7 +333,10 @@ class TokamakEquilibrium(Equilibrium):
         
         if len(self.x_points) == 1:
             # Single null. Could be lower or upper
-
+            
+            setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
+            setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
+            
             if self.x_points[0].Z < self.o_point.Z:
                 # Lower Single Null
 
@@ -574,6 +576,9 @@ class TokamakEquilibrium(Equilibrium):
             upper_x_point = self.x_points[upper_xpt_ind]
             lower_psi = self.psi_sep[lower_xpt_ind]
             upper_psi = self.psi_sep[upper_xpt_ind]
+
+            assert np.isclose(lower_psi, self.psi(*lower_x_point))
+            assert np.isclose(upper_psi, self.psi(*upper_x_point))
             
             # Find lines along the legs from X-point to target
             lower_legs = self.findLegs(lower_x_point)
@@ -589,8 +594,8 @@ class TokamakEquilibrium(Equilibrium):
             dpsidi_sol_inner = (self.user_options.psi_sol_inner - self.psi_sep[0]) / self.user_options.nx_sol_inner
             dpsidi_sol_outer = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol_outer
             dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
-            dpsidi_pf_upper = (upper_psi - self.user_options.psi_pf_upper) / self.user_options.nx_pf_upper
-            dpsidi_pf_lower = (lower_psi - self.user_options.psi_pf_lower) / self.user_options.nx_pf_lower
+            dpsidi_pf_upper = (upper_psi - self.user_options.psi_pf_upper) / self.user_options.nx_pf
+            dpsidi_pf_lower = (lower_psi - self.user_options.psi_pf_lower) / self.user_options.nx_pf
             
             # Get the smallest absolute grid spacing for the separatrix
             dpsidi_sep = min([dpsidi_sol_inner, dpsidi_sol_outer,
@@ -598,31 +603,55 @@ class TokamakEquilibrium(Equilibrium):
                               dpsidi_pf_upper, dpsidi_pf_lower], key=abs)
 
             # Number of points in the inter-separatrix region
-            nx_inter_sep = np.rint(abs((upper_psi - lower_psi) / dpsidi_sep))
+            # This is zero for a connected double null, > 0 for disconnected double null
+            nx_inter_sep = min([int(np.rint(abs((upper_psi - lower_psi) / dpsidi_sep))),
+                                self.user_options.nx_sol_outer - 2,
+                                self.user_options.nx_sol_inner - 2])
+
+            # Adjust the number of points in upper and lower PF regions,
+            # to keep nx constant between regions. This is because some regions
+            # will have a near SOL but not others
+            if self.x_points[0] == lower_x_point:
+                setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
+                setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf + nx_inter_sep)
+            else:
+                setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf + nx_inter_sep)
+                setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
+            
+            # Radial segments i.e. gridded ranges of poloidal flux
+            # These are common to both connected and disconnected double null
+            segments = {"core": {'nx': self.user_options.nx_core,
+                                 'psi_start': self.user_options.psi_core,
+                                 'psi_end': self.psi_sep[0],
+                                 'grad_end': dpsidi_sep},
+                        "upper_pf": {'nx': self.user_options.nx_pf_upper,
+                                     'psi_start':self.user_options.psi_pf_upper,
+                                     'psi_end': upper_psi,
+                                     'grad_end': dpsidi_sep},
+                        "lower_pf": {'nx': self.user_options.nx_pf_lower,
+                                     'psi_start': self.user_options.psi_pf_lower,
+                                     'psi_end': lower_psi,
+                                     'grad_end': dpsidi_sep},
+                        "inner_sol": {'nx': self.user_options.nx_sol_inner - nx_inter_sep,
+                                      'psi_start': self.psi_sep[-1],
+                                      'psi_end': self.user_options.psi_sol_inner,
+                                      'grad_start': dpsidi_sep},
+                        "outer_sol": {'nx': self.user_options.nx_sol_outer - nx_inter_sep,
+                                      'psi_start': self.psi_sep[-1],
+                                      'psi_end': self.user_options.psi_sol,
+                                      'grad_start': dpsidi_sep}}
+            
+            if nx_inter_sep > 0:
+                # Disconnected double null -> Additional radial segment
+                segments["near_sol"] = {'nx': nx_inter_sep,
+                                        'psi_start': self.psi_sep[0],
+                                        'psi_end': self.psi_sep[1],
+                                        'grad_start': dpsidi_sep,
+                                        'grad_end': dpsidi_sep}
+                
+                
             if nx_inter_sep == 0:
                 print("Generating a connected double null")
-
-                # Radial segments i.e. gridded ranges of poloidal flux
-                segments = {"core": {'nx': self.user_options.nx_core,
-                                     'psi_start': self.user_options.psi_core,
-                                     'psi_end': self.psi_sep[0],
-                                     'grad_end': dpsidi_sep},
-                            "upper_pf": {'nx': self.user_options.nx_pf_upper,
-                                         'psi_start':self.user_options.psi_pf_upper,
-                                         'psi_end': upper_psi,
-                                         'grad_end': dpsidi_sep},
-                            "lower_pf": {'nx': self.user_options.nx_pf_lower,
-                                         'psi_start': self.user_options.psi_pf_lower,
-                                         'psi_end': lower_psi,
-                                         'grad_end': dpsidi_sep},
-                            "inner_sol": {'nx': self.user_options.nx_sol_inner,
-                                          'psi_start': self.psi_sep[0],
-                                          'psi_end': self.user_options.psi_sol_inner,
-                                          'grad_start': dpsidi_sep},
-                            "outer_sol": {'nx': self.user_options.nx_sol_outer,
-                                          'psi_start': self.psi_sep[0],
-                                          'psi_end': self.user_options.psi_sol,
-                                          'grad_start': dpsidi_sep}}
                 
                 # Description of each poloidal region
                 leg_regions = {'inner_lower_divertor': {'segments': ["lower_pf", "inner_sol"],
@@ -631,14 +660,14 @@ class TokamakEquilibrium(Equilibrium):
                                                         'points': lower_legs["inner"][::-1],
                                                         'psi': lower_psi,
                                                         'wall_at_start': [0,0],
-                                                        'xpoint_at_end': lower_x_point},
+                                                        'xpoints_at_end': [None, lower_x_point, None]},
                                
                                'outer_lower_divertor': {'segments': ["lower_pf", "outer_sol"],
                                                         'ny': self.user_options.ny_outer_lower_divertor,
                                                         'kind': "X.wall",
                                                         'points': lower_legs["outer"],
                                                         'psi': lower_psi,
-                                                        'xpoint_at_start': lower_x_point,
+                                                        'xpoints_at_start': [None, lower_x_point, None],
                                                         'wall_at_end': [0,0]},
                                
                                'inner_upper_divertor': {'segments':["upper_pf", "inner_sol"],
@@ -646,7 +675,7 @@ class TokamakEquilibrium(Equilibrium):
                                                         'kind': "X.wall",
                                                         'points': upper_legs["inner"],
                                                         'psi': upper_psi,
-                                                        'xpoint_at_start': upper_x_point,
+                                                        'xpoints_at_start': [None, upper_x_point, None],
                                                         'wall_at_end': [0,0]},
                                
                                'outer_upper_divertor': {'segments': ["upper_pf", "outer_sol"],
@@ -655,21 +684,21 @@ class TokamakEquilibrium(Equilibrium):
                                                         'points': upper_legs["outer"][::-1],
                                                         'psi': upper_psi,
                                                         'wall_at_start': [0,0],
-                                                        'xpoint_at_end': upper_x_point}}
+                                                        'xpoints_at_end': [None, upper_x_point, None]}}
                 
                 core_regions = {'inner_core': {'segments': ["core", "inner_sol"],
                                                'ny': self.user_options.ny_inner_sol,
                                                'kind': "X.X",
-                                               'xpoint_at_start': lower_x_point,
-                                               'xpoint_at_end': upper_x_point,
+                                               'xpoints_at_start': [None, lower_x_point, None],
+                                               'xpoints_at_end': [None, upper_x_point, None],
                                                'psi_at_start': lower_psi,
                                                'psi_at_end': upper_psi},
                                                
                                'outer_core': {'segments': ["core", "outer_sol"],
                                               'ny': self.user_options.ny_outer_sol,
                                               'kind': "X.X",
-                                              'xpoint_at_start': upper_x_point,
-                                              'xpoint_at_end': lower_x_point,
+                                              'xpoints_at_start': [None, upper_x_point, None],
+                                              'xpoints_at_end': [None, lower_x_point, None],
                                               'psi_at_start': upper_psi,
                                               'psi_at_end': lower_psi}}
 
@@ -685,65 +714,91 @@ class TokamakEquilibrium(Equilibrium):
             else:
                 print("Generating a disconnected double null")
                 
-                # Radial segments i.e. gridded ranges of poloidal flux
-                segments = {"core": {'nx': self.user_options.nx_core,
-                                     'psi_start': self.user_options.psi_core,
-                                     'psi_end': self.psi_sep[0],
-                                     'grad_end': dpsidi_sep},
-                            "upper_pf": {'nx': self.user_options.nx_pf_upper,
-                                         'psi_start':self.user_options.psi_pf_upper,
-                                         'psi_end': upper_psi,
-                                         'grad_end': dpsidi_sep},
-                            "lower_pf": {'nx': self.user_options.nx_pf_lower,
-                                         'psi_start': self.user_options.psi_pf_lower,
-                                         'psi_end': lower_psi,
-                                         'grad_end': dpsidi_sep},
-                            "near_sol": {'nx': nx_inter_sep,
-                                         'psi_start': self.psi_sep[0],
-                                         'psi_end': self.psi_sep[1],
-                                         'grad_start': dpsidi_sep,
-                                         'grad_end': dpsidi_sep},
-                            "inner_sol": {'nx': self.user_options.nx_sol_inner - nx_inter_sep,
-                                          'psi_start': self.psi_sep[1],
-                                          'psi_end': self.user_options.psi_sol_inner,
-                                          'grad_start': dpsidi_sep},
-                            "outer_sol": {'nx': self.user_options.nx_sol_outer - nx_inter_sep,
-                                          'psi_start': self.psi_sep[1],
-                                          'psi_end': self.user_options.psi_sol,
-                                          'grad_start': dpsidi_sep}}
+                if self.x_points[0] == lower_x_point:
+                    print("Lower double null")
+                    
+                    inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
+                    outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
+                    
+                    inner_upper_segments = ["upper_pf", "upper_pf2", "inner_sol"]
+                    outer_upper_segments = ["upper_pf", "upper_pf2", "outer_sol"]
+
+                    # Lower X-point between 1st region (PF or core) and near SOL
+                    lower_core_xpoints = [None, lower_x_point, None, None]
+                    lower_pf_xpoints = [None, lower_x_point, None, None]
+                    
+                    # Upper X-point between near SOL and inner/outer SOL
+                    upper_core_xpoints = [None, None, upper_x_point, None]
+                    upper_pf_xpoints = [None, None, upper_x_point, None]
+                    
+                    connections = [
+                        # PFR
+                        ('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
+                        ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),  # upper_pf
+                        ('outer_upper_divertor', 1, 'inner_upper_divertor', 1),  # upper_pf2
+                        # core
+                        ('inner_core', 0, 'outer_core', 0),
+                        ('outer_core', 0, 'inner_core', 0),
+                        # near SOL
+                        ('inner_lower_divertor', 1, 'inner_core', 1), 
+                        ('inner_core', 1, 'outer_core', 1),
+                        ('outer_core', 1, 'outer_lower_divertor', 1),
+                        # inner SOL
+                        ('inner_lower_divertor', 2, 'inner_core', 2), 
+                        ('inner_core', 2, 'inner_upper_divertor', 2),
+                        # outer SOL
+                        ('outer_upper_divertor', 2, 'outer_core', 2),
+                        ('outer_core', 2, 'outer_lower_divertor', 2)]
+                    
+                else:
+                    print("Upper double null")
+                    inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
+                    outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
+                    
+                    inner_upper_segments = ["upper_pf", "near_sol", "inner_sol"]
+                    outer_upper_segments = ["upper_pf", "near_sol", "outer_sol"]
+
+                    upper_core_xpoints = [None, upper_x_point, None, None]
+                    upper_pf_xpoints = [None, upper_x_point, None, None]
+
+                    lower_core_xpoints = [None, None, lower_x_point, None]
+                    lower_pf_xpoints = [None, None, lower_x_point, None]
+                    
+                    connections = [
+                        # PFR
+                        ('inner_lower_divertor', 0, 'outer_lower_divertor', 0), # lower_pf
+                        ('inner_lower_divertor', 1, 'outer_lower_divertor', 1), # lower_pf2
+                        ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
+                        # core
+                        ('inner_core', 0, 'outer_core', 0),
+                        ('outer_core', 0, 'inner_core', 0),
+                        # near SOL
+                        ('outer_upper_divertor', 1, 'outer_core', 1), 
+                        ('outer_core', 1, 'inner_core', 1),
+                        ('inner_core', 1, 'inner_upper_divertor', 1),
+                        # inner SOL
+                        ('inner_lower_divertor', 2, 'inner_core', 2), 
+                        ('inner_core', 2, 'inner_upper_divertor', 2),
+                        # outer SOL
+                        ('outer_upper_divertor', 2, 'outer_core', 2),
+                        ('outer_core', 2, 'outer_lower_divertor', 2)]
+
                 
                 core_regions = {'inner_core': {'segments': ["core", "near_sol", "inner_sol"],
                                                'ny': self.user_options.ny_inner_sol,
                                                'kind': "X.X",
-                                               'xpoint_at_start': lower_x_point,
-                                               'xpoint_at_end': upper_x_point,
+                                               'xpoints_at_start': lower_core_xpoints,
+                                               'xpoints_at_end': upper_core_xpoints,
                                                'psi_at_start': lower_psi,
                                                'psi_at_end': upper_psi},
                                                
                                'outer_core': {'segments': ["core", "near_sol", "outer_sol"],
                                               'ny': self.user_options.ny_outer_sol,
                                               'kind': "X.X",
-                                              'xpoint_at_start': upper_x_point,
-                                              'xpoint_at_end': lower_x_point,
+                                              'xpoints_at_start': upper_core_xpoints,
+                                              'xpoints_at_end': lower_core_xpoints,
                                               'psi_at_start': upper_psi,
                                               'psi_at_end': lower_psi}} 
-                
-                if self.x_points[0] == lower_x_point:
-                    # Lower double null
-                    inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
-                    outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
-                    
-                    inner_upper_segments = ["upper_pf", "inner_sol"]
-                    outer_upper_segments = ["upper_pf", "outer_sol"]
-                    
-                else:
-                    # Upper double null
-                    inner_lower_segments = ["lower_pf", "inner_sol"]
-                    outer_lower_segments = ["lower_pf", "outer_sol"]
-                    
-                    inner_upper_segments = ["upper_pf", "near_sol", "inner_sol"]
-                    outer_upper_segments = ["upper_pf", "near_sol", "outer_sol"]
-                    
                     
                 leg_regions = {'inner_lower_divertor': {'segments': inner_lower_segments,
                                                         'ny': self.user_options.ny_inner_lower_divertor,
@@ -751,14 +806,14 @@ class TokamakEquilibrium(Equilibrium):
                                                         'points': lower_legs["inner"][::-1],
                                                         'psi': lower_psi,
                                                         'wall_at_start': [0,0],
-                                                        'xpoint_at_end': lower_x_point},
+                                                        'xpoints_at_end': lower_pf_xpoints},
                                
                                'outer_lower_divertor': {'segments': outer_lower_segments,
                                                         'ny': self.user_options.ny_outer_lower_divertor,
                                                         'kind': "X.wall",
                                                         'points': lower_legs["outer"],
                                                         'psi': lower_psi,
-                                                        'xpoint_at_start': lower_x_point,
+                                                        'xpoints_at_start': lower_pf_xpoints,
                                                         'wall_at_end': [0,0]},
                                
                                'inner_upper_divertor': {'segments': inner_upper_segments,
@@ -766,7 +821,7 @@ class TokamakEquilibrium(Equilibrium):
                                                         'kind': "X.wall",
                                                         'points': upper_legs["inner"],
                                                         'psi': upper_psi,
-                                                        'xpoint_at_start': upper_x_point,
+                                                        'xpoints_at_start': upper_pf_xpoints,
                                                         'wall_at_end': [0,0]},
                                
                                'outer_upper_divertor': {'segments': outer_upper_segments,
@@ -775,11 +830,8 @@ class TokamakEquilibrium(Equilibrium):
                                                         'points': upper_legs["outer"][::-1],
                                                         'psi': upper_psi,
                                                         'wall_at_start': [0,0],
-                                                        'xpoint_at_end': upper_x_point}}
-                                                        
-
-                    
-            
+                                                        'xpoints_at_end': upper_pf_xpoints}}
+                
             # Create a new dictionary, which will contain all regions
             # including core and legs
             all_regions = leg_regions.copy()
@@ -791,8 +843,14 @@ class TokamakEquilibrium(Equilibrium):
             # and put into the all_regions dictionary
             for name, region in core_regions.items(): 
 
-                start_x = region['xpoint_at_start']
-                end_x = region['xpoint_at_end']
+                def any_value(values):
+                    "Return the first non-None value in list, or None"
+                    return next((val for val in values if val is not None),
+                                None) # Default
+                
+                
+                start_x = any_value(region['xpoints_at_start'])
+                end_x = any_value(region['xpoints_at_end'])
                 start_psi = region['psi_at_start']
                 end_psi = region['psi_at_end']
                 
@@ -805,13 +863,22 @@ class TokamakEquilibrium(Equilibrium):
                 if end_angle > start_angle:
                     end_angle -= 2*np.pi
 
-                # Angle offset from the X-point
+                # Angle offset from the X-point. This is to reduce the chances
+                # of missing the X-point, passing through to the other side.
                 dtheta = 0.5 * (end_angle - start_angle) / npoints
                 r0, z0 = self.o_point.R, self.o_point.Z  # Location of O-point
 
+                # If the start and end X-point are different, interpolate
+                # from one to the other. This helps ensure that constructed
+                # coordinate lines don't go the wrong side of X-points.
                 def psival(angle):
-                    "Linear interpolation in psi with angle"
+                    "Interpolation in psi with angle"
                     norm = (angle - start_angle) / (end_angle - start_angle)
+
+                    # Smoother step function (Ken Perlin)
+                    # https://en.wikipedia.org/wiki/Smoothstep
+                    norm = 6.*norm**5 - 15.*norm**4 + 10.*norm**3
+                    
                     return norm * end_psi + (1. - norm) * start_psi
 
                 # Iterate in angle from start to end
@@ -825,7 +892,7 @@ class TokamakEquilibrium(Equilibrium):
                                                    npoints)]
                 
                 # Add points to the beginning and end near (but not at) the X-points
-                diff = 0.1
+                diff = 0.5
                 
                 region["points"] = ([(1.0 - diff) * start_x + diff * points[0]] +
                                     points +
@@ -846,7 +913,25 @@ class TokamakEquilibrium(Equilibrium):
                                                       grad_upper=segment.get("grad_end", None))
                 
                 psi_vals[name] = self.make1dGrid(segment["nx"], psi_func)
-
+            
+            if nx_inter_sep > 0:
+                # Split the secondary PFR segment into two segments.
+                # This is so that all regions have the same number of segments
+                # (currently needed by BoutMesh)
+                
+                if self.x_points[0] == lower_x_point:
+                    # Lower double null
+                    psi_vals['upper_pf2'] = psi_vals['upper_pf'][-(2*nx_inter_sep+1):]
+                    psi_vals['upper_pf'] = psi_vals['upper_pf'][:(-2*nx_inter_sep)]
+                    segments['upper_pf']['nx'] -= nx_inter_sep
+                    segments['upper_pf2'] = {'nx': nx_inter_sep}
+                else:
+                    # Upper double null
+                    psi_vals['lower_pf2'] = psi_vals['lower_pf'][-(2*nx_inter_sep+1):]
+                    psi_vals['lower_pf'] = psi_vals['lower_pf'][:(-2*nx_inter_sep)]
+                    segments['lower_pf']['nx'] -= nx_inter_sep
+                    segments['lower_pf2'] = {'nx': nx_inter_sep}
+                
             # Normalisation of the grid cells number
             # Set N_norm to the total number of grid cells in y
             setDefault(self.options, 'N_norm', sum([region["ny"]
@@ -874,11 +959,11 @@ class TokamakEquilibrium(Equilibrium):
                 
                 eqreg.separatrix_radial_index = 1
 
-                if 'xpoint_at_start' in region:
-                    eqreg.xPointsAtStart[1] = region['xpoint_at_start']
+                if 'xpoints_at_start' in region:
+                    eqreg.xPointsAtStart = region['xpoints_at_start']
                 
-                if 'xpoint_at_end' in region:
-                    eqreg.xPointsAtEnd[1] = region['xpoint_at_end']
+                if 'xpoints_at_end' in region:
+                    eqreg.xPointsAtEnd = region['xpoints_at_end']
 
                 if 'wall_at_start' in region:
                     eqreg.wallSurfaceAtStart = region['wall_at_start']
@@ -1013,7 +1098,9 @@ def example():
         
         # This has two X-points
         def psi_func(R,Z):
-            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
 
         
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
@@ -1032,7 +1119,7 @@ def example():
     plt.plot(*eq.x_points[0], 'rx')
     
     #for region in eq.regions.values():
-    #    plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
+    #   plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
     
     mesh.plotPoints(xlow=True, ylow=True, corners=True)
     

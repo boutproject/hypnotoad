@@ -717,73 +717,7 @@ class TokamakEquilibrium(Equilibrium):
         # Create a new dictionary, which will contain all regions
         # including core and legs
         all_regions = leg_regions.copy()
-        
-        # number of points in each core region
-        npoints = 100
-        
-        # Loop through core regions, calculate points along the lines,
-        # and put into the all_regions dictionary
-        for name, region in core_regions.items(): 
-            
-            def any_value(values):
-                "Return the first non-None value in list, or None"
-                return next((val for val in values if val is not None),
-                            None) # Default
-
-
-            start_x = any_value(region['xpoints_at_start'])
-            end_x = any_value(region['xpoints_at_end'])
-            start_psi = region['psi_at_start']
-            end_psi = region['psi_at_end']
-
-            # Range of angles. Note: This angle goes anticlockwise
-            # so core regions need to be reversed
-            start_angle = np.arctan2(start_x.Z - self.o_point.Z,
-                                     start_x.R - self.o_point.R)
-            end_angle = np.arctan2(end_x.Z - self.o_point.Z,
-                                   end_x.R - self.o_point.R)
-            if end_angle >= start_angle:
-                end_angle -= 2*np.pi
-
-            # Angle offset from the X-point. This is to reduce the chances
-            # of missing the X-point, passing through to the other side.
-            dtheta = 0.5 * (end_angle - start_angle) / npoints
-            r0, z0 = self.o_point.R, self.o_point.Z  # Location of O-point
-
-            # If the start and end X-point are different, interpolate
-            # from one to the other. This helps ensure that constructed
-            # coordinate lines don't go the wrong side of X-points.
-            def psival(angle):
-                "Interpolation in psi with angle"
-                norm = (angle - start_angle) / (end_angle - start_angle)
-                
-                # Smoother step function (Ken Perlin)
-                # https://en.wikipedia.org/wiki/Smoothstep
-                norm = 6.*norm**5 - 15.*norm**4 + 10.*norm**3
-
-                return norm * end_psi + (1. - norm) * start_psi
-
-            # Iterate in angle from start to end
-            points = [Point2D(*critical.find_psisurface(self,
-                                                        r0, z0,
-                                                        r0 + 8.*np.cos(angle),
-                                                        z0 + 8.*np.sin(angle),
-                                                        psival = psival(angle)))
-                      for angle in np.linspace(start_angle + dtheta,
-                                               end_angle - dtheta,
-                                               npoints)]
-                
-            # Add points to the beginning and end near (but not at) the X-points
-            diff = 0.5
-                
-            region["points"] = ([(1.0 - diff) * start_x + diff * points[0]] +
-                                points +
-                                [(1.0 - diff) * end_x + diff * points[-1]])
-
-            region["psi"] = None # Not all points on the same flux surface
-                
-            all_regions[name] = region
-
+        all_regions.update(self.coreRegionToRegion(core_regions))
             
         # Grid each radial segment, put result in psi_vals
         psi_vals = {}
@@ -857,7 +791,102 @@ class TokamakEquilibrium(Equilibrium):
 
         for connection in connections:
             self.makeConnection(*connection)
+
+    def coreRegionToRegion(self, core_regions, npoints=100):
+        """
+        For each poloidal arc along a separatrix between two X-points
+        (core region), find a set of points between the X-points.
+        The result is returned as a dict of regions (like leg regions)
         
+        Inputs
+        ------
+        
+        core_regions  A dictionary containing definitions of core regions.
+                      Keys are:
+                        segments   A list of segment names
+                        ny         Number of poloidal (y) points
+                        kind       A string e.g. "wall.X"
+                        xpoints_at_start    A list of Point2D objects or None
+                        xpoints_at_end      A list of Point2D objects or None
+                        psi_at_start    Poloidal flux at the start of the line
+                        psi_at_end      Poloidal flux at the end of the line
+        
+        npoints   number of points in each core region 
+
+        Returns
+        -------
+        A dictionary of region definitions, compatible with processing code
+        for leg regions.
+        """
+        
+        # Loop through core regions, calculate points along the lines,
+        # and put into the result dictionary
+        result = {}
+        for name, region in core_regions.items():
+            region = region.copy() # So we don't modify the input
+            
+            def any_value(values):
+                "Return the first non-None value in list, or None"
+                return next((val for val in values if val is not None),
+                            None) # Default
+
+
+            start_x = any_value(region['xpoints_at_start'])
+            end_x = any_value(region['xpoints_at_end'])
+            start_psi = region['psi_at_start']
+            end_psi = region['psi_at_end']
+
+            # Range of angles. Note: This angle goes anticlockwise
+            # so core regions need to be reversed
+            start_angle = np.arctan2(start_x.Z - self.o_point.Z,
+                                     start_x.R - self.o_point.R)
+            end_angle = np.arctan2(end_x.Z - self.o_point.Z,
+                                   end_x.R - self.o_point.R)
+            if end_angle >= start_angle:
+                end_angle -= 2*np.pi
+
+            # Angle offset from the X-point. This is to reduce the chances
+            # of missing the X-point, passing through to the other side.
+            dtheta = 0.5 * (end_angle - start_angle) / npoints
+            r0, z0 = self.o_point.R, self.o_point.Z  # Location of O-point
+
+            # If the start and end X-point are different, interpolate
+            # from one to the other. This helps ensure that constructed
+            # coordinate lines don't go the wrong side of X-points.
+            def psival(angle):
+                "Interpolation in psi with angle"
+                norm = (angle - start_angle) / (end_angle - start_angle)
+                
+                # Smoother step function (Ken Perlin)
+                # https://en.wikipedia.org/wiki/Smoothstep
+                norm = 6.*norm**5 - 15.*norm**4 + 10.*norm**3
+
+                return norm * end_psi + (1. - norm) * start_psi
+
+            # Iterate in angle from start to end
+            points = [Point2D(*critical.find_psisurface(self,
+                                                        r0, z0,
+                                                        r0 + 8.*np.cos(angle),
+                                                        z0 + 8.*np.sin(angle),
+                                                        psival = psival(angle)))
+                      for angle in np.linspace(start_angle + dtheta,
+                                               end_angle - dtheta,
+                                               npoints)]
+                
+            # Add points to the beginning and end near (but not at) the X-points
+            diff = 0.5
+                
+            region["points"] = ([(1.0 - diff) * start_x + diff * points[0]] +
+                                points +
+                                [(1.0 - diff) * end_x + diff * points[-1]])
+
+            region["psi"] = None # Not all points on the same flux surface
+                
+            result[name] = region
+        return result
+            
+
+            
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)
         # Define a function which handles MultiLocationArray arguments

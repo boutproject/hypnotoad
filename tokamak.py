@@ -285,7 +285,9 @@ class TokamakEquilibrium(Equilibrium):
                 "outer": leg_lines[1]}
         
     def makeRegions(self, **kwargs):
-        assert 0 < len(self.x_points) <= 2
+        """Main region generation entry point
+        
+        """
         assert self.psi_axis is not None
         
         self.user_options = self.default_options.copy()
@@ -311,6 +313,11 @@ class TokamakEquilibrium(Equilibrium):
             if psinorm is None:
                 return None
             return self.psi_axis + psinorm * (self.psi_sep[0] - self.psi_axis)
+
+        def psi_to_psinorm(psi):
+            if psi is None:
+                return None
+            return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
         
         setDefault(self.user_options, 'psi_core',
                    psinorm_to_psi(self.user_options.psinorm_core))
@@ -328,6 +335,16 @@ class TokamakEquilibrium(Equilibrium):
         
         # Print the table of options
         print(self.optionsTableStr())
+
+        # Filter out the X-points not in range.
+        # Keep only those with normalised psi < psinorm_sol
+        self.psi_sep, self.x_points = zip(*((psi, xpoint)
+                                            for psi, xpoint in zip(self.psi_sep,
+                                                                   self.x_points)
+                                            if psi_to_psinorm(psi) < self.user_options.psinorm_sol))
+
+        # Check that there are only one or two left
+        assert 0 < len(self.x_points) <= 2
         
         if len(self.x_points) == 1:
             # Generate the specifications for a lower or upper single null
@@ -1111,9 +1128,17 @@ def example():
         
         # This has two X-points
         def psi_func(R,Z):
+            # CDN
             #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
-            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+
+            # USN
+            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+
+            # LSN
             #return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
+
+            # Double null, but with the secondary far from the plasma edge
+            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.02)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
 
         
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),

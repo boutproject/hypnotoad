@@ -720,15 +720,7 @@ class TokamakEquilibrium(Equilibrium):
         all_regions.update(self.coreRegionToRegion(core_regions))
             
         # Grid each radial segment, put result in psi_vals
-        psi_vals = {}
-        for name, segment in segments.items():
-            psi_func = self.getPolynomialGridFunc(segment["nx"],
-                                                  segment["psi_start"],
-                                                  segment["psi_end"],
-                                                  grad_lower=segment.get("grad_start", None),
-                                                  grad_upper=segment.get("grad_end", None))
-                
-            psi_vals[name] = self.make1dGrid(segment["nx"], psi_func)
+        psi_vals = self.segmentsToPsivals(segments)
             
         if nx_inter_sep > 0:
             # Split the secondary PFR segment into two segments.
@@ -884,8 +876,37 @@ class TokamakEquilibrium(Equilibrium):
                 
             result[name] = region
         return result
-            
+    
+    def segmentsToPsivals(self, segments):
+        """
+        Grids radial segments
 
+        Input
+        -----
+
+        segments   A dict of segments, each of which is a dictionary containing
+                      nx    Number of points in psi (x)
+                      psi_start   The poloidal flux at the start of the segment
+                      psi_end     The poloidal flux at the end of the segment
+                      grad_start [optiona]  Cell spacing at the start
+                      grad_end   [optional] Cell spacing at the end
+
+        Returns
+        -------
+        
+        A dictionary of 1D arrays, containing the poloidal flux values
+        in each segment.
+        """
+        psi_vals = {}
+        for name, segment in segments.items():
+            psi_func = self.getPolynomialGridFunc(segment["nx"],
+                                                  segment["psi_start"],
+                                                  segment["psi_end"],
+                                                  grad_lower=segment.get("grad_start", None),
+                                                  grad_upper=segment.get("grad_end", None))
+                
+            psi_vals[name] = self.make1dGrid(segment["nx"], psi_func)
+        return psi_vals
             
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)

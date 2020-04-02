@@ -92,7 +92,13 @@ class TokamakEquilibrium(Equilibrium):
 
         if len(fpol1D) > 0:
             # Spline for interpolation of f = R*Bt
-            self.f_spl = interpolate.InterpolatedUnivariateSpline(psi1D, fpol1D, ext=3)
+
+            # Note: psi1D must be increasing
+            self.f_psi_sign = 1.0
+            if psi1D[-1] < psi1D[0]:
+                self.f_psi_sign = -1.0
+            
+            self.f_spl = interpolate.InterpolatedUnivariateSpline(psi1D * self.f_psi_sign, fpol1D, ext=3)
             # ext=3 specifies that boundary values are used outside range
             
             # Spline representing the derivative of f
@@ -1064,13 +1070,13 @@ class TokamakEquilibrium(Equilibrium):
     def fpol(self, psi):
         """poloidal current function, 
         returns fpol such that B_toroidal = fpol/R"""
-        return self.f_spl(psi)
+        return self.f_spl(psi * self.f_psi_sign)
 
     @handleMultiLocationArray
     def fpolprime(self, psi):
         """psi-derivative of fpol
         """
-        return self.fprime_spl(psi)
+        return self.fprime_spl(psi * self.f_psi_sign)
     
 
 def read_geqdsk(filehandle):

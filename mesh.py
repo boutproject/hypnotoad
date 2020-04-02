@@ -1680,6 +1680,7 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     if abs(Avals[-1] - A0) < abs(Avals[0] - A0):
         # Closer at the end than the start -> Reverse
         return followPerpendicular(f_R, f_Z, p0, A0, Avals[::-1], rtol=rtol, atol=atol)[::-1]
+    Avals = Avals.copy()
     
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])

@@ -1045,16 +1045,32 @@ class TokamakEquilibrium(Equilibrium):
     @handleMultiLocationArray
     def f_R(self, R, Z):
         """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidR / np.sqrt(dpsidR**2 + dpsidZ**2)
+        # Note: The following lines should work, but
+        # give wrong answers. Instead a simple method is used for now.
+        #dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+        #dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+        #return dpsidR / np.sqrt(dpsidR**2 + dpsidZ**2)
+        eps = 1e-10
+        psi0 = self.psi(R,Z)
+        dpsidr = (self.psi(R + eps, Z) - psi0) / eps
+        dpsidz = (self.psi(R, Z + eps) - psi0) / eps
+        norm = 1. / (dpsidr**2 + dpsidz**2) # Common factor
+        return dpsidr * norm
 
     @handleMultiLocationArray
     def f_Z(self, R, Z):
         """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidZ / np.sqrt(dpsidR**2 + dpsidZ**2)
+        # Note: The following lines should work, but
+        # give wrong answers. Instead a simple method is used for now.
+        #dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+        #dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+        #return dpsidZ / np.sqrt(dpsidR**2 + dpsidZ**2)
+        eps = 1e-10
+        psi0 = self.psi(R,Z)
+        dpsidr = (self.psi(R + eps, Z) - psi0) / eps
+        dpsidz = (self.psi(R, Z + eps) - psi0) / eps
+        norm = 1. / (dpsidr**2 + dpsidz**2) # Common factor
+        return dpsidz * norm
 
     @handleMultiLocationArray
     def Bp_R(self, R, Z):

@@ -329,329 +329,399 @@ class TokamakEquilibrium(Equilibrium):
         # Print the table of options
         print(self.optionsTableStr())
         
-        self.regions = OrderedDict()
-        
         if len(self.x_points) == 1:
-            # Single null. Could be lower or upper
+            # Generate the specifications for a lower or upper single null
+            leg_regions, core_regions, segments, connections = self.describeSingleNull()
+        else:
+            # Specifications for a double null (connected or disconnected)
+            leg_regions, core_regions, segments, connections = self.describeDoubleNull()
             
-            setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
-            setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
+        # Create a new dictionary, which will contain all regions
+        # including core and legs
+        all_regions = leg_regions.copy()
+        all_regions.update(self.coreRegionToRegion(core_regions))
 
-            # Find lines along the legs from X-point to target
-            legs = self.findLegs(self.x_points[0])
+        # Create the regions, assign to self.regions
+        self.setRegions(all_regions, segments)
 
-            # Move the first point of each leg slightly away from the X-point
-            diff = 0.1
+        # Make the connections between regions
+        for connection in connections:
+            self.makeConnection(*connection)
+
+    def describeSingleNull(self):
+        """
+        Create the specifications for a single null configuration
+
+        Returns
+        -------
+        
+        leg_regions    Dictionary describing poloidal regions in legs
+        core_regions   Dictionary describing poloidal regions between X-points
+        segments       Dictionary describing radial segments
+                        nx          Number of radial (x) cells
+                        psi_vals    1D array of poloidal flux values. Length 2*nx+1
+        connections    List of connections between regions
+        """
+        assert len(self.x_points) == 1
+        # Single null. Could be lower or upper
+
+        setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
+        setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
+        
+        # Find lines along the legs from X-point to target
+        legs = self.findLegs(self.x_points[0])
+        
+        # Move the first point of each leg slightly away from the X-point
+        diff = 0.1
+        for leg in legs.values():
+            leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
+            
+        psi_sep = self.psi_sep[0]
+        xpoint = self.x_points[0]
+        
+        # Average radial grid spacing in each region
+        dpsidi_sol = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
+        dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
+        if self.x_points[0].Z < self.o_point.Z:
+            # Lower single null
+            dpsidi_pf = (self.psi_sep[0] - self.user_options.psi_pf_lower) / self.user_options.nx_pf_lower
+        else:
+            # Upper single null
+            dpsidi_pf = (self.psi_sep[0] - self.user_options.psi_pf_upper) / self.user_options.nx_pf_upper
+
+        # Get the smallest absolute grid spacing for the separatrix
+        dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs)
+
+        # decrease (assuming the factor is <1) the spacing around the separatrix by the
+        # factor psi_spacing_separatrix_multiplier
+        if self.user_options.psi_spacing_separatrix_multiplier is not None:
+            dpsidi_sep *= self.user_options.psi_spacing_separatrix_multiplier
+
+        # Radial segments common to both lower and upper single null geometries
+        segments = {'core': {'nx': self.user_options.nx_core,
+                             'psi_start': self.user_options.psi_core,
+                             'psi_end': psi_sep,
+                             'grad_end': dpsidi_sep},
+                    'sol': {'nx': self.user_options.nx_sol,
+                            'psi_start': psi_sep,
+                            'psi_end': self.user_options.psi_sol,
+                            'grad_start': dpsidi_sep}}
+
+        core_regions = {'core': {'segments': ['core', 'sol'],
+                                 'ny': self.user_options.ny_inner_sol + self.user_options.ny_outer_sol,
+                                 'kind': "X.X",
+                                 'xpoints_at_start': [None, xpoint, None],
+                                 'xpoints_at_end': [None, xpoint, None],
+                                 'psi_at_start': psi_sep,
+                                 'psi_at_end': psi_sep}}
+
+        if self.x_points[0].Z < self.o_point.Z:
+            print("Generating a lower single null")
+            
+            segments['lower_pf'] = {'nx': self.user_options.nx_pf_lower,
+                                    'psi_start': self.user_options.psi_pf_lower,
+                                    'psi_end': psi_sep,
+                                    'grad_end': dpsidi_sep}
+            
+            leg_regions = {'inner_lower_divertor': {'segments': ['lower_pf', 'sol'],
+                                                    'ny': self.user_options.ny_inner_lower_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': legs["inner"][::-1],  # Reversed because leg is from X-point to target
+                                                    'psi': psi_sep,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': [None, xpoint, None]},
+                           'outer_lower_divertor': {'segments': ["lower_pf", "sol"],
+                                                    'ny': self.user_options.ny_outer_lower_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': legs["outer"],
+                                                    'psi': psi_sep,
+                                                    'xpoints_at_start': [None, xpoint, None],
+                                                    'wall_at_end': [0,0]}}
+            # Connections between regions
+            connections = [('inner_lower_divertor', 0, 'outer_lower_divertor', 0), # inner lower PF -> outer lower PF
+                           ('inner_lower_divertor', 1, 'core', 1), # inner lower PF -> Core
+                           ('core', 1, 'outer_lower_divertor', 1), # Core -> outer lower PF
+                           ('core', 0, 'core', 0)] # Core -> core
+        else:
+            print("Upper Single Null")
+            
+            # The mesh is still arranged clockwise, meaning that y indexing starts
+            # at the outer upper divertor, and ends at the inner upper divertor.
+            #
+            # The points in the legs are ordered from X-point to target,
+            # so here the outer leg needs to be reversed rather than the inner leg
+            
+            segments['upper_pf'] = {'nx': self.user_options.nx_pf_upper,
+                                    'psi_start': self.user_options.psi_pf_upper,
+                                    'psi_end': psi_sep,
+                                    'grad_end': dpsidi_sep}
+            
+            leg_regions = {'inner_upper_divertor': {'segments':["upper_pf", "sol"],
+                                                    'ny': self.user_options.ny_inner_upper_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': legs["inner"],
+                                                    'psi': psi_sep,
+                                                    'xpoints_at_start': [None, xpoint, None],
+                                                    'wall_at_end': [0,0]},
+                           
+                           'outer_upper_divertor': {'segments': ["upper_pf", "sol"],
+                                                    'ny': self.user_options.ny_outer_upper_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': legs["outer"][::-1],
+                                                    'psi': psi_sep,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': [None, xpoint, None]}}
+            # Connections between regions
+            connections = [('outer_upper_divertor', 0, 'inner_upper_divertor', 0), # outer lower PF -> inner lower PF
+                           ('outer_upper_divertor', 1, 'core', 1), # outer lower PF -> Core
+                           ('core', 1, 'inner_upper_divertor', 1), # Core -> inner upper PF
+                           ('core', 0, 'core', 0)] # Core -> core
+            
+        return leg_regions, core_regions, self.segmentsWithPsivals(segments), connections
+    
+    def describeDoubleNull(self):
+        """
+        Create the specifications for a double null configuration,
+        either connected or disconnected.
+
+        Returns
+        -------
+        
+        leg_regions    Dictionary describing poloidal regions in legs
+        core_regions   Dictionary describing poloidal regions between X-points
+        segments       Dictionary describing radial segments
+                        nx          Number of radial (x) cells
+                        psi_vals    1D array of poloidal flux values. Length 2*nx+1
+        connections    List of connections between regions
+        """
+
+        assert len(self.x_points) == 2
+
+        if self.x_points[0].Z < self.o_point.Z:
+            # Lower double null
+            lower_xpt_ind, upper_xpt_ind = 0, 1
+        else:
+            # Upper double null
+            lower_xpt_ind, upper_xpt_ind = 1, 0
+            
+        lower_x_point = self.x_points[lower_xpt_ind]
+        upper_x_point = self.x_points[upper_xpt_ind]
+        lower_psi = self.psi_sep[lower_xpt_ind]
+        upper_psi = self.psi_sep[upper_xpt_ind]
+
+        assert np.isclose(lower_psi, self.psi(*lower_x_point))
+        assert np.isclose(upper_psi, self.psi(*upper_x_point))
+            
+        # Find lines along the legs from X-point to target
+        lower_legs = self.findLegs(lower_x_point)
+        upper_legs = self.findLegs(upper_x_point)
+        
+        # Move the first point of each leg slightly away from the X-point
+        diff = 0.1
+        for legs in [lower_legs, upper_legs]:
             for leg in legs.values():
                 leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
             
-            psi_sep = self.psi_sep[0]
-            xpoint = self.x_points[0]
+        # Average radial grid spacing in each region
+        dpsidi_sol_inner = (self.user_options.psi_sol_inner - self.psi_sep[0]) / self.user_options.nx_sol_inner
+        dpsidi_sol_outer = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol_outer
+        dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
+        dpsidi_pf_upper = (upper_psi - self.user_options.psi_pf_upper) / self.user_options.nx_pf
+        dpsidi_pf_lower = (lower_psi - self.user_options.psi_pf_lower) / self.user_options.nx_pf
             
-            # Average radial grid spacing in each region
-            dpsidi_sol = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
-            dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
-            if self.x_points[0].Z < self.o_point.Z:
-                # Lower single null
-                dpsidi_pf = (self.psi_sep[0] - self.user_options.psi_pf_lower) / self.user_options.nx_pf_lower
-            else:
-                # Upper single null
-                dpsidi_pf = (self.psi_sep[0] - self.user_options.psi_pf_upper) / self.user_options.nx_pf_upper
+        # Get the smallest absolute grid spacing for the separatrix
+        dpsidi_sep = min([dpsidi_sol_inner, dpsidi_sol_outer,
+                          dpsidi_core,
+                          dpsidi_pf_upper, dpsidi_pf_lower], key=abs)
 
-            # Get the smallest absolute grid spacing for the separatrix
-            dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs)
+        # decrease (assuming the factor is <1) the spacing around the separatrix by the
+        # factor psi_spacing_separatrix_multiplier
+        if self.user_options.psi_spacing_separatrix_multiplier is not None:
+            dpsidi_sep *= self.user_options.psi_spacing_separatrix_multiplier
+        
+        # Number of points in the inter-separatrix region
+        # This is zero for a connected double null, > 0 for disconnected double null
+        # Limit the number so that at least 2 cells are in the SOL regions
+        nx_inter_sep = min([int(np.rint(abs((upper_psi - lower_psi) / dpsidi_sep))),
+                            self.user_options.nx_sol_outer - 2,
+                            self.user_options.nx_sol_inner - 2])
 
-            # decrease (assuming the factor is <1) the spacing around the separatrix by the
-            # factor psi_spacing_separatrix_multiplier
-            if self.user_options.psi_spacing_separatrix_multiplier is not None:
-                dpsidi_sep *= self.user_options.psi_spacing_separatrix_multiplier
-
-            nx_inter_sep = 0
-                
-            # Radial segments common to both lower and upper single null geometries
-            segments = {'core': {'nx': self.user_options.nx_core,
-                                 'psi_start': self.user_options.psi_core,
-                                 'psi_end': psi_sep,
-                                 'grad_end': dpsidi_sep},
-                        'sol': {'nx': self.user_options.nx_sol,
-                                'psi_start': psi_sep,
-                                'psi_end': self.user_options.psi_sol,
-                                'grad_start': dpsidi_sep}}
-            
-            core_regions = {'core': {'segments': ['core', 'sol'],
-                                     'ny': self.user_options.ny_inner_sol + self.user_options.ny_outer_sol,
-                                     'kind': "X.X",
-                                     'xpoints_at_start': [None, xpoint, None],
-                                     'xpoints_at_end': [None, xpoint, None],
-                                     'psi_at_start': psi_sep,
-                                     'psi_at_end': psi_sep}}
-            
-            if self.x_points[0].Z < self.o_point.Z:
-                print("Generating a lower single null")
-                
-                segments['lower_pf'] = {'nx': self.user_options.nx_pf_lower,
-                                        'psi_start': self.user_options.psi_pf_lower,
-                                        'psi_end': psi_sep,
-                                        'grad_end': dpsidi_sep}
-                
-                leg_regions = {'inner_lower_divertor': {'segments': ['lower_pf', 'sol'],
-                                                        'ny': self.user_options.ny_inner_lower_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': legs["inner"][::-1],  # Reversed because leg is from X-point to target
-                                                        'psi': psi_sep,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': [None, xpoint, None]},
-                               'outer_lower_divertor': {'segments': ["lower_pf", "sol"],
-                                                        'ny': self.user_options.ny_outer_lower_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': legs["outer"],
-                                                        'psi': psi_sep,
-                                                        'xpoints_at_start': [None, xpoint, None],
-                                                        'wall_at_end': [0,0]}}
-                # Connections between regions
-                connections = [('inner_lower_divertor', 0, 'outer_lower_divertor', 0), # inner lower PF -> outer lower PF
-                               ('inner_lower_divertor', 1, 'core', 1), # inner lower PF -> Core
-                               ('core', 1, 'outer_lower_divertor', 1), # Core -> outer lower PF
-                               ('core', 0, 'core', 0)] # Core -> core
-            else:
-                print("Upper Single Null")
-
-                # The mesh is still arranged clockwise, meaning that y indexing starts
-                # at the outer upper divertor, and ends at the inner upper divertor.
-                #
-                # The points in the legs are ordered from X-point to target,
-                # so here the outer leg needs to be reversed rather than the inner leg
-                
-                segments['upper_pf'] = {'nx': self.user_options.nx_pf_upper,
-                                        'psi_start': self.user_options.psi_pf_upper,
-                                        'psi_end': psi_sep,
-                                        'grad_end': dpsidi_sep}
-
-                leg_regions = {'inner_upper_divertor': {'segments':["upper_pf", "sol"],
-                                                        'ny': self.user_options.ny_inner_upper_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': legs["inner"],
-                                                        'psi': psi_sep,
-                                                        'xpoints_at_start': [None, xpoint, None],
-                                                        'wall_at_end': [0,0]},
-                               
-                               'outer_upper_divertor': {'segments': ["upper_pf", "sol"],
-                                                        'ny': self.user_options.ny_outer_upper_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': legs["outer"][::-1],
-                                                        'psi': psi_sep,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': [None, xpoint, None]}}
-                # Connections between regions
-                connections = [('outer_upper_divertor', 0, 'inner_upper_divertor', 0), # outer lower PF -> inner lower PF
-                               ('outer_upper_divertor', 1, 'core', 1), # outer lower PF -> Core
-                               ('core', 1, 'inner_upper_divertor', 1), # Core -> inner upper PF
-                               ('core', 0, 'core', 0)] # Core -> core
-             
+        # Adjust the number of points in upper and lower PF regions,
+        # to keep nx constant between regions. This is because some regions
+        # will have a near SOL but not others
+        if self.x_points[0] == lower_x_point:
+            setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
+            setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf + nx_inter_sep)
         else:
-            # Double null, connected or disconnected    
-
-            if self.x_points[0].Z < self.o_point.Z:
-                lower_xpt_ind, upper_xpt_ind = 0, 1
-            else:
-                lower_xpt_ind, upper_xpt_ind = 1, 0
+            setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf + nx_inter_sep)
+            setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
             
-            lower_x_point = self.x_points[lower_xpt_ind]
-            upper_x_point = self.x_points[upper_xpt_ind]
-            lower_psi = self.psi_sep[lower_xpt_ind]
-            upper_psi = self.psi_sep[upper_xpt_ind]
-
-            assert np.isclose(lower_psi, self.psi(*lower_x_point))
-            assert np.isclose(upper_psi, self.psi(*upper_x_point))
-            
-            # Find lines along the legs from X-point to target
-            lower_legs = self.findLegs(lower_x_point)
-            upper_legs = self.findLegs(upper_x_point)
-
-            # Move the first point of each leg slightly away from the X-point
-            diff = 0.1
-            for legs in [lower_legs, upper_legs]:
-                for leg in legs.values():
-                    leg[0] = diff * leg[1] + (1.0 - diff) * leg[0] 
-            
-            # Average radial grid spacing in each region
-            dpsidi_sol_inner = (self.user_options.psi_sol_inner - self.psi_sep[0]) / self.user_options.nx_sol_inner
-            dpsidi_sol_outer = (self.user_options.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol_outer
-            dpsidi_core = (self.psi_sep[0] - self.user_options.psi_core) / self.user_options.nx_core
-            dpsidi_pf_upper = (upper_psi - self.user_options.psi_pf_upper) / self.user_options.nx_pf
-            dpsidi_pf_lower = (lower_psi - self.user_options.psi_pf_lower) / self.user_options.nx_pf
-            
-            # Get the smallest absolute grid spacing for the separatrix
-            dpsidi_sep = min([dpsidi_sol_inner, dpsidi_sol_outer,
-                              dpsidi_core,
-                              dpsidi_pf_upper, dpsidi_pf_lower], key=abs)
-
-            # Number of points in the inter-separatrix region
-            # This is zero for a connected double null, > 0 for disconnected double null
-            nx_inter_sep = min([int(np.rint(abs((upper_psi - lower_psi) / dpsidi_sep))),
-                                self.user_options.nx_sol_outer - 2,
-                                self.user_options.nx_sol_inner - 2])
-
-            # Adjust the number of points in upper and lower PF regions,
-            # to keep nx constant between regions. This is because some regions
-            # will have a near SOL but not others
-            if self.x_points[0] == lower_x_point:
-                setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf)
-                setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf + nx_inter_sep)
-            else:
-                setDefault(self.user_options, 'nx_pf_lower', self.user_options.nx_pf + nx_inter_sep)
-                setDefault(self.user_options, 'nx_pf_upper', self.user_options.nx_pf)
-            
-            # Radial segments i.e. gridded ranges of poloidal flux
-            # These are common to both connected and disconnected double null
-            segments = {"core": {'nx': self.user_options.nx_core,
-                                 'psi_start': self.user_options.psi_core,
-                                 'psi_end': self.psi_sep[0],
+        # Radial segments i.e. gridded ranges of poloidal flux
+        # These are common to both connected and disconnected double null
+        segments = {'core': {'nx': self.user_options.nx_core,
+                             'psi_start': self.user_options.psi_core,
+                             'psi_end': self.psi_sep[0],
+                             'grad_end': dpsidi_sep},
+                    'upper_pf': {'nx': self.user_options.nx_pf_upper,
+                                 'psi_start':self.user_options.psi_pf_upper,
+                                 'psi_end': upper_psi,
                                  'grad_end': dpsidi_sep},
-                        "upper_pf": {'nx': self.user_options.nx_pf_upper,
-                                     'psi_start':self.user_options.psi_pf_upper,
-                                     'psi_end': upper_psi,
-                                     'grad_end': dpsidi_sep},
-                        "lower_pf": {'nx': self.user_options.nx_pf_lower,
-                                     'psi_start': self.user_options.psi_pf_lower,
-                                     'psi_end': lower_psi,
-                                     'grad_end': dpsidi_sep},
-                        "inner_sol": {'nx': self.user_options.nx_sol_inner - nx_inter_sep,
-                                      'psi_start': self.psi_sep[-1],
-                                      'psi_end': self.user_options.psi_sol_inner,
-                                      'grad_start': dpsidi_sep},
-                        "outer_sol": {'nx': self.user_options.nx_sol_outer - nx_inter_sep,
-                                      'psi_start': self.psi_sep[-1],
-                                      'psi_end': self.user_options.psi_sol,
-                                      'grad_start': dpsidi_sep}}
+                    'lower_pf': {'nx': self.user_options.nx_pf_lower,
+                                 'psi_start': self.user_options.psi_pf_lower,
+                                 'psi_end': lower_psi,
+                                 'grad_end': dpsidi_sep},
+                    'inner_sol': {'nx': self.user_options.nx_sol_inner - nx_inter_sep,
+                                  'psi_start': self.psi_sep[-1],
+                                  'psi_end': self.user_options.psi_sol_inner,
+                                  'grad_start': dpsidi_sep},
+                    'outer_sol': {'nx': self.user_options.nx_sol_outer - nx_inter_sep,
+                                  'psi_start': self.psi_sep[-1],
+                                  'psi_end': self.user_options.psi_sol,
+                                  'grad_start': dpsidi_sep}}
+        
+        if nx_inter_sep == 0:
+            print("Generating a connected double null")
+                
+            # Description of each poloidal region
+            leg_regions = {'inner_lower_divertor': {'segments': ["lower_pf", "inner_sol"],
+                                                    'ny': self.user_options.ny_inner_lower_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': lower_legs["inner"][::-1],
+                                                    'psi': lower_psi,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': [None, lower_x_point, None]},
+                               
+                           'outer_lower_divertor': {'segments': ["lower_pf", "outer_sol"],
+                                                    'ny': self.user_options.ny_outer_lower_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': lower_legs["outer"],
+                                                    'psi': lower_psi,
+                                                    'xpoints_at_start': [None, lower_x_point, None],
+                                                    'wall_at_end': [0,0]},
+                           
+                           'inner_upper_divertor': {'segments':["upper_pf", "inner_sol"],
+                                                    'ny': self.user_options.ny_inner_upper_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': upper_legs["inner"],
+                                                    'psi': upper_psi,
+                                                    'xpoints_at_start': [None, upper_x_point, None],
+                                                    'wall_at_end': [0,0]},
+                           
+                           'outer_upper_divertor': {'segments': ["upper_pf", "outer_sol"],
+                                                    'ny': self.user_options.ny_outer_upper_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': upper_legs["outer"][::-1],
+                                                    'psi': upper_psi,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': [None, upper_x_point, None]}}
             
-            if nx_inter_sep == 0:
-                print("Generating a connected double null")
-                
-                # Description of each poloidal region
-                leg_regions = {'inner_lower_divertor': {'segments': ["lower_pf", "inner_sol"],
-                                                        'ny': self.user_options.ny_inner_lower_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': lower_legs["inner"][::-1],
-                                                        'psi': lower_psi,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': [None, lower_x_point, None]},
-                               
-                               'outer_lower_divertor': {'segments': ["lower_pf", "outer_sol"],
-                                                        'ny': self.user_options.ny_outer_lower_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': lower_legs["outer"],
-                                                        'psi': lower_psi,
-                                                        'xpoints_at_start': [None, lower_x_point, None],
-                                                        'wall_at_end': [0,0]},
-                               
-                               'inner_upper_divertor': {'segments':["upper_pf", "inner_sol"],
-                                                        'ny': self.user_options.ny_inner_upper_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': upper_legs["inner"],
-                                                        'psi': upper_psi,
-                                                        'xpoints_at_start': [None, upper_x_point, None],
-                                                        'wall_at_end': [0,0]},
-                               
-                               'outer_upper_divertor': {'segments': ["upper_pf", "outer_sol"],
-                                                        'ny': self.user_options.ny_outer_upper_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': upper_legs["outer"][::-1],
-                                                        'psi': upper_psi,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': [None, upper_x_point, None]}}
-                
-                core_regions = {'inner_core': {'segments': ["core", "inner_sol"],
-                                               'ny': self.user_options.ny_inner_sol,
-                                               'kind': "X.X",
-                                               'xpoints_at_start': [None, lower_x_point, None],
-                                               'xpoints_at_end': [None, upper_x_point, None],
-                                               'psi_at_start': lower_psi,
-                                               'psi_at_end': upper_psi},
-                                               
-                               'outer_core': {'segments': ["core", "outer_sol"],
-                                              'ny': self.user_options.ny_outer_sol,
-                                              'kind': "X.X",
-                                              'xpoints_at_start': [None, upper_x_point, None],
-                                              'xpoints_at_end': [None, lower_x_point, None],
-                                              'psi_at_start': upper_psi,
-                                              'psi_at_end': lower_psi}}
+            core_regions = {'inner_core': {'segments': ["core", "inner_sol"],
+                                           'ny': self.user_options.ny_inner_sol,
+                                           'kind': "X.X",
+                                           'xpoints_at_start': [None, lower_x_point, None],
+                                           'xpoints_at_end': [None, upper_x_point, None],
+                                           'psi_at_start': lower_psi,
+                                           'psi_at_end': upper_psi},
+                            
+                            'outer_core': {'segments': ["core", "outer_sol"],
+                                           'ny': self.user_options.ny_outer_sol,
+                                           'kind': "X.X",
+                                           'xpoints_at_start': [None, upper_x_point, None],
+                                           'xpoints_at_end': [None, lower_x_point, None],
+                                           'psi_at_start': upper_psi,
+                                           'psi_at_end': lower_psi}}
+            
+            connections = [('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
+                           ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
+                           ('inner_core', 0, 'outer_core', 0),
+                           ('outer_core', 0, 'inner_core', 0),
+                           ('inner_lower_divertor', 1, 'inner_core', 1),
+                           ('inner_core', 1, 'inner_upper_divertor', 1),
+                           ('outer_upper_divertor', 1, 'outer_core', 1),
+                           ('outer_core', 1, 'outer_lower_divertor', 1)]
 
-                connections = [('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
-                               ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
-                               ('inner_core', 0, 'outer_core', 0),
-                               ('outer_core', 0, 'inner_core', 0),
-                               ('inner_lower_divertor', 1, 'inner_core', 1),
-                               ('inner_core', 1, 'inner_upper_divertor', 1),
-                               ('outer_upper_divertor', 1, 'outer_core', 1),
-                               ('outer_core', 1, 'outer_lower_divertor', 1)]
+            return leg_regions, core_regions, self.segmentsWithPsivals(segments), connections
                                
+        else:
+            print("Generating a disconnected double null")
+                
+            # Disconnected double null -> Additional radial segment
+            segments["near_sol"] = {'nx': nx_inter_sep,
+                                    'psi_start': self.psi_sep[0],
+                                    'psi_end': self.psi_sep[1],
+                                    'grad_start': dpsidi_sep,
+                                    'grad_end': dpsidi_sep}
+            
+            if self.x_points[0] == lower_x_point:
+                print("Lower double null")
+                    
+                inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
+                outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
+                
+                inner_upper_segments = ["upper_pf", "upper_pf2", "inner_sol"]
+                outer_upper_segments = ["upper_pf", "upper_pf2", "outer_sol"]
+                
+                # Lower X-point between 1st region (PF or core) and near SOL
+                lower_core_xpoints = [None, lower_x_point, None, None]
+                lower_pf_xpoints = [None, lower_x_point, None, None]
+                
+                # Upper X-point between near SOL and inner/outer SOL
+                upper_core_xpoints = [None, None, upper_x_point, None]
+                upper_pf_xpoints = [None, None, upper_x_point, None]
+                
+                connections = [
+                    # PFR
+                    ('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
+                    ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),  # upper_pf
+                    ('outer_upper_divertor', 1, 'inner_upper_divertor', 1),  # upper_pf2
+                    # core
+                    ('inner_core', 0, 'outer_core', 0),
+                    ('outer_core', 0, 'inner_core', 0),
+                    # near SOL
+                    ('inner_lower_divertor', 1, 'inner_core', 1), 
+                    ('inner_core', 1, 'outer_core', 1),
+                    ('outer_core', 1, 'outer_lower_divertor', 1),
+                    # inner SOL
+                    ('inner_lower_divertor', 2, 'inner_core', 2), 
+                    ('inner_core', 2, 'inner_upper_divertor', 2),
+                    # outer SOL
+                    ('outer_upper_divertor', 2, 'outer_core', 2),
+                    ('outer_core', 2, 'outer_lower_divertor', 2)]
+
+                # Perform radial gridding
+                segments = self.segmentsWithPsivals(segments)
+
+                # Split the secondary PFR segment into two segments.
+                # This is so that all regions have the same number of segments
+                # (currently needed by BoutMesh)
+                
+                segments['upper_pf2'] = {
+                    'nx': nx_inter_sep,
+                    'psi_vals': segments['upper_pf']['psi_vals'][-(2*nx_inter_sep+1):]}
+                
+                segments['upper_pf']['psi_vals'] = segments['upper_pf']['psi_vals'][:(-2*nx_inter_sep)]
+                segments['upper_pf']['nx'] -= nx_inter_sep
+                
             else:
-                print("Generating a disconnected double null")
+                print("Upper double null")
+                inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
+                outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
                 
-                # Disconnected double null -> Additional radial segment
-                segments["near_sol"] = {'nx': nx_inter_sep,
-                                        'psi_start': self.psi_sep[0],
-                                        'psi_end': self.psi_sep[1],
-                                        'grad_start': dpsidi_sep,
-                                        'grad_end': dpsidi_sep}
+                inner_upper_segments = ["upper_pf", "near_sol", "inner_sol"]
+                outer_upper_segments = ["upper_pf", "near_sol", "outer_sol"]
                 
-                if self.x_points[0] == lower_x_point:
-                    print("Lower double null")
-                    
-                    inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
-                    outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
-                    
-                    inner_upper_segments = ["upper_pf", "upper_pf2", "inner_sol"]
-                    outer_upper_segments = ["upper_pf", "upper_pf2", "outer_sol"]
-
-                    # Lower X-point between 1st region (PF or core) and near SOL
-                    lower_core_xpoints = [None, lower_x_point, None, None]
-                    lower_pf_xpoints = [None, lower_x_point, None, None]
-                    
-                    # Upper X-point between near SOL and inner/outer SOL
-                    upper_core_xpoints = [None, None, upper_x_point, None]
-                    upper_pf_xpoints = [None, None, upper_x_point, None]
-                    
-                    connections = [
-                        # PFR
-                        ('inner_lower_divertor', 0, 'outer_lower_divertor', 0),
-                        ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),  # upper_pf
-                        ('outer_upper_divertor', 1, 'inner_upper_divertor', 1),  # upper_pf2
-                        # core
-                        ('inner_core', 0, 'outer_core', 0),
-                        ('outer_core', 0, 'inner_core', 0),
-                        # near SOL
-                        ('inner_lower_divertor', 1, 'inner_core', 1), 
-                        ('inner_core', 1, 'outer_core', 1),
-                        ('outer_core', 1, 'outer_lower_divertor', 1),
-                        # inner SOL
-                        ('inner_lower_divertor', 2, 'inner_core', 2), 
-                        ('inner_core', 2, 'inner_upper_divertor', 2),
-                        # outer SOL
-                        ('outer_upper_divertor', 2, 'outer_core', 2),
-                        ('outer_core', 2, 'outer_lower_divertor', 2)]
-                    
-                else:
-                    print("Upper double null")
-                    inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
-                    outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
-                    
-                    inner_upper_segments = ["upper_pf", "near_sol", "inner_sol"]
-                    outer_upper_segments = ["upper_pf", "near_sol", "outer_sol"]
-
-                    upper_core_xpoints = [None, upper_x_point, None, None]
-                    upper_pf_xpoints = [None, upper_x_point, None, None]
-
-                    lower_core_xpoints = [None, None, lower_x_point, None]
-                    lower_pf_xpoints = [None, None, lower_x_point, None]
-                    
-                    connections = [
-                        # PFR
-                        ('inner_lower_divertor', 0, 'outer_lower_divertor', 0), # lower_pf
-                        ('inner_lower_divertor', 1, 'outer_lower_divertor', 1), # lower_pf2
-                        ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
-                        # core
+                upper_core_xpoints = [None, upper_x_point, None, None]
+                upper_pf_xpoints = [None, upper_x_point, None, None]
+                
+                lower_core_xpoints = [None, None, lower_x_point, None]
+                lower_pf_xpoints = [None, None, lower_x_point, None]
+                
+                connections = [
+                    # PFR
+                    ('inner_lower_divertor', 0, 'outer_lower_divertor', 0), # lower_pf
+                    ('inner_lower_divertor', 1, 'outer_lower_divertor', 1), # lower_pf2
+                    ('outer_upper_divertor', 0, 'inner_upper_divertor', 0),
+                    # core
                         ('inner_core', 0, 'outer_core', 0),
                         ('outer_core', 0, 'inner_core', 0),
                         # near SOL
@@ -665,125 +735,70 @@ class TokamakEquilibrium(Equilibrium):
                         ('outer_upper_divertor', 2, 'outer_core', 2),
                         ('outer_core', 2, 'outer_lower_divertor', 2)]
 
+                # Perform radial gridding
+                segments = self.segmentsWithPsivals(segments)
+
+                # Split the secondary PFR segment into two segments.
+                # This is so that all regions have the same number of segments
+                # (currently needed by BoutMesh)
+                segments['lower_pf2'] = {
+                    'nx': nx_inter_sep,
+                    'psi_vals':  segments['lower_pf']['psi_vals'][-(2*nx_inter_sep+1):]}
                 
-                core_regions = {'inner_core': {'segments': ["core", "near_sol", "inner_sol"],
-                                               'ny': self.user_options.ny_inner_sol,
-                                               'kind': "X.X",
-                                               'xpoints_at_start': lower_core_xpoints,
-                                               'xpoints_at_end': upper_core_xpoints,
-                                               'psi_at_start': lower_psi,
-                                               'psi_at_end': upper_psi},
-                                               
-                               'outer_core': {'segments': ["core", "near_sol", "outer_sol"],
-                                              'ny': self.user_options.ny_outer_sol,
-                                              'kind': "X.X",
-                                              'xpoints_at_start': upper_core_xpoints,
-                                              'xpoints_at_end': lower_core_xpoints,
-                                              'psi_at_start': upper_psi,
-                                              'psi_at_end': lower_psi}} 
-                    
-                leg_regions = {'inner_lower_divertor': {'segments': inner_lower_segments,
-                                                        'ny': self.user_options.ny_inner_lower_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': lower_legs["inner"][::-1],
-                                                        'psi': lower_psi,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': lower_pf_xpoints},
-                               
-                               'outer_lower_divertor': {'segments': outer_lower_segments,
-                                                        'ny': self.user_options.ny_outer_lower_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': lower_legs["outer"],
-                                                        'psi': lower_psi,
-                                                        'xpoints_at_start': lower_pf_xpoints,
-                                                        'wall_at_end': [0,0]},
-                               
-                               'inner_upper_divertor': {'segments': inner_upper_segments,
-                                                        'ny': self.user_options.ny_inner_upper_divertor,
-                                                        'kind': "X.wall",
-                                                        'points': upper_legs["inner"],
-                                                        'psi': upper_psi,
-                                                        'xpoints_at_start': upper_pf_xpoints,
-                                                        'wall_at_end': [0,0]},
-                               
-                               'outer_upper_divertor': {'segments': outer_upper_segments,
-                                                        'ny': self.user_options.ny_outer_upper_divertor,
-                                                        'kind': "wall.X",
-                                                        'points': upper_legs["outer"][::-1],
-                                                        'psi': upper_psi,
-                                                        'wall_at_start': [0,0],
-                                                        'xpoints_at_end': upper_pf_xpoints}}
-        
-        # Create a new dictionary, which will contain all regions
-        # including core and legs
-        all_regions = leg_regions.copy()
-        all_regions.update(self.coreRegionToRegion(core_regions))
-            
-        # Grid each radial segment, put result in psi_vals
-        psi_vals = self.segmentsToPsivals(segments)
-            
-        if nx_inter_sep > 0:
-            # Split the secondary PFR segment into two segments.
-            # This is so that all regions have the same number of segments
-            # (currently needed by BoutMesh)
-                
-            if self.x_points[0] == lower_x_point:
-                # Lower double null
-                psi_vals['upper_pf2'] = psi_vals['upper_pf'][-(2*nx_inter_sep+1):]
-                psi_vals['upper_pf'] = psi_vals['upper_pf'][:(-2*nx_inter_sep)]
-                segments['upper_pf']['nx'] -= nx_inter_sep
-                segments['upper_pf2'] = {'nx': nx_inter_sep}
-            else:
-                # Upper double null
-                psi_vals['lower_pf2'] = psi_vals['lower_pf'][-(2*nx_inter_sep+1):]
-                psi_vals['lower_pf'] = psi_vals['lower_pf'][:(-2*nx_inter_sep)]
+                segments['lower_pf']['psi_vals'] = segments['lower_pf']['psi_vals'][:(-2*nx_inter_sep)]
                 segments['lower_pf']['nx'] -= nx_inter_sep
-                segments['lower_pf2'] = {'nx': nx_inter_sep}
                 
-        # Normalisation of the grid cells number
-        # Set N_norm to the total number of grid cells in y
-        setDefault(self.options, 'N_norm', sum([region["ny"]
-                                                for region in all_regions.values()]))
+            # Here these are for both lower and upper disconnected double null
+            core_regions = {'inner_core': {'segments': ["core", "near_sol", "inner_sol"],
+                                           'ny': self.user_options.ny_inner_sol,
+                                           'kind': "X.X",
+                                           'xpoints_at_start': lower_core_xpoints,
+                                           'xpoints_at_end': upper_core_xpoints,
+                                           'psi_at_start': lower_psi,
+                                           'psi_at_end': upper_psi},
+                            
+                            'outer_core': {'segments': ["core", "near_sol", "outer_sol"],
+                                           'ny': self.user_options.ny_outer_sol,
+                                           'kind': "X.X",
+                                           'xpoints_at_start': upper_core_xpoints,
+                                           'xpoints_at_end': lower_core_xpoints,
+                                           'psi_at_start': upper_psi,
+                                           'psi_at_end': lower_psi}} 
+            
+            leg_regions = {'inner_lower_divertor': {'segments': inner_lower_segments,
+                                                    'ny': self.user_options.ny_inner_lower_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': lower_legs["inner"][::-1],
+                                                    'psi': lower_psi,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': lower_pf_xpoints},
+                           
+                           'outer_lower_divertor': {'segments': outer_lower_segments,
+                                                    'ny': self.user_options.ny_outer_lower_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': lower_legs["outer"],
+                                                    'psi': lower_psi,
+                                                    'xpoints_at_start': lower_pf_xpoints,
+                                                    'wall_at_end': [0,0]},
+                           
+                           'inner_upper_divertor': {'segments': inner_upper_segments,
+                                                    'ny': self.user_options.ny_inner_upper_divertor,
+                                                    'kind': "X.wall",
+                                                    'points': upper_legs["inner"],
+                                                    'psi': upper_psi,
+                                                    'xpoints_at_start': upper_pf_xpoints,
+                                                    'wall_at_end': [0,0]},
+                           
+                           'outer_upper_divertor': {'segments': outer_upper_segments,
+                                                    'ny': self.user_options.ny_outer_upper_divertor,
+                                                    'kind': "wall.X",
+                                                    'points': upper_legs["outer"][::-1],
+                                                    'psi': upper_psi,
+                                                    'wall_at_start': [0,0],
+                                                    'xpoints_at_end': upper_pf_xpoints}}
 
-        # Loop through all regions. For each one create a 
-        for name, region in all_regions.items():
-            eqreg = EquilibriumRegion(self,
-                                      name,
-                                      len(region["segments"]), # The number of radial regions
-                                      self.user_options,
-                                      self.options.push(
-                                          {"nx": [segments[seg_name]["nx"]
-                                                  for seg_name in region["segments"]],
-                                           "ny": region["ny"],
-                                           "kind": region["kind"]}),
-                                      # The following arguments are passed through to PsiContour
-                                      region["points"],  # list of Point2D objects on the line
-                                      self.psi,   # Function to calculate the poloidal flux
-                                      region["psi"])
-
-            # Grids of psi values in each segment
-            eqreg.psi_vals = [psi_vals[segment]
-                              for segment in region["segments"]]
-                
-            eqreg.separatrix_radial_index = 1
-
-            if 'xpoints_at_start' in region:
-                eqreg.xPointsAtStart = region['xpoints_at_start']
-                
-            if 'xpoints_at_end' in region:
-                eqreg.xPointsAtEnd = region['xpoints_at_end']
-
-            if 'wall_at_start' in region:
-                eqreg.wallSurfaceAtStart = region['wall_at_start']
-
-            if 'wall_at_end' in region:
-                eqreg.wallSurfaceAtEnd = region['wall_at_end']
-
-            self.regions[name] = eqreg
-
-        for connection in connections:
-            self.makeConnection(*connection)
-
+            return leg_regions, core_regions, segments, connections
+    
     def coreRegionToRegion(self, core_regions, npoints=100):
         """
         For each poloidal arc along a separatrix between two X-points
@@ -877,10 +892,10 @@ class TokamakEquilibrium(Equilibrium):
             result[name] = region
         return result
     
-    def segmentsToPsivals(self, segments):
+    def segmentsWithPsivals(self, segments):
         """
         Grids radial segments
-
+        
         Input
         -----
 
@@ -891,23 +906,89 @@ class TokamakEquilibrium(Equilibrium):
                       grad_start [optiona]  Cell spacing at the start
                       grad_end   [optional] Cell spacing at the end
 
+        The input is not modified
+        
         Returns
         -------
         
-        A dictionary of 1D arrays, containing the poloidal flux values
-        in each segment.
+        A dictionary of segments, with an additional key "psi_vals"
         """
-        psi_vals = {}
+        result = {}
         for name, segment in segments.items():
+            segment_with_psival = segment.copy()
+            
             psi_func = self.getPolynomialGridFunc(segment["nx"],
                                                   segment["psi_start"],
                                                   segment["psi_end"],
                                                   grad_lower=segment.get("grad_start", None),
                                                   grad_upper=segment.get("grad_end", None))
                 
-            psi_vals[name] = self.make1dGrid(segment["nx"], psi_func)
-        return psi_vals
-            
+            segment_with_psival["psi_vals"] = self.make1dGrid(segment["nx"], psi_func)
+            result[name] = segment_with_psival
+        return result
+
+    def setRegions(self, all_regions, segments):
+        """
+        Fill self.regions with EquilibriumRegion objects, 
+        using specifications in all_regions dictionary.
+        
+        Inputs
+        ------
+
+        all_regions   Dictionary containing specification for each region
+        segments      Dictionary of radial segment definitions
+                        nx            Number of radial cells
+                        psi_vals      1D array of psi values, length 2*nx+1
+        
+        Returns
+        -------
+
+        None. Modifies self.regions
+        """
+
+        # Normalisation of the grid cells number
+        # Set N_norm to the total number of grid cells in y
+        setDefault(self.options, 'N_norm', sum([region["ny"]
+                                                for region in all_regions.values()]))
+        
+        self.regions = OrderedDict()
+        
+        # Loop through all regions. For each one create an EquilibriumRegion
+        for name, region in all_regions.items():
+            eqreg = EquilibriumRegion(self,
+                                      name,
+                                      len(region["segments"]), # The number of radial regions
+                                      self.user_options,
+                                      self.options.push(
+                                          {"nx": [segments[seg_name]["nx"]
+                                                  for seg_name in region["segments"]],
+                                           "ny": region["ny"],
+                                           "kind": region["kind"]}),
+                                      # The following arguments are passed through to PsiContour
+                                      region["points"],  # list of Point2D objects on the line
+                                      self.psi,   # Function to calculate the poloidal flux
+                                      region["psi"])
+
+            # Grids of psi values in each segment
+            eqreg.psi_vals = [segments[name]['psi_vals']
+                              for name in region["segments"]]
+                
+            eqreg.separatrix_radial_index = 1
+
+            if 'xpoints_at_start' in region:
+                eqreg.xPointsAtStart = region['xpoints_at_start']
+                
+            if 'xpoints_at_end' in region:
+                eqreg.xPointsAtEnd = region['xpoints_at_end']
+
+            if 'wall_at_start' in region:
+                eqreg.wallSurfaceAtStart = region['wall_at_start']
+
+            if 'wall_at_end' in region:
+                eqreg.wallSurfaceAtEnd = region['wall_at_end']
+
+            self.regions[name] = eqreg
+    
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)
         # Define a function which handles MultiLocationArray arguments
@@ -1017,9 +1098,9 @@ def example():
     z1d = np.linspace(-0.5, 0.5, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
-    if True:
+    if False:
         r0 = 1.5
-        z0 = -0.3
+        z0 = 0.3
         
         # This has two O-points, and one x-point at (r0, z0)
         def psi_func(R,Z):
@@ -1031,8 +1112,8 @@ def example():
         # This has two X-points
         def psi_func(R,Z):
             #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
-            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
-            return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
+            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+            #return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
 
         
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),

@@ -1009,23 +1009,25 @@ class TokamakEquilibrium(Equilibrium):
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)
         # Define a function which handles MultiLocationArray arguments
-        def handler(self, R, Z):
-            if isinstance(R, MultiLocationArray):
-                assert isinstance(Z, MultiLocationArray), 'if R is a MultiLocationArray, then Z must be as well'
-                result = MultiLocationArray(R.nx, R.ny)
-                if R.centre is not None and Z.centre is not None:
-                    result.centre = getResult(self, R.centre, Z.centre)
-                    
-                if R.xlow is not None and Z.xlow is not None:
-                    result.xlow = getResult(self, R.xlow, Z.xlow)
-                        
-                if R.ylow is not None and Z.ylow is not None:
-                    result.ylow = getResult(self, R.ylow, Z.ylow)
+        def handler(self, *args):
+            if isinstance(args[0], MultiLocationArray):
+                for arg in args[1:]:
+                    assert isinstance(arg, MultiLocationArray), 'if first arg is a MultiLocationArray, then others must be as well'
+                result = MultiLocationArray(args[0].nx, args[0].ny)
 
-                if R.corners is not None and Z.corners is not None:
-                    result.corners = getResult(self, R.corners, Z.corners)
+                if all(arg.centre is not None for arg in args):
+                    result.centre = getResult(self, *(arg.centre for arg in args))
+                    
+                if all(arg.xlow is not None for arg in args):
+                    result.xlow = getResult(self, *(arg.xlow for arg in args))
+                        
+                if all(arg.ylow is not None for arg in args):
+                    result.ylow = getResult(self, *(arg.ylow for arg in args))
+
+                if all(arg.corners is not None for arg in args):
+                    result.corners = getResult(self, *(arg.corners for arg in args))
             else:
-                result = getResult(self, R, Z)
+                result = getResult(self, *args)
             return result
         return handler
 
@@ -1058,11 +1060,13 @@ class TokamakEquilibrium(Equilibrium):
         """returns the Z component of the poloidal magnetic field."""
         return -self.psi_func(R, Z, dx=1, grid=False) / R
 
+    @handleMultiLocationArray
     def fpol(self, psi):
         """poloidal current function, 
         returns fpol such that B_toroidal = fpol/R"""
         return self.f_spl(psi)
 
+    @handleMultiLocationArray
     def fpolprime(self, psi):
         """psi-derivative of fpol
         """

@@ -284,7 +284,6 @@ class MeshRegion:
         else:
             temp_psi_vals = self.psi_vals
 
-        
 
         # Make vector along grad(psi) at start of equilibriumRegion
         # Here we assume that the equilibriumRegion at a separatrix

@@ -926,7 +926,7 @@ class TokamakEquilibrium(Equilibrium):
                       nx    Number of points in psi (x)
                       psi_start   The poloidal flux at the start of the segment
                       psi_end     The poloidal flux at the end of the segment
-                      grad_start [optiona]  Cell spacing at the start
+                      grad_start [optional]  Cell spacing at the start
                       grad_end   [optional] Cell spacing at the end
 
         The input is not modified

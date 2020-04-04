@@ -917,7 +917,6 @@ class PsiContour:
         if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
             # don't need to refine
             return p
-        
         def perpLine(w):
             # p - point through which to draw perpLine
             # tangent - vector tangent to original curve, result will be perpendicular to this

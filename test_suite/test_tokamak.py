@@ -421,7 +421,7 @@ def test_makeregions_udn():
 
     assert len(eq.regions) == 6
 
-def test_makeregions_udn():
+def test_makeregions_ldn():
     eq = make_lower_double_null()
     eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
 

@@ -39,3 +39,5 @@ eq.plotPotential(ncontours=40)
 plt.plot(*eq.x_points[0], 'rx')
 mesh.plotPoints(xlow=True, ylow=True, corners=True)
 plt.show()
+
+mesh.writeGridfile('bout.grd.nc')

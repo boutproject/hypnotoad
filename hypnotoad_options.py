@@ -174,3 +174,23 @@ HypnotoadInternalOptions = Options(
     nonorthogonal_range_upper_outer = None,
 
     )
+
+# Helper function to convert options to string
+def optionsTableString(options, defaults=None):
+    """Return a string containing a table of options set"""
+    formatstring = '{:<50}|  {:<30}\n'
+
+    # Header
+    result = ('\nOptions\n=======\n'
+              + formatstring.format('Name', 'Value')
+              + '-'*80
+              + "\n")
+
+    # Row for each value
+    for name, value in sorted(options.items()):
+        valuestring = str(value)
+        if defaults is not None and value == defaults[name]:
+            valuestring += '\t(default)'
+        result += formatstring.format(name, valuestring)
+    return result
+

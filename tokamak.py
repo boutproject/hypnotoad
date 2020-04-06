@@ -10,7 +10,7 @@ from collections import OrderedDict
 import functools
 
 from .equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
-from .hypnotoad_options import HypnotoadOptions
+from .hypnotoad_options import HypnotoadOptions, optionsTableString
 from .mesh import MultiLocationArray
 
 from . import critical
@@ -159,25 +159,7 @@ class TokamakEquilibrium(Equilibrium):
             curvature_type = 'curl(b/B) with x-y derivatives')
         
         super().__init__(**kwargs)
-        
-    def optionsTableStr(self):
-        """Return a string containing a table of options set"""
-        formatstring = '{:<50}|  {:<30}\n'
 
-        # Header
-        result = ('\nOptions\n=======\n'
-                  + formatstring.format('Name', 'Value')
-                  + '-'*80
-                  + "\n")
-
-        # Row for each value
-        for name, value in sorted(self.user_options.items()):
-            valuestring = str(value)
-            if value == self.default_options[name]:
-                valuestring += '\t(default)'
-            result += formatstring.format(name, valuestring)
-        return result
-    
     def findLegs(self, xpoint, radius=0.01, step=0.01):
         """Find the divertor legs coming from a given X-point
         
@@ -340,7 +322,7 @@ class TokamakEquilibrium(Equilibrium):
                 np.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
         
         # Print the table of options
-        print(self.optionsTableStr())
+        print(optionsTableString(self.user_options, self.default_options))
 
         # Filter out the X-points not in range.
         # Keep only those with normalised psi < psinorm_sol

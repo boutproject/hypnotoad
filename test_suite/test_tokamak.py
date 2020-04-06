@@ -8,8 +8,8 @@ def test_tokamak_interpolations():
     """Test interpolations and derivatives"""
     
     # Define 2D (R,Z) grid
-    r1d = np.linspace(1.0, 2.0, 65)
-    z1d = np.linspace(-1.0, 1.0, 65)
+    r1d = np.linspace(1.0, 2.0, 129)
+    z1d = np.linspace(-1.0, 1.0, 129)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
     # A poloidal flux function
@@ -58,12 +58,12 @@ def test_tokamak_interpolations():
         assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z)/r, atol=1e-3)
 
         # vector Grad(psi)/|Grad(psi)|**2
-        assert np.isclose(eq.f_R(r, z), dpsi_dr(r, z) / np.sqrt(dpsi_dr(r, z)**2 +
-                                                                dpsi_dz(r, z)**2),
-                          atol=1e-3)
-        assert np.isclose(eq.f_Z(r, z), dpsi_dz(r, z) / np.sqrt(dpsi_dr(r, z)**2 +
-                                                                dpsi_dz(r, z)**2),
-                          atol=1e-3)
+        assert np.isclose(eq.f_R(r, z), dpsi_dr(r, z) /(dpsi_dr(r, z)**2 +
+                                                        dpsi_dz(r, z)**2),
+                          rtol=1e-3)
+        assert np.isclose(eq.f_Z(r, z), dpsi_dz(r, z) / (dpsi_dr(r, z)**2 +
+                                                         dpsi_dz(r, z)**2),
+                          rtol=1e-3)
         
 
 def test_read_geqdsk():
@@ -151,12 +151,12 @@ def test_read_geqdsk():
         assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z)/r, atol=1e-3)
 
         # vector Grad(psi)/|Grad(psi)|**2
-        assert np.isclose(eq.f_R(r, z), dpsi_dr(r, z) / np.sqrt(dpsi_dr(r, z)**2 +
-                                                                dpsi_dz(r, z)**2),
-                          atol=1e-3)
-        assert np.isclose(eq.f_Z(r, z), dpsi_dz(r, z) / np.sqrt(dpsi_dr(r, z)**2 +
-                                                                dpsi_dz(r, z)**2),
-                          atol=1e-3)
+        assert np.isclose(eq.f_R(r, z), dpsi_dr(r, z) / (dpsi_dr(r, z)**2 +
+                                                         dpsi_dz(r, z)**2),
+                          rtol=1e-3)
+        assert np.isclose(eq.f_Z(r, z), dpsi_dz(r, z) / (dpsi_dr(r, z)**2 +
+                                                         dpsi_dz(r, z)**2),
+                          rtol=1e-3)
 
 def test_bounding():
     nx = 65

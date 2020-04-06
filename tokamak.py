@@ -1156,45 +1156,48 @@ def read_geqdsk(filehandle):
                               data["fpol"], # fpol1D
                               wall=wall)
 
-def example():
-    nx = 65
-    ny = 65
+def example(geometry="sn", nx=65, ny=65):
+    """
+    Create an example, based on a simple analytic form for the poloidal flux.
     
+    geometry     sn, cdn, udn, ldn, udn2
+    
+    """
     r1d = np.linspace(1.2, 1.8, nx)
     z1d = np.linspace(-0.5, 0.5, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
 
-    if False:
-        r0 = 1.5
-        z0 = 0.3
-        
-        # This has two O-points, and one x-point at (r0, z0)
-        def psi_func(R,Z):
-            return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
-    else:
-        r0 = 1.5
-        z0 = 0.3
-        
-        # This has two X-points
-        def psi_func(R,Z):
-            # CDN
-            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+    r0 = 1.5
+    z0 = 0.3
+    
+    psi_functions = {
+        "sn": lambda R, Z: (np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) +
+                            np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)),
+        "cdn": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
+                             np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) +
+                             np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)),
+        "udn": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
+                             np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) +
+                             np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)),
+        "ldn": lambda R, Z: (- np.exp(-((R - r0)**2 + Z**2)/0.3**2) -
+                             np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) -
+                             np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)),
+        # Double null, but with the secondary far from the plasma edge
+        "udn2": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
+                              np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.02)**2)/0.3**2) +
+                              np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2))}
 
-            # USN
-            #return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
+    if geometry not in psi_functions:
+        raise ValueError("geometry not recognised. Choices are {}".format(psi_functions.keys()))
 
-            # LSN
-            #return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
+    psi_func = psi_functions[geometry]
 
-            # Double null, but with the secondary far from the plasma edge
-            return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.02)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
-
-        
+    
+    
     eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
                             [], []) # psi1d, fpol
 
     eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
-
     
     from .mesh import BoutMesh
     mesh = BoutMesh(eq)
@@ -1205,9 +1208,8 @@ def example():
     #eq.addWallToPlot()
     plt.plot(*eq.x_points[0], 'rx')
     
-    #for region in eq.regions.values():
-    #   plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
-    
     mesh.plotPoints(xlow=True, ylow=True, corners=True)
     
     plt.show()
+
+

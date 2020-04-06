@@ -358,14 +358,14 @@ class TokamakEquilibrium(Equilibrium):
         else:
             # Specifications for a double null (connected or disconnected)
             leg_regions, core_regions, segments, connections = self.describeDoubleNull()
-            
+
         # Create a new dictionary, which will contain all regions
         # including core and legs
         all_regions = leg_regions.copy()
         all_regions.update(self.coreRegionToRegion(core_regions))
 
-        # Create the regions, assign to self.regions
-        self.setRegions(all_regions, segments)
+        # Create the regions in an OrderedDict, assign to self.regions
+        self.regions = self.createRegionObjects(all_regions, segments)
 
         # Make the connections between regions
         for connection in connections:
@@ -950,10 +950,21 @@ class TokamakEquilibrium(Equilibrium):
             result[name] = segment_with_psival
         return result
 
-    def setRegions(self, all_regions, segments):
+    def createRegionObjects(self, all_regions, segments):
         """
-        Fill self.regions with EquilibriumRegion objects, 
-        using specifications in all_regions dictionary.
+        Create an OrderedDict of EquilibriumRegion objects, 
+        using specifications for the regions and segments
+        in the all_regions and segments dictionaries.
+
+        These regions need to be sorted so that BoutMesh
+        can generate branch cut indices. To do this ordering, 
+        a limited set of region names should be used:
+        - 'inner_lower_divertor'
+        - 'core' (for single null)
+        - 'inner_core' and 'outer_core' (for double null)
+        - 'inner_upper_divertor'
+        - 'outer_upper_divertor'
+        - 'outer_lower_divertor'
         
         Inputs
         ------
@@ -962,7 +973,7 @@ class TokamakEquilibrium(Equilibrium):
         segments      Dictionary of radial segment definitions
                         nx            Number of radial cells
                         psi_vals      1D array of psi values, length 2*nx+1
-        
+
         Returns
         -------
 
@@ -973,10 +984,10 @@ class TokamakEquilibrium(Equilibrium):
         # Set N_norm to the total number of grid cells in y
         setDefault(self.options, 'N_norm', sum([region["ny"]
                                                 for region in all_regions.values()]))
-        
-        self.regions = OrderedDict()
-        
+
+
         # Loop through all regions. For each one create an EquilibriumRegion
+        region_objects = {}
         for name, region in all_regions.items():
             eqreg = EquilibriumRegion(self,
                                       name,
@@ -995,12 +1006,12 @@ class TokamakEquilibrium(Equilibrium):
             # Grids of psi values in each segment
             eqreg.psi_vals = [segments[name]['psi_vals']
                               for name in region["segments"]]
-                
+
             eqreg.separatrix_radial_index = 1
 
             if 'xpoints_at_start' in region:
                 eqreg.xPointsAtStart = region['xpoints_at_start']
-                
+
             if 'xpoints_at_end' in region:
                 eqreg.xPointsAtEnd = region['xpoints_at_end']
 
@@ -1010,8 +1021,36 @@ class TokamakEquilibrium(Equilibrium):
             if 'wall_at_end' in region:
                 eqreg.wallSurfaceAtEnd = region['wall_at_end']
 
-            self.regions[name] = eqreg
-    
+            region_objects[name] = eqreg
+        # The region objects need to be sorted, so that the
+        # BoutMesh generator can use jyseps indices to introduce branch cuts
+
+        if 'inner_lower_divertor' in region_objects:
+            ordering = ['inner_lower_divertor',
+                        # For single null; in double null this will be ignored
+                        'core',
+                        # For double null; in single null these will be ignored
+                        'inner_core',
+                        'inner_upper_divertor',
+                        'outer_upper_divertor',
+                        'outer_core',
+                        # 
+                        'outer_lower_divertor']
+        else:
+            # Upper single null special case
+            ordering = ['outer_upper_divertor',
+                        'core',
+                        'inner_upper_divertor']
+
+        # Check that all regions are in the ordering
+        for key in region_objects:
+            if key not in ordering:
+                raise ValueError("Region '" + key + "' is not in ordering")
+
+        # Sort the region objects, ignoring regions which are not present
+        return OrderedDict([(key, region_objects[key]) for key in ordering
+                            if key in region_objects])
+
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)
         # Define a function which handles MultiLocationArray arguments

@@ -90,11 +90,11 @@ class TokamakEquilibrium(Equilibrium):
         else:
             self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
 
+        self.f_psi_sign = 1.0
         if len(fpol1D) > 0:
             # Spline for interpolation of f = R*Bt
 
             # Note: psi1D must be increasing
-            self.f_psi_sign = 1.0
             if psi1D[-1] < psi1D[0]:
                 self.f_psi_sign = -1.0
             

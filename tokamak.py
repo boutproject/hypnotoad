@@ -10,7 +10,7 @@ from collections import OrderedDict
 import functools
 
 from .equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
-from .hypnotoad_options import HypnotoadOptions, optionsTableString
+from .hypnotoad_options import Options, HypnotoadOptions, optionsTableString
 from .mesh import MultiLocationArray
 
 from . import critical
@@ -47,12 +47,15 @@ class TokamakEquilibrium(Equilibrium):
         nx_sol_outer = None,  # Default nx_sol
         
         # Poloidal grid cell numbers
-        ny_inner_lower_divertor = 4,
-        ny_inner_sol = 4,
-        ny_inner_upper_divertor = 4,
-        ny_outer_upper_divertor = 4,
-        ny_outer_sol = 4,
-        ny_outer_lower_divertor = 4,
+        ny_inner_divertor = 4,
+        ny_inner_lower_divertor = None, # Default: ny_inner_divertor
+        ny_inner_upper_divertor = None, # Default: ny_inner_divertor
+        ny_outer_divertor = 4,
+        ny_outer_lower_divertor = None, # Default: ny_outer_divertor
+        ny_outer_upper_divertor = None, # Default: ny_outer_divertor
+        ny_sol = 8,
+        ny_inner_sol = None,   # Default: ny_sol // 2
+        ny_outer_sol = None,   # Default: ny_sol - ny_sol_inner
 
         # Normalised poloidal flux ranges.
         psinorm_core = 0.9,
@@ -70,11 +73,61 @@ class TokamakEquilibrium(Equilibrium):
         psi_sol = None,          # Default: psnorm_sol
         psi_sol_inner = None,    # Default: psinorm_sol_inner
         psi_pf_lower = None,     # Default: psinorm_pf_lower
-        psi_pf_upper = None)     # Default: psinorm_pf_upper
+        psi_pf_upper = None     # Default: psinorm_pf_upper
+
+    ).push(Options(
+        # These are HypnotoadOptions
+        xpoint_poloidal_spacing_length = 5.e-2,
+        nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
+        follow_perpendicular_rtol = 2.e-8,
+        follow_perpendicular_atol = 1.e-8,
+        refine_width = 1.e-2,
+        refine_atol = 2.e-8,
+        refine_methods = "integrate+newton, integrate",
+        finecontour_Nfine = 100,
+        finecontour_diagnose = False,
+        finecontour_maxits = 200,
+        curvature_type = 'curl(b/B) with x-y derivatives'))
     
     def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D,
-                 wall=None, psi_axis=None, dct=False, **kwargs):
+                 wall=None, psi_axis=None, dct=False,
+                 make_regions=True,
+                 options={}, **kwargs):
+        """
+        Create a Tokamak equilibrium.
+
+        Inputs
+        ------
+
+        R1D[nx]       1D array of major radius [m]
+        Z1D[ny]       1D array of height [m]
+        psi2D[nx,ny]  2D array of poloidal flux [Wb]
+        psi1D[nf]     1D array of poloidal flux [Wb]
+        fpol1D[nf]    1D array of f=R*Bt [mT]
         
+        Keywords
+        --------
+        wall = [(R0,Z0), (R1, Z1), ...]
+               A list of coordinate pairs, defining the vessel wall.
+               The wall is closed, so the last point connects to the first.
+        psi_axis = float
+               The value of poloidal flux on the magnetic axis. If not
+               given, the value found at the axis will be used.
+        dct = bool
+               EXPERIMENTAL: If true, use a DCT to interpolate and differentiate
+               poloidal flux. By default a cubic spline is used.
+        make_regions = bool
+               Generate the regions to be meshed. The default (True)
+               means that the object is complete after initialisation.
+               If set to False, e.g. for testing, self.makeRegions() should
+               be called to generate the regions.
+        options = A dict or Options object which will be pushed into the
+               class Options (self.user_options)
+        **kwargs   Other keywords are pushed into self.user_options
+               after the options input. This enables some settings to be overriden
+               manually.
+
+        """
         if dct:
             # Create an interpolation
             # This sets the functions
@@ -143,22 +196,15 @@ class TokamakEquilibrium(Equilibrium):
             wall = wall[::-1] # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r,z) for r,z in wall]
 
-        self.user_options = TokamakEquilibrium.default_options
-        # Set sensible defaults for options
-        self.user_options.set(
-            xpoint_poloidal_spacing_length = 5.e-2,
-            nonorthogonal_xpoint_poloidal_spacing_length = 5.e-2,
-            follow_perpendicular_rtol = 2.e-8,
-            follow_perpendicular_atol = 1.e-8,
-            refine_width = 1.e-2,
-            refine_atol = 2.e-8,
-            refine_methods = "integrate+newton, integrate",
-            finecontour_Nfine = 100,
-            finecontour_diagnose = False,
-            finecontour_maxits = 200,
-            curvature_type = 'curl(b/B) with x-y derivatives')
+        # Take the default settings, then the options keyword, then
+        # any additional keyword arguments
+        self.user_options = TokamakEquilibrium.default_options.push(options).push(kwargs)
         
         super().__init__(**kwargs)
+
+        if make_regions:
+            # Create self.regions
+            self.makeRegions()
 
     def findLegs(self, xpoint, radius=0.01, step=0.01):
         """Find the divertor legs coming from a given X-point
@@ -273,12 +319,40 @@ class TokamakEquilibrium(Equilibrium):
                 "outer": leg_lines[1]}
         
     def makeRegions(self, **kwargs):
-        """Main region generation entry point
-        
+        """Main region generation function. Regions are logically
+        rectangular ranges in poloidal angle; segments are
+        ranges of poloidal flux (radial coordinate). Poloidal ranges,
+        radial segments, and the connections between them describe
+        the topology and geometry of the mesh.
+
+        This function is called by __init__ to generate regions unless
+        make_regions is set to False.
+
+        The main steps in doing this are:
+        1. Set defaults if not already set by user
+        2. Identify whether single or double null
+        3. Describe the leg and core regions, depending on the topology
+        4. Follow flux surfaces based on core region descriptions (self.coreRegionToRegion)
+        5. Process all regions into a set of EquilibriumObjects (self.createRegionObjects)
+        6. Sort the EquilibriumRegion objects for BoutMesh output (self.createRegionObjects).
+        7. Connect regions together
+
+        Inputs
+        ------
+
+        Keywords set options in user_options. Note that not all options
+        will have any effect, because they were already used in __init__.
+
+        Modifies
+        --------
+
+        - self.user_options    Sets default values if not set by user
+        - self.regions         OrderedDict of EquilibriumRegion objects
+
         """
         assert self.psi_axis is not None
-        
-        self.user_options = self.default_options.copy()
+
+        # Options can be passed in here to customise the regions created
         self.user_options = self.user_options.push(kwargs)
 
         # Radial grid cells in PF regions
@@ -288,6 +362,18 @@ class TokamakEquilibrium(Equilibrium):
         # Note: Currently these can't be varied due to BOUT++ limitations
         setDefault(self.user_options, 'nx_sol_inner', self.user_options.nx_sol)
         setDefault(self.user_options, 'nx_sol_outer', self.user_options.nx_sol)
+
+        # Poloidal points in the leg and SOL regions
+        setDefault(self.user_options, 'ny_inner_lower_divertor', self.user_options.ny_inner_divertor)
+        setDefault(self.user_options, 'ny_inner_upper_divertor', self.user_options.ny_inner_divertor)
+
+        setDefault(self.user_options, 'ny_outer_lower_divertor', self.user_options.ny_outer_divertor)
+        setDefault(self.user_options, 'ny_outer_upper_divertor', self.user_options.ny_outer_divertor)
+
+        setDefault(self.user_options, 'ny_inner_sol',
+                   self.user_options.ny_sol // 2)
+        setDefault(self.user_options, 'ny_outer_sol',
+                   self.user_options.ny_sol - self.user_options.ny_inner_sol)
         
         # Normalised psi values
         setDefault(self.user_options, 'psinorm_pf', self.user_options.psinorm_core)
@@ -1100,10 +1186,16 @@ class TokamakEquilibrium(Equilibrium):
         return self.fprime_spl(psi * self.f_psi_sign)
     
 
-def read_geqdsk(filehandle):
+def read_geqdsk(filehandle, options={}, **kwargs):
     """
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
+
+    Inputs
+    ------
+    filehandle   A file handle to read
+    options      Options|dict passed to TokamakEquilibrium
+    kwargs       Other keywords passed to TokamakEquilibrim
     """
 
     from ._geqdsk import read as geq_read
@@ -1136,62 +1228,6 @@ def read_geqdsk(filehandle):
                               data["psi"],  # psi2D
                               psi1D, 
                               data["fpol"], # fpol1D
-                              wall=wall)
-
-def example(geometry="sn", nx=65, ny=65):
-    """
-    Create an example, based on a simple analytic form for the poloidal flux.
-    
-    geometry     sn, cdn, udn, ldn, udn2
-    
-    """
-    r1d = np.linspace(1.2, 1.8, nx)
-    z1d = np.linspace(-0.5, 0.5, ny)
-    r2d, z2d = np.meshgrid(r1d, z1d, indexing='ij')
-
-    r0 = 1.5
-    z0 = 0.3
-    
-    psi_functions = {
-        "sn": lambda R, Z: (np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) +
-                            np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)),
-        "cdn": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
-                             np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) +
-                             np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)),
-        "udn": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
-                             np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) +
-                             np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)),
-        "ldn": lambda R, Z: (- np.exp(-((R - r0)**2 + Z**2)/0.3**2) -
-                             np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) -
-                             np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)),
-        # Double null, but with the secondary far from the plasma edge
-        "udn2": lambda R, Z: (np.exp(-((R - r0)**2 + Z**2)/0.3**2) +
-                              np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.02)**2)/0.3**2) +
-                              np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2))}
-
-    if geometry not in psi_functions:
-        raise ValueError("geometry not recognised. Choices are {}".format(psi_functions.keys()))
-
-    psi_func = psi_functions[geometry]
-
-    
-    
-    eq = TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                            [], []) # psi1d, fpol
-
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
-    
-    from .mesh import BoutMesh
-    mesh = BoutMesh(eq)
-    mesh.geometry()
-    
-    import matplotlib.pyplot as plt
-    eq.plotPotential(ncontours=40)
-    #eq.addWallToPlot()
-    plt.plot(*eq.x_points[0], 'rx')
-    
-    mesh.plotPoints(xlow=True, ylow=True, corners=True)
-    
-    plt.show()
-
-
+                              wall=wall,
+                              options=options,
+                              **kwargs)

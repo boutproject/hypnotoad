@@ -40,7 +40,7 @@ def test_tokamak_interpolations():
     psi1d = np.linspace(0, 1, 65)
     fpol1d = fpol_func(psi1d)
     
-    eq = tokamak.TokamakEquilibrium(r1d, z1d, psi2d, psi1d, fpol1d)
+    eq = tokamak.TokamakEquilibrium(r1d, z1d, psi2d, psi1d, fpol1d, make_regions=False)
 
     # Check interpolation of psi, f and f' at some locations
     for r, z in [(1.2, 0.1), (1.6, -0.4), (1.8, 0.9)]:
@@ -132,8 +132,8 @@ def test_read_geqdsk():
     # Move to the beginning of the buffer
     output.seek(0)
 
-    # Read from string
-    eq = tokamak.read_geqdsk(output)
+    # Read geqdsk from StringIO. Don't create the regions
+    eq = tokamak.read_geqdsk(output, make_regions=False)
     
     # Check interpolation of psi, f and f' at some locations
     for r, z in [(1.2, 0.1), (1.6, -0.4), (1.8, 0.9)]:
@@ -171,7 +171,8 @@ def test_bounding():
     eq = tokamak.TokamakEquilibrium(np.linspace(Rmin, Rmax, nx),
                                     np.linspace(Zmin, Zmax, ny),
                                     np.zeros((nx, ny)), # psi2d
-                                    [], []) # psi1d, fpol
+                                    [], [], # psi1d, fpol
+                                    make_regions=False)
 
     assert np.isclose(eq.Rmin, Rmin)
     assert np.isclose(eq.Rmax, Rmax)
@@ -194,7 +195,8 @@ def test_xpoint():
         return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
     
     eq = tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                    [], []) # psi1d, fpol
+                                    [], [], # psi1d, fpol
+                                    make_regions=False)
 
     assert len(eq.x_points) == 1
     assert len(eq.psi_sep) == 1
@@ -221,7 +223,7 @@ def test_wall_anticlockwise():
                                     np.linspace(Zmin, Zmax, ny),
                                     np.zeros((nx, ny)), # psi2d
                                     [], [], # psi1d, fpol
-                                    wall = wall)
+                                    wall = wall, make_regions=False)
     assert len(eq.wall) == 4
     # Wall ordering unchanged
     assert eq.wall[0].R == Rmin
@@ -246,7 +248,7 @@ def test_wall_clockwise():
                                     np.linspace(Zmin, Zmax, ny),
                                     np.zeros((nx, ny)), # psi2d
                                     [], [], # psi1d, fpol
-                                    wall = wall)
+                                    wall = wall, make_regions=False)
     
     assert len(eq.wall) == 4
     # Wall ordering reversed
@@ -256,6 +258,8 @@ def test_wall_clockwise():
     assert eq.wall[1].Z == Zmin
 
 ###################################################################
+# These routines create a TokamakEquilbrium, but do not generate
+# the regions. This is to allow earlier stages to be tested.
 
 def make_lower_single_null():
     nx = 65
@@ -273,7 +277,8 @@ def make_lower_single_null():
         return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
     
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 def make_upper_single_null():
     nx = 65
@@ -292,7 +297,8 @@ def make_upper_single_null():
         return np.exp(-((R - r0)**2 + (Z - z0 - 0.3)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - z0 + 0.3)**2)/0.3**2)
     
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 def make_connected_double_null():
     nx = 65
@@ -309,7 +315,8 @@ def make_connected_double_null():
         return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
 
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 def make_lower_double_null():
     nx = 65
@@ -326,7 +333,8 @@ def make_lower_double_null():
         return - np.exp(-((R - r0)**2 + Z**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z + 2*z0)**2)/0.3**2) - np.exp(-((R - r0)**2 + (Z - 2*z0 - 0.003)**2)/0.3**2)
 
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 def make_upper_double_null():
     nx = 65
@@ -343,7 +351,8 @@ def make_upper_double_null():
         return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.002)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
 
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 def make_upper_double_null_largesep():
     """UDN with larger separation between X-points. 
@@ -364,7 +373,8 @@ def make_upper_double_null_largesep():
         return np.exp(-((R - r0)**2 + Z**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z + 2*z0 + 0.02)**2)/0.3**2) + np.exp(-((R - r0)**2 + (Z - 2*z0)**2)/0.3**2)
 
     return tokamak.TokamakEquilibrium(r1d, z1d, psi_func(r2d, z2d),
-                                      [], []) # psi1d, fpol
+                                      [], [], # psi1d, fpol
+                                      make_regions=False)
 
 ###################################################################
 
@@ -399,41 +409,41 @@ def test_findlegs_upper():
 
 def test_makeregions_lsn():
     eq = make_lower_single_null()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions()
     
     assert len(eq.regions) == 3
 
 def test_makeregions_usn():
     eq = make_upper_single_null()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions()
     
     assert len(eq.regions) == 3
 
 def test_makeregions_cdn():
     eq = make_connected_double_null()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions()
 
     assert len(eq.regions) == 6
 
 def test_makeregions_udn():
     eq = make_upper_double_null()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions()
 
     assert len(eq.regions) == 6
 
 def test_makeregions_ldn():
     eq = make_lower_double_null()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions()
 
     assert len(eq.regions) == 6
     
 def test_makeregions_udn_largesep_1():
     eq = make_upper_double_null_largesep()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.1)
+    eq.makeRegions(psinorm_sol=1.1)
     assert len(eq.regions) == 3  # Only one X-point in range -> single null
     
 def test_makeregions_udn_largesep_2():
     eq = make_upper_double_null_largesep()
-    eq.makeRegions(psinorm_pf=0.9, psinorm_sol=1.2)
+    eq.makeRegions(psinorm_sol=1.2)
     assert len(eq.regions) == 6  # Becomes double null
     

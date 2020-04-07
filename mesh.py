@@ -767,14 +767,14 @@ class MeshRegion:
             print("Poloidal field is in opposite direction to Grad(theta) -> Bp negative")
             self.Bpxy = -self.Bpxy
             if self.bpsign > 0.:
-                warnings.warn("Sign of Bp should be negative? (note this check will "
-                              "raise an exception when bpsign was correct if you only have a "
-                              "private flux region)")
+                raise ValueError("Sign of Bp should be negative? (note this check will "
+                                 "raise an exception when bpsign was correct if you only have a "
+                                 "private flux region)")
         else:
             if self.bpsign < 0.:
-                warnings.warn("Sign of Bp should be negative? (note this check will "
-                              "raise an exception when bpsign was correct if you only have a "
-                              "private flux region)")
+                raise ValueError("Sign of Bp should be negative? (note this check will "
+                                 "raise an exception when bpsign was correct if you only have a "
+                                 "private flux region)")
 
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy

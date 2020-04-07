@@ -219,14 +219,9 @@ class TokamakEquilibrium(Equilibrium):
         psi_sep = self.psi(xpoint.R, xpoint.Z) # Value of psi
 
         # Draw a half-circle around this X-point
-        if xpoint.Z < self.o_point.Z:
-            # If the X-point is below the O-point, choose only angles
-            # between pi and 2pi
-            angles = np.linspace(np.pi, 2.*np.pi, 50, endpoint=True)
-        else:
-            # X-point above O-point
-            angles = np.linspace(0.0, np.pi, 50, endpoint=True)
-            
+        theta0 = np.arctan2(xpoint.Z - self.o_point.Z, xpoint.R - self.o_point.R)
+        angles = np.linspace(theta0 - np.pi/2., theta0 + np.pi/2.)
+
         rvals = xpoint.R + radius * np.cos(angles)
         zvals = xpoint.Z + radius * np.sin(angles)
         psivals = self.psi(rvals, zvals)

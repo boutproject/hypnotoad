@@ -1890,6 +1890,10 @@ class BoutMesh(Mesh):
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))
+
+            if self.x_startinds[-1] == self.nx:
+                self.x_startinds = self.x_startinds[:-1]
+
             if len(self.x_startinds) == 1:
                 # No separatrix in grid
                 if eq_region0.separatrix_radial_index == 0:

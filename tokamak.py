@@ -170,10 +170,10 @@ class TokamakEquilibrium(Equilibrium):
                 psi_axis = opoints[0][2] # Psi on magnetic axis
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
         self.psi_axis = psi_axis
-                               
+
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")
-            
+
         self.x_points = [Point2D(r, z) for r, z, psi in xpoints]
         self.psi_sep = [psi for r, z, psi in xpoints]
 
@@ -1184,7 +1184,12 @@ class TokamakEquilibrium(Equilibrium):
         """psi-derivative of fpol
         """
         return self.fprime_spl(psi * self.f_psi_sign)
-    
+
+    @property
+    def Bt_axis(self):
+        """Calculate toroidal field on axis
+        """
+        return self.fpol(self.psi_axis) / self.o_point.R
 
 def read_geqdsk(filehandle, options={}, **kwargs):
     """

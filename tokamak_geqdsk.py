@@ -3,19 +3,20 @@
 
 import sys
 
-if len(sys.argv) != 2:
-    raise ValueError("Usage is {} geqdsk_file".format(sys.argv[0]))
+if len(sys.argv) < 2 or len(sys.argv) > 3:
+    raise ValueError("Usage is {} geqdsk_file [options.yaml]".format(sys.argv[0]))
 
 filename = sys.argv[1]
+if len(sys.argv) == 3:
+    # Options yaml file
+    pass
+else:
+    options = {}
 
 from hypnotoad2 import tokamak
 
 with open(filename, 'rt') as fh:
-    eq = tokamak.read_geqdsk(fh)
-
-# Make the regions, identifying single/double null etc.
-    
-eq.makeRegions(psinorm_pf=0.95, psinorm_sol=1.1)
+    eq = tokamak.read_geqdsk(fh, options=options)
 
 try:
     import matplotlib.pyplot as plt

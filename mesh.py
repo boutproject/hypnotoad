@@ -1736,6 +1736,8 @@ class BoutMesh(Mesh):
         # because we don't want MeshRegion objects to depend on global indices
         assert all([r.options.nx == eq_region0.options.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
         x_sizes = [0] + list(eq_region0.options.nx)
+
+        # Note: x_startinds includes the end: self.x_startinds[-1] = nx
         self.x_startinds = numpy.cumsum(x_sizes)
         x_regions = tuple(slice(self.x_startinds[i], self.x_startinds[i+1], None)
                      for i in range(len(self.x_startinds)-1))
@@ -1891,11 +1893,8 @@ class BoutMesh(Mesh):
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))
 
-            if self.x_startinds[-1] == self.nx:
-                self.x_startinds = self.x_startinds[:-1]
-
-            if len(self.x_startinds) == 1:
-                # No separatrix in grid
+            if len(self.x_startinds) == 2:
+                # No separatrix in grid: self.x_startinds = [0, nx]
                 if eq_region0.separatrix_radial_index == 0:
                     # SOL only
                     ixseps1 = -1
@@ -1904,11 +1903,11 @@ class BoutMesh(Mesh):
                     # core only
                     ixseps1 = self.nx
                     ixseps2 = self.nx
-            elif len(self.x_startinds) == 2:
-                # One separatrix
+            elif len(self.x_startinds) == 3:
+                # One separatrix: self.x_startinds = [0, ixseps, nx]
                 ixseps1 = self.x_startinds[1]
                 ixseps2 = self.nx # note: this may be changed below for cases where the two separatrices are in the same radial location
-            elif len(self.x_startinds) == 3:
+            elif len(self.x_startinds) == 4:
                 # Two separatrices
                 ixseps1 = self.x_startinds[1]
                 ixseps2 = self.x_startinds[2]

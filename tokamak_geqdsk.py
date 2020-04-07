@@ -9,7 +9,9 @@ if len(sys.argv) < 2 or len(sys.argv) > 3:
 filename = sys.argv[1]
 if len(sys.argv) == 3:
     # Options yaml file
-    pass
+    import yaml
+    with open(sys.argv[2], 'r') as inputfile:
+        options = yaml.safe_load(inputfile)
 else:
     options = {}
 
@@ -38,7 +40,9 @@ mesh.geometry()
 
 eq.plotPotential(ncontours=40)
 plt.plot(*eq.x_points[0], 'rx')
-mesh.plotPoints(xlow=True, ylow=True, corners=True)
+mesh.plotPoints(xlow = options.get("plot_xlow", True),
+                ylow = options.get("plot_ylow", True),
+                corners = options.get("plot_corners", True))
 plt.show()
 
 mesh.writeGridfile('bout.grd.nc')

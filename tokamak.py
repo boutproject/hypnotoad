@@ -199,7 +199,9 @@ class TokamakEquilibrium(Equilibrium):
         # Take the default settings, then the options keyword, then
         # any additional keyword arguments
         self.user_options = TokamakEquilibrium.default_options.push(options).push(kwargs)
-        
+
+        self.equilibOptions = {}
+
         super().__init__(**kwargs)
 
         if make_regions:

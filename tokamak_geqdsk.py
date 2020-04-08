@@ -45,4 +45,4 @@ mesh.plotPoints(xlow = options.get("plot_xlow", True),
                 corners = options.get("plot_corners", True))
 plt.show()
 
-mesh.writeGridfile('bout.grd.nc')
+mesh.writeGridfile(options.get('grid_file', 'bout.grd.nc'))

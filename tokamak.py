@@ -1198,6 +1198,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     filehandle   A file handle to read
     options      Options|dict passed to TokamakEquilibrium
     kwargs       Other keywords passed to TokamakEquilibrim
+                 These override values in options.
     """
 
     from ._geqdsk import read as geq_read
@@ -1219,6 +1220,14 @@ def read_geqdsk(filehandle, options={}, **kwargs):
                       data["zmid"] + 0.5*data["zdim"],
                       data["ny"], endpoint=True)
 
+    psi2D = data["psi"]
+
+    if kwargs.get("reverse_current",
+                  options.get("reverse_current", False)):
+        warnings.warn("Reversing the sign of the poloidal field")
+        psi2D *= -1.
+        psi1D *= -1.
+
     # Get the wall 
     if "rlim" in data and "zlim" in data:
         wall = list(zip(data["rlim"], data["zlim"]))
@@ -1227,7 +1236,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     
     return TokamakEquilibrium(R1D,
                               Z1D,
-                              data["psi"],  # psi2D
+                              psi2D,
                               psi1D, 
                               data["fpol"], # fpol1D
                               wall=wall,

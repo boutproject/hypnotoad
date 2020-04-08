@@ -752,6 +752,9 @@ class MeshRegion:
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
+        if hasattr(self.meshParent.equilibrium.regions[self.equilibriumRegion.name], 'pressure'):
+            self.pressure = self.meshParent.equilibrium.regions[self.equilibriumRegion.name].pressure(self.psixy)
+
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = (
@@ -1863,6 +1866,9 @@ class BoutMesh(Mesh):
         addFromRegions('bxcvx')
         addFromRegions('bxcvy')
         addFromRegions('bxcvz')
+
+        if hasattr(next(iter(self.equilibrium.regions.values())), 'pressure'):
+            addFromRegions('pressure')
 
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))

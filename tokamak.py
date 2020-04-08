@@ -90,6 +90,7 @@ class TokamakEquilibrium(Equilibrium):
         curvature_type = 'curl(b/B) with x-y derivatives'))
     
     def __init__(self, R1D, Z1D, psi2D, psi1D, fpol1D,
+                 pressure=None,
                  wall=None, psi_axis=None, dct=False,
                  make_regions=True,
                  options={}, **kwargs):
@@ -104,9 +105,12 @@ class TokamakEquilibrium(Equilibrium):
         psi2D[nx,ny]  2D array of poloidal flux [Wb]
         psi1D[nf]     1D array of poloidal flux [Wb]
         fpol1D[nf]    1D array of f=R*Bt [mT]
-        
+
         Keywords
         --------
+
+        pressure[nf] = 1D array of pressure as a function of psi1D [Pa]
+
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
                The wall is closed, so the last point connects to the first.
@@ -159,6 +163,13 @@ class TokamakEquilibrium(Equilibrium):
         else:
             self.f_spl = lambda psi: 0.0
             self.fprime_spl = lambda psi: 0.0
+
+        # Optional pressure profile
+        if pressure is not None:
+            self.p_spl = interpolate.InterpolatedUnivariateSpline(psi1D * self.f_psi_sign, pressure, ext=3)
+        else:
+            # If no pressure, then not output to grid file
+            self.p_spl = None
 
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing='ij')
@@ -1086,6 +1097,24 @@ class TokamakEquilibrium(Equilibrium):
             if 'wall_at_end' in region:
                 eqreg.wallSurfaceAtEnd = region['wall_at_end']
 
+            # Pressure profiles
+            if self.p_spl is not None:
+                if "wall" in region["kind"]:
+                    # A leg region. Reflect the pressure in poloidal flux
+                    # so that the pressure in the private flux region falls
+                    # away from the separatrix
+
+                    # Determine if poloidal flux is increasing or decreasing with radius
+                    sign = np.sign(self.psi_sep[0] - self.psi_axis)
+
+                    assert region["psi"] is not None
+                    leg_psi = region["psi"]
+                    eqreg.pressure = lambda psi: self.pressure(leg_psi +
+                                                               sign * abs(psi - leg_psi))
+                else:
+                    # Core region, so use the core pressure
+                    eqreg.pressure = self.pressure
+
             region_objects[name] = eqreg
         # The region objects need to be sorted, so that the
         # BoutMesh generator can use jyseps indices to introduce branch cuts
@@ -1182,6 +1211,13 @@ class TokamakEquilibrium(Equilibrium):
         """
         return self.fprime_spl(psi * self.f_psi_sign)
 
+    @handleMultiLocationArray
+    def pressure(self, psi):
+        """Plasma pressure in Pascals"""
+        if self.p_spl is None:
+            return None
+        return self.p_spl(psi * self.f_psi_sign)
+
     @property
     def Bt_axis(self):
         """Calculate toroidal field on axis
@@ -1199,6 +1235,11 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     options      Options|dict passed to TokamakEquilibrium
     kwargs       Other keywords passed to TokamakEquilibrim
                  These override values in options.
+
+    Options
+    -------
+    reverse_current = bool  Changes the sign of poloidal flux psi
+    extrapolate_profiles = bool   Extrapolate pressure using exponential
     """
 
     from ._geqdsk import read as geq_read
@@ -1233,12 +1274,34 @@ def read_geqdsk(filehandle, options={}, **kwargs):
         wall = list(zip(data["rlim"], data["zlim"]))
     else:
         wall = []
-    
+
+    pressure = data['pres']
+    fpol = data["fpol"]
+
+    if kwargs.get("extrapolate_profiles",
+                  options.get("extrapolate_profiles", False)):
+        # Use an exponential decay for the pressure, based on
+        # the value and gradient at the plasma edge
+        dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
+        p0 = pressure[-1]
+        # Extend the array out to normalised psi of 1.2
+        # Exclude first point since duplicates last point in core
+        psiSOL = np.linspace(0.0, 0.2*(psi1D[-1] - psi1D[0]), 50)[1:]
+
+        psi1D = np.concatenate([psi1D, psiSOL])
+
+        # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
+        pressure = np.concatenate([pressure, p0 * np.exp( psiSOL * dpdpsi / p0)])
+
+        # fpol constant in SOL
+        fpol = np.concatenate([fpol, np.full(psiSOL.shape, fpol[-1])])
+
     return TokamakEquilibrium(R1D,
                               Z1D,
                               psi2D,
                               psi1D, 
-                              data["fpol"], # fpol1D
-                              wall=wall,
-                              options=options,
+                              fpol,
+                              pressure = pressure,
+                              wall = wall,
+                              options = options,
                               **kwargs)

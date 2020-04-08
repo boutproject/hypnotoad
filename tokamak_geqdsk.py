@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 #
+# This script generates a BOUT++ grid file from a GEQDSK equilibrium,
+# and optionally a set of inputs in a YAML file
+#
+# For example:
+#  $ ./tokamak_geqdsk file.geqdsk  geqdsk_cdn.yaml
+#
+#
 
 import sys
+import warnings
 
 if len(sys.argv) < 2 or len(sys.argv) > 3:
     raise ValueError("Usage is {} geqdsk_file [options.yaml]".format(sys.argv[0]))
@@ -20,16 +28,17 @@ from hypnotoad2 import tokamak
 with open(filename, 'rt') as fh:
     eq = tokamak.read_geqdsk(fh, options=options)
 
-try:
-    import matplotlib.pyplot as plt
-    
-    eq.plotPotential(ncontours=40)
-    for region in eq.regions.values():
-        plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
-    print("Close window to continue...")
-    plt.show()
-except:
-    pass
+if options.get('plot_regions', False):
+    try:
+        import matplotlib.pyplot as plt
+        
+        eq.plotPotential(ncontours=40)
+        for region in eq.regions.values():
+            plt.plot([p.R for p in region.points], [p.Z for p in region.points], '-o')
+        print("Close window to continue...")
+        plt.show()
+    except Exception as err:
+        warnings.warn(str(err))
 
 # Create the mesh
 
@@ -38,11 +47,17 @@ from hypnotoad2.mesh import BoutMesh
 mesh = BoutMesh(eq)
 mesh.geometry()
 
-eq.plotPotential(ncontours=40)
-plt.plot(*eq.x_points[0], 'rx')
-mesh.plotPoints(xlow = options.get("plot_xlow", True),
-                ylow = options.get("plot_ylow", True),
-                corners = options.get("plot_corners", True))
-plt.show()
+if options.get('plot_mesh', False):
+    try:
+        import matplotlib.pyplot as plt
+
+        eq.plotPotential(ncontours=40)
+        plt.plot(*eq.x_points[0], 'rx')
+        mesh.plotPoints(xlow = options.get("plot_xlow", True),
+                        ylow = options.get("plot_ylow", True),
+                        corners = options.get("plot_corners", True))
+        plt.show()
+    except Exception as err:
+        warnings.warn(str(err))
 
 mesh.writeGridfile(options.get('grid_file', 'bout.grd.nc'))

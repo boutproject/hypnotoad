@@ -994,20 +994,20 @@ class MeshRegion:
             
         if not numpy.all(check.centre):
             ploterror('centre')
-            warnings.warn('Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+            raise ValueError('Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
 
         if not numpy.all(check.ylow):
             ploterror('ylow')
-            warnings.warn('Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+            raise ValueError('Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
         
         if check._xlow_array is not None:
              if not numpy.all(check.xlow):
                  ploterror('xlow')
-                 warnings.warn('Geometry: Jacobian at xlow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+                 raise ValueError('Geometry: Jacobian at xlow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
         if check._corners_array is not None:
             if not numpy.all(check.corners):
                  ploterror('corners')
-                 warnings.warn('Geometry: Jacobian at corners should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+                 raise ValueError('Geometry: Jacobian at corners should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
         
         # curvature terms
         self.calc_curvature()

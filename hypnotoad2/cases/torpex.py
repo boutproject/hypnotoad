@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright 2019 J.T. Omotani
 #
 # Contact John Omotani john.omotani@ukaea.uk
@@ -19,25 +17,9 @@
 # You should have received a copy of the GNU General Public License along with
 # Hypnotoad 2.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Create a BOUT++ grid for TORPEX from an input file giving coil currents and positions
-
-Input file should contain coil parameters, for each coil:
-    R: major radius in metres
-    Z: major radius in metres
-    I: clockwise current in Amps
-
-Note: positions of cell corners are generated first, grid points are then put in the
-centre of the cell.
-"""
-
-plotStuff = True
-
 from collections import OrderedDict
 import warnings
 
-if plotStuff:
-    from matplotlib import pyplot
 import numpy
 
 from ..core.mesh import BoutMesh
@@ -511,32 +493,3 @@ def createEqdsk(equilib, *, nR=None, Rmin=None, Rmax=None, nZ=None, Zmin=None, Z
     gout.set('zlim', [equilib.TORPEX_wall(t).Z for t in theta])
 
     gout.dump(filename)
-
-if __name__ == '__main__':
-    from sys import argv, exit
-
-    filename = argv[1]
-    gridname = 'torpex.grd.nc'
-
-    mesh = createMesh(filename)
-
-    try:
-        mesh.geometry()
-    except Exception as e:
-        import traceback
-        print('There was an exception in mesh.geometry:', str(e))
-        print('****************************************')
-        traceback.print_tb(e.__traceback__)
-        print('****************************************')
-
-    if plotStuff:
-        pyplot.figure()
-        mesh.equilibrium.plotPotential()
-        mesh.equilibrium.addWallToPlot()
-        pyplot.plot(*mesh.equilibrium.x_points[0], 'rx')
-        mesh.plotPoints(xlow=True, ylow=True, corners=True)
-        pyplot.show()
-
-    mesh.writeGridfile(gridname)
-
-    exit(0)

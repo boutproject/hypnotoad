@@ -34,45 +34,51 @@ from scipy.integrate import solve_ivp
 
 from ..utils.hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
 
+
 class SolutionError(Exception):
     """
     Solution was not found
     """
+
     pass
+
 
 # tolerance used to try and avoid missed intersections between lines
 # also if two sets of lines appear to intersect twice, only count it once if the
 # distance between the intersections is less than this
-intersect_tolerance = 1.e-14
+intersect_tolerance = 1.0e-14
+
 
 def setDefault(options, name, default):
     if options[name] is None:
         options[name] = default
     return options[name]
 
+
 class Point2D:
     """
     A point in 2d space.
     Can be added, subtracted, multiplied by scalar
     """
+
     def __init__(self, R, Z):
         self.R = R
         self.Z = Z
 
     def __add__(self, other):
-        return Point2D(self.R+other.R, self.Z+other.Z)
+        return Point2D(self.R + other.R, self.Z + other.Z)
 
     def __sub__(self, other):
-        return Point2D(self.R-other.R, self.Z-other.Z)
+        return Point2D(self.R - other.R, self.Z - other.Z)
 
     def __mul__(self, other):
-        return Point2D(self.R*other, self.Z*other)
+        return Point2D(self.R * other, self.Z * other)
 
     def __rmul__(self, other):
-        return Point2D(self.R*other, self.Z*other)
+        return Point2D(self.R * other, self.Z * other)
 
     def __truediv__(self, other):
-        return Point2D(self.R/other, self.Z/other)
+        return Point2D(self.R / other, self.Z / other)
 
     def __iter__(self):
         """
@@ -98,14 +104,16 @@ class Point2D:
         """
         Allow Point2D to be printed
         """
-        return 'Point2D('+str(self.R)+','+str(self.Z)+')'
+        return "Point2D(" + str(self.R) + "," + str(self.Z) + ")"
 
     def as_ndarray(self):
         return numpy.array((self.R, self.Z))
 
+
 def calc_distance(p1, p2):
     d = p2 - p1
-    return numpy.sqrt(d.R**2 + d.Z**2)
+    return numpy.sqrt(d.R ** 2 + d.Z ** 2)
+
 
 def swap_points(p1, p2):
     tempR = p1.R
@@ -114,6 +122,7 @@ def swap_points(p1, p2):
     p1.Z = p2.Z
     p2.R = tempR
     p2.Z = tempZ
+
 
 def find_intersections(l1array, l2start, l2end):
     """
@@ -136,9 +145,9 @@ def find_intersections(l1array, l2start, l2end):
     # l1 is Z = Z1 + dZ1/dR1 * (R - R1)
     # If the lines are parallel
     inds_a = numpy.where(
-                numpy.abs(R1array[:, 0] - R1array[:, 1])
-                > numpy.abs(Z1array[:, 0] - Z1array[:, 1])
-            )[0]
+        numpy.abs(R1array[:, 0] - R1array[:, 1])
+        > numpy.abs(Z1array[:, 0] - Z1array[:, 1])
+    )[0]
     thisR1_a = R1array[inds_a, :]
     thisZ1_a = Z1array[inds_a, :]
 
@@ -151,9 +160,9 @@ def find_intersections(l1array, l2start, l2end):
     # if l2 is sensible, dZ2 shouldn't be too small as it's bigger than dR2
     # l2 is R = R2 + dR2/dZ2 * (Z - Z2)
     inds_b = numpy.where(
-                numpy.abs(R1array[:, 0] - R1array[:, 1])
-                <= numpy.abs(Z1array[:, 0] - Z1array[:, 1])
-            )[0]
+        numpy.abs(R1array[:, 0] - R1array[:, 1])
+        <= numpy.abs(Z1array[:, 0] - Z1array[:, 1])
+    )[0]
 
     thisR1_b = R1array[inds_b, :]
     thisZ1_b = Z1array[inds_b, :]
@@ -180,8 +189,12 @@ def find_intersections(l1array, l2start, l2end):
         #
         # If this condition is not true, lines are parallel so cannot intersect
         condition = numpy.where(
-                numpy.abs((thisZ1_a[:,1]-thisZ1_a[:,0])/(thisR1_a[:,1]-thisR1_a[:,0]) - dZ2/dR2) >= 1.e-15
-                )
+            numpy.abs(
+                (thisZ1_a[:, 1] - thisZ1_a[:, 0]) / (thisR1_a[:, 1] - thisR1_a[:, 0])
+                - dZ2 / dR2
+            )
+            >= 1.0e-15
+        )
         inds_a = inds_a[condition]
         thisR1_a = thisR1_a[condition]
         thisZ1_a = thisZ1_a[condition]
@@ -192,16 +205,25 @@ def find_intersections(l1array, l2start, l2end):
         # intersection where
         # Z1 + dZ1/dR1 * (R - R1) = Z2 + dZ2/dR2 * (R - R2)
         # (dZ1/dR1 - dZ2/dR2)*R = Z2 - Z1 + dZ1/dR1*R1 - dZ2/dR2*R2
-        Rcross = (Z2 - thisZ1_a[:, 0] + thisdZ1/thisdR1*thisR1_a[:, 0] - dZ2/dR2*R2) / (thisdZ1/thisdR1 - dZ2/dR2)
-        intersect_inds = numpy.where(numpy.logical_and(
-            Rcross >= thisR1_a[:, 0] - intersect_tolerance,
-            numpy.logical_and(Rcross <= thisR1_a[:, 1] + intersect_tolerance,
-            numpy.logical_and(Rcross >= R2 - intersect_tolerance,
-            Rcross <= l2end.R + intersect_tolerance
-        ))))
+        Rcross = (
+            Z2 - thisZ1_a[:, 0] + thisdZ1 / thisdR1 * thisR1_a[:, 0] - dZ2 / dR2 * R2
+        ) / (thisdZ1 / thisdR1 - dZ2 / dR2)
+        intersect_inds = numpy.where(
+            numpy.logical_and(
+                Rcross >= thisR1_a[:, 0] - intersect_tolerance,
+                numpy.logical_and(
+                    Rcross <= thisR1_a[:, 1] + intersect_tolerance,
+                    numpy.logical_and(
+                        Rcross >= R2 - intersect_tolerance,
+                        Rcross <= l2end.R + intersect_tolerance,
+                    ),
+                ),
+            )
+        )
         Rintersect_a = Rcross[intersect_inds]
-        Zintersect_a = thisZ1_a[:, 0][intersect_inds] + thisdZ1[intersect_inds]/thisdR1[intersect_inds] * (Rintersect_a - thisR1_a[:, 0][intersect_inds])
-
+        Zintersect_a = thisZ1_a[:, 0][intersect_inds] + thisdZ1[
+            intersect_inds
+        ] / thisdR1[intersect_inds] * (Rintersect_a - thisR1_a[:, 0][intersect_inds])
 
         # Check intersections with 'b' lines
         #
@@ -211,14 +233,22 @@ def find_intersections(l1array, l2start, l2end):
         # intersection where
         # R = R1 + dR1/dZ1 * (Z2 + dZ2/dR2 * (R - R2) - Z1)
         # (1 - dR1/dZ1*dZ2/dR2) * R = R1 + dR1/dZ1 * (Z2 - dZ2/dR2*R2 - Z1)
-        Rcross = (thisR1_b[:, 0] + thisdR1/thisdZ1 * (Z2 - dZ2/dR2*R2 - thisZ1_b[:, 0])) / (1. - thisdR1/thisdZ1 * dZ2/dR2)
-        Zcross = Z2 + dZ2/dR2 * (Rcross - R2)
-        intersect_inds = numpy.where(numpy.logical_and(
-            Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
-            numpy.logical_and(Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
-            numpy.logical_and(Rcross >= R2 - intersect_tolerance,
-            Rcross <= l2end.R + intersect_tolerance
-        ))))
+        Rcross = (
+            thisR1_b[:, 0] + thisdR1 / thisdZ1 * (Z2 - dZ2 / dR2 * R2 - thisZ1_b[:, 0])
+        ) / (1.0 - thisdR1 / thisdZ1 * dZ2 / dR2)
+        Zcross = Z2 + dZ2 / dR2 * (Rcross - R2)
+        intersect_inds = numpy.where(
+            numpy.logical_and(
+                Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
+                numpy.logical_and(
+                    Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
+                    numpy.logical_and(
+                        Rcross >= R2 - intersect_tolerance,
+                        Rcross <= l2end.R + intersect_tolerance,
+                    ),
+                ),
+            )
+        )
         Rintersect_b = Rcross[intersect_inds]
         Zintersect_b = Zcross[intersect_inds]
     else:
@@ -241,14 +271,22 @@ def find_intersections(l1array, l2start, l2end):
         # intersection where
         # Z = Z1 + dZ1/dR1 * (R2 + dR2/dZ2 * (Z - Z2) - R1)
         # (1 - dZ1*dR2/dR1/dZ2) * Z = Z1 + dZ1/dR1 * (R2 - dR2/dZ2*Z2 - R1)
-        Zcross = (thisZ1_a[:, 0] + thisdZ1/thisdR1 * (R2 - dR2/dZ2*Z2 - thisR1_a[:, 0])) / (1. - thisdZ1*dR2/(thisdR1*dZ2))
-        Rcross = R2 + dR2/dZ2 * (Zcross - Z2)
-        intersect_inds = numpy.where(numpy.logical_and(
-            Rcross >= thisR1_a[:, 0] - intersect_tolerance,
-            numpy.logical_and(Rcross <= thisR1_a[:, 1] + intersect_tolerance,
-            numpy.logical_and(Zcross >= Z2 - intersect_tolerance,
-            Zcross <= l2end.Z + intersect_tolerance
-        ))))
+        Zcross = (
+            thisZ1_a[:, 0] + thisdZ1 / thisdR1 * (R2 - dR2 / dZ2 * Z2 - thisR1_a[:, 0])
+        ) / (1.0 - thisdZ1 * dR2 / (thisdR1 * dZ2))
+        Rcross = R2 + dR2 / dZ2 * (Zcross - Z2)
+        intersect_inds = numpy.where(
+            numpy.logical_and(
+                Rcross >= thisR1_a[:, 0] - intersect_tolerance,
+                numpy.logical_and(
+                    Rcross <= thisR1_a[:, 1] + intersect_tolerance,
+                    numpy.logical_and(
+                        Zcross >= Z2 - intersect_tolerance,
+                        Zcross <= l2end.Z + intersect_tolerance,
+                    ),
+                ),
+            )
+        )
         Rintersect_a = Rcross[intersect_inds]
         Zintersect_a = Zcross[intersect_inds]
 
@@ -256,8 +294,12 @@ def find_intersections(l1array, l2start, l2end):
         #
         # If this condition is not true, lines are parallel so cannot intersect
         condition = numpy.where(
-                numpy.abs(dR2/dZ2 - (thisR1_b[:, 1] - thisR1_b[:, 0])/(thisZ1_b[:, 1] - thisZ1_b[:, 0])) >= 1.e-15
-                )
+            numpy.abs(
+                dR2 / dZ2
+                - (thisR1_b[:, 1] - thisR1_b[:, 0]) / (thisZ1_b[:, 1] - thisZ1_b[:, 0])
+            )
+            >= 1.0e-15
+        )
         inds_b = inds_b[condition]
         thisR1_b = thisR1_b[condition]
         thisZ1_b = thisZ1_b[condition]
@@ -268,15 +310,23 @@ def find_intersections(l1array, l2start, l2end):
         # intersection where
         # R2 + dR2/dZ2 * (Z - Z2) = R1 + dR1/dZ1 * (Z - Z1)
         # (dR2/dZ2 - dR1*dZ1) * Z = R1 - R2 + dR2/dZ2*Z2 - dR1/dZ1*Z1
-        Zcross = (thisR1_b[:, 0] - R2 + dR2/dZ2*Z2 - thisdR1/thisdZ1*thisZ1_b[:, 0]) / (dR2/dZ2 - thisdR1/thisdZ1)
-        intersect_inds = numpy.where(numpy.logical_and(
-            Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
-            numpy.logical_and(Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
-            numpy.logical_and(Zcross >= Z2 - intersect_tolerance,
-            Zcross <= l2end.Z + intersect_tolerance
-        ))))
+        Zcross = (
+            thisR1_b[:, 0] - R2 + dR2 / dZ2 * Z2 - thisdR1 / thisdZ1 * thisZ1_b[:, 0]
+        ) / (dR2 / dZ2 - thisdR1 / thisdZ1)
+        intersect_inds = numpy.where(
+            numpy.logical_and(
+                Zcross >= thisZ1_b[:, 0] - intersect_tolerance,
+                numpy.logical_and(
+                    Zcross <= thisZ1_b[:, 1] + intersect_tolerance,
+                    numpy.logical_and(
+                        Zcross >= Z2 - intersect_tolerance,
+                        Zcross <= l2end.Z + intersect_tolerance,
+                    ),
+                ),
+            )
+        )
         Zintersect_b = Zcross[intersect_inds]
-        Rintersect_b = R2 + dR2/dZ2 * (Zintersect_b - Z2)
+        Rintersect_b = R2 + dR2 / dZ2 * (Zintersect_b - Z2)
 
     Rintersect = numpy.concatenate([Rintersect_a, Rintersect_b])
     Zintersect = numpy.concatenate([Zintersect_a, Zintersect_b])
@@ -286,6 +336,7 @@ def find_intersections(l1array, l2start, l2end):
     else:
         return None
 
+
 class FineContour:
     """
     Used to give a high-resolution representation of a contour.
@@ -293,11 +344,11 @@ class FineContour:
     """
 
     options = Options(
-            finecontour_Nfine = None,
-            finecontour_atol = None,
-            finecontour_diagnose = None,
-            finecontour_maxits = None
-            )
+        finecontour_Nfine=None,
+        finecontour_atol=None,
+        finecontour_diagnose=None,
+        finecontour_maxits=None,
+    )
 
     def __init__(self, parentContour):
         self.parentContour = parentContour
@@ -309,26 +360,34 @@ class FineContour:
             # endInd might be negative, which would mean relative to the end of the list,
             # but we need the actual index below
             endInd += len(self.parentContour)
-        n_input = (endInd - self.parentContour.startInd + 1)
+        n_input = endInd - self.parentContour.startInd + 1
 
         # Extend further than will be needed in the final contour, because extrapolation
         # past the end of the fine contour is very bad.
-        self.extend_lower_fine = 2*(self.parentContour.extend_lower * Nfine) // n_input
-        self.extend_upper_fine = 2*(self.parentContour.extend_upper * Nfine) // n_input
+        self.extend_lower_fine = (
+            2 * (self.parentContour.extend_lower * Nfine) // n_input
+        )
+        self.extend_upper_fine = (
+            2 * (self.parentContour.extend_upper * Nfine) // n_input
+        )
 
-        self.indices_fine = numpy.linspace(-self.extend_lower_fine,
-                (Nfine - 1 + self.extend_upper_fine),
-                Nfine + self.extend_lower_fine + self.extend_upper_fine)
+        self.indices_fine = numpy.linspace(
+            -self.extend_lower_fine,
+            (Nfine - 1 + self.extend_upper_fine),
+            Nfine + self.extend_lower_fine + self.extend_upper_fine,
+        )
 
         # Initial guess from interpolation of psiContour, iterate to a more accurate
         # version below.
         # Extend a copy of parentContour to make the extrapolation more stable.
         # This makes parentCopy have twice the extra points as parentContour has.
         parentCopy = self.parentContour.newContourFromSelf()
-        parentCopy.temporaryExtend(extend_lower=self.parentContour.extend_lower,
-                extend_upper=self.parentContour.extend_upper,
-                ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
-                ds_upper=calc_distance(parentCopy[-1], parentCopy[-2]))
+        parentCopy.temporaryExtend(
+            extend_lower=self.parentContour.extend_lower,
+            extend_upper=self.parentContour.extend_upper,
+            ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
+            ds_upper=calc_distance(parentCopy[-1], parentCopy[-2]),
+        )
         interp_input, distance_estimate = parentCopy._coarseInterp()
 
         sfine = distance_estimate[parentCopy.endInd] / (Nfine - 1) * self.indices_fine
@@ -341,7 +400,6 @@ class FineContour:
 
         self.equaliseSpacing()
 
-
     def extend(self, *, extend_lower=0, extend_upper=0):
 
         atol = self.options.finecontour_atol
@@ -350,7 +408,8 @@ class FineContour:
         parentCopy = self.parentContour.newContourFromSelf()
 
         new_positions = numpy.zeros(
-                [self.positions.shape[0] + extend_lower + extend_upper, 2])
+            [self.positions.shape[0] + extend_lower + extend_upper, 2]
+        )
 
         if extend_upper is 0:
             new_positions[extend_lower:] = self.positions
@@ -364,11 +423,11 @@ class FineContour:
 
             # distances from the first point in the FineContour to put initial guesses for
             # new points
-            new_s_lower = numpy.arange(-extend_lower, 0.)*ds_lower
+            new_s_lower = numpy.arange(-extend_lower, 0.0) * ds_lower
 
             # Extend parentCopy to cover range of new_s_lower.
             ds_coarse = calc_distance(parentCopy[0], parentCopy[1])
-            coarse_extend = int(extend_lower*ds_lower/ds_coarse)
+            coarse_extend = int(extend_lower * ds_lower / ds_coarse)
             parentCopy.temporaryExtend(extend_lower=coarse_extend, ds_lower=ds_coarse)
 
             # Make sure parentCopy has point at start of existing FineContour - then
@@ -379,7 +438,9 @@ class FineContour:
 
             extrap_coarse = parentCopy._coarseExtrapLower(reference_ind)
 
-            new_positions[:extend_lower, :] = [tuple(extrap_coarse(s)) for s in new_s_lower]
+            new_positions[:extend_lower, :] = [
+                tuple(extrap_coarse(s)) for s in new_s_lower
+            ]
 
         if extend_upper is not 0:
             self.extend_upper_fine += extend_upper
@@ -388,11 +449,11 @@ class FineContour:
 
             # distances from the last point in the FineContour to put initial guesses for
             # new points
-            new_s_upper = numpy.arange(1., extend_upper+1)*ds_upper
+            new_s_upper = numpy.arange(1.0, extend_upper + 1) * ds_upper
 
             # Extend parentCopy to cover range of new_s_upper.
             ds_coarse = calc_distance(parentCopy[-2], parentCopy[-1])
-            coarse_extend = int(extend_upper*ds_upper/ds_coarse)
+            coarse_extend = int(extend_upper * ds_upper / ds_coarse)
             parentCopy.temporaryExtend(extend_upper=coarse_extend, ds_upper=ds_coarse)
 
             # Make sure parentCopy has point at end of existing FineContour - then
@@ -403,13 +464,17 @@ class FineContour:
 
             extrap_coarse = parentCopy._coarseExtrapUpper(reference_ind)
 
-            new_positions[-extend_upper:, :] = [tuple(extrap_coarse(s)) for s in new_s_upper]
+            new_positions[-extend_upper:, :] = [
+                tuple(extrap_coarse(s)) for s in new_s_upper
+            ]
 
         self.positions = new_positions
 
-        self.indices_fine = numpy.linspace(-self.extend_lower_fine,
-                (Nfine - 1 + self.extend_upper_fine),
-                Nfine + self.extend_lower_fine + self.extend_upper_fine)
+        self.indices_fine = numpy.linspace(
+            -self.extend_lower_fine,
+            (Nfine - 1 + self.extend_upper_fine),
+            Nfine + self.extend_lower_fine + self.extend_upper_fine,
+        )
 
         self.startInd = self.extend_lower_fine
         self.endInd = Nfine - 1 + self.extend_lower_fine
@@ -417,7 +482,6 @@ class FineContour:
         self.equaliseSpacing(reallocate=True)
 
     def equaliseSpacing(self, *, reallocate=False):
-    #def equaliseSpacing(self, *, reallocate=False, check=False):
         """
         Adjust the positions of points in this FineContour so they have a constant
         distance between them.
@@ -431,15 +495,16 @@ class FineContour:
         # want constant spacing, so ds has a constant value
         ds_mean = numpy.mean(ds)
         # maximum error
-        ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
+        ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
 
         if FineContour.options.finecontour_diagnose:
             from matplotlib import pyplot
-            print('diagnosing FineContour.__init__()')
-            print('extend_lower_fine', self.extend_lower_fine)
-            print('extend_upper_fine', self.extend_upper_fine)
-            print('ds_error', ds_error)
-            
+
+            print("diagnosing FineContour.__init__()")
+            print("extend_lower_fine", self.extend_lower_fine)
+            print("extend_upper_fine", self.extend_upper_fine)
+            print("ds_error", ds_error)
+
             Rpoints = self.positions[:, 0]
             Zpoints = self.positions[:, 1]
             R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
@@ -448,35 +513,50 @@ class FineContour:
             pyplot.figure()
 
             pyplot.subplot(131)
-            pyplot.contour(R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-            pyplot.plot(Rpoints, Zpoints, marker='x')
-            pyplot.xlabel('R')
-            pyplot.ylabel('Z')
+            pyplot.contour(
+                R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis])
+            )
+            pyplot.plot(Rpoints, Zpoints, marker="x")
+            pyplot.xlabel("R")
+            pyplot.ylabel("Z")
 
             pyplot.subplot(132)
             pyplot.plot(ds)
-            pyplot.ylabel('ds')
+            pyplot.ylabel("ds")
 
             pyplot.subplot(133)
-            pyplot.plot(Rpoints, label='R')
-            pyplot.plot(Zpoints, label='Z')
-            pyplot.xlabel('index')
+            pyplot.plot(Rpoints, label="R")
+            pyplot.plot(Zpoints, label="Z")
+            pyplot.xlabel("index")
             pyplot.legend()
             pyplot.show()
-            
+
         count = 1
         while ds_error > self.options.finecontour_atol:
 
-            if self.options.finecontour_maxits and count > self.options.finecontour_maxits:
-                warnings.warn("FineContour: maximum iterations ({}) exceeded with ds_error {}".format(self.options.finecontour_maxits, ds_error))
+            if (
+                self.options.finecontour_maxits
+                and count > self.options.finecontour_maxits
+            ):
+                warnings.warn(
+                    "FineContour: maximum iterations ({}) exceeded with ds_error {}".format(
+                        self.options.finecontour_maxits, ds_error
+                    )
+                )
                 break
-            
-            sfine = self.totalDistance() / (self.options.finecontour_Nfine - 1) * self.indices_fine
+
+            sfine = (
+                self.totalDistance()
+                / (self.options.finecontour_Nfine - 1)
+                * self.indices_fine
+            )
 
             interpFunc = self.interpFunction()
 
             # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
-            self.positions = numpy.array(tuple(interpFunc(s).as_ndarray() for s in sfine))
+            self.positions = numpy.array(
+                tuple(interpFunc(s).as_ndarray() for s in sfine)
+            )
 
             self.refine()
 
@@ -486,12 +566,12 @@ class FineContour:
             # want constant spacing, so ds has a constant value
             ds_mean = numpy.mean(ds)
             # maximum error
-            ds_error = numpy.max(numpy.sqrt((ds - ds_mean)**2))
+            ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
 
             count += 1
-            
+
             if FineContour.options.finecontour_diagnose:
-                print('iteration', count, '  ds_error', ds_error)
+                print("iteration", count, "  ds_error", ds_error)
 
                 Rpoints = self.positions[:, 0]
                 Zpoints = self.positions[:, 1]
@@ -501,19 +581,23 @@ class FineContour:
                 pyplot.figure()
 
                 pyplot.subplot(131)
-                pyplot.contour(R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-                pyplot.plot(Rpoints, Zpoints, marker='x')
-                pyplot.xlabel('R')
-                pyplot.ylabel('Z')
+                pyplot.contour(
+                    R,
+                    Z,
+                    self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
+                )
+                pyplot.plot(Rpoints, Zpoints, marker="x")
+                pyplot.xlabel("R")
+                pyplot.ylabel("Z")
 
                 pyplot.subplot(132)
                 pyplot.plot(ds)
-                pyplot.ylabel('ds')
+                pyplot.ylabel("ds")
 
                 pyplot.subplot(133)
-                pyplot.plot(Rpoints, label='R')
-                pyplot.plot(Zpoints, label='Z')
-                pyplot.xlabel('index')
+                pyplot.plot(Rpoints, label="R")
+                pyplot.plot(Zpoints, label="Z")
+                pyplot.xlabel("index")
                 pyplot.legend()
                 pyplot.show()
 
@@ -523,16 +607,26 @@ class FineContour:
     def calcDistance(self, *, reallocate=False):
         if self.distance is None or reallocate:
             self.distance = numpy.zeros(self.positions.shape[0])
-        deltaSquared = (self.positions[1:] - self.positions[:-1])**2
+        deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
         self.distance[1:] = numpy.cumsum(numpy.sqrt(numpy.sum(deltaSquared, axis=1)))
 
-    def interpFunction(self, *, kind='cubic'):
+    def interpFunction(self, *, kind="cubic"):
         distance = self.distance - self.distance[self.startInd]
 
-        interpR = interp1d(distance, self.positions[:,0], kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, self.positions[:,1], kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
+        interpR = interp1d(
+            distance,
+            self.positions[:, 0],
+            kind=kind,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
+        interpZ = interp1d(
+            distance,
+            self.positions[:, 1],
+            kind=kind,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
     def refine(self):
@@ -540,17 +634,20 @@ class FineContour:
 
         p = self.positions[0, :]
         tangent = self.positions[1, :] - self.positions[0, :]
-        result[0, :] = self.parentContour.refinePoint(Point2D(*p),
-                Point2D(*tangent)).as_ndarray()
+        result[0, :] = self.parentContour.refinePoint(
+            Point2D(*p), Point2D(*tangent)
+        ).as_ndarray()
         for i in range(1, self.positions.shape[0] - 1):
             p = self.positions[i, :]
-            tangent = self.positions[i+1, :] - self.positions[i-1, :]
-            result[i, :] = self.parentContour.refinePoint(Point2D(*p),
-                    Point2D(*tangent)).as_ndarray()
+            tangent = self.positions[i + 1, :] - self.positions[i - 1, :]
+            result[i, :] = self.parentContour.refinePoint(
+                Point2D(*p), Point2D(*tangent)
+            ).as_ndarray()
         p = self.positions[-1, :]
         tangent = self.positions[-1, :] - self.positions[-2, :]
-        result[-1, :] = self.parentContour.refinePoint(Point2D(*p),
-                Point2D(*tangent)).as_ndarray()
+        result[-1, :] = self.parentContour.refinePoint(
+            Point2D(*p), Point2D(*tangent)
+        ).as_ndarray()
 
         self.positions = result
 
@@ -564,7 +661,7 @@ class FineContour:
         self.startInd = n - 1 - self.endInd
         self.endInd = n - 1 - old_start
 
-    def interpSSperp(self, vec, kind='cubic'):
+    def interpSSperp(self, vec, kind="cubic"):
         """
         Returns:
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
@@ -580,12 +677,13 @@ class FineContour:
         vec_perp[1] = vec[0]
 
         # make vec_perp a unit vector
-        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
+        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp ** 2))
         start_position = self.positions[self.startInd, :]
 
         # s_perp = (vec_perp).(r) where r is the displacement vector of each point from self[self.startInd]
-        s_perp = numpy.sum((self.positions - start_position)*vec_perp[numpy.newaxis, :],
-                axis=1)
+        s_perp = numpy.sum(
+            (self.positions - start_position) * vec_perp[numpy.newaxis, :], axis=1
+        )
 
         # s_perp might not be monotonic in which case s(s_perp) is not well defined.
         # To get around this, if d(s_perp) between two points is negative, flip its sign
@@ -595,19 +693,20 @@ class FineContour:
         # This correction means s_perp is always increasing, regardless of sign of
         # vec_perp, so don't need to check sign of vec_perp when creating it.
         for i in range(self.startInd + 1, len(s_perp)):
-            ds = s_perp[i] - s_perp[i-1]
-            if ds < 0.:
-                s_perp[i:] = 2.*s_perp[i-1] - s_perp[i:]
+            ds = s_perp[i] - s_perp[i - 1]
+            if ds < 0.0:
+                s_perp[i:] = 2.0 * s_perp[i - 1] - s_perp[i:]
         for i in range(self.startInd - 1, -1, -1):
-            ds = s_perp[i+1] - s_perp[i]
-            if ds < 0.:
-                s_perp[:i+1] = 2.*s_perp[i+1] - s_perp[:i+1]
+            ds = s_perp[i + 1] - s_perp[i]
+            if ds < 0.0:
+                s_perp[: i + 1] = 2.0 * s_perp[i + 1] - s_perp[: i + 1]
 
         s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
 
         distance = self.distance - self.distance[self.startInd]
-        s_of_sperp = interp1d(s_perp, distance, kind=kind, assume_sorted=True,
-                fill_value = 'extrapolate')
+        s_of_sperp = interp1d(
+            s_perp, distance, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
 
         return s_of_sperp, s_perp_total
 
@@ -618,8 +717,9 @@ class FineContour:
         """
         p = p.as_ndarray()
 
-        distance_from_points = numpy.sqrt(numpy.sum(
-            (self.positions - p[numpy.newaxis, :])**2, axis=1))
+        distance_from_points = numpy.sqrt(
+            numpy.sum((self.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
 
         # index of closest point
         i1 = numpy.argmin(distance_from_points)
@@ -630,7 +730,7 @@ class FineContour:
             i2 = i1 - 1
         elif i1 - 1 < 0:
             i2 = 1
-        elif distance_from_points[i1+1] < distance_from_points[i1-1]:
+        elif distance_from_points[i1 + 1] < distance_from_points[i1 - 1]:
             i2 = i1 + 1
         else:
             i2 = i1 - 1
@@ -640,10 +740,11 @@ class FineContour:
         # their distances from the point
         r = d2 / (d1 + d2)
 
-        return r*self.distance[i1] + (1. - r)*self.distance[i2]
+        return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
     def plot(self, *args, plotPsi=False, **kwargs):
         from matplotlib import pyplot
+
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
         if plotPsi:
@@ -652,17 +753,16 @@ class FineContour:
             pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
 
+
 class PsiContour:
     """
     Represents a contour as a collection of points.
     Includes methods for interpolation.
     Mostly behaves like a list
     """
-    options = Options(
-        refine_width = 1.e-5,
-        refine_atol = 2.e-8,
-        refine_methods = "line"
-    )
+
+    options = Options(refine_width=1.0e-5, refine_atol=2.0e-8, refine_methods="line")
+
     def __init__(self, points, psi, psival):
         self.points = points
 
@@ -844,7 +944,7 @@ class PsiContour:
         elif minind == len(self) - 1 and d[-2] > calc_distance(self[-1], self[-2]):
             self.append(point)
             return minind + 1
-        elif minind == len(self)-1:
+        elif minind == len(self) - 1:
             self.insert(minind, point)
             return minind
         elif d[minind - 1] > d[minind + 1]:
@@ -874,24 +974,23 @@ class PsiContour:
         self.points = new.points
         self._distance = new._distance
 
-
     def refinePointNewton(self, p, tangent, width, atol):
         """Use Newton iteration to refine point.
         This should converge quickly if the original point is sufficiently close
         """
         f = lambda s: self.psi(*(p + s * tangent)) - self.psival
-        
+
         def dfds(s, eps=1e-10):
-            return (f(s + eps) - f(s))/eps
-        
+            return (f(s + eps) - f(s)) / eps
+
         fprev = f(0.0)
 
-        if numpy.abs(fprev) < atol*numpy.abs(self.psival):
+        if numpy.abs(fprev) < atol * numpy.abs(self.psival):
             # don't need to refine
             return p
 
         attempts = [(0.0, fprev, -1)]
-        
+
         fnext = 0.0
         s = 0.0
         count = 0
@@ -912,52 +1011,64 @@ class PsiContour:
         """Refines the location of a point p, using a line search method 
         along the tangent vector
         """
-        f = lambda R,Z: self.psi(R, Z) - self.psival
-        
-        if numpy.abs(f(*p)) < atol*numpy.abs(self.psival):
+        f = lambda R, Z: self.psi(R, Z) - self.psival
+
+        if numpy.abs(f(*p)) < atol * numpy.abs(self.psival):
             # don't need to refine
             return p
+
         def perpLine(w):
             # p - point through which to draw perpLine
             # tangent - vector tangent to original curve, result will be perpendicular to this
             # w - width on either side of p to draw the perpLine to
-            modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
-            perpIdentityVector = Point2D(tangent.Z/modTangent, -tangent.R/modTangent)
-            return lambda s: p + 2.*(s-0.5)*w*perpIdentityVector
+            modTangent = numpy.sqrt(tangent.R ** 2 + tangent.Z ** 2)
+            perpIdentityVector = Point2D(
+                tangent.Z / modTangent, -tangent.R / modTangent
+            )
+            return lambda s: p + 2.0 * (s - 0.5) * w * perpIdentityVector
 
         w = width
         while True:
             try:
                 pline = perpLine(w)
-                snew, info = brentq(lambda s: f(*pline(s)), 0., 1., xtol=atol, full_output=True)
+                snew, info = brentq(
+                    lambda s: f(*pline(s)), 0.0, 1.0, xtol=atol, full_output=True
+                )
                 if info.converged:
                     return pline(snew)
-                
+
             except ValueError:
                 pass
-            w /= 2.
+            w /= 2.0
             if w < atol:
                 if False:
-                    print('width =',width)
+                    print("width =", width)
                     print("p = ", p)
                     print("psi = {}, psival = {}".format(self.psi(*p), self.psival))
-                    print("Range: {} -> {}".format(f(*pline(0.)), f(*pline(1.))))
-                    
+                    print("Range: {} -> {}".format(f(*pline(0.0)), f(*pline(1.0))))
+
                     pline0 = perpLine(width)
-                    Rbox = numpy.linspace(p.R-.1,p.R+.1,100)[numpy.newaxis,:]
-                    Zbox = numpy.linspace(p.Z-.1,p.Z+.1,100)[:,numpy.newaxis]
-                    svals = numpy.linspace(0., 1., 40)
-                    
+                    Rbox = numpy.linspace(p.R - 0.1, p.R + 0.1, 100)[numpy.newaxis, :]
+                    Zbox = numpy.linspace(p.Z - 0.1, p.Z + 0.1, 100)[:, numpy.newaxis]
+                    svals = numpy.linspace(0.0, 1.0, 40)
+
                     from matplotlib import pyplot
+
                     pyplot.figure()
-                    self.plot('+')
-                    pyplot.contour(Rbox+0.*Zbox,Zbox+0.*Rbox,self.psi(Rbox,Zbox), 200)
-                    pyplot.plot([pline0(s).R for s in svals], [pline0(s).Z for s in svals], 'x')
+                    self.plot("+")
+                    pyplot.contour(
+                        Rbox + 0.0 * Zbox, Zbox + 0.0 * Rbox, self.psi(Rbox, Zbox), 200
+                    )
+                    pyplot.plot(
+                        [pline0(s).R for s in svals], [pline0(s).Z for s in svals], "x"
+                    )
                     pyplot.figure()
                     pyplot.plot([f(*pline0(s)) for s in svals])
                     pyplot.show()
-                raise SolutionError("Could not find interval to refine point at "+str(p))
-    
+                raise SolutionError(
+                    "Could not find interval to refine point at " + str(p)
+                )
+
     def refinePointIntegrate(self, p, tangent, width, atol):
         """Integrates across flux surfaces from p
         
@@ -971,20 +1082,20 @@ class PsiContour:
         def func(psi, position, eps=1e-10):
             R = position[0]
             Z = position[1]
-            psi0 = self.psi(R, Z) # Note: This should be close to psi
+            psi0 = self.psi(R, Z)  # Note: This should be close to psi
             # Calculate derivatives using finite difference
             dpsidr = (self.psi(R + eps, Z) - psi0) / eps
             dpsidz = (self.psi(R, Z + eps) - psi0) / eps
-            norm = 1. / (dpsidr**2 + dpsidz**2) # Common factor
+            norm = 1.0 / (dpsidr ** 2 + dpsidz ** 2)  # Common factor
             return [dpsidr * norm, dpsidz * norm]
 
-        result = solve_ivp(func,
-                           (self.psi(*p), self.psival), # Range of psi
-                           [p.R, p.Z])  # Starting location
+        result = solve_ivp(
+            func, (self.psi(*p), self.psival), [p.R, p.Z]  # Range of psi
+        )  # Starting location
         if not result.success:
             raise SolutionError("refinePointIntegrate failed to converge")
-        return Point2D(*result.y[:,1])
-    
+        return Point2D(*result.y[:, 1])
+
     def refinePoint(self, p, tangent, width=None, atol=None, methods=None):
         """Starting from point p, find a nearby point where 
         self.psi(p) is close to self.psival, by moving along
@@ -1011,16 +1122,21 @@ class PsiContour:
         # Available methods. Note: Currently this selection
         # is done for every point. This would be better done once
         # during __init__ and then re-used.
-        available_methods = {"newton" : self.refinePointNewton,
-                             "line" : self.refinePointLinesearch,
-                             "integrate" : self.refinePointIntegrate,
-                             "integrate+newton" : (lambda p, tangent, width, atol:
-                                                   self.refinePointNewton(
-                                                       self.refinePointIntegrate(
-                                                           p, tangent, width, atol),
-                                                       tangent, width, atol)),
-                             "none" : lambda p, tangent, width, atol: p}
-        
+        available_methods = {
+            "newton": self.refinePointNewton,
+            "line": self.refinePointLinesearch,
+            "integrate": self.refinePointIntegrate,
+            "integrate+newton": (
+                lambda p, tangent, width, atol: self.refinePointNewton(
+                    self.refinePointIntegrate(p, tangent, width, atol),
+                    tangent,
+                    width,
+                    atol,
+                )
+            ),
+            "none": lambda p, tangent, width, atol: p,
+        }
+
         if width is None:
             width = PsiContour.options.refine_width
         if atol is None:
@@ -1028,12 +1144,12 @@ class PsiContour:
 
         assert width is not None
         assert atol is not None
-        
+
         if methods is None:
             methods = PsiContour.options.refine_methods
             if methods is None:
-                methods = "line" # For now, original method
-        
+                methods = "line"  # For now, original method
+
         for method in methods.split(","):
             try:
                 # Try each method
@@ -1041,43 +1157,50 @@ class PsiContour:
             except:
                 # If it fails, try the next one
                 pass
-        
+
         # All methods failed. If the user wants to continue anyway,
         # the last method in the methods list can be set to "none"
         raise SolutionError("refinePoint failed to converge with methods: " + methods)
-        
+
     def getRefined(self, **kwargs):
         newpoints = []
-        newpoints.append(self.refinePoint(self.points[0], self.points[1] - self.points[0],
-            **kwargs))
-        for i,p in enumerate(self.points[1:-1]):
+        newpoints.append(
+            self.refinePoint(self.points[0], self.points[1] - self.points[0], **kwargs)
+        )
+        for i, p in enumerate(self.points[1:-1]):
             # note i+1 here is the index of point p
-            newpoints.append(self.refinePoint(p, self.points[i+2] - self.points[i],
-                **kwargs))
-        newpoints.append(self.refinePoint(self.points[-1], self.points[-1] -
-            self.points[-2], **kwargs))
+            newpoints.append(
+                self.refinePoint(p, self.points[i + 2] - self.points[i], **kwargs)
+            )
+        newpoints.append(
+            self.refinePoint(
+                self.points[-1], self.points[-1] - self.points[-2], **kwargs
+            )
+        )
 
         return self.newContourFromSelf(points=newpoints)
 
     def interpFunction(self):
         return self.fine_contour.interpFunction()
 
-    def _coarseInterp(self, *, kind='cubic'):
-        distance = [0.]
+    def _coarseInterp(self, *, kind="cubic"):
+        distance = [0.0]
         for i in range(len(self) - 1):
-            distance.append(distance[i] + calc_distance(self[i+1], self[i]))
+            distance.append(distance[i] + calc_distance(self[i + 1], self[i]))
         distance = numpy.array(numpy.float64(distance)) - distance[self.startInd]
 
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
 
-        interpR = interp1d(distance, R, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, Z, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
+        interpR = interp1d(
+            distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
+        interpZ = interp1d(
+            distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
         return lambda s: Point2D(interpR(s), interpZ(s)), distance
 
-    def _coarseExtrapLower(self, reference_ind, *, kind='cubic'):
+    def _coarseExtrapLower(self, reference_ind, *, kind="cubic"):
         """
         Returns an interpolation/extrapolation function for points near the beginning of
         this PsiContour, with distances relative to the point at 'reference_ind'.
@@ -1085,21 +1208,23 @@ class PsiContour:
 
         npoints = reference_ind + 4
 
-        distance = [0.]
+        distance = [0.0]
         for i in range(npoints - 1):
-            distance.append(distance[i] + calc_distance(self[i+1], self[i]))
+            distance.append(distance[i] + calc_distance(self[i + 1], self[i]))
         distance = numpy.array(numpy.float64(distance)) - distance[reference_ind]
 
         R = numpy.array(numpy.float64([p.R for p in self.points[:npoints]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[:npoints]]))
 
-        interpR = interp1d(distance, R, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, Z, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
+        interpR = interp1d(
+            distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
+        interpZ = interp1d(
+            distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def _coarseExtrapUpper(self, reference_ind, *, kind='cubic'):
+    def _coarseExtrapUpper(self, reference_ind, *, kind="cubic"):
         """
         Returns an interpolation/extrapolation function for points near the beginning of
         this PsiContour, with distances relative to the point at 'reference_ind'.
@@ -1110,28 +1235,35 @@ class PsiContour:
 
         npoints = (len(self) - 1 - reference_ind) + 4
 
-        distance = [0.]
+        distance = [0.0]
         for i in range(reference_ind - 3, len(self) - 1):
-            distance.append(distance[-1] + calc_distance(self[i+1], self[i]))
+            distance.append(distance[-1] + calc_distance(self[i + 1], self[i]))
         distance = numpy.array(numpy.float64(distance)) - distance[3]
 
         R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))
 
-        interpR = interp1d(distance, R, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
-        interpZ = interp1d(distance, Z, kind=kind,
-                           assume_sorted=True, fill_value='extrapolate')
+        interpR = interp1d(
+            distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
+        interpZ = interp1d(
+            distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self, kind='cubic'):
+    def contourSfunc(self, kind="cubic"):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
         aren't affected by extrapolation errors.
         """
-        interpS = interp1d(numpy.arange(len(self), dtype=float),
-                self.distance, kind=kind, assume_sorted=True, fill_value='extrapolate')
+        interpS = interp1d(
+            numpy.arange(len(self), dtype=float),
+            self.distance,
+            kind=kind,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
         thisStartInd = self.startInd
         thisEndInd = self.endInd
         if thisEndInd < 0:
@@ -1140,9 +1272,15 @@ class PsiContour:
             thisEndInd += len(self)
         startDistance = self.distance[thisStartInd]
         endDistance = self.distance[thisEndInd]
-        return lambda i: numpy.piecewise(i, [i <= 0., i >= thisEndInd - thisStartInd],
-                [0., endDistance - startDistance,
-                 lambda i: interpS(i + thisStartInd) - startDistance])
+        return lambda i: numpy.piecewise(
+            i,
+            [i <= 0.0, i >= thisEndInd - thisStartInd],
+            [
+                0.0,
+                endDistance - startDistance,
+                lambda i: interpS(i + thisStartInd) - startDistance,
+            ],
+        )
 
     def interpSSperp(self, vec):
         """
@@ -1162,8 +1300,16 @@ class PsiContour:
         self.setSelfToContour(self.getRegridded(*args, **kwargs))
         return self
 
-    def getRegridded(self, npoints, *, width=None, atol=None, sfunc=None,
-            extend_lower=None, extend_upper=None):
+    def getRegridded(
+        self,
+        npoints,
+        *,
+        width=None,
+        atol=None,
+        sfunc=None,
+        extend_lower=None,
+        extend_upper=None,
+    ):
         """
         Interpolate onto set of npoints points, then refine positions.
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
@@ -1184,20 +1330,30 @@ class PsiContour:
             self.extend_lower = extend_lower
         if extend_upper is not None:
             self.extend_upper = extend_upper
-        self.temporaryExtend(extend_lower=self.extend_lower,
-                extend_upper=self.extend_upper, ds_lower=calc_distance(self[1], self[0]),
-                ds_upper=calc_distance(self[-2], self[-1]))
+        self.temporaryExtend(
+            extend_lower=self.extend_lower,
+            extend_upper=self.extend_upper,
+            ds_lower=calc_distance(self[1], self[0]),
+            ds_upper=calc_distance(self[-2], self[-1]),
+        )
 
-        indices = numpy.linspace(-self.extend_lower, (npoints - 1 + self.extend_upper),
-                npoints + self.extend_lower + self.extend_upper)
+        indices = numpy.linspace(
+            -self.extend_lower,
+            (npoints - 1 + self.extend_upper),
+            npoints + self.extend_lower + self.extend_upper,
+        )
         if sfunc is not None:
             s = sfunc(indices)
 
             # offset fine_contour.interpFunction in case sfunc(0.)!=0.
-            sbegin = sfunc(0.)
+            sbegin = sfunc(0.0)
         else:
-            s = (self.distance[self.endInd] - self.distance[self.startInd]) / (npoints - 1) * indices
-            sbegin = 0.
+            s = (
+                (self.distance[self.endInd] - self.distance[self.startInd])
+                / (npoints - 1)
+                * indices
+            )
+            sbegin = 0.0
 
         # Check s does not go beyond the end of self.fine_contour
         # If self._fine_contour is reset to None later on, this extension will be lost,
@@ -1206,15 +1362,30 @@ class PsiContour:
         orig_extend_lower = self.fine_contour.extend_lower_fine
         orig_extend_upper = self.fine_contour.extend_upper_fine
 
-        tol_lower = 0.25*(self.fine_contour.distance[1] - self.fine_contour.distance[0])
-        while s[0] < -self.fine_contour.distance[self._fine_contour.startInd] - tol_lower:
-            new_extend_lower = self.fine_contour.extend_lower_fine + max(orig_extend_lower,1)
-            self._fine_contour.extend(extend_lower=max(orig_extend_lower,1))
+        tol_lower = 0.25 * (
+            self.fine_contour.distance[1] - self.fine_contour.distance[0]
+        )
+        while (
+            s[0] < -self.fine_contour.distance[self._fine_contour.startInd] - tol_lower
+        ):
+            new_extend_lower = self.fine_contour.extend_lower_fine + max(
+                orig_extend_lower, 1
+            )
+            self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1))
 
-        tol_upper = 0.25*(self.fine_contour.distance[-1] - self.fine_contour.distance[-2])
-        while s[-1] > self.fine_contour.distance[-1] - self.fine_contour.distance[self.fine_contour.startInd] + tol_upper:
-            new_extend_upper = self.fine_contour.extend_upper_fine + max(orig_extend_upper, 1)
-            self._fine_contour.extend(extend_upper=max(orig_extend_upper,1))
+        tol_upper = 0.25 * (
+            self.fine_contour.distance[-1] - self.fine_contour.distance[-2]
+        )
+        while (
+            s[-1]
+            > self.fine_contour.distance[-1]
+            - self.fine_contour.distance[self.fine_contour.startInd]
+            + tol_upper
+        ):
+            new_extend_upper = self.fine_contour.extend_upper_fine + max(
+                orig_extend_upper, 1
+            )
+            self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1))
 
         interp_unadjusted = self.fine_contour.interpFunction()
         interp = lambda s: interp_unadjusted(s - sbegin)
@@ -1228,7 +1399,7 @@ class PsiContour:
 
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use width/100. instead of 'width'
-        new_contour.refine(width=width/100., atol=atol)
+        new_contour.refine(width=width / 100.0, atol=atol)
 
         # Pass already converged fine_contour to new_contour
         new_contour._fine_contour = self.fine_contour
@@ -1244,49 +1415,60 @@ class PsiContour:
         # check first point
         p = numpy.array([*self[0]])
         distances = numpy.sqrt(
-                numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :])**2, axis=1))
+            numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
         minind = numpy.argmin(distances)
         # if minind > 0, or the distance to point 1 is less than the distance between
         # point 0 and point 1 of the fine_contour, then fine_contour extends past p so
         # does not need to be extended
-        if (minind == 0
-            and distances[1] > numpy.sqrt(numpy.sum(
-                (self.fine_contour.positions[1, :]
-                 - self.fine_contour.positions[0, :])**2))):
+        if minind == 0 and distances[1] > numpy.sqrt(
+            numpy.sum(
+                (self.fine_contour.positions[1, :] - self.fine_contour.positions[0, :])
+                ** 2
+            )
+        ):
 
             ds = self.fine_contour.distance[1] - self.fine_contour.distance[0]
-            n_extend_lower = max(int(numpy.ceil(distances[0]/ds)), 1)
+            n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
         else:
             n_extend_lower = 0
 
         # check last point
         p = numpy.array([*self[-1]])
         distances = numpy.sqrt(
-                numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :])**2, axis=1))
+            numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
         minind = numpy.argmin(distances)
         # if minind < len(distances)-1, or the distance to the last point is less than the
         # distance between the last and second-last of the fine_contour, then fine_contour
         # extends past p so does not need to be extended
-        if (minind == len(distances) - 1
-            and distances[-2] > numpy.sqrt(numpy.sum(
-                (self.fine_contour.positions[-1, :]
-                 - self.fine_contour.positions[-2, :])**2))):
+        if minind == len(distances) - 1 and distances[-2] > numpy.sqrt(
+            numpy.sum(
+                (
+                    self.fine_contour.positions[-1, :]
+                    - self.fine_contour.positions[-2, :]
+                )
+                ** 2
+            )
+        ):
 
             ds = self.fine_contour.distance[-1] - self.fine_contour.distance[-2]
-            n_extend_upper = max(int(numpy.ceil(distances[-1]/ds)), 1)
+            n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
         else:
             n_extend_upper = 0
 
         if n_extend_lower == 0 and n_extend_upper == 0:
             return
         else:
-            self.fine_contour.extend(extend_lower=n_extend_lower,
-                                     extend_upper=n_extend_upper)
+            self.fine_contour.extend(
+                extend_lower=n_extend_lower, extend_upper=n_extend_upper
+            )
             # Call recursively to check extending has gone far enough
             self.checkFineContourExtend()
 
-    def temporaryExtend(self, *, extend_lower=0, extend_upper=0, ds_lower=None,
-            ds_upper=None):
+    def temporaryExtend(
+        self, *, extend_lower=0, extend_upper=0, ds_lower=None, ds_upper=None
+    ):
         """
         Add temporary guard-cell points to the beginning and/or end of a contour
         Use coarseInterp to extrapolate as using a bigger spacing gives a more stable
@@ -1319,6 +1501,7 @@ class PsiContour:
 
     def plot(self, *args, plotPsi=False, **kwargs):
         from matplotlib import pyplot
+
         Rpoints = [p.R for p in self]
         Zpoints = [p.Z for p in self]
         if plotPsi:
@@ -1326,6 +1509,7 @@ class PsiContour:
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
             pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+
 
 class EquilibriumRegion(PsiContour):
     """
@@ -1335,28 +1519,31 @@ class EquilibriumRegion(PsiContour):
     boundaries where the contour starts or ends.
     """
 
-    def __init__(self, equilibrium, name, nSegments, user_options, options, *args,
-            **kwargs):
+    def __init__(
+        self, equilibrium, name, nSegments, user_options, options, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.equilibrium = equilibrium
         self.name = name
         self.nSegments = nSegments
 
-        self.user_options  = user_options
+        self.user_options = user_options
 
         # Set up options for this object: poloidal spacing options need setting
         self.options = options.copy()
 
         # Set object-specific options
-        assert self.options.nx is not None, 'nx must be set'
-        assert self.options.ny is not None, 'ny must be set'
+        assert self.options.nx is not None, "nx must be set"
+        assert self.options.ny is not None, "ny must be set"
 
         # Allow options to be overridden by kwargs
         self.options = self.options.push(kwargs)
 
         self.setupOptions(force=False)
         self.ny_noguards = self.options.ny
-        self.global_xind = 0 # 0 since EquilibriumRegion represents the contour at the separatrix
+        self.global_xind = (
+            0  # 0 since EquilibriumRegion represents the contour at the separatrix
+        )
 
         self.xPointsAtStart = []
         self.xPointsAtEnd = []
@@ -1376,11 +1563,11 @@ class EquilibriumRegion(PsiContour):
         self.xPointsAtStart.append(None)
         self.xPointsAtEnd.append(None)
         for i in range(nSegments):
-            c = {'inner':None, 'outer':None, 'lower':None, 'upper':None}
+            c = {"inner": None, "outer": None, "lower": None, "upper": None}
             if i > 0:
-                c['inner'] = (self.name, i - 1)
+                c["inner"] = (self.name, i - 1)
             if i < nSegments - 1:
-                c['outer'] = (self.name, i + 1)
+                c["outer"] = (self.name, i + 1)
             self.connections.append(c)
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
@@ -1393,50 +1580,99 @@ class EquilibriumRegion(PsiContour):
                 setDefault(self.options, key, val)
 
         # Set default values depending on options.kind
-        if self.options.kind.split('.')[0] == 'wall':
-            setoption('sqrt_b_lower', self.user_options.target_poloidal_spacing_length)
-            setoption('monotonic_d_lower', self.user_options.nonorthogonal_target_poloidal_spacing_length)
-            setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_target_poloidal_spacing_range)
-            setoption('nonorthogonal_range_lower_inner',
-                    self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
-            setoption('nonorthogonal_range_lower_outer',
-                    self.user_options.nonorthogonal_target_poloidal_spacing_range_outer)
-        elif self.options.kind.split('.')[0] == 'X':
-            setoption('sqrt_a_lower', self.user_options.xpoint_poloidal_spacing_length)
-            setoption('sqrt_b_lower', 0.)
-            setoption('monotonic_d_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setoption('nonorthogonal_range_lower', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-            setoption('nonorthogonal_range_lower_inner',
-                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
-            setoption('nonorthogonal_range_lower_outer',
-                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer)
+        if self.options.kind.split(".")[0] == "wall":
+            setoption("sqrt_b_lower", self.user_options.target_poloidal_spacing_length)
+            setoption(
+                "monotonic_d_lower",
+                self.user_options.nonorthogonal_target_poloidal_spacing_length,
+            )
+            setoption(
+                "nonorthogonal_range_lower",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range,
+            )
+            setoption(
+                "nonorthogonal_range_lower_inner",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range_inner,
+            )
+            setoption(
+                "nonorthogonal_range_lower_outer",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range_outer,
+            )
+        elif self.options.kind.split(".")[0] == "X":
+            setoption("sqrt_a_lower", self.user_options.xpoint_poloidal_spacing_length)
+            setoption("sqrt_b_lower", 0.0)
+            setoption(
+                "monotonic_d_lower",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_length,
+            )
+            setoption(
+                "nonorthogonal_range_lower",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+            )
+            setoption(
+                "nonorthogonal_range_lower_inner",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner,
+            )
+            setoption(
+                "nonorthogonal_range_lower_outer",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer,
+            )
         else:
-            raise ValueError('Unrecognized value before \'.\' in kind=' + str(kind))
-        if self.options.kind.split('.')[1] == 'wall':
-            setoption('sqrt_b_upper', self.user_options.target_poloidal_spacing_length)
-            setoption('monotonic_d_upper', self.user_options.nonorthogonal_target_poloidal_spacing_length)
-            setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_target_poloidal_spacing_range)
-            setoption('nonorthogonal_range_upper_inner',
-                    self.user_options.nonorthogonal_target_poloidal_spacing_range_inner)
-            setoption('nonorthogonal_range_upper_outer',
-                    self.user_options.nonorthogonal_target_poloidal_spacing_range_outer)
-        elif self.options.kind.split('.')[1] == 'X':
-            setoption('sqrt_a_upper', self.user_options.xpoint_poloidal_spacing_length)
-            setoption('sqrt_b_upper', 0.)
-            setoption('monotonic_d_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_length)
-            setoption('nonorthogonal_range_upper', self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-            setoption('nonorthogonal_range_upper_inner',
-                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner)
-            setoption('nonorthogonal_range_upper_outer',
-                    self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer)
+            raise ValueError("Unrecognized value before '.' in kind=" + str(kind))
+        if self.options.kind.split(".")[1] == "wall":
+            setoption("sqrt_b_upper", self.user_options.target_poloidal_spacing_length)
+            setoption(
+                "monotonic_d_upper",
+                self.user_options.nonorthogonal_target_poloidal_spacing_length,
+            )
+            setoption(
+                "nonorthogonal_range_upper",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range,
+            )
+            setoption(
+                "nonorthogonal_range_upper_inner",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range_inner,
+            )
+            setoption(
+                "nonorthogonal_range_upper_outer",
+                self.user_options.nonorthogonal_target_poloidal_spacing_range_outer,
+            )
+        elif self.options.kind.split(".")[1] == "X":
+            setoption("sqrt_a_upper", self.user_options.xpoint_poloidal_spacing_length)
+            setoption("sqrt_b_upper", 0.0)
+            setoption(
+                "monotonic_d_upper",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_length,
+            )
+            setoption(
+                "nonorthogonal_range_upper",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+            )
+            setoption(
+                "nonorthogonal_range_upper_inner",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner,
+            )
+            setoption(
+                "nonorthogonal_range_upper_outer",
+                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer,
+            )
         else:
-            raise ValueError('Unrecognized value before \'.\' in self.options.kind='
-                    + str(self.options.kind))
+            raise ValueError(
+                "Unrecognized value before '.' in self.options.kind="
+                + str(self.options.kind)
+            )
 
     def copy(self):
-        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
-                self.user_options, self.options, deepcopy(self.points), self.psi,
-                self.psival)
+        result = EquilibriumRegion(
+            self.equilibrium,
+            self.name,
+            self.nSegments,
+            self.user_options,
+            self.options,
+            deepcopy(self.points),
+            self.psi,
+            self.psival,
+        )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
@@ -1451,9 +1687,16 @@ class EquilibriumRegion(PsiContour):
         return result
 
     def newRegionFromPsiContour(self, contour):
-        result = EquilibriumRegion(self.equilibrium, self.name, self.nSegments,
-                self.user_options, self.options, contour.points, contour.psi,
-                contour.psival)
+        result = EquilibriumRegion(
+            self.equilibrium,
+            self.name,
+            self.nSegments,
+            self.user_options,
+            self.options,
+            contour.points,
+            contour.psi,
+            contour.psival,
+        )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
         result.wallSurfaceAtStart = deepcopy(self.wallSurfaceAtStart)
@@ -1471,97 +1714,122 @@ class EquilibriumRegion(PsiContour):
         # Get ny for a segment of this EquilibriumRegion, including any y-boundary guard
         # cells
         result = self.ny_noguards
-        if self.connections[radialIndex]['lower'] is None:
+        if self.connections[radialIndex]["lower"] is None:
             result += self.user_options.y_boundary_guards
-        if self.connections[radialIndex]['upper'] is None:
+        if self.connections[radialIndex]["upper"] is None:
             result += self.user_options.y_boundary_guards
         return result
 
     def nxOutsideSeparatrix(self):
         # Note: includes point at separatrix
-        return 1 + sum(2*n for n in self.options.nx[self.separatrix_radial_index:])
+        return 1 + sum(2 * n for n in self.options.nx[self.separatrix_radial_index :])
 
     def nxInsideSeparatrix(self):
         # Note: also includes point at separatrix
-        return 1 + sum(2*n for n in self.options.nx[:self.separatrix_radial_index])
+        return 1 + sum(2 * n for n in self.options.nx[: self.separatrix_radial_index])
 
     def getRefined(self, *args, **kwargs):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
     def getRegridded(self, *, radialIndex, **kwargs):
-        for wrong_argument in ['npoints', 'extend_lower', 'extend_upper', 'sfunc']:
+        for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
             # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its own
             # ny and connections, so must use these
             if wrong_argument in kwargs:
-                raise ValueError("'"+wrong_argument+"' should not be given as an "
-                        "argument to EquilibriumRegion.getRegridded")
-        if self.connections[radialIndex]['lower'] is None:
-            extend_lower = 2*self.user_options.y_boundary_guards
+                raise ValueError(
+                    "'" + wrong_argument + "' should not be given as an "
+                    "argument to EquilibriumRegion.getRegridded"
+                )
+        if self.connections[radialIndex]["lower"] is None:
+            extend_lower = 2 * self.user_options.y_boundary_guards
         else:
             extend_lower = 0
-        if self.connections[radialIndex]['upper'] is None:
-            extend_upper = 2*self.user_options.y_boundary_guards
+        if self.connections[radialIndex]["upper"] is None:
+            extend_upper = 2 * self.user_options.y_boundary_guards
         else:
             extend_upper = 0
-        sfunc = self.getSfuncFixedSpacing(2*self.ny_noguards+1,
-                self.distance[self.endInd] - self.distance[self.startInd])
-        return self.newRegionFromPsiContour(super().getRegridded(2*self.ny_noguards + 1,
-            extend_lower=extend_lower, extend_upper=extend_upper, sfunc=sfunc, **kwargs))
+        sfunc = self.getSfuncFixedSpacing(
+            2 * self.ny_noguards + 1,
+            self.distance[self.endInd] - self.distance[self.startInd],
+        )
+        return self.newRegionFromPsiContour(
+            super().getRegridded(
+                2 * self.ny_noguards + 1,
+                extend_lower=extend_lower,
+                extend_upper=extend_upper,
+                sfunc=sfunc,
+                **kwargs,
+            )
+        )
 
-    def _checkMonotonic(self, sfunc_list, *, xind=None, total_distance=0., prefix=''):
+    def _checkMonotonic(self, sfunc_list, *, xind=None, total_distance=0.0, prefix=""):
         # Check new_sfunc is monotonically increasing
-        indices = numpy.arange(-self.extend_lower,
-                2*self.ny_noguards + self.extend_upper + 1, dtype=float)
+        indices = numpy.arange(
+            -self.extend_lower,
+            2 * self.ny_noguards + self.extend_upper + 1,
+            dtype=float,
+        )
         scheck = sfunc_list[0][0](indices)
         if numpy.any(scheck[1:] < scheck[:-1]):
             from matplotlib import pyplot
-            print('at global xind', xind)
+
+            print("at global xind", xind)
             pyplot.figure()
             for sfunc, label in sfunc_list:
                 if sfunc is not None:
                     pyplot.plot(indices, sfunc(indices), label=label)
-            pyplot.axhline(0.)
+            pyplot.axhline(0.0)
             pyplot.axhline(total_distance)
             pyplot.legend()
             pyplot.show()
             decreasing = numpy.where(scheck[1:] < scheck[:-1])[0] + 1
-            raise ValueError('In region ' + self.name + 'combined spacing function is '
-                    + 'decreasing at indices ' + str(decreasing) + ' on contour of '
-                    + 'length ' + str(len(self)) + '. It may help to increase/decrease '
-                    + prefix + 'target_poloidal_spacing_length or '
-                    + prefix + 'xpoint_poloidal_spacing_length.')
+            raise ValueError(
+                f"In region {self.name} combined spacing function is decreasing at "
+                f"indices {decreasing} on contour of length {len(self)}. It may help to "
+                f"increase/decrease {prefix}target_poloidal_spacing_length or "
+                f"{prefix}xpoint_poloidal_spacing_length."
+            )
 
     def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
         if method is None:
             if self.user_options.orthogonal:
                 method = self.user_options.poloidal_spacing_method
             else:
-                method = 'nonorthogonal'
+                method = "nonorthogonal"
 
-        if method == 'sqrt':
+        if method == "sqrt":
             if self.user_options.poloidalfunction_diagnose:
-                print('in sqrt method:')
-                print('N_norm =', self.options.N_norm)
-                print('a_lower =', self.options.sqrt_a_lower)
-                print('b_lower =', self.options.sqrt_b_lower)
-                print('a_upper =', self.options.sqrt_a_upper)
-                print('b_upper =', self.options.sqrt_b_upper)
-            sfunc = self.getSqrtPoloidalDistanceFunc(distance, npoints-1,
-                    self.options.N_norm, b_lower=self.options.sqrt_b_lower,
-                    a_lower=self.options.sqrt_a_lower, b_upper=self.options.sqrt_b_upper,
-                    a_upper=self.options.sqrt_a_upper)
-            self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
-        elif method == 'monotonic':
-            sfunc = self.getMonotonicPoloidalDistanceFunc(distance, npoints-1,
-                    self.options.N_norm, d_lower=self.options.monotonic_d_lower,
-                    d_upper=self.options.monotonic_d_upper)
-            self._checkMonotonic([(sfunc, 'sqrt')], total_distance=distance)
-        elif method == 'nonorthogonal':
+                print("in sqrt method:")
+                print("N_norm =", self.options.N_norm)
+                print("a_lower =", self.options.sqrt_a_lower)
+                print("b_lower =", self.options.sqrt_b_lower)
+                print("a_upper =", self.options.sqrt_a_upper)
+                print("b_upper =", self.options.sqrt_b_upper)
+            sfunc = self.getSqrtPoloidalDistanceFunc(
+                distance,
+                npoints - 1,
+                self.options.N_norm,
+                b_lower=self.options.sqrt_b_lower,
+                a_lower=self.options.sqrt_a_lower,
+                b_upper=self.options.sqrt_b_upper,
+                a_upper=self.options.sqrt_a_upper,
+            )
+            self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
+        elif method == "monotonic":
+            sfunc = self.getMonotonicPoloidalDistanceFunc(
+                distance,
+                npoints - 1,
+                self.options.N_norm,
+                d_lower=self.options.monotonic_d_lower,
+                d_upper=self.options.monotonic_d_upper,
+            )
+            self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
+        elif method == "nonorthogonal":
             nonorth_method = self.user_options.nonorthogonal_spacing_method
-            if nonorth_method == 'poloidal_orthogonal_combined':
+            if nonorth_method == "poloidal_orthogonal_combined":
                 return self.combineSfuncs(self, None)
-            elif nonorth_method == 'perp_orthogonal_combined':
+            elif nonorth_method == "perp_orthogonal_combined":
                 if self.wallSurfaceAtStart is not None:
                     # surface is a wall
                     lower_surface = self.wallSurfaceAtStart
@@ -1583,31 +1851,36 @@ class EquilibriumRegion(PsiContour):
                     upper_surface = None
 
                 sfunc = self.combineSfuncs(self, None, lower_surface, upper_surface)
-            elif nonorth_method == 'combined':
+            elif nonorth_method == "combined":
                 # Use fixed poloidal spacing when gridding the separatrix contour so that
                 # the grid spacing is the same in different regions which share a
                 # separatrix segment but have different perpendicular vectors at the
                 # X-point
                 return self.combineSfuncs(self, None)
-            elif nonorth_method == 'orthogonal':
+            elif nonorth_method == "orthogonal":
                 orth_method = self.user_options.poloidal_spacing_method
                 sfunc = self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
             else:
-                sfunc = self.getSfuncFixedSpacing(npoints, distance, method=nonorth_method)
+                sfunc = self.getSfuncFixedSpacing(
+                    npoints, distance, method=nonorth_method
+                )
         else:
-            raise ValueError('Unrecognized option '
-                             + str(self.user_options.poloidal_spacing_method)
-                             + ' for poloidal spacing method')
+            raise ValueError(
+                "Unrecognized option "
+                + str(self.user_options.poloidal_spacing_method)
+                + " for poloidal spacing method"
+            )
 
         if self.user_options.poloidalfunction_diagnose:
             from matplotlib import pyplot
-            indices = numpy.linspace(0., npoints - 1, 1000)
+
+            indices = numpy.linspace(0.0, npoints - 1, 1000)
             pyplot.plot(indices, sfunc(indices))
-            pyplot.axhline(0., color='r')
-            pyplot.axhline(distance, color='r')
-            pyplot.xlabel('index')
-            pyplot.ylabel('s')
-            pyplot.title(self.name + ' ' + method)
+            pyplot.axhline(0.0, color="r")
+            pyplot.axhline(distance, color="r")
+            pyplot.xlabel("index")
+            pyplot.ylabel("s")
+            pyplot.title(self.name + " " + method)
             pyplot.show()
 
         return sfunc
@@ -1625,17 +1898,21 @@ class EquilibriumRegion(PsiContour):
         #   same spacing is given
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
-                    2*self.ny_noguards + 1, contour.totalDistance(), method='monotonic')
+                2 * self.ny_noguards + 1, contour.totalDistance(), method="monotonic"
+            )
         else:
             sfunc_fixed_lower, sperp_func_lower = self.getSfuncFixedPerpSpacing(
-                    2*self.ny_noguards + 1, contour, vec_lower, True)
+                2 * self.ny_noguards + 1, contour, vec_lower, True
+            )
 
         if vec_upper is None:
             sfunc_fixed_upper = self.getSfuncFixedSpacing(
-                    2*self.ny_noguards + 1, contour.totalDistance(), method='monotonic')
+                2 * self.ny_noguards + 1, contour.totalDistance(), method="monotonic"
+            )
         else:
             sfunc_fixed_upper, sperp_func_upper = self.getSfuncFixedPerpSpacing(
-                    2*self.ny_noguards + 1, contour, vec_upper, False)
+                2 * self.ny_noguards + 1, contour, vec_upper, False
+            )
 
         if self.options.nonorthogonal_range_lower is not None:
             range_lower = self.options.nonorthogonal_range_lower
@@ -1657,7 +1934,7 @@ class EquilibriumRegion(PsiContour):
 
         N_norm = self.options.N_norm
 
-        index_length = 2.*self.ny_noguards
+        index_length = 2.0 * self.ny_noguards
 
         # Set up radial variation of weights
         if range_lower is not None:
@@ -1666,24 +1943,41 @@ class EquilibriumRegion(PsiContour):
             # radial derivative at the separatrix
             ix = float(contour.global_xind)
             if ix >= 0:
-                xweight = (ix / (self.nxOutsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
-                this_range_lower = (1. - xweight)*range_lower + xweight*range_lower_outer
+                xweight = (
+                    ix / (self.nxOutsideSeparatrix() - 1.0)
+                ) ** self.user_options.nonorthogonal_radial_range_power
+                this_range_lower = (
+                    1.0 - xweight
+                ) * range_lower + xweight * range_lower_outer
             else:
-                xweight = (-ix / (self.nxInsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
-                this_range_lower = (1. - xweight)*range_lower + xweight*range_lower_inner
+                xweight = (
+                    -ix / (self.nxInsideSeparatrix() - 1.0)
+                ) ** self.user_options.nonorthogonal_radial_range_power
+                this_range_lower = (
+                    1.0 - xweight
+                ) * range_lower + xweight * range_lower_inner
         if range_upper is not None:
             # this_range_upper is range_upper at separatrix, range_upper_outer at outer
             # radial boundary, range_upper_inner at inner radial boundary and has zero
             # radial derivative at the separatrix
             ix = float(contour.global_xind)
             if ix >= 0:
-                xweight = (ix / (self.nxOutsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
-                this_range_upper = (1. - xweight)*range_upper + xweight*range_upper_outer
+                xweight = (
+                    ix / (self.nxOutsideSeparatrix() - 1.0)
+                ) ** self.user_options.nonorthogonal_radial_range_power
+                this_range_upper = (
+                    1.0 - xweight
+                ) * range_upper + xweight * range_upper_outer
             else:
-                xweight = (-ix / (self.nxInsideSeparatrix() - 1.))**self.user_options.nonorthogonal_radial_range_power
-                this_range_upper = (1. - xweight)*range_upper + xweight*range_upper_inner
+                xweight = (
+                    -ix / (self.nxInsideSeparatrix() - 1.0)
+                ) ** self.user_options.nonorthogonal_radial_range_power
+                this_range_upper = (
+                    1.0 - xweight
+                ) * range_upper + xweight * range_upper_inner
 
         if range_lower is not None and range_upper is not None:
+
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
 
@@ -1696,21 +1990,35 @@ class EquilibriumRegion(PsiContour):
 
                 # define weight_lower so it is 1. at the lower boundary and 0. at the
                 # upper boundary and the gradient is zero at both boundaries
-                weight_lower = numpy.piecewise(i,
-                        [i < 0., i > index_length],
-                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)])
+                weight_lower = numpy.piecewise(
+                    i,
+                    [i < 0.0, i > index_length],
+                    [
+                        1.0,
+                        0.0,
+                        lambda i: numpy.exp(-((i / N_norm / this_range_lower) ** 2)),
+                    ],
+                )
 
                 # define weight_upper so it is 1. at the upper boundary and 0. at the
                 # lower boundary and the gradient is zero at both boundaries
-                weight_upper = numpy.piecewise(i,
-                    [i < 0., i > index_length],
-                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)])
+                weight_upper = numpy.piecewise(
+                    i,
+                    [i < 0.0, i > index_length],
+                    [
+                        0.0,
+                        1.0,
+                        lambda i: numpy.exp(
+                            -(((index_length - i) / N_norm / this_range_upper) ** 2)
+                        ),
+                    ],
+                )
 
                 # make sure weight_lower + weight_upper <= 1
                 weight = weight_lower + weight_upper
-                weight_over_slice = weight[weight > 1.]
-                weight_lower[weight > 1.] /= weight_over_slice
-                weight_upper[weight > 1.] /= weight_over_slice
+                weight_over_slice = weight[weight > 1.0]
+                weight_lower[weight > 1.0] /= weight_over_slice
+                weight_upper[weight > 1.0] /= weight_over_slice
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1719,10 +2027,18 @@ class EquilibriumRegion(PsiContour):
                     # separatrix keep the same values when pushing the other contours
                     # towards orthogonal positions
                     # s = weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight_lower - weight_upper)*s
-                    sorth = (weight_lower*sfixed_lower + weight_upper*sfixed_upper) / (weight_lower + weight_upper)
+                    sorth = (
+                        weight_lower * sfixed_lower + weight_upper * sfixed_upper
+                    ) / (weight_lower + weight_upper)
 
-                return weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight_lower - weight_upper)*sorth
+                return (
+                    weight_lower * sfixed_lower
+                    + weight_upper * sfixed_upper
+                    + (1.0 - weight_lower - weight_upper) * sorth
+                )
+
         elif range_lower is not None:
+
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
 
@@ -1733,9 +2049,15 @@ class EquilibriumRegion(PsiContour):
 
                 # define weight_lower so it is 1. at the lower boundary and the gradient
                 # is zero at the lower boundary.
-                weight_lower = numpy.piecewise(i,
-                        [i < 0., i > index_length],
-                        [1., 0., lambda i: numpy.exp(-(i/N_norm/this_range_lower)**2)])
+                weight_lower = numpy.piecewise(
+                    i,
+                    [i < 0.0, i > index_length],
+                    [
+                        1.0,
+                        0.0,
+                        lambda i: numpy.exp(-((i / N_norm / this_range_lower) ** 2)),
+                    ],
+                )
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1746,8 +2068,10 @@ class EquilibriumRegion(PsiContour):
                     # s = weight_lower*sfixed_lower + (1. - weight_lower)*s
                     sorth = sfixed_lower
 
-                return (weight_lower)*sfixed_lower + (1. - weight_lower) * sorth
+                return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
+
         elif range_upper is not None:
+
             def new_sfunc(i):
                 sfixed_upper = sfunc_fixed_upper(i)
 
@@ -1758,9 +2082,17 @@ class EquilibriumRegion(PsiContour):
 
                 # define weight_upper so it is 1. at the upper boundary and the gradient
                 # is zero at the upper boundary.
-                weight_upper = numpy.piecewise(i,
-                    [i < 0., i > index_length],
-                    [0., 1., lambda i: numpy.exp(-((index_length - i)/N_norm/this_range_upper)**2)])
+                weight_upper = numpy.piecewise(
+                    i,
+                    [i < 0.0, i > index_length],
+                    [
+                        0.0,
+                        1.0,
+                        lambda i: numpy.exp(
+                            -(((index_length - i) / N_norm / this_range_upper) ** 2)
+                        ),
+                    ],
+                )
 
                 if sorth is None:
                     # Fix spacing so that if we call combineSfuncs again for this contour
@@ -1771,28 +2103,48 @@ class EquilibriumRegion(PsiContour):
                     # s = weight_upper*sfixed_upper + (1. - weight_upper)*s
                     sorth = sfixed_upper
 
-                return (weight_upper)*sfixed_upper + (1. - weight_upper) * sorth
+                return (weight_upper) * sfixed_upper + (1.0 - weight_upper) * sorth
+
         else:
-            assert sfunc_orthogonal is not None, 'Without range_lower or range_upper, cannot use with sfunc_orthogonal=None'
+            assert (
+                sfunc_orthogonal is not None
+            ), "Without range_lower or range_upper, cannot use with sfunc_orthogonal=None"
+
             def new_sfunc(i):
                 return sfunc_orthogonal(i)
 
         try:
-            self._checkMonotonic([(new_sfunc, 'combined'), (sfunc_orthogonal, 'orthogonal'),
-                (sfunc_fixed_lower, 'fixed perp lower'), (sfunc_fixed_upper, 'fixed perp upper')],
-                xind=contour.global_xind, total_distance=contour.totalDistance(),
-                prefix='nonorthogonal_')
+            self._checkMonotonic(
+                [
+                    (new_sfunc, "combined"),
+                    (sfunc_orthogonal, "orthogonal"),
+                    (sfunc_fixed_lower, "fixed perp lower"),
+                    (sfunc_fixed_upper, "fixed perp upper"),
+                ],
+                xind=contour.global_xind,
+                total_distance=contour.totalDistance(),
+                prefix="nonorthogonal_",
+            )
         except ValueError:
-            print('check lower ranges', range_lower_inner, range_lower, range_lower_outer,
-                    this_range_lower)
-            print('check upper ranges', range_upper_inner, range_upper, range_upper_outer,
-                    this_range_upper)
+            print(
+                "check lower ranges",
+                range_lower_inner,
+                range_lower,
+                range_lower_outer,
+                this_range_lower,
+            )
+            print(
+                "check upper ranges",
+                range_upper_inner,
+                range_upper,
+                range_upper_outer,
+                this_range_upper,
+            )
             raise
 
         return new_sfunc
 
-    def getSfuncFixedPerpSpacing(self, N, contour,
-            surface_direction, lower):
+    def getSfuncFixedPerpSpacing(self, N, contour, surface_direction, lower):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct so that ds_perp/diN = d_lower at the lower end or ds_perp/diN = d_upper
@@ -1812,8 +2164,9 @@ class EquilibriumRegion(PsiContour):
             d_upper = self.options.monotonic_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
-        sperp_func = self.getMonotonicPoloidalDistanceFunc(s_perp_total, N - 1, N_norm,
-                d_lower=d_lower, d_upper=d_upper)
+        sperp_func = self.getMonotonicPoloidalDistanceFunc(
+            s_perp_total, N - 1, N_norm, d_lower=d_lower, d_upper=d_upper
+        )
         return lambda i: s_of_sperp(sperp_func(i)), sperp_func
 
     def getMonotonicPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower, d_upper):
@@ -1912,60 +2265,98 @@ class EquilibriumRegion(PsiContour):
         # very close to linear l1 will get very large so the root-finding might possibly
         # fail, but very close to the linear case, the quadratic expression in the convex
         # case should be a good one
-        if length < 0.5*(d_upper + d_lower)*N/N_norm - 1.e-8*length:
+        if length < 0.5 * (d_upper + d_lower) * N / N_norm - 1.0e-8 * length:
             # concave case
 
             # Make coefficients as functions of l1
-            l2 = lambda l1: (-d_lower*N/N_norm + numpy.sqrt((d_lower*N/N_norm)**2
-                             + 4.*d_lower*l1*N/N_norm)) / (2.*d_lower)
-            l3 = lambda l1: l1/l2(l1) - d_lower
-            r2 = lambda l1: (-d_upper*N/N_norm + numpy.sqrt((d_upper*N/N_norm)**2
-                             + 4.*d_upper*l1*N/N_norm)) / (2.*d_upper)
-            r3 = lambda l1: l1/r2(l1) - d_upper
+            l2 = lambda l1: (
+                -d_lower * N / N_norm
+                + numpy.sqrt(
+                    (d_lower * N / N_norm) ** 2 + 4.0 * d_lower * l1 * N / N_norm
+                )
+            ) / (2.0 * d_lower)
+            l3 = lambda l1: l1 / l2(l1) - d_lower
+            r2 = lambda l1: (
+                -d_upper * N / N_norm
+                + numpy.sqrt(
+                    (d_upper * N / N_norm) ** 2 + 4.0 * d_upper * l1 * N / N_norm
+                )
+            ) / (2.0 * d_upper)
+            r3 = lambda l1: l1 / r2(l1) - d_upper
 
             # Make constraint function to find value of l1 where the integral equals L
-            constraint = lambda l1: (l1*numpy.log(N/(N_norm*l2(l1)) + 1.)
-                                     - l3(l1)*N/N_norm
-                                     + l1*numpy.log(N/(N_norm*r2(l1)) + 1.)
-                                     - r3(l1)*N/N_norm
-                                     - length)
-            l1 = brentq(constraint, 1.e-15, 1.e10, xtol=1.e-15, rtol=1.e-10)
+            constraint = lambda l1: (
+                l1 * numpy.log(N / (N_norm * l2(l1)) + 1.0)
+                - l3(l1) * N / N_norm
+                + l1 * numpy.log(N / (N_norm * r2(l1)) + 1.0)
+                - r3(l1) * N / N_norm
+                - length
+            )
+            l1 = brentq(constraint, 1.0e-15, 1.0e10, xtol=1.0e-15, rtol=1.0e-10)
             l3 = l3(l1)
             l2 = l2(l1)
             r3 = r3(l1)
             r2 = r2(l1)
 
             # coefficients should all be positive
-            assert l1 > 0.
-            assert l2 > 0.
-            assert l3 > 0.
-            assert r2 > 0.
-            assert r3 > 0.
+            assert l1 > 0.0
+            assert l2 > 0.0
+            assert l3 > 0.0
+            assert r2 > 0.0
+            assert r3 > 0.0
 
             # sN(iN) = int(diN sprime)
             #        = int(diN l1/(iN + l2) - l3 + l1/(r2 + N/N_norm - iN) - r3
             #        = l1*ln(iN + l2) - l1*ln(l2) - l3*iN - l1*ln(r2 + N/N_norm - iN) + l1*ln(r2 + N/N_norm) - r3*iN
             #        = l1*ln(iN/l2 + 1.) - l3*iN - l1*ln(1. - iN/(r2 + N/N_norm)) - r3*iN
-            return lambda i: numpy.piecewise(i, [i < 0., i > N],
-                    [lambda i: d_lower*i/N_norm,
-                     lambda i:length + d_upper*(i - N)/N_norm,
-                     lambda i: (l1*numpy.log(i/N_norm/l2 + 1.) - l3*i/N_norm
-                              - l1*numpy.log(1. - i/(N_norm*(r2 + N/N_norm))) - r3*i/N_norm)])
+            return lambda i: numpy.piecewise(
+                i,
+                [i < 0.0, i > N],
+                [
+                    lambda i: d_lower * i / N_norm,
+                    lambda i: length + d_upper * (i - N) / N_norm,
+                    lambda i: (
+                        l1 * numpy.log(i / N_norm / l2 + 1.0)
+                        - l3 * i / N_norm
+                        - l1 * numpy.log(1.0 - i / (N_norm * (r2 + N / N_norm)))
+                        - r3 * i / N_norm
+                    ),
+                ],
+            )
         else:
             # convex case
-            a = 3.*(d_upper + d_lower)*(N_norm/N)**2 - 6.*length*(N_norm/N)**3
-            b = (d_upper - d_lower)*N_norm/N - a*N/N_norm
+            a = (
+                3.0 * (d_upper + d_lower) * (N_norm / N) ** 2
+                - 6.0 * length * (N_norm / N) ** 3
+            )
+            b = (d_upper - d_lower) * N_norm / N - a * N / N_norm
             c = d_lower
 
             # sN(iN) = int(diN sprime)
             #        = 1/3*a*iN^3 + 1/2*b*iN^2 + c*iN
-            return lambda i: numpy.piecewise(i, [i < 0., i > N],
-                    [lambda i: d_lower*i/N_norm,
-                     lambda i:length + d_upper*(i - N)/N_norm,
-                     lambda i: 1./3.*a*(i/N_norm)**3 + 0.5*b*(i/N_norm)**2 + c*i/N_norm])
+            return lambda i: numpy.piecewise(
+                i,
+                [i < 0.0, i > N],
+                [
+                    lambda i: d_lower * i / N_norm,
+                    lambda i: length + d_upper * (i - N) / N_norm,
+                    lambda i: 1.0 / 3.0 * a * (i / N_norm) ** 3
+                    + 0.5 * b * (i / N_norm) ** 2
+                    + c * i / N_norm,
+                ],
+            )
 
-    def getSqrtPoloidalDistanceFunc(self, length, N, N_norm, *, b_lower=None, a_lower=None,
-            b_upper=None, a_upper=None):
+    def getSqrtPoloidalDistanceFunc(
+        self,
+        length,
+        N,
+        N_norm,
+        *,
+        b_lower=None,
+        a_lower=None,
+        b_upper=None,
+        a_upper=None,
+    ):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
@@ -1982,14 +2373,14 @@ class EquilibriumRegion(PsiContour):
         specified explicitly
         """
         if b_lower is None and b_upper is None:
-            assert a_lower is None, 'cannot set a_lower unless b_lower is set'
-            assert a_upper is None, 'cannot set a_upper unless b_upper is set'
+            assert a_lower is None, "cannot set a_lower unless b_lower is set"
+            assert a_upper is None, "cannot set a_upper unless b_upper is set"
             # always monotonic
-            return lambda i: i*length/N
+            return lambda i: i * length / N
         elif b_lower is None:
-            assert a_lower is None, 'cannot set a_lower unless b_lower is set'
+            assert a_lower is None, "cannot set a_lower unless b_lower is set"
             if a_upper is None:
-                a_upper = 0.
+                a_upper = 0.0
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ a_upper/sqrt(N/N_norm-iN)+b_upper
@@ -1999,23 +2390,32 @@ class EquilibriumRegion(PsiContour):
             # s(N/N_norm) = L = c + d*N/N_norm + e*(N/N_norm)^2
             # L = c + b_upper*N/N_norm - 2*e*(N/N_norm)^2 + e*(N/N_norm)^2
             # e = (c + b_upper*N/N_norm - L) / (N/N_norm)^2
-            b = 2.*a_upper
-            c = b*numpy.sqrt(N/N_norm)
-            e = (c + b_upper*N/N_norm - length) / (N/N_norm)**2
-            d = b_upper - 2*e*N/N_norm
+            b = 2.0 * a_upper
+            c = b * numpy.sqrt(N / N_norm)
+            e = (c + b_upper * N / N_norm - length) / (N / N_norm) ** 2
+            d = b_upper - 2 * e * N / N_norm
 
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0., 'gradient at start should be positive'
+            assert (
+                b / (2.0 * numpy.sqrt(N / N_norm)) + d > 0.0
+            ), "gradient at start should be positive"
             # upper boundary:
-            assert b >= 0., 'sqrt part of function should be positive at end'
-            assert d + 2.*e*N/N_norm >= 0., 'gradient of polynomial part should be positive at end'
+            assert b >= 0.0, "sqrt part of function should be positive at end"
+            assert (
+                d + 2.0 * e * N / N_norm >= 0.0
+            ), "gradient of polynomial part should be positive at end"
 
-            return lambda i: -b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2
+            return (
+                lambda i: -b * numpy.sqrt((N - i) / N_norm)
+                + c
+                + d * i / N_norm
+                + e * (i / N_norm) ** 2
+            )
         elif b_upper is None:
             if a_lower is None:
-                a_lower = 0.
+                a_lower = 0.0
             assert a_upper is None
             # s(iN) = a*sqrt(iN) + c + d*iN + e*iN^2
             # s(0) = 0 = c
@@ -2023,24 +2423,32 @@ class EquilibriumRegion(PsiContour):
             # a = 2*a_lower
             # d = b_lower
             # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2
-            a = 2.*a_lower
+            a = 2.0 * a_lower
             d = b_lower
-            e = (length - a*numpy.sqrt(N/N_norm) - d*N/N_norm)/(N/N_norm)**2
+            e = (length - a * numpy.sqrt(N / N_norm) - d * N / N_norm) / (
+                N / N_norm
+            ) ** 2
 
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert a >= 0., 'sqrt part of function should be positive at start'
-            assert d >= 0., 'gradient of polynomial part should be positive at start'
+            assert a >= 0.0, "sqrt part of function should be positive at start"
+            assert d >= 0.0, "gradient of polynomial part should be positive at start"
             # upper boundary:
-            assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm > 0., 'gradient at end should be positive'
+            assert (
+                a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm > 0.0
+            ), "gradient at end should be positive"
 
-            return lambda i: a*numpy.sqrt(i/N_norm) + d*i/N_norm + e*(i/N_norm)**2
+            return (
+                lambda i: a * numpy.sqrt(i / N_norm)
+                + d * i / N_norm
+                + e * (i / N_norm) ** 2
+            )
         else:
             if a_lower is None:
-                a_lower = 0.
+                a_lower = 0.0
             if a_upper is None:
-                a_upper = 0.
+                a_upper = 0.0
             # s(iN) = a*sqrt(iN) - b*sqrt(N/N_norm-iN) + c + d*iN + e*iN^2 + f*iN^3
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # c = b*sqrt(N/N_norm)
@@ -2055,36 +2463,75 @@ class EquilibriumRegion(PsiContour):
             # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2 + f*(N/N_norm)^3
             # L = a*sqrt(N/N_norm) + c + d*N/N_norm + (b_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm) - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
             # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + b_upper*N/(2*N_norm) - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
-            a = 2.*a_lower
-            b = 2.*a_upper
-            c = b*numpy.sqrt(N/N_norm)
-            d = b_lower - b/2./numpy.sqrt(N/N_norm)
-            f = 2.*(a*numpy.sqrt(N/N_norm) + c + d*N/N_norm/2. + b_upper*N/N_norm/2. - a*numpy.sqrt(N/N_norm)/4. - length)*N_norm**3/N**3
-            e = (b_upper - a/2./numpy.sqrt(N/N_norm) - d)*N_norm/2./N - 1.5*f*N/N_norm
+            a = 2.0 * a_lower
+            b = 2.0 * a_upper
+            c = b * numpy.sqrt(N / N_norm)
+            d = b_lower - b / 2.0 / numpy.sqrt(N / N_norm)
+            f = (
+                2.0
+                * (
+                    a * numpy.sqrt(N / N_norm)
+                    + c
+                    + d * N / N_norm / 2.0
+                    + b_upper * N / N_norm / 2.0
+                    - a * numpy.sqrt(N / N_norm) / 4.0
+                    - length
+                )
+                * N_norm ** 3
+                / N ** 3
+            )
+            e = (
+                b_upper - a / 2.0 / numpy.sqrt(N / N_norm) - d
+            ) * N_norm / 2.0 / N - 1.5 * f * N / N_norm
 
             # check function is monotonic: gradients at beginning and end should both be
             # positive. Only check the boundaries here, should really add a check that
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
-            assert a >= 0., 'sqrt part of function should be positive at start'
-            if a_lower == 0.:
+            assert a >= 0.0, "sqrt part of function should be positive at start"
+            if a_lower == 0.0:
                 # Gradient must be strictly positive as there is no positive a_lower piece
-                assert b/(2.*numpy.sqrt(N/N_norm)) + d > 0., 'gradient of non-singular part should be positive at start'
+                assert (
+                    b / (2.0 * numpy.sqrt(N / N_norm)) + d > 0.0
+                ), "gradient of non-singular part should be positive at start"
             else:
                 # Might be 0., so allow tolerance for small negative values due to
                 # rounding errors
-                assert b/(2.*numpy.sqrt(N/N_norm)) + d > -self.user_options.sfunc_checktol, 'gradient of non-singular part should be positive at start'
+                assert (
+                    b / (2.0 * numpy.sqrt(N / N_norm)) + d
+                    > -self.user_options.sfunc_checktol
+                ), "gradient of non-singular part should be positive at start"
             # upper boundary:
-            assert b >= 0., 'sqrt part of function should be positive at end'
-            if a_upper == 0.:
+            assert b >= 0.0, "sqrt part of function should be positive at end"
+            if a_upper == 0.0:
                 # Gradient must be strictly positive as there is no positive a_upper piece
-                assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 > 0., 'gradient of non-singular part should be positive at end'
+                assert (
+                    a / (2.0 * numpy.sqrt(N / N_norm))
+                    + d
+                    + 2.0 * e * N / N_norm
+                    + 3.0 * f * (N / N_norm) ** 2
+                    > 0.0
+                ), "gradient of non-singular part should be positive at end"
             else:
                 # Might be 0., so allow tolerance for small negative values due to
                 # rounding errors
-                assert a/(2.*numpy.sqrt(N/N_norm)) + d + 2.*e*N/N_norm + 3.*f*(N/N_norm)**2 > - self.user_options.sfunc_checktol, 'gradient of non-singular part should be positive at end'
+                assert (
+                    a / (2.0 * numpy.sqrt(N / N_norm))
+                    + d
+                    + 2.0 * e * N / N_norm
+                    + 3.0 * f * (N / N_norm) ** 2
+                    > -self.user_options.sfunc_checktol
+                ), "gradient of non-singular part should be positive at end"
 
-            return lambda i: a*numpy.sqrt(i/N_norm) - b*numpy.sqrt((N-i)/N_norm) + c + d*i/N_norm + e*(i/N_norm)**2 + f*(i/N_norm)**3
+            return (
+                lambda i: a * numpy.sqrt(i / N_norm)
+                - b * numpy.sqrt((N - i) / N_norm)
+                + c
+                + d * i / N_norm
+                + e * (i / N_norm) ** 2
+                + f * (i / N_norm) ** 3
+            )
+
 
 class Equilibrium:
     """
@@ -2124,6 +2571,7 @@ class Equilibrium:
         anti-clockwise order; assumed to be closed so last element and first are taken to
         be connected
     """
+
     def __init__(self, **kwargs):
         """
         Does some generic setup common to all Equilibrium derived classes.
@@ -2144,14 +2592,26 @@ class Equilibrium:
         FineContour.options = FineContour.options.push(dict(self.user_options))
 
         # Set some default options
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_xpoint_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_inner',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
-        setDefault(self.user_options, 'nonorthogonal_target_poloidal_spacing_range_outer',
-                self.user_options.nonorthogonal_target_poloidal_spacing_range)
+        setDefault(
+            self.user_options,
+            "nonorthogonal_xpoint_poloidal_spacing_range_inner",
+            self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+        )
+        setDefault(
+            self.user_options,
+            "nonorthogonal_xpoint_poloidal_spacing_range_outer",
+            self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+        )
+        setDefault(
+            self.user_options,
+            "nonorthogonal_target_poloidal_spacing_range_inner",
+            self.user_options.nonorthogonal_target_poloidal_spacing_range,
+        )
+        setDefault(
+            self.user_options,
+            "nonorthogonal_target_poloidal_spacing_range_outer",
+            self.user_options.nonorthogonal_target_poloidal_spacing_range,
+        )
 
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """
@@ -2159,20 +2619,26 @@ class Equilibrium:
         the lower edge of a certain segment of upperRegion.
         """
         # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
-        assert type(self.regions) == OrderedDict, 'self.regions should be OrderedDict'
+        assert type(self.regions) == OrderedDict, "self.regions should be OrderedDict"
 
         lRegion = self.regions[lowerRegion]
         uRegion = self.regions[upperRegion]
 
-        assert lRegion.connections[lowerSegment]['upper'] is None, 'lRegion.connections[\'upper\'] should not have been set already'
-        assert uRegion.connections[upperSegment]['lower'] is None, 'uRegion.connections[\'lower\'] should not have been set already'
+        assert (
+            lRegion.connections[lowerSegment]["upper"] is None
+        ), "lRegion.connections['upper'] should not have been set already"
+        assert (
+            uRegion.connections[upperSegment]["lower"] is None
+        ), "uRegion.connections['lower'] should not have been set already"
 
         # Check nx of both segments is the same - otherwise the connection must be between
         # some wrong regions
-        assert lRegion.options.nx[lowerSegment] == uRegion.options.nx[upperSegment], 'nx should match across connection'
+        assert (
+            lRegion.options.nx[lowerSegment] == uRegion.options.nx[upperSegment]
+        ), "nx should match across connection"
 
-        lRegion.connections[lowerSegment]['upper'] = (upperRegion, upperSegment)
-        uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
+        lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)
+        uRegion.connections[upperSegment]["lower"] = (lowerRegion, lowerSegment)
 
     def magneticFunctionsFromGrid(self, R, Z, psiRZ):
         from ..utils.dct_interpolation import DCT_2D
@@ -2180,7 +2646,9 @@ class Equilibrium:
         self._dct = DCT_2D(R, Z, psiRZ)
 
         self.psi = lambda R, Z: self._dct(R, Z)
-        modGradpsiSquared = lambda R, Z: self._dct.ddR(R, Z)**2 + self._dct.ddZ(R, Z)**2
+        modGradpsiSquared = (
+            lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
+        )
         self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
         self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
         self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
@@ -2189,38 +2657,54 @@ class Equilibrium:
         self.d2psidZ2 = self._dct.d2dZ2
         self.d2psidRdZ = self._dct.d2dRdZ
 
-    def findMinimum_1d(self, pos1, pos2, atol=1.e-14):
-        coords = lambda s: pos1 + s*(pos2-pos1)
-        result = minimize_scalar(lambda s: self.psi(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
+    def findMinimum_1d(self, pos1, pos2, atol=1.0e-14):
+        coords = lambda s: pos1 + s * (pos2 - pos1)
+        result = minimize_scalar(
+            lambda s: self.psi(*coords(s)),
+            method="bounded",
+            bounds=(0.0, 1.0),
+            options={"xatol": atol},
+        )
         if result.success:
             return coords(result.x)
         else:
-            raise SolutionError('findMinimum_1d failed')
+            raise SolutionError("findMinimum_1d failed")
 
-    def findMaximum_1d(self, pos1, pos2, atol=1.e-14):
-        coords = lambda s: pos1 + s*(pos2-pos1)
+    def findMaximum_1d(self, pos1, pos2, atol=1.0e-14):
+        coords = lambda s: pos1 + s * (pos2 - pos1)
         # minimize -f to find maximum
-        result = minimize_scalar(lambda s: -self.psi(*coords(s)), method='bounded', bounds=(0., 1.), options={'xatol':atol})
+        result = minimize_scalar(
+            lambda s: -self.psi(*coords(s)),
+            method="bounded",
+            bounds=(0.0, 1.0),
+            options={"xatol": atol},
+        )
         if result.success:
             return coords(result.x)
         else:
-            raise SolutionError('findMaximum_1d failed')
+            raise SolutionError("findMaximum_1d failed")
 
-    def findExtremum_1d(self, pos1, pos2, rtol=1.e-5, atol=1.e-14):
-        smallDistance = 10.*rtol*calc_distance(pos1, pos2)
+    def findExtremum_1d(self, pos1, pos2, rtol=1.0e-5, atol=1.0e-14):
+        smallDistance = 10.0 * rtol * calc_distance(pos1, pos2)
 
         minpos = self.findMinimum_1d(pos1, pos2, atol)
-        if calc_distance(pos1,minpos) > smallDistance and calc_distance(pos2,minpos) > smallDistance:
+        if (
+            calc_distance(pos1, minpos) > smallDistance
+            and calc_distance(pos2, minpos) > smallDistance
+        ):
             # minimum is not at either end of the interval
             return minpos, True
 
         maxpos = self.findMaximum_1d(pos1, pos2, atol)
-        if calc_distance(pos1,maxpos) > smallDistance and calc_distance(pos2,maxpos) > smallDistance:
+        if (
+            calc_distance(pos1, maxpos) > smallDistance
+            and calc_distance(pos2, maxpos) > smallDistance
+        ):
             return maxpos, False
 
         raise SolutionError("Neither minimum nor maximum found in interval")
 
-    def findSaddlePoint(self, p1, p2, atol=2.e-8):
+    def findSaddlePoint(self, p1, p2, atol=2.0e-8):
         """
         Find a saddle point in the function self.psi atol is the tolerance on the position
         of the saddle point. p1, p2 are the positions of two adjacent corners of the
@@ -2231,7 +2715,7 @@ class Equilibrium:
         # Note: in this method, Point2D objects are used as displacement vectors as well
         # as as points.
         def dot(v1, v2):
-            return v1.R*v2.R + v1.Z*v2.Z
+            return v1.R * v2.R + v1.Z * v2.Z
 
         # length of sides of the square
         a = calc_distance(p1, p2)
@@ -2242,8 +2726,8 @@ class Equilibrium:
         # unit vector along p2->p3 or p1->p4
         e2 = Point2D(e1.Z, -e1.R)
 
-        p3 = p2 + a*e2
-        p4 = p1 + a*e2
+        p3 = p2 + a * e2
+        p4 = p1 + a * e2
 
         # For the purposes of naming variables here, take p1 to be 'bottom left', p2 to
         # be 'top left', p3 to be 'top right' and p4 to be 'bottom right'
@@ -2252,9 +2736,15 @@ class Equilibrium:
         posRight, minRight = self.findExtremum_1d(p3, p4)
         posBottom, minBottom = self.findExtremum_1d(p4, p1)
 
-        assert minTop == minBottom, 'if minumum is found at top, should also be found at bottom'
-        assert minLeft == minRight, 'if minumum is found at left, should also be found at right'
-        assert minTop != minLeft, 'if minimum is found at top, maximum should be found at left'
+        assert (
+            minTop == minBottom
+        ), "if minumum is found at top, should also be found at bottom"
+        assert (
+            minLeft == minRight
+        ), "if minumum is found at left, should also be found at right"
+        assert (
+            minTop != minLeft
+        ), "if minimum is found at top, maximum should be found at left"
 
         if minTop:
             vertSearch = self.findMaximum_1d
@@ -2271,27 +2761,29 @@ class Equilibrium:
 
         count = 0
         while calc_distance(extremumVert, extremumHoriz) > atol:
-            count = count+1
+            count = count + 1
 
-            extremumVert = vertSearch(posBottom, posTop, 0.5*atol)
+            extremumVert = vertSearch(posBottom, posTop, 0.5 * atol)
             # set position along e2 direction, keep position along e1 fixed (i.e. stay on
             # left or right edge)
             deltaz = dot(extremumVert - p1, e1)
-            posLeft = p1 + deltaz*e1
-            posRight = p4 + deltaz*e1
+            posLeft = p1 + deltaz * e1
+            posRight = p4 + deltaz * e1
 
-            extremumHoriz = horizSearch(posLeft, posRight, 0.5*atol)
+            extremumHoriz = horizSearch(posLeft, posRight, 0.5 * atol)
             # set position along e1 direction, keep position along e2 fixed (i.e. stay on
             # top or bottom edge)
             deltar = dot(extremumHoriz - p1, e2)
-            posBottom = p1 + deltar*e2
-            posTop = p2 + deltar*e2
+            posBottom = p1 + deltar * e2
+            posTop = p2 + deltar * e2
 
-        print('findSaddlePoint took',count,'iterations to converge')
+        print("findSaddlePoint took", count, "iterations to converge")
 
-        return (extremumVert+extremumHoriz)/2.
+        return (extremumVert + extremumHoriz) / 2.0
 
-    def findRoots_1d(self, f, n, xmin, xmax, atol = 2.e-8, rtol = 1.e-5, maxintervals=1024):
+    def findRoots_1d(
+        self, f, n, xmin, xmax, atol=2.0e-8, rtol=1.0e-5, maxintervals=1024
+    ):
         """
         Find n roots of a scalar function f(x) in the range xmin<=x<=xmax
         Assume they're not too close to each other - exclude a small region around each found
@@ -2302,34 +2794,53 @@ class Equilibrium:
         roots = []
         n_intervals = n
         while True:
-            interval_points = numpy.linspace(xmin, xmax, n_intervals+1)
+            interval_points = numpy.linspace(xmin, xmax, n_intervals + 1)
             interval_f = f(interval_points)
-            lucky_roots = numpy.where(interval_f == 0.)
+            lucky_roots = numpy.where(interval_f == 0.0)
             if len(lucky_roots[0]) > 0:
-                raise NotImplementedError("Don't handle interval points that happen to land "
-                        "on a root yet!")
-            intervals_with_roots = numpy.where(numpy.sign(interval_f[:-1]) !=
-                                               numpy.sign(interval_f[1:]))[0]
+                raise NotImplementedError(
+                    "Don't handle interval points that happen to land " "on a root yet!"
+                )
+            intervals_with_roots = numpy.where(
+                numpy.sign(interval_f[:-1]) != numpy.sign(interval_f[1:])
+            )[0]
             if len(intervals_with_roots) >= n:
                 break
             n_intervals *= 2
             if n_intervals > maxintervals:
-                raise SolutionError("Could not find", n, "roots when checking", maxintervals,
-                                 "intervals")
+                raise SolutionError(
+                    "Could not find",
+                    n,
+                    "roots when checking",
+                    maxintervals,
+                    "intervals",
+                )
 
         # find roots in the intervals
         for i in intervals_with_roots:
-            root, info = brentq(f, interval_points[i], interval_points[i+1], xtol=atol,
-                    full_output=True)
+            root, info = brentq(
+                f,
+                interval_points[i],
+                interval_points[i + 1],
+                xtol=atol,
+                full_output=True,
+            )
             if not info.converged:
-                raise SolutionError("Root finding failed in {" + str(interval_points[i]) + "," +
-                        str(interval_points[i+1]) + "} with end values {" + str(interval_f[i])
-                        + "," + str(interval_f[i+1]))
+                raise SolutionError(
+                    "Root finding failed in {"
+                    + str(interval_points[i])
+                    + ","
+                    + str(interval_points[i + 1])
+                    + "} with end values {"
+                    + str(interval_f[i])
+                    + ","
+                    + str(interval_f[i + 1])
+                )
             roots.append(root)
             foundRoots += 1
 
         if foundRoots > n:
-            warnings.warn('Warning: found',foundRoots,'roots but expected only',n)
+            warnings.warn("Warning: found", foundRoots, "roots but expected only", n)
 
         return roots
 
@@ -2351,10 +2862,14 @@ class Equilibrium:
             R = [p.R for p in wall]
             Z = [p.Z for p in wall]
 
-            wallfraction = numpy.linspace(0., 1., len(wall))
+            wallfraction = numpy.linspace(0.0, 1.0, len(wall))
 
-            self.wallRInterp = interp1d(wallfraction, R, kind='linear', assume_sorted=True)
-            self.wallZInterp = interp1d(wallfraction, Z, kind='linear', assume_sorted=True)
+            self.wallRInterp = interp1d(
+                wallfraction, R, kind="linear", assume_sorted=True
+            )
+            self.wallZInterp = interp1d(
+                wallfraction, Z, kind="linear", assume_sorted=True
+            )
 
             return Point2D(self.wallRInterp(s), self.wallZInterp(s))
 
@@ -2364,27 +2879,39 @@ class Equilibrium:
         wallPosition.
         """
         try:
-            return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
+            return numpy.array(
+                [self.wallVectorRComponent(s), self.wallVectorZComponent(s)]
+            )
         except AttributeError:
             # wall vector interpolation functions not created yet
-            Rcomponents = [self.wall[i+1].R - self.wall[i].R for i in range(len(self.wall)-1)]
+            Rcomponents = [
+                self.wall[i + 1].R - self.wall[i].R for i in range(len(self.wall) - 1)
+            ]
             Rcomponents.append(self.wall[0].R - self.wall[-1].R)
             Rcomponents.append(self.wall[1].R - self.wall[0].R)
 
-            Zcomponents = [self.wall[i+1].Z - self.wall[i].Z for i in range(len(self.wall)-1)]
+            Zcomponents = [
+                self.wall[i + 1].Z - self.wall[i].Z for i in range(len(self.wall) - 1)
+            ]
             Zcomponents.append(self.wall[0].Z - self.wall[-1].Z)
             Zcomponents.append(self.wall[1].Z - self.wall[0].Z)
 
-            wallfraction = numpy.linspace(0., 1., len(self.wall) + 1)
+            wallfraction = numpy.linspace(0.0, 1.0, len(self.wall) + 1)
 
             # Vector along wall stays constant along each segment, as we assume the
             # segments are straight. Have calculated the vector at each vertex for the
             # following segment, so use 'previous' interpolation to just take the value
             # from the previous point
-            self.wallVectorRComponent = interp1d(wallfraction, Rcomponents, kind='previous', assume_sorted=True)
-            self.wallVectorZComponent = interp1d(wallfraction, Zcomponents, kind='previous', assume_sorted=True)
+            self.wallVectorRComponent = interp1d(
+                wallfraction, Rcomponents, kind="previous", assume_sorted=True
+            )
+            self.wallVectorZComponent = interp1d(
+                wallfraction, Zcomponents, kind="previous", assume_sorted=True
+            )
 
-            return numpy.array([self.wallVectorRComponent(s), self.wallVectorZComponent(s)])
+            return numpy.array(
+                [self.wallVectorRComponent(s), self.wallVectorZComponent(s)]
+            )
 
     def wallIntersection(self, p1, p2):
         """
@@ -2395,10 +2922,14 @@ class Equilibrium:
         intersects = find_intersections(wallarray, p1, p2)
         if intersects is not None:
             intersect = Point2D(*intersects[0, :])
-            assert intersects.shape[0] < 3, 'too many intersections with wall'
+            assert intersects.shape[0] < 3, "too many intersections with wall"
             if intersects.shape[0] > 1:
                 second_intersect = Point2D(*intersects[1, :])
-                assert numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance and numpy.abs(intersect.Z - second_intersect.Z) < intersect_tolerance, 'Multiple intersections with wall found'
+                assert (
+                    numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance
+                    and numpy.abs(intersect.Z - second_intersect.Z)
+                    < intersect_tolerance
+                ), "Multiple intersections with wall found"
         else:
             intersect = None
 
@@ -2415,13 +2946,15 @@ class Equilibrium:
         """
         face_vals = [spacingFunc(i) for i in range(n + 1)]
 
-        result = numpy.zeros(2*n + 1)
+        result = numpy.zeros(2 * n + 1)
         result[::2] = face_vals
-        result[1::2] = 0.5*(result[:-1:2] + result[2::2])
+        result[1::2] = 0.5 * (result[:-1:2] + result[2::2])
 
         return result
 
-    def getPolynomialGridFunc(self, n, lower, upper, *, grad_lower=None, grad_upper=None):
+    def getPolynomialGridFunc(
+        self, n, lower, upper, *, grad_lower=None, grad_upper=None
+    ):
         """
         A polynomial function with value 'lower' at 0 and 'upper' at n, used to
         non-uniformly place grid point values in index space.
@@ -2433,7 +2966,7 @@ class Equilibrium:
         Linear if neither gradient given, cubic if one given, quintic if both given.
         """
         if grad_lower is None and grad_upper is None:
-            return lambda i: lower + (upper - lower)*i/n
+            return lambda i: lower + (upper - lower) * i / n
         elif grad_lower is None:
             # psi(i) = a*i^3 + b*i^2 + c*i + d
             # psi(0) = lower = d
@@ -2448,10 +2981,10 @@ class Equilibrium:
             #       = 2*grad_upper*n/3 + c*n/3 + d
             # c = 3.*(upper - d - 2.*grad_upper*n/3.)/n
             d = lower
-            c = 3.*(upper - d - 2.*grad_upper*n/3.)/n
-            b = (grad_upper - c)/n
-            a = -b/(3.*n)
-            return lambda i: a*i**3 + b*i**2 + c*i + d
+            c = 3.0 * (upper - d - 2.0 * grad_upper * n / 3.0) / n
+            b = (grad_upper - c) / n
+            a = -b / (3.0 * n)
+            return lambda i: a * i ** 3 + b * i ** 2 + c * i + d
         elif grad_upper is None:
             # psi(i) = a*i^3 + b*i^2 + c*i + d
             # psi(0) = lower = d
@@ -2460,9 +2993,9 @@ class Equilibrium:
             # d2psidi2(0) = 0 = 2*b
             d = lower
             c = grad_lower
-            b = 0.
-            a = (upper - b*n**2 - c*n - d) / n**3
-            return lambda i: a*i**3 + b*i**2 + c*i + d
+            b = 0.0
+            a = (upper - b * n ** 2 - c * n - d) / n ** 3
+            return lambda i: a * i ** 3 + b * i ** 2 + c * i + d
         else:
             # psi(i) = a*i^5 + b*i^4 + c*i^3 + d*i^2 + e*i + f
             # psi(0) = lower = f
@@ -2480,40 +3013,71 @@ class Equilibrium:
             # c = 4*(5*upper/2 - n*grad_upper - 3*e*n/2 - 5*f/2)/n^3
             f = lower
             e = grad_lower
-            d = 0.
-            c = 4.*(5.*upper/2. - n*grad_upper - 3.*e*n/2. - 5.*f/2.)/n**3
-            b = (grad_upper - 3.*c*n**2/2. - e)/n**3
-            a = -(6.*b*n + 3*c)/(10.*n**2)
-            return lambda i: a*i**5 + b*i**4 + c*i**3 + d*i**2 + e*i + f
+            d = 0.0
+            c = (
+                4.0
+                * (
+                    5.0 * upper / 2.0
+                    - n * grad_upper
+                    - 3.0 * e * n / 2.0
+                    - 5.0 * f / 2.0
+                )
+                / n ** 3
+            )
+            b = (grad_upper - 3.0 * c * n ** 2 / 2.0 - e) / n ** 3
+            a = -(6.0 * b * n + 3 * c) / (10.0 * n ** 2)
+            return (
+                lambda i: a * i ** 5 + b * i ** 4 + c * i ** 3 + d * i ** 2 + e * i + f
+            )
 
-    def plotPotential(self, Rmin=None, Rmax=None, Zmin=None, Zmax=None, npoints=100,
-                      ncontours=40, labels=True, axis=None, **kwargs):
+    def plotPotential(
+        self,
+        Rmin=None,
+        Rmax=None,
+        Zmin=None,
+        Zmax=None,
+        npoints=100,
+        ncontours=40,
+        labels=True,
+        axis=None,
+        **kwargs,
+    ):
         from matplotlib import pyplot
 
-        if Rmin is None: Rmin = self.Rmin
-        if Rmax is None: Rmax = self.Rmax
-        if Zmin is None: Zmin = self.Zmin
-        if Zmax is None: Zmax = self.Zmax
+        if Rmin is None:
+            Rmin = self.Rmin
+        if Rmax is None:
+            Rmax = self.Rmax
+        if Zmin is None:
+            Zmin = self.Zmin
+        if Zmax is None:
+            Zmax = self.Zmax
 
         R = numpy.linspace(Rmin, Rmax, npoints)
         Z = numpy.linspace(Zmin, Zmax, npoints)
-        
-        if axis is None:
-            axis = pyplot.axes(aspect='equal')
 
-        contours = axis.contour(R, Z, self.psi(R[:,numpy.newaxis], Z[numpy.newaxis,:]).T,
-                ncontours, **kwargs)
+        if axis is None:
+            axis = pyplot.axes(aspect="equal")
+
+        contours = axis.contour(
+            R,
+            Z,
+            self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+            ncontours,
+            **kwargs,
+        )
         if labels:
-            pyplot.clabel(contours, inline=False, fmt='%1.3g')
+            pyplot.clabel(contours, inline=False, fmt="%1.3g")
 
         return axis
 
     def plotSeparatrix(self):
         from matplotlib import pyplot
+
         for region in self.regions.values():
             R = [p.R for p in region]
             Z = [p.Z for p in region]
-            pyplot.scatter(R, Z, marker='x', label=region.name)
+            pyplot.scatter(R, Z, marker="x", label=region.name)
 
     def _getOptionsAsString(self):
         import yaml
@@ -2521,9 +3085,9 @@ class Equilibrium:
         result = ""
         result += yaml.dump(self.equilibOptions)
 
-        mesh_options_dict = {'Mesh':{}}
-        m = mesh_options_dict['Mesh']
-        for key,val in self.user_options.items():
+        mesh_options_dict = {"Mesh": {}}
+        m = mesh_options_dict["Mesh"]
+        for key, val in self.user_options.items():
             if val is not None:
                 m[key] = str(val)
 
@@ -2531,6 +3095,6 @@ class Equilibrium:
 
         return result
 
-    def saveOptions(self, filename='hypnotoad_options.yaml'):
-        with open(filename, 'x') as f:
+    def saveOptions(self, filename="hypnotoad_options.yaml"):
+        with open(filename, "x") as f:
             f.write(self._getOptionsAsString())

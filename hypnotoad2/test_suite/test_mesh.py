@@ -4,6 +4,7 @@ from copy import deepcopy
 from ..core.mesh import *
 from .utils_for_tests import *
 
+
 class TestMultiLocationArray:
     nx = 4
     ny = 5

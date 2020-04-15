@@ -308,7 +308,7 @@ class MeshRegion:
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
                 start_point,
                 start_psi,
-                [start_psi, psi_sep_plus_delta],
+                [start_psi, start_psi_sep_plus_delta],
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtStart = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())

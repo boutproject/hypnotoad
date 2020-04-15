@@ -20,7 +20,7 @@
 import pytest
 import numpy
 from .utils_for_tests import *
-from ..dct_interpolation import DCT_2D
+from ..utils.dct_interpolation import DCT_2D
 
 def test_DCT_2D():
     f = lambda R,Z: (R - 0.5)**2 - (Z - 0.1)**2

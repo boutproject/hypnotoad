@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from .. import critical
+from ..utils import critical
 
 def test_one_opoint():
     nx = 65

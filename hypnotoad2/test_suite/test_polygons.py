@@ -1,4 +1,4 @@
-from .. import polygons
+from ..utils import polygons
 import numpy as np
 
 def test_area():

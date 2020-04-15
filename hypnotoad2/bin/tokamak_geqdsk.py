@@ -23,7 +23,7 @@ if len(sys.argv) == 3:
 else:
     options = {}
 
-from hypnotoad2 import tokamak
+from ..cases import tokamak
 
 with open(filename, 'rt') as fh:
     eq = tokamak.read_geqdsk(fh, options=options)
@@ -42,7 +42,7 @@ if options.get('plot_regions', False):
 
 # Create the mesh
 
-from hypnotoad2.mesh import BoutMesh
+from ..core.mesh import BoutMesh
 
 mesh = BoutMesh(eq)
 mesh.geometry()

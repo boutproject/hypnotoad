@@ -9,12 +9,11 @@ import warnings
 from collections import OrderedDict
 import functools
 
-from .equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
-from .hypnotoad_options import Options, HypnotoadOptions, optionsTableString
-from .mesh import MultiLocationArray
+from ..core.equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
+from ..utils.hypnotoad_options import Options, HypnotoadOptions, optionsTableString
+from ..core.mesh import MultiLocationArray
 
-from . import critical
-from . import polygons
+from ..utils import critical, polygons
 
 class TokamakEquilibrium(Equilibrium):
     """
@@ -1242,7 +1241,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     extrapolate_profiles = bool   Extrapolate pressure using exponential
     """
 
-    from ._geqdsk import read as geq_read
+    from ..geqdsk._geqdsk import read as geq_read
     
     data = geq_read(filehandle)
     

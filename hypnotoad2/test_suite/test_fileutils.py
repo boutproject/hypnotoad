@@ -1,5 +1,5 @@
 
-from .. import _fileutils
+from ..geqdsk import _fileutils
 from io import StringIO
 
 

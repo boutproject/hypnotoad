@@ -32,7 +32,7 @@ from scipy.optimize import minimize_scalar, brentq, root
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 
-from .hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
+from ..utils.hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
 
 class SolutionError(Exception):
     """
@@ -2175,7 +2175,7 @@ class Equilibrium:
         uRegion.connections[upperSegment]['lower'] = (lowerRegion, lowerSegment)
 
     def magneticFunctionsFromGrid(self, R, Z, psiRZ):
-        from .dct_interpolation import DCT_2D
+        from ..utils.dct_interpolation import DCT_2D
 
         self._dct = DCT_2D(R, Z, psiRZ)
 

@@ -1,7 +1,7 @@
 import numpy
 import pytest
 from copy import deepcopy
-from ..mesh import *
+from ..core.mesh import *
 from .utils_for_tests import *
 
 class TestMultiLocationArray:

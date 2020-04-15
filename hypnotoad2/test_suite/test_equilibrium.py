@@ -20,8 +20,8 @@
 import numpy
 import pytest
 from copy import deepcopy
-from ..equilibrium import *
-from ..hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from ..core.equilibrium import *
+from ..utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 from .utils_for_tests import *
 
 FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.e-8)

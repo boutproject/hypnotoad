@@ -2,7 +2,7 @@ import numpy
 
 from io import StringIO
 
-from .. import _geqdsk
+from ..geqdsk import _geqdsk
 
 def test_writeread():
     """

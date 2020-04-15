@@ -1,6 +1,6 @@
 import pytest
-from ..equilibrium import Equilibrium
-from ..torpex import *
+from ..core.equilibrium import Equilibrium
+from ..cases.torpex import *
 from .utils_for_tests import *
 
 class ThisEquilibrium(Equilibrium):

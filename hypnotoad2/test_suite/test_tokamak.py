@@ -1,8 +1,8 @@
 import numpy as np
 from io import StringIO
 
-from .. import tokamak
-from .. import _geqdsk
+from ..cases import tokamak
+from ..geqdsk import _geqdsk
 
 def test_tokamak_interpolations():
     """Test interpolations and derivatives"""

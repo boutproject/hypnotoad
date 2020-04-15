@@ -40,9 +40,9 @@ if plotStuff:
     from matplotlib import pyplot
 import numpy
 
-from hypnotoad2.mesh import BoutMesh
-from hypnotoad2.equilibrium import setDefault, Equilibrium, PsiContour, Point2D, EquilibriumRegion, SolutionError
-from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions, optionsTableString
+from ..core.mesh import BoutMesh
+from ..core.equilibrium import setDefault, Equilibrium, PsiContour, Point2D, EquilibriumRegion, SolutionError
+from ..utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions, optionsTableString
 
 # type for manipulating information about magnetic field coils
 from collections import namedtuple
@@ -124,7 +124,7 @@ class TORPEXMagneticField(Equilibrium):
 
             self.Bt_axis = self.equilibOptions['Bt_axis']
         elif 'gfile' in self.equilibOptions:
-            from hypnotoad2.dct_interpolation import DCT_2D
+            from ..utils.dct_interpolation import DCT_2D
 
             # load a g-file
             try:
@@ -197,7 +197,7 @@ class TORPEXMagneticField(Equilibrium):
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
             # double-precision
-            from hypnotoad2.dct_interpolation import DCT_2D
+            from ..utils.dct_interpolation import DCT_2D
 
             from scipy.io import loadmat
             eqfile = loadmat(self.equilibOptions['matfile'])['eq']

@@ -1,7 +1,10 @@
 import pytest
-from ..core.equilibrium import Equilibrium
-from ..cases.torpex import *
-from .utils_for_tests import *
+
+import numpy
+
+from ..core.equilibrium import Equilibrium, Point2D
+from ..cases import torpex
+from ..utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
 
 
 class ThisEquilibrium(Equilibrium):
@@ -34,7 +37,7 @@ class TestTORPEX:
         Zmin = -0.4
         Zmax = 2.0
 
-        createEqdsk(
+        torpex.createEqdsk(
             equilib,
             nR=nR,
             Rmin=Rmin,
@@ -45,7 +48,7 @@ class TestTORPEX:
             filename=testfile,
         )
 
-        grid_equilib = TORPEXMagneticField(
+        grid_equilib = torpex.TORPEXMagneticField(
             {"gfile": testfile}, {"psi_core": 0.0, "psi_sol": 1.0}
         )
 

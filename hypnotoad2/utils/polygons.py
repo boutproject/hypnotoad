@@ -25,10 +25,11 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 def area(polygon):
     """
-    Calculate the area of a polygon. Can be positive (clockwise) or negative (anticlockwise)
+    Calculate the area of a polygon. Can be positive (clockwise) or negative
+    (anticlockwise)
 
     Input
-    
+
     polygon   [ (r1, z1), (r2, z2), ... ]
     """
     nvert = len(polygon)  # Number of vertices
@@ -50,7 +51,7 @@ def clockwise(polygon):
     False -> anticlockwise
 
     Input
-    
+
     polygon   [ (r1, z1), (r2, z2), ... ]
     """
     # Work out the winding direction by calculating the area

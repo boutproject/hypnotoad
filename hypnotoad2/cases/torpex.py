@@ -33,7 +33,6 @@ from ..core.equilibrium import (
 )
 from ..utils.hypnotoad_options import (
     HypnotoadOptions,
-    HypnotoadInternalOptions,
     optionsTableString,
 )
 
@@ -122,8 +121,6 @@ class TORPEXMagneticField(Equilibrium):
 
             self.Bt_axis = self.equilibOptions["Bt_axis"]
         elif "gfile" in self.equilibOptions:
-            from ..utils.dct_interpolation import DCT_2D
-
             # load a g-file
             try:
                 from pyEquilibrium.geqdsk import Geqdsk
@@ -158,19 +155,21 @@ class TORPEXMagneticField(Equilibrium):
             psi_bndry = gfile["sibry"]
             Ip = gfile["current"]
             if psi_axis < psi_bndry:
-                # psi increases outward radially, so Bp is clockwise in the poloidal plane
-                # (outward in major radius at the top of the torus, inward at the bottom).
-                # This corresponds to plasma current in the anti-clockwise toroidal
-                # direction looking from above, so current should be positive
-                assert (
-                    Ip >= 0.0
-                ), "direction of plasma current should be anti-clockwise to be consistent with sign of grad(psi)"
+                # psi increases outward radially, so Bp is clockwise in the poloidal
+                # plane (outward in major radius at the top of the torus, inward at the
+                # bottom).  This corresponds to plasma current in the anti-clockwise
+                # toroidal direction looking from above, so current should be positive
+                assert Ip >= 0.0, (
+                    "direction of plasma current should be anti-clockwise to be "
+                    "consistent with sign of grad(psi)"
+                )
             else:
                 # psi decreases outward radially, so current should be in the opposite
                 # direction
-                assert (
-                    Ip <= 0.0
-                ), "direction of plasma current should be clockwise to be consistent with sign of grad(psi)"
+                assert Ip <= 0.0, (
+                    "direction of plasma current should be clockwise to be consistent "
+                    "with sign of grad(psi)"
+                )
             # index of a point close to the magnetic axis
             i_axis = numpy.searchsorted(R, R_axis)
             j_axis = numpy.searchsorted(Z, Z_axis)
@@ -179,8 +178,8 @@ class TORPEXMagneticField(Equilibrium):
             grid_psi_axis = psirz[j_axis, i_axis]
             if numpy.abs(psi_axis) > 1.0e-10:
                 if numpy.abs(psi_axis + grid_psi_axis) / numpy.abs(psi_axis) < 1.0e-2:
-                    # In some EFIT files, psirz might be defined with the 'wrong' sign, so
-                    # that it increases radially, in which case we would have
+                    # In some EFIT files, psirz might be defined with the 'wrong' sign,
+                    # so that it increases radially, in which case we would have
                     # psi_axis ~ -grid_psi_axis and we need to flip the sign of psirz
                     psirz = -psirz
                 else:
@@ -189,7 +188,8 @@ class TORPEXMagneticField(Equilibrium):
                         < 1.0e-2
                     ):
                         warnings.warn(
-                            "psi_axis is not consistent with the value of psirz at (rmaxis, zmaxis)"
+                            "psi_axis is not consistent with the value of psirz at "
+                            "(rmaxis, zmaxis)"
                         )
             else:
                 # psi_axis is zero
@@ -214,8 +214,6 @@ class TORPEXMagneticField(Equilibrium):
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
             # double-precision
-            from ..utils.dct_interpolation import DCT_2D
-
             from scipy.io import loadmat
 
             eqfile = loadmat(self.equilibOptions["matfile"])["eq"]
@@ -281,6 +279,8 @@ class TORPEXMagneticField(Equilibrium):
         )
 
     def addWallToPlot(self, npoints=None):
+        from matplotlib import pyplot
+
         if npoints is not None:
             theta = numpy.linspace(0.0, 2.0 * numpy.pi, npoints + 1)
             pyplot.plot(*self.TORPEX_wall(theta))
@@ -297,8 +297,8 @@ class TORPEXMagneticField(Equilibrium):
         toroidal (anti-clockwise) component of magnetic vector potential due to coils.
         See for example http://physics.usask.ca/~hirose/p812/notes/Ch3.pdf
 
-        The currents in the coils are taken to be positive in the anti-clockwise direction
-        here.
+        The currents in the coils are taken to be positive in the anti-clockwise
+        direction here.
 
         Note e_R x e_phi = e_Z
 

@@ -21,7 +21,6 @@
 Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
-from copy import deepcopy
 import numbers
 import re
 import warnings
@@ -31,7 +30,7 @@ from scipy.integrate import solve_ivp
 
 from boututils.boutarray import BoutArray
 
-from .equilibrium import calc_distance, Point2D, FineContour
+from .equilibrium import calc_distance, Point2D
 
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -296,20 +295,20 @@ class MeshRegion:
         # get points in this region
         self.contours = []
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            # region is inside separatrix, so need to follow line from the last psi_val to
-            # the first
+            # region is inside separatrix, so need to follow line from the last psi_val
+            # to the first
             temp_psi_vals = self.psi_vals[::-1]
         else:
             temp_psi_vals = self.psi_vals
 
-        # Make vector along grad(psi) at start of equilibriumRegion
-        # Here we assume that the equilibriumRegion at a separatrix
-        # at the beginning and end, but not necessarily in between.
-        # This is to handle disconnected double null
+        # Make vector along grad(psi) at start of equilibriumRegion Here we assume that
+        # the equilibriumRegion at a separatrix at the beginning and end, but not
+        # necessarily in between.  This is to handle disconnected double null
         start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
         start_psi = self.equilibriumRegion.psi(*start_point)
 
-        # set sign of step in psi towards this region from primary separatrix at start of region
+        # set sign of step in psi towards this region from primary separatrix at start of
+        # region
         if temp_psi_vals[-1] - start_psi > 0:
             start_psi_sep_plus_delta = (
                 start_psi + self.user_options.poloidal_spacing_delta_psi
@@ -336,7 +335,8 @@ class MeshRegion:
         end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
         end_psi = self.equilibriumRegion.psi(*end_point)
 
-        # set sign of step in psi towards this region from primary separatrix at end of region
+        # set sign of step in psi towards this region from primary separatrix at end of
+        # region
         if temp_psi_vals[-1] - end_psi > 0:
             end_psi_sep_plus_delta = (
                 end_psi + self.user_options.poloidal_spacing_delta_psi
@@ -377,8 +377,8 @@ class MeshRegion:
             unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
             unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface ** 2))
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude to
-            # calculate perp_d
+            # this gives abs(sin_angle), but that's OK because we only want the magnitude
+            # to calculate perp_d
             sin_angle = numpy.sqrt(1.0 - cos_angle ** 2)
             self.options.set(perp_d_lower=self.options.monotonic_d_lower * sin_angle)
         if self.equilibriumRegion.wallSurfaceAtEnd is None:
@@ -395,8 +395,8 @@ class MeshRegion:
             unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
             unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface ** 2))
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude to
-            # calculate perp_d
+            # this gives abs(sin_angle), but that's OK because we only want the magnitude
+            # to calculate perp_d
             sin_angle = numpy.sqrt(1.0 - cos_angle ** 2)
             self.options.set(perp_d_upper=self.options.monotonic_d_upper * sin_angle)
 
@@ -461,10 +461,10 @@ class MeshRegion:
         # should the contour intersect a wall at the upper end?
         upper_wall = self.connections["upper"] is None
 
-        # sfunc_orthogonal functions created after contour has been extended past wall (if
-        # necessary) but before adding the wall point to the contour (as adding this point
-        # makes the spacing of points on the contour not-smooth) and adjusted for the
-        # change in distance after redefining startInd to be at the wall
+        # sfunc_orthogonal functions created after contour has been extended past wall
+        # (if necessary) but before adding the wall point to the contour (as adding this
+        # point makes the spacing of points on the contour not-smooth) and adjusted for
+        # the change in distance after redefining startInd to be at the wall
         self.sfunc_orthogonal_list = []
 
         # find wall intersections
@@ -504,7 +504,8 @@ class MeshRegion:
                 else:
                     starti = len(contour) - 1
 
-                # find whether one of the segments of the contour already intersects the wall
+                # find whether one of the segments of the contour already intersects the
+                # wall
                 for i in range(starti, 0, -1):
                     lower_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[i], contour[i - 1]
@@ -515,8 +516,8 @@ class MeshRegion:
 
                 count = 0
                 while lower_intersect is None:
-                    # contour has not yet intersected with wall, so make it longer and try
-                    # again
+                    # contour has not yet intersected with wall, so make it longer and
+                    # try again
                     contour.temporaryExtend(extend_lower=1)
                     lower_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[1], contour[0]
@@ -532,7 +533,8 @@ class MeshRegion:
                 else:
                     starti = 0
 
-                # find whether one of the segments of the contour already intersects the wall
+                # find whether one of the segments of the contour already intersects the
+                # wall
                 for i in range(starti, len(contour) - 1):
                     upper_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[i], contour[i + 1]
@@ -543,8 +545,8 @@ class MeshRegion:
 
                 count = 0
                 while upper_intersect is None:
-                    # contour has not yet intersected with wall, so make it longer and try
-                    # again
+                    # contour has not yet intersected with wall, so make it longer and
+                    # try again
                     contour.temporaryExtend(extend_upper=1)
                     upper_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[-2], contour[-1]
@@ -556,11 +558,11 @@ class MeshRegion:
 
             # now add points on the wall(s) to the contour
             if lower_wall:
-                # need to construct a new sfunc which gives distance from the wall, not the
-                # distance from the original startInd
+                # need to construct a new sfunc which gives distance from the wall, not
+                # the distance from the original startInd
 
-                # this sfunc would put the points at the positions along the contour where the
-                # grid would be orthogonal
+                # this sfunc would put the points at the positions along the contour
+                # where the grid would be orthogonal
                 sfunc_orthogonal_original = contour.contourSfunc()
 
                 # now make lower_intersect_index the index where the point at the wall is
@@ -596,8 +598,8 @@ class MeshRegion:
                     # need to correct for point already added at lower wall
                     upper_intersect_index += 1
 
-                # this sfunc would put the points at the positions along the contour where the
-                # grid would be orthogonal
+                # this sfunc would put the points at the positions along the contour
+                # where the grid would be orthogonal
                 sfunc_orthogonal = contour.contourSfunc()
 
                 # now make upper_intersect_index the index where the point at the wall is
@@ -660,8 +662,8 @@ class MeshRegion:
                 if i_contour == 0:
                     c_in = self.contours[0]
                 else:
-                    # contours are being changed, but start and end points are fixed so it is OK
-                    # to use contours[i_contour-1] anyway
+                    # contours are being changed, but start and end points are fixed so
+                    # it is OK to use contours[i_contour-1] anyway
                     c_in = self.contours[i_contour - 1]
                 if i_contour == len(self.contours) - 1:
                     c_out = self.contours[i_contour]
@@ -682,7 +684,8 @@ class MeshRegion:
                 )
                 sfunc = self.sfunc_orthogonal_list[i_contour]
             elif self.user_options.nonorthogonal_spacing_method == "fixed_poloidal":
-                # this sfunc gives a fixed poloidal spacing at beginning and end of contours
+                # this sfunc gives a fixed poloidal spacing at beginning and end of
+                # contours
                 sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
                     2 * self.ny_noguards + 1,
                     contour.totalDistance(),
@@ -749,8 +752,9 @@ class MeshRegion:
 
     def globalXInd(self, i):
         """
-        Get the global x-index in the set of MeshRegions connected radially to this one of
-        the point with local x-index i. Define so globalXInd=0 is at the primary separatrix
+        Get the global x-index in the set of MeshRegions connected radially to this one
+        of the point with local x-index i. Define so globalXInd=0 is at the primary
+        separatrix
         """
         if self.radialIndex >= self.equilibriumRegion.separatrix_radial_index:
             # outside separatrix
@@ -765,7 +769,7 @@ class MeshRegion:
             return i - sum(
                 2 * n
                 for n in self.equilibriumRegion.options.nx[
-                    self.equilibriumRegion.separatrix_radial_index : self.radialIndex : -1
+                    self.equilibriumRegion.separatrix_radial_index : self.radialIndex : -1  # noqa: E501
                 ]
             )
 
@@ -902,7 +906,8 @@ class MeshRegion:
         # print(self.myID, self.psi_vals[0], self.psi_vals[1], Bp_dot_grady)
         # print(self.Brxy.centre[-1, self.ny//2], self.Bzxy.centre[-1, self.ny//2],
         #        (self.Rxy.centre[-1, self.ny//2 - 1], self.Rxy.centre[-1, self.ny//2 +
-        #            1]), (self.Zxy.centre[-1, self.ny//2 - 1], self.Zxy.centre[-1, self.ny//2 + 1]))
+        #            1]), (self.Zxy.centre[-1, self.ny//2 - 1],
+        #                  self.Zxy.centre[-1, self.ny//2 + 1]))
         if Bp_dot_grady < 0.0:
             print(
                 "Poloidal field is in opposite direction to Grad(theta) -> Bp negative"
@@ -1005,9 +1010,9 @@ class MeshRegion:
         Calculate the metrics using geometrical information calculated in geometry1() and
         geometry2().
         Needs to be a separate method as zShift can only be calculated when calcZShift()
-        has been called on the MeshRegion at the beginning of the y-group. To ensure this,
-        call geometry1() and geometry2() on all regions first, then calcMetric on all
-        regions.
+        has been called on the MeshRegion at the beginning of the y-group. To ensure
+        this, call geometry1() and geometry2() on all regions first, then calcMetric on
+        all regions.
         """
         if not self.user_options.shiftedmetric:
             # To implement the shiftedmetric==False case, would have to define a
@@ -1030,10 +1035,10 @@ class MeshRegion:
         else:
             # Zero integrated shear, because the coordinate system is defined locally to
             # each value of y, and defined to have no shear.
-            # In this case zShift only needs to be defined consistently *along* each field
-            # line - don't need to be able to take radial (x-direction) derivatives. This
-            # means different (radial) regions can use different locations for where
-            # zShift=0.
+            # In this case zShift only needs to be defined consistently *along* each
+            # field line - don't need to be able to take radial (x-direction)
+            # derivatives. This means different (radial) regions can use different
+            # locations for where zShift=0.
             self.I = MultiLocationArray(self.nx, self.ny).zero()
 
         # Here ShiftTorsion = d2phidxdy
@@ -1170,26 +1175,30 @@ class MeshRegion:
         if not numpy.all(check.centre):
             ploterror("centre")
             raise ValueError(
-                "Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) calculated from the metric tensor"
+                "Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) "
+                "calculated from the metric tensor"
             )
 
         if not numpy.all(check.ylow):
             ploterror("ylow")
             raise ValueError(
-                "Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor"
+                "Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) "
+                "calculated from the metric tensor"
             )
 
         if check._xlow_array is not None:
             if not numpy.all(check.xlow):
                 ploterror("xlow")
                 raise ValueError(
-                    "Geometry: Jacobian at xlow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor"
+                    "Geometry: Jacobian at xlow should be consistent with "
+                    "1/sqrt(det(g)) calculated from the metric tensor"
                 )
         if check._corners_array is not None:
             if not numpy.all(check.corners):
                 ploterror("corners")
                 raise ValueError(
-                    "Geometry: Jacobian at corners should be consistent with 1/sqrt(det(g)) calculated from the metric tensor"
+                    "Geometry: Jacobian at corners should be consistent with "
+                    "1/sqrt(det(g)) calculated from the metric tensor"
                 )
 
         # curvature terms
@@ -1226,8 +1235,13 @@ class MeshRegion:
 
             equilib = self.meshParent.equilibrium
             psi = equilib.psi
-            fpol = lambda R, Z: equilib.fpol(psi(R, Z))
-            fpolprime = lambda R, Z: equilib.fpolprime(psi(R, Z))
+
+            def fpol(R, Z):
+                return equilib.fpol(psi(R, Z))
+
+            def fpolprime(R, Z):
+                return equilib.fpolprime(psi(R, Z))
+
             BR = equilib.Bp_R
             BZ = equilib.Bp_Z
             d2psidR2 = equilib.d2psidR2
@@ -1235,82 +1249,95 @@ class MeshRegion:
             d2psidRdZ = equilib.d2psidRdZ
 
             # Toroidal component of B
-            Bphi = lambda R, Z: fpol(R, Z) / R
+            def Bzeta(R, Z):
+                return fpol(R, Z) / R
 
             # B^2
-            B2 = lambda R, Z: (BR(R, Z) ** 2 + BZ(R, Z) ** 2 + Bphi(R, Z) ** 2)
+            def B2(R, Z):
+                return BR(R, Z) ** 2 + BZ(R, Z) ** 2 + Bzeta(R, Z) ** 2
 
             # d(B^2)/dR
-            dB2dR = lambda R, Z: (
-                -2.0 / R * B2(R, Z)
-                + 2.0
-                / R
-                * (
+            def dB2dR(R, Z):
+                return -2.0 / R * B2(R, Z) + 2.0 / R * (
                     -BZ(R, Z) * d2psidR2(R, Z)
                     + BR(R, Z) * d2psidRdZ(R, Z)
                     - fpol(R, Z) * fpolprime(R, Z) * BZ(R, Z)
                 )
-            )
 
             # d(B^2)/dZ
-            dB2dZ = (
-                lambda R, Z: 2.0
-                / R
-                * (
-                    -BZ(R, Z) * d2psidRdZ(R, Z)
-                    + BR(R, Z) * d2psidZ2(R, Z)
-                    + fpol(R, Z) * fpolprime(R, Z) * BR(R, Z)
+            def dB2dZ(R, Z):
+                return (
+                    2.0
+                    / R
+                    * (
+                        -BZ(R, Z) * d2psidRdZ(R, Z)
+                        + BR(R, Z) * d2psidZ2(R, Z)
+                        + fpol(R, Z) * fpolprime(R, Z) * BR(R, Z)
+                    )
                 )
-            )
 
-            # dBphi/dR
-            dBphidR = lambda R, Z: -fpolprime(R, Z) * BZ(R, Z) - fpol(R, Z) / R ** 2
+            # dBzeta/dR
+            def dBzetadR(R, Z):
+                return -fpolprime(R, Z) * BZ(R, Z) - fpol(R, Z) / R ** 2
 
-            # dBphi/dZ
-            dBphidZ = lambda R, Z: fpolprime(R, Z) * BR(R, Z)
+            # dBzeta/dZ
+            def dBzetadZ(R, Z):
+                return fpolprime(R, Z) * BR(R, Z)
 
             # dBZ/dR
-            dBZdR = lambda R, Z: -d2psidR2(R, Z) / R - BZ(R, Z) / R
+            def dBZdR(R, Z):
+                return -d2psidR2(R, Z) / R - BZ(R, Z) / R
 
             # dBR/dZ
-            dBRdZ = lambda R, Z: d2psidZ2(R, Z) / R
+            def dBRdZ(R, Z):
+                return d2psidZ2(R, Z) / R
 
-            # In cylindrical coords curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat
-            #                                  + 1/R*(d(R A_zeta)/dR - d(AR)/dzeta) * Zhat
-            #                                  + (d(AR)/dZ - d(AZ)/dR) * zetahat
+            # In cylindrical coords
+            # curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat
+            #           + 1/R*(d(R A_zeta)/dR - d(AR)/dzeta) * Zhat
+            #           + (d(AR)/dZ - d(AZ)/dR) * zetahat
             # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
             #
             # curl(b/B) = curl((BR/B2), (BZ/B2), (Bzeta/B2))
-            # curl(b/B)_R = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            # curl(b/B)_R = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta
+            #               - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
             #             = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
-            # curl(b/B)_Z = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
+            # curl(b/B)_Z = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            #               - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
             #             = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
-            # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
+            # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ
+            #                  - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
             # remembering d/dzeta=0 for axisymmetric equilibrium
-            curl_bOverB_R = lambda R, Z: -dBzetadZ(R, Z) / B2(R, Z) + Bzeta(R, Z) / B2(
-                R, Z
-            ) ** 2 * dB2dZ(R, Z)
-            curl_bOverB_zeta = lambda R, Z: (
-                dBRdZ(R, Z) / B2(R, Z)
-                - BR(R, Z) / B2(R, Z) ** 2 * dB2dZ(R, Z)
-                - dBZdR(R, Z) / B2(R, Z)
-                + BZ(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
-            )
-            curl_bOverB_Z = (
-                lambda R, Z: Bzeta(R, Z) / (R * B2(R, Z))
-                + dBzetadR(R, Z) / B2(R, Z)
-                - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
-            )
+            def curl_bOverB_R(R, Z):
+                return -dBzetadZ(R, Z) / B2(R, Z) + Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dZ(
+                    R, Z
+                )
+
+            def curl_bOverB_zeta(R, Z):
+                return (
+                    dBRdZ(R, Z) / B2(R, Z)
+                    - BR(R, Z) / B2(R, Z) ** 2 * dB2dZ(R, Z)
+                    - dBZdR(R, Z) / B2(R, Z)
+                    + BZ(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
+                )
+
+            def curl_bOverB_Z(R, Z):
+                return (
+                    Bzeta(R, Z) / (R * B2(R, Z))
+                    + dBzetadR(R, Z) / B2(R, Z)
+                    - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
+                )
 
             # A^x = A.Grad(x)
             # A^y = A.Grad(y)
             # A^z = A.Grad(z)
             # dpsi/dR = -R*Bp_Z
             # dpsi/dZ = R*Bp_R
-            curl_bOverBx = lambda R, Z: (
-                curl_bOverB_R(R, Z) * (-R * BZ(R, Z))
-                + curl_bOverB_Z(R, Z) * (R * BR(R, Z))
-            )
+            def curl_bOverBx(R, Z):
+                return curl_bOverB_R(R, Z) * (-R * BZ(R, Z)) + curl_bOverB_Z(R, Z) * (
+                    R * BR(R, Z)
+                )
+
             self.curl_bOverBx = curl_bOverBx(self.Rxy, self.Zxy)
 
             # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
@@ -1368,15 +1395,15 @@ class MeshRegion:
                 cbelow = self.getNeighbour("lower").contours[2 * i + 1]
                 hy.ylow[i, 0] = d[1] - d[0] + cbelow.distance[-1] - cbelow.distance[-2]
             else:
-                # no region below, so estimate distance to point before '0' as the same as
-                # from '0' to '1'
+                # no region below, so estimate distance to point before '0' as the same
+                # as from '0' to '1'
                 hy.ylow[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i + 1]
                 hy.ylow[i, -1] = d[-1] - d[-2] + cabove.distance[1] - cabove.distance[0]
             else:
-                # no region below, so estimate distance to point before '0' as the same as
-                # from '0' to '1'
+                # no region below, so estimate distance to point before '0' as the same
+                # as from '0' to '1'
                 hy.ylow[i, -1] = 2.0 * (d[-1] - d[-2])
 
         for i in range(self.nx + 1):
@@ -1389,8 +1416,8 @@ class MeshRegion:
                     d[1] - d[0] + cbelow.distance[-1] - cbelow.distance[-2]
                 )
             else:
-                # no region below, so estimate distance to point before '0' as the same as
-                # from '0' to '1'
+                # no region below, so estimate distance to point before '0' as the same
+                # as from '0' to '1'
                 hy.corners[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i]
@@ -1398,8 +1425,8 @@ class MeshRegion:
                     d[-1] - d[-2] + cabove.distance[1] - cabove.distance[0]
                 )
             else:
-                # no region below, so estimate distance to point before '0' as the same as
-                # from '0' to '1'
+                # no region below, so estimate distance to point before '0' as the same
+                # as from '0' to '1'
                 hy.corners[i, -1] = 2.0 * (d[-1] - d[-2])
 
         hy /= self.dy
@@ -1421,7 +1448,8 @@ class MeshRegion:
         self.sinBeta = MultiLocationArray(self.nx, self.ny)
         self.tanBeta = MultiLocationArray(self.nx, self.ny)
 
-        ## for centre points
+        # for centre points
+        ###################
 
         # vector from i-1/2 to i+1/2
         delta_x = [
@@ -1452,7 +1480,8 @@ class MeshRegion:
         # sin(beta) = cos(pi/2 - beta) = e_x_hat.e_y_hat = delta_x.delta_y
         self.sinBeta.centre = delta_x[0] * delta_y[0] + delta_x[1] * delta_y[1]
 
-        ## for ylow points
+        # for ylow points
+        #################
 
         # vector from i-1/2 to i+1/2
         delta_x = [
@@ -1514,7 +1543,7 @@ class MeshRegion:
         # Cannot just test 'connections['lower'] is not None' because periodic regions
         # always have a lower connection - requires us to give a yGroupIndex to each
         # region when creating the groups.
-        if self.yGroupIndex is not 0:
+        if self.yGroupIndex != 0:
             return None
 
         region = self
@@ -1610,8 +1639,9 @@ class MeshRegion:
 
     def _eval_from_region(self, expr, region=None, component=None):
         # Utility routine to evaluate an expression using different MeshRegions
-        # Names of fields belonging to the MeshRegion are indicated by a '#' in expr, e.g.
-        # if 'foo' and 'bar' are two member variables, we could have expr='#foo + #bar'
+        # Names of fields belonging to the MeshRegion are indicated by a '#' in expr,
+        # e.g.  if 'foo' and 'bar' are two member variables, we could have
+        # expr='#foo + #bar'
 
         if region is None:
             region_string = "self"
@@ -1641,13 +1671,13 @@ class MeshRegion:
             result.centre[...] = (f.xlow[1:, :] - f.xlow[:-1, :]) / self.dx.centre
         else:
             warnings.warn(
-                "No xlow field available to calculate DDX(" + name + ").centre"
+                "No xlow field available to calculate DDX(" + expr + ").centre"
             )
         if f.corners is not None:
             result.ylow[...] = (f.corners[1:, :] - f.corners[:-1, :]) / self.dx.ylow
         else:
             warnings.warn(
-                "No corners field available to calculate DDX(" + name + ").ylow"
+                "No corners field available to calculate DDX(" + expr + ").ylow"
             )
 
         if f.centre is not None:
@@ -1670,7 +1700,7 @@ class MeshRegion:
                 )
         else:
             warnings.warn(
-                "No centre field available to calculate DDX(" + name + ").xlow"
+                "No centre field available to calculate DDX(" + expr + ").xlow"
             )
 
         if f.ylow is not None:
@@ -1695,7 +1725,7 @@ class MeshRegion:
                 )
         else:
             warnings.warn(
-                "No ylow field available to calculate DDX(" + name + ").corners"
+                "No ylow field available to calculate DDX(" + expr + ").corners"
             )
 
         return result
@@ -1711,13 +1741,13 @@ class MeshRegion:
             result.centre[...] = (f.ylow[:, 1:] - f.ylow[:, :-1]) / self.dy.centre
         else:
             warnings.warn(
-                "No ylow field available to calculate DDY(" + name + ").centre"
+                "No ylow field available to calculate DDY(" + expr + ").centre"
             )
         if f.corners is not None:
             result.xlow[...] = (f.corners[:, 1:] - f.corners[:, :-1]) / self.dy.xlow
         else:
             warnings.warn(
-                "No corners field available to calculate DDY(" + name + ").xlow"
+                "No corners field available to calculate DDY(" + expr + ").xlow"
             )
 
         if f.centre is not None:
@@ -1740,7 +1770,7 @@ class MeshRegion:
                 )
         else:
             warnings.warn(
-                "No centre field available to calculate DDY(" + name + ").ylow"
+                "No centre field available to calculate DDY(" + expr + ").ylow"
             )
 
         if f.xlow is not None:
@@ -1765,7 +1795,7 @@ class MeshRegion:
                 )
         else:
             warnings.warn(
-                "No xlow field available to calculate DDY(" + name + ").corners"
+                "No xlow field available to calculate DDY(" + expr + ").corners"
             )
 
         return result
@@ -1870,7 +1900,7 @@ class Mesh:
             group = []
             while True:
                 assert (
-                    region.yGroupIndex == None
+                    region.yGroupIndex is None
                 ), "region should not have been added to any yGroup before"
                 region.yGroupIndex = len(group)
                 group.append(region)
@@ -2038,7 +2068,9 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.0e-8, atol=1.0e-8):
         ]
     Avals = Avals.copy()
 
-    f = lambda A, x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
+    def f(A, x):
+        return (f_R(x[0], x[1]), f_Z(x[0], x[1]))
+
     Arange = (A0, Avals[-1])
     # make sure rounding errors do not cause exception:
     if Arange[1] - Arange[0] > 0:
@@ -2074,8 +2106,8 @@ class BoutMesh(Mesh):
     Mesh, with the topology assumed by BOUT++ (allowing complexity up to
     disconnected-double-null).
 
-    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions must
-    be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
+    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions
+    must be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
     outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
     positioning in the global logically rectangular grid. Regions are allowed to not be
     present (if they would have size 0).
@@ -2103,7 +2135,10 @@ class BoutMesh(Mesh):
                 r.options.nx == eq_region0.options.nx
                 for r in self.equilibrium.regions.values()
             ]
-        ), "all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid"
+        ), (
+            "all regions should have same set of x-grid sizes to be compatible with a "
+            "global, logically-rectangular grid"
+        )
         x_sizes = [0] + list(eq_region0.options.nx)
 
         # Note: x_startinds includes the end: self.x_startinds[-1] = nx
@@ -2119,9 +2154,11 @@ class BoutMesh(Mesh):
             # all segments must have the same ny, i.e. same number of y-boundary guard
             # cells
             this_ny = region.ny(0)
-            assert all(
-                region.ny(i) == this_ny for i in range(region.nSegments)
-            ), "all radial segments in an equilibrium-region must have the same ny (i.e. same number of boundary guard cells) to be compatible with a global, logically-rectangular grid"
+            assert all(region.ny(i) == this_ny for i in range(region.nSegments)), (
+                "all radial segments in an equilibrium-region must have the same ny "
+                "(i.e.  same number of boundary guard cells) to be compatible with a "
+                "global, logically-rectangular grid"
+            )
 
             y_total_new = y_total + this_ny
             self.y_regions_noguards.append(region.ny_noguards)
@@ -2295,9 +2332,10 @@ class BoutMesh(Mesh):
             elif len(self.x_startinds) == 3:
                 # One separatrix: self.x_startinds = [0, ixseps, nx]
                 ixseps1 = self.x_startinds[1]
-                ixseps2 = (
-                    self.nx
-                )  # note: this may be changed below for cases where the two separatrices are in the same radial location
+
+                # note: ixseps2 may be changed below for cases where the two separatrices
+                # are in the same radial location
+                ixseps2 = self.nx
             elif len(self.x_startinds) == 4:
                 # Two separatrices
                 ixseps1 = self.x_startinds[1]
@@ -2343,8 +2381,8 @@ class BoutMesh(Mesh):
                 jyseps2_2 = sum(self.y_regions_noguards[:5]) - 1
 
                 if ixseps2 == self.nx:
-                    # this is a connected-double-null configuration, with two separatrices
-                    # in the same radial location
+                    # this is a connected-double-null configuration, with two
+                    # separatrices in the same radial location
                     ixseps2 = ixseps1
 
             f.write("ixseps1", ixseps1)
@@ -2391,7 +2429,8 @@ class BoutMesh(Mesh):
             pyplot.colorbar()
         except NameError:
             raise NameError(
-                "Some variable has not been defined yet: have you called Mesh.geometry()?"
+                "Some variable has not been defined yet: have you called "
+                "Mesh.geometry()?"
             )
 
     def saveOptions(self, filename="hypnotoad_options.yaml"):

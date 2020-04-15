@@ -18,13 +18,16 @@
 # Hypnotoad 2.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
+
 import numpy
-from .utils_for_tests import *
+
+from .utils_for_tests import tight_approx
 from ..utils.dct_interpolation import DCT_2D
 
 
 def test_DCT_2D():
-    f = lambda R, Z: (R - 0.5) ** 2 - (Z - 0.1) ** 2
+    def f(R, Z):
+        return (R - 0.5) ** 2 - (Z - 0.1) ** 2
 
     nR = 10
     nZ = 15
@@ -58,8 +61,11 @@ def test_DCT_2D():
 
 def test_DCT_2D_ddR():
     # check R-derivative
-    f = lambda R, Z: (R - 0.5) ** 2 - (Z - 0.1) ** 2
-    dfdR = lambda R, Z: 2.0 * (R - 0.5) + 0.0 * Z
+    def f(R, Z):
+        return (R - 0.5) ** 2 - (Z - 0.1) ** 2
+
+    def dfdR(R, Z):
+        return 2.0 * (R - 0.5) + 0.0 * Z
 
     nR = 60
     nZ = 23
@@ -97,8 +103,11 @@ def test_DCT_2D_ddR():
 
 def test_DCT_2D_ddZ():
     # check Z-derivative
-    f = lambda R, Z: (R - 0.5) ** 2 - (Z - 0.1) ** 2
-    dfdZ = lambda R, Z: 0.0 * R - 2.0 * (Z - 0.1)
+    def f(R, Z):
+        return (R - 0.5) ** 2 - (Z - 0.1) ** 2
+
+    def dfdZ(R, Z):
+        return 0.0 * R - 2.0 * (Z - 0.1)
 
     nR = 11
     nZ = 40

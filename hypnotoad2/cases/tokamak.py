@@ -19,7 +19,6 @@ class TokamakEquilibrium(Equilibrium):
     """
     Represents an axisymmetric tokamak equilibrium
 
-    
     Data members
     - x_points: list of Point2D objects giving the position of the X-points ordered
                 from primary X-point (nearest the core) outward
@@ -29,7 +28,7 @@ class TokamakEquilibrium(Equilibrium):
                               box for the gridding
     - regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
     - wall: list of Point2D giving vertices of polygon representing the wall, in
-            anti-clockwise order; assumed to be closed so last element and first are 
+            anti-clockwise order; assumed to be closed so last element and first are
             taken to be connected
     """
 
@@ -238,7 +237,7 @@ class TokamakEquilibrium(Equilibrium):
 
     def findLegs(self, xpoint, radius=0.01, step=0.01):
         """Find the divertor legs coming from a given X-point
-        
+
         xpoint   Point2D object giving position
         radius   Search distance from X-point, in meters
         step     Integration step size, in meters
@@ -274,7 +273,6 @@ class TokamakEquilibrium(Equilibrium):
             s1 = 0.0
             s2 = 1.0
             psi1 = psivals[ind]  # s = 0
-            psi2 = psivals[ind + 1]  # s = 1
 
             while s2 - s1 > 1e-5:
                 smid = 0.5 * (s1 + s2)
@@ -282,7 +280,6 @@ class TokamakEquilibrium(Equilibrium):
 
                 if (psi_mid - psi_sep) * (psi1 - psi_sep) < 0.0:
                     # Between psi_mid and psi1
-                    psi2 = psi_mid
                     s2 = smid
                 else:
                     psi1 = psi_mid
@@ -354,9 +351,12 @@ class TokamakEquilibrium(Equilibrium):
         1. Set defaults if not already set by user
         2. Identify whether single or double null
         3. Describe the leg and core regions, depending on the topology
-        4. Follow flux surfaces based on core region descriptions (self.coreRegionToRegion)
-        5. Process all regions into a set of EquilibriumObjects (self.createRegionObjects)
-        6. Sort the EquilibriumRegion objects for BoutMesh output (self.createRegionObjects).
+        4. Follow flux surfaces based on core region descriptions
+           (self.coreRegionToRegion)
+        5. Process all regions into a set of EquilibriumObjects
+           (self.createRegionObjects)
+        6. Sort the EquilibriumRegion objects for BoutMesh output
+           (self.createRegionObjects).
         7. Connect regions together
 
         Inputs
@@ -506,7 +506,7 @@ class TokamakEquilibrium(Equilibrium):
 
         Returns
         -------
-        
+
         leg_regions    Dictionary describing poloidal regions in legs
         core_regions   Dictionary describing poloidal regions between X-points
         segments       Dictionary describing radial segments
@@ -692,7 +692,7 @@ class TokamakEquilibrium(Equilibrium):
 
         Returns
         -------
-        
+
         leg_regions    Dictionary describing poloidal regions in legs
         core_regions   Dictionary describing poloidal regions between X-points
         segments       Dictionary describing radial segments
@@ -963,7 +963,7 @@ class TokamakEquilibrium(Equilibrium):
                 segments["upper_pf2"] = {
                     "nx": nx_inter_sep,
                     "psi_vals": segments["upper_pf"]["psi_vals"][
-                        -(2 * nx_inter_sep + 1) :
+                        -(2 * nx_inter_sep + 1) : None
                     ],
                 }
 
@@ -1015,7 +1015,7 @@ class TokamakEquilibrium(Equilibrium):
                 segments["lower_pf2"] = {
                     "nx": nx_inter_sep,
                     "psi_vals": segments["lower_pf"]["psi_vals"][
-                        -(2 * nx_inter_sep + 1) :
+                        -(2 * nx_inter_sep + 1) : None
                     ],
                 }
 
@@ -1092,10 +1092,10 @@ class TokamakEquilibrium(Equilibrium):
         For each poloidal arc along a separatrix between two X-points
         (core region), find a set of points between the X-points.
         The result is returned as a dict of regions (like leg regions)
-        
+
         Inputs
         ------
-        
+
         core_regions  A dictionary containing definitions of core regions.
                       Keys are:
                         segments   A list of segment names
@@ -1105,8 +1105,8 @@ class TokamakEquilibrium(Equilibrium):
                         xpoints_at_end      A list of Point2D objects or None
                         psi_at_start    Poloidal flux at the start of the line
                         psi_at_end      Poloidal flux at the end of the line
-        
-        npoints   number of points in each core region 
+
+        npoints   number of points in each core region
 
         Returns
         -------
@@ -1190,7 +1190,7 @@ class TokamakEquilibrium(Equilibrium):
     def segmentsWithPsivals(self, segments):
         """
         Grids radial segments
-        
+
         Input
         -----
 
@@ -1202,10 +1202,10 @@ class TokamakEquilibrium(Equilibrium):
                       grad_end   [optional] Cell spacing at the end
 
         The input is not modified
-        
+
         Returns
         -------
-        
+
         A dictionary of segments, with an additional key "psi_vals"
         """
         result = {}
@@ -1226,12 +1226,12 @@ class TokamakEquilibrium(Equilibrium):
 
     def createRegionObjects(self, all_regions, segments):
         """
-        Create an OrderedDict of EquilibriumRegion objects, 
+        Create an OrderedDict of EquilibriumRegion objects,
         using specifications for the regions and segments
         in the all_regions and segments dictionaries.
 
         These regions need to be sorted so that BoutMesh
-        can generate branch cut indices. To do this ordering, 
+        can generate branch cut indices. To do this ordering,
         a limited set of region names should be used:
         - 'inner_lower_divertor'
         - 'core' (for single null)
@@ -1239,7 +1239,7 @@ class TokamakEquilibrium(Equilibrium):
         - 'inner_upper_divertor'
         - 'outer_upper_divertor'
         - 'outer_lower_divertor'
-        
+
         Inputs
         ------
 
@@ -1358,9 +1358,10 @@ class TokamakEquilibrium(Equilibrium):
         def handler(self, *args):
             if isinstance(args[0], MultiLocationArray):
                 for arg in args[1:]:
-                    assert isinstance(
-                        arg, MultiLocationArray
-                    ), "if first arg is a MultiLocationArray, then others must be as well"
+                    assert isinstance(arg, MultiLocationArray), (
+                        "if first arg is a MultiLocationArray, then others must be as "
+                        "well"
+                    )
                 result = MultiLocationArray(args[0].nx, args[0].ny)
 
                 if all(arg.centre is not None for arg in args):
@@ -1411,7 +1412,7 @@ class TokamakEquilibrium(Equilibrium):
 
     @handleMultiLocationArray
     def fpol(self, psi):
-        """poloidal current function, 
+        """poloidal current function,
         returns fpol such that B_toroidal = fpol/R"""
         return self.f_spl(psi * self.f_psi_sign)
 

@@ -1,2 +1,7 @@
 [flake8]
 max-line-length = 89
+ignore = (
+    E741, # 'ambiguous variable names' forbids using 'I', 'O' or 'l'
+    W503, # 'line break before binary operator', but this is allowed and useful inside brackets
+    E203, # 'whitespace before ':'', but black formats some slice expressions with space before ':'
+)

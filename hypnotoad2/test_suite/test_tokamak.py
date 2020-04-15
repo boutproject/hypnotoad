@@ -349,6 +349,7 @@ def make_connected_double_null():
 
     r0 = 1.5
     z0 = 0.3
+
     # This has two X-points
     def psi_func(R, Z):
         return (
@@ -409,7 +410,7 @@ def make_upper_double_null():
 
 
 def make_upper_double_null_largesep():
-    """UDN with larger separation between X-points. 
+    """UDN with larger separation between X-points.
     With psinorm = 1.1 this should be single null
     With psinorm = 1.2 it's double null"""
 

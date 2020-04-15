@@ -28,11 +28,11 @@ import warnings
 
 import numpy
 from options import Options
-from scipy.optimize import minimize_scalar, brentq, root
+from scipy.optimize import minimize_scalar, brentq
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 
-from ..utils.hypnotoad_options import HypnotoadInternalOptions, HypnotoadOptions
+from ..utils.hypnotoad_options import HypnotoadInternalOptions
 
 
 class SolutionError(Exception):
@@ -402,7 +402,6 @@ class FineContour:
 
     def extend(self, *, extend_lower=0, extend_upper=0):
 
-        atol = self.options.finecontour_atol
         Nfine = self.options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
@@ -411,18 +410,18 @@ class FineContour:
             [self.positions.shape[0] + extend_lower + extend_upper, 2]
         )
 
-        if extend_upper is 0:
+        if extend_upper == 0:
             new_positions[extend_lower:] = self.positions
         else:
             new_positions[extend_lower:-extend_upper] = self.positions
 
-        if extend_lower is not 0:
+        if extend_lower != 0:
             self.extend_lower_fine += extend_lower
 
             ds_lower = self.distance[1] - self.distance[0]
 
-            # distances from the first point in the FineContour to put initial guesses for
-            # new points
+            # distances from the first point in the FineContour to put initial guesses
+            # for new points
             new_s_lower = numpy.arange(-extend_lower, 0.0) * ds_lower
 
             # Extend parentCopy to cover range of new_s_lower.
@@ -431,8 +430,9 @@ class FineContour:
             parentCopy.temporaryExtend(extend_lower=coarse_extend, ds_lower=ds_coarse)
 
             # Make sure parentCopy has point at start of existing FineContour - then
-            # measure distances where initial guesses for new points are inserted relative
-            # to that point, ensures points in new_positions are in the right order
+            # measure distances where initial guesses for new points are inserted
+            # relative to that point, ensures points in new_positions are in the right
+            # order
             first_point = Point2D(*self.positions[0, :])
             reference_ind = parentCopy.insertFindPosition(first_point)
 
@@ -442,7 +442,7 @@ class FineContour:
                 tuple(extrap_coarse(s)) for s in new_s_lower
             ]
 
-        if extend_upper is not 0:
+        if extend_upper != 0:
             self.extend_upper_fine += extend_upper
 
             ds_upper = self.distance[-1] - self.distance[-2]
@@ -457,8 +457,9 @@ class FineContour:
             parentCopy.temporaryExtend(extend_upper=coarse_extend, ds_upper=ds_coarse)
 
             # Make sure parentCopy has point at end of existing FineContour - then
-            # measure distances where initial guesses for new points are inserted relative
-            # to that point, ensures points in new_positions are in the right order
+            # measure distances where initial guesses for new points are inserted
+            # relative to that point, ensures points in new_positions are in the right
+            # order
             last_point = Point2D(*self.positions[-1, :])
             reference_ind = parentCopy.insertFindPosition(last_point)
 
@@ -539,9 +540,9 @@ class FineContour:
                 and count > self.options.finecontour_maxits
             ):
                 warnings.warn(
-                    "FineContour: maximum iterations ({}) exceeded with ds_error {}".format(
-                        self.options.finecontour_maxits, ds_error
-                    )
+                    f"FineContour: maximum iterations "
+                    f"({self.options.finecontour_maxits}) exceeded with ds_error "
+                    f"{ds_error}"
                 )
                 break
 
@@ -553,7 +554,8 @@ class FineContour:
 
             interpFunc = self.interpFunction()
 
-            # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
+            # 2d array with size {N,2} giving the (R,Z)-positions of points on the
+            # contour
             self.positions = numpy.array(
                 tuple(interpFunc(s).as_ndarray() for s in sfine)
             )
@@ -680,7 +682,8 @@ class FineContour:
         vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp ** 2))
         start_position = self.positions[self.startInd, :]
 
-        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from self[self.startInd]
+        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from
+        # self[self.startInd]
         s_perp = numpy.sum(
             (self.positions - start_position) * vec_perp[numpy.newaxis, :], axis=1
         )
@@ -736,8 +739,8 @@ class FineContour:
             i2 = i1 - 1
         d2 = distance_from_points[i2]
 
-        # linearly interpolate the distance of the two closest points in the same ratio as
-        # their distances from the point
+        # linearly interpolate the distance of the two closest points in the same ratio
+        # as their distances from the point
         r = d2 / (d1 + d2)
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
@@ -817,8 +820,8 @@ class PsiContour:
     @extend_lower.setter
     def extend_lower(self, val):
         if self._extend_lower != val:
-            # self._fine_contour needs to be recalculated if extend_lower changes, to add more
-            # points at the lower end
+            # self._fine_contour needs to be recalculated if extend_lower changes, to add
+            # more points at the lower end
             self._fine_contour = None
             self._extend_lower = val
 
@@ -829,8 +832,8 @@ class PsiContour:
     @extend_upper.setter
     def extend_upper(self, val):
         if self._extend_upper != val:
-            # self._fine_contour needs to be recalculated if extend_upper changes, to add more
-            # points at the upper end
+            # self._fine_contour needs to be recalculated if extend_upper changes, to add
+            # more points at the upper end
             self._fine_contour = None
             self._extend_upper = val
 
@@ -978,7 +981,9 @@ class PsiContour:
         """Use Newton iteration to refine point.
         This should converge quickly if the original point is sufficiently close
         """
-        f = lambda s: self.psi(*(p + s * tangent)) - self.psival
+
+        def f(s):
+            return self.psi(*(p + s * tangent)) - self.psival
 
         def dfds(s, eps=1e-10):
             return (f(s + eps) - f(s)) / eps
@@ -1003,15 +1008,17 @@ class PsiContour:
                 # Converged
                 return p + s * tangent
             if abs(fnext) > abs(fprev) or count > 10:
-                raise RuntimeError("Diverging newton iteration")
+                raise SolutionError("Diverging newton iteration")
             count += 1
             fprev = fnext
 
     def refinePointLinesearch(self, p, tangent, width, atol):
-        """Refines the location of a point p, using a line search method 
+        """Refines the location of a point p, using a line search method
         along the tangent vector
         """
-        f = lambda R, Z: self.psi(R, Z) - self.psival
+
+        def f(R, Z):
+            return self.psi(R, Z) - self.psival
 
         if numpy.abs(f(*p)) < atol * numpy.abs(self.psival):
             # don't need to refine
@@ -1019,7 +1026,8 @@ class PsiContour:
 
         def perpLine(w):
             # p - point through which to draw perpLine
-            # tangent - vector tangent to original curve, result will be perpendicular to this
+            # tangent - vector tangent to original curve, result will be perpendicular to
+            #           this
             # w - width on either side of p to draw the perpLine to
             modTangent = numpy.sqrt(tangent.R ** 2 + tangent.Z ** 2)
             perpIdentityVector = Point2D(
@@ -1071,7 +1079,7 @@ class PsiContour:
 
     def refinePointIntegrate(self, p, tangent, width, atol):
         """Integrates across flux surfaces from p
-        
+
         Integrates this:
         dR/dpsi = dpsi/dR / ((dpsi/dZ)**2 + (dpsi/dR)**2)
         dZ/dpsi = dpsi/dZ / ((dpsi/dZ)**2 + (dpsi/dR)**2)
@@ -1097,20 +1105,20 @@ class PsiContour:
         return Point2D(*result.y[:, 1])
 
     def refinePoint(self, p, tangent, width=None, atol=None, methods=None):
-        """Starting from point p, find a nearby point where 
+        """Starting from point p, find a nearby point where
         self.psi(p) is close to self.psival, by moving along
         the tangent vector.
-        
-        methods   A comma-separated list of methods to use. 
+
+        methods   A comma-separated list of methods to use.
                   This overrides options.refine_methods
-        
+
                   Valid names are:
                   - "newton"       Newton iteration
                   - "line"         A line search
                   - "integrate"    Integrate along psi gradient
                   - "integrate+newton"  Integrate, then refine with Newton
                   - "none"         No refinement (always succeeds)
-        
+
         If all the methods specified fail, a SolutionError is raised.
 
         """
@@ -1154,7 +1162,7 @@ class PsiContour:
             try:
                 # Try each method
                 return available_methods[method.strip()](p, tangent, width, atol)
-            except:
+            except SolutionError:
                 # If it fails, try the next one
                 pass
 
@@ -1368,9 +1376,6 @@ class PsiContour:
         while (
             s[0] < -self.fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
-            new_extend_lower = self.fine_contour.extend_lower_fine + max(
-                orig_extend_lower, 1
-            )
             self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1))
 
         tol_upper = 0.25 * (
@@ -1382,13 +1387,12 @@ class PsiContour:
             - self.fine_contour.distance[self.fine_contour.startInd]
             + tol_upper
         ):
-            new_extend_upper = self.fine_contour.extend_upper_fine + max(
-                orig_extend_upper, 1
-            )
             self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1))
 
         interp_unadjusted = self.fine_contour.interpFunction()
-        interp = lambda s: interp_unadjusted(s - sbegin)
+
+        def interp(s):
+            return interp_unadjusted(s - sbegin)
 
         new_contour = self.newContourFromSelf(points=[interp(x) for x in s])
         new_contour.startInd = self.extend_lower
@@ -1439,9 +1443,9 @@ class PsiContour:
             numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
         )
         minind = numpy.argmin(distances)
-        # if minind < len(distances)-1, or the distance to the last point is less than the
-        # distance between the last and second-last of the fine_contour, then fine_contour
-        # extends past p so does not need to be extended
+        # if minind < len(distances)-1, or the distance to the last point is less than
+        # the distance between the last and second-last of the fine_contour, then
+        # fine_contour extends past p so does not need to be extended
         if minind == len(distances) - 1 and distances[-2] > numpy.sqrt(
             numpy.sum(
                 (
@@ -1514,9 +1518,9 @@ class PsiContour:
 class EquilibriumRegion(PsiContour):
     """
     Specialization of PsiContour for representing an equilibrium segment, which is a
-    poloidal segment based around a contour (normally a segment of a separatrix). Includes
-    members giving the connections to other regions and to list the X-points at the
-    boundaries where the contour starts or ends.
+    poloidal segment based around a contour (normally a segment of a separatrix).
+    Includes members giving the connections to other regions and to list the X-points at
+    the boundaries where the contour starts or ends.
     """
 
     def __init__(
@@ -1558,8 +1562,8 @@ class EquilibriumRegion(PsiContour):
         self.psi_vals = []
         self.separatrix_radial_index = 0
 
-        # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper side
-        # of each segment, so they both have length=nSegments+1
+        # xPointsAtStart and xPointsAtEnd should have an entry at the lower and upper
+        # side of each segment, so they both have length=nSegments+1
         self.xPointsAtStart.append(None)
         self.xPointsAtEnd.append(None)
         for i in range(nSegments):
@@ -1618,7 +1622,9 @@ class EquilibriumRegion(PsiContour):
                 self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer,
             )
         else:
-            raise ValueError("Unrecognized value before '.' in kind=" + str(kind))
+            raise ValueError(
+                f"Unrecognized value before '.' in " f"kind={self.options.kind}"
+            )
         if self.options.kind.split(".")[1] == "wall":
             setoption("sqrt_b_upper", self.user_options.target_poloidal_spacing_length)
             setoption(
@@ -1734,8 +1740,8 @@ class EquilibriumRegion(PsiContour):
     def getRegridded(self, *, radialIndex, **kwargs):
         for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
-            # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its own
-            # ny and connections, so must use these
+            # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its
+            # own ny and connections, so must use these
             if wrong_argument in kwargs:
                 raise ValueError(
                     "'" + wrong_argument + "' should not be given as an "
@@ -1834,20 +1840,20 @@ class EquilibriumRegion(PsiContour):
                     # surface is a wall
                     lower_surface = self.wallSurfaceAtStart
                 else:
-                    # Use fixed poloidal spacing when gridding the separatrix contour so that
-                    # the grid spacing is the same in different regions which share a
-                    # separatrix segment but have different perpendicular vectors at the
-                    # X-point
+                    # Use fixed poloidal spacing when gridding the separatrix contour so
+                    # that the grid spacing is the same in different regions which share
+                    # a separatrix segment but have different perpendicular vectors at
+                    # the X-point
                     lower_surface = None
 
                 if self.wallSurfaceAtEnd is not None:
                     # surface is a wall
                     upper_surface = self.wallSurfaceAtEnd
                 else:
-                    # Use fixed poloidal spacing when gridding the separatrix contour so that
-                    # the grid spacing is the same in different regions which share a
-                    # separatrix segment but have different perpendicular vectors at the
-                    # X-point
+                    # Use fixed poloidal spacing when gridding the separatrix contour so
+                    # that the grid spacing is the same in different regions which share
+                    # a separatrix segment but have different perpendicular vectors at
+                    # the X-point
                     upper_surface = None
 
                 sfunc = self.combineSfuncs(self, None, lower_surface, upper_surface)
@@ -1887,15 +1893,17 @@ class EquilibriumRegion(PsiContour):
 
     def combineSfuncs(self, contour, sfunc_orthogonal, vec_lower=None, vec_upper=None):
         # this sfunc gives:
-        # * - if vec_lower is None: fixed poloidal spacing at the beginning of the contour
+        # * - if vec_lower is None: fixed poloidal spacing at the beginning of the
+        #     contour
         #   - otherwise fixed spacing perpendicular to vec_lower at the beginning of the
         #     contour
         # * - if vec_upper is None: fixed poloidal spacing at the end of the contour
-        #   - otherwise fixed spacing perpendicular to vec_lower at the end of the contour
+        #   - otherwise fixed spacing perpendicular to vec_lower at the end of the
+        #     contour
         # * Tends to orthogonal spacing far from the ends, unless sfunc_orthogonal is
-        #   None, in which case it sets points so that if combineSfuncs is called again on
-        #   the same contour, but with sfunc_orthogonal=contour.contourSfunc() then the
-        #   same spacing is given
+        #   None, in which case it sets points so that if combineSfuncs is called again
+        #   on the same contour, but with sfunc_orthogonal=contour.contourSfunc() then
+        #   the same spacing is given
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1, contour.totalDistance(), method="monotonic"
@@ -2026,7 +2034,9 @@ class EquilibriumRegion(PsiContour):
                     # spacing again. This is used to make the contours along the
                     # separatrix keep the same values when pushing the other contours
                     # towards orthogonal positions
-                    # s = weight_lower*sfixed_lower + weight_upper*sfixed_upper + (1. - weight_lower - weight_upper)*s
+                    # s = weight_lower*sfixed_lower
+                    #     + weight_upper*sfixed_upper
+                    #     + (1. - weight_lower - weight_upper)*s
                     sorth = (
                         weight_lower * sfixed_lower + weight_upper * sfixed_upper
                     ) / (weight_lower + weight_upper)
@@ -2106,9 +2116,10 @@ class EquilibriumRegion(PsiContour):
                 return (weight_upper) * sfixed_upper + (1.0 - weight_upper) * sorth
 
         else:
-            assert (
-                sfunc_orthogonal is not None
-            ), "Without range_lower or range_upper, cannot use with sfunc_orthogonal=None"
+            assert sfunc_orthogonal is not None, (
+                "Without range_lower or range_upper, cannot use with "
+                "sfunc_orthogonal=None"
+            )
 
             def new_sfunc(i):
                 return sfunc_orthogonal(i)
@@ -2172,9 +2183,9 @@ class EquilibriumRegion(PsiContour):
     def getMonotonicPoloidalDistanceFunc(self, length, N, N_norm, *, d_lower, d_upper):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
-        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
-        same form when resolution is changed. The total Ny in the grid might be a good
-        choice for N_norm.
+        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it
+        has the same form when resolution is changed. The total Ny in the grid might be a
+        good choice for N_norm.
         sN(0) = 0
         sN(N/N_norm) = L
         dsN/diN(0) = d_lower at iN=0
@@ -2183,8 +2194,9 @@ class EquilibriumRegion(PsiContour):
         sN(iN) = L + d_upper*(iN - N/N_norm) for iN > N/N_norm
 
         Define sprime=dsN/diN.
-        Want sprime to be a positive definite function in the interval {0, N/N_norm}, with
-        sprime(0) = d_lower and sprime(N/N_norm) = d_upper, and \int(diN sprime) = L
+        Want sprime to be a positive definite function in the interval {0, N/N_norm},
+        with sprime(0) = d_lower and sprime(N/N_norm) = d_upper, and
+        \\int(diN sprime) = L
 
         If we chose a linear function
           sprime = a*iN + b
@@ -2194,11 +2206,11 @@ class EquilibriumRegion(PsiContour):
                          a = (d_upper - b)*N_norm/N
                            = (d_upper - d_lower)*N_norm/N,
         and so
-          \int(diN sprime) = 1/2*a*(N/N_norm)^2 + b*N/N_norm
+          \\int(diN sprime) = 1/2*a*(N/N_norm)^2 + b*N/N_norm
                            = 1/2*(d_upper - d_lower)*N/N_norm + d_lower*N/N_norm
                            = 1/2*(d_upper + d_lower)*N/N_norm.
         We need
-          \int(diN sprime) = L
+          \\int(diN sprime) = L
         so if
           L < 1/2*(d_upper + d_lower)*N/N_norm
         sprime has to be a concave function (curves below a straight line) and otherwise
@@ -2207,8 +2219,8 @@ class EquilibriumRegion(PsiContour):
         quadratic function for sprime (so sN will be a cubic).
         In the first case it is harder to guarantee that sprime is always positive. Here
         is one attempt:
-        # Define a function, l(iN), proportional to something like 1/iN that goes through d_lower
-          at 0 and 0 at N/N_norm
+        # Define a function, l(iN), proportional to something like 1/iN that goes through
+        # d_lower at 0 and 0 at N/N_norm
             l(iN) = l1/(iN + l2) - l3 with l1, l2, l3 > 0
             l(0) = d_lower
                  = l1/l2 - l3
@@ -2217,8 +2229,12 @@ class EquilibriumRegion(PsiContour):
           If we parameterise the family of these functions by l1, we can solve for l2, l3
           as
             d_lower = l1/l2 - l1/(N/N_norm + l2)
-            d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2 = l1*N/N_norm
-            l2 = (-d_lower*N/N_norm + sqrt(d_lower^2*(N/N_norm)^2 + 4*d_lower*l1*N/N_norm)) / (2*d_lower)
+            d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2
+                                               = l1*N/N_norm
+            l2 = (-d_lower*N/N_norm
+                  + sqrt(d_lower^2*(N/N_norm)^2
+                  + 4*d_lower*l1*N/N_norm)
+                 ) / (2*d_lower)
           taking the positive sign so that l2 > 0
             l3 = l1/l2 - d_lower
         # Define another function, r(iN), proportional to something like -1/iN that goes
@@ -2228,7 +2244,10 @@ class EquilibriumRegion(PsiContour):
             r(N/N_norm) = d_upper = r1/r2 - r3
           (these are identical to equations above for l1, l2, l3 but with l->r and
           d_lower->d_upper)
-            r2 = (-d_upper*N/N_norm + sqrt(d_upper^2*(N/N_norm)^2 + 4*d_upper*r1*N/N_norm)) / (2*d_upper)
+            r2 = (-d_upper*N/N_norm
+                  + sqrt(d_upper^2*(N/N_norm)^2
+                  + 4*d_upper*r1*N/N_norm)
+                 ) / (2*d_upper)
             r3 = r1/r2 - d_upper
         # Let
             sprime(iN) = l(iN) + r(iN).
@@ -2243,8 +2262,10 @@ class EquilibriumRegion(PsiContour):
                        = [-r1*ln(r2 + N/N_norm - iN) - r3*iN]_{0}^{N/N_norm}
                        = r1*ln(1 + N/(N_norm*r2) - r3*N/N_norm)
             L = int(diN l) + int(diN r)
-              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm)
-              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm).
+              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+                + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm
+              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+                + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm.
           This is a horrible equation with logs in and l1 both inside and outside logs,
           probably can't solve by hand, but should have a unique solution and be a
           monotonic function of l1, so solve numerically.
@@ -2257,7 +2278,8 @@ class EquilibriumRegion(PsiContour):
         The constraint on the integral gives
           L = int(diN s) = int(diN (a*iN^2 + b*iN + c))
             = 1/3*a*(N/N_norm)^3 + 1/2*b*(N/N_norm)^2 + c*N/N_norm
-            = 1/3*a*(N/N_norm)^3 + 1/2*(d_upper - d_lower)*N/N_norm - 1/2*a*(N/N_norm)^3 + d_lower*N/N_norm
+            = 1/3*a*(N/N_norm)^3 + 1/2*(d_upper - d_lower)*N/N_norm
+              - 1/2*a*(N/N_norm)^3 + d_lower*N/N_norm
           1/6*(N/N_norm)^3*a = 1/2(d_upper + d_lower)*N/N_norm - L
           a = 3*(d_upper + d_lower)*(N_norm/N)^2 - 6*L*(N_norm/N)^3
         """
@@ -2269,29 +2291,38 @@ class EquilibriumRegion(PsiContour):
             # concave case
 
             # Make coefficients as functions of l1
-            l2 = lambda l1: (
-                -d_lower * N / N_norm
-                + numpy.sqrt(
-                    (d_lower * N / N_norm) ** 2 + 4.0 * d_lower * l1 * N / N_norm
-                )
-            ) / (2.0 * d_lower)
-            l3 = lambda l1: l1 / l2(l1) - d_lower
-            r2 = lambda l1: (
-                -d_upper * N / N_norm
-                + numpy.sqrt(
-                    (d_upper * N / N_norm) ** 2 + 4.0 * d_upper * l1 * N / N_norm
-                )
-            ) / (2.0 * d_upper)
-            r3 = lambda l1: l1 / r2(l1) - d_upper
+            def l2(l1):
+                return (
+                    -d_lower * N / N_norm
+                    + numpy.sqrt(
+                        (d_lower * N / N_norm) ** 2 + 4.0 * d_lower * l1 * N / N_norm
+                    )
+                ) / (2.0 * d_lower)
+
+            def l3(l1):
+                return l1 / l2(l1) - d_lower
+
+            def r2(l1):
+                return (
+                    -d_upper * N / N_norm
+                    + numpy.sqrt(
+                        (d_upper * N / N_norm) ** 2 + 4.0 * d_upper * l1 * N / N_norm
+                    )
+                ) / (2.0 * d_upper)
+
+            def r3(l1):
+                return l1 / r2(l1) - d_upper
 
             # Make constraint function to find value of l1 where the integral equals L
-            constraint = lambda l1: (
-                l1 * numpy.log(N / (N_norm * l2(l1)) + 1.0)
-                - l3(l1) * N / N_norm
-                + l1 * numpy.log(N / (N_norm * r2(l1)) + 1.0)
-                - r3(l1) * N / N_norm
-                - length
-            )
+            def constraint(l1):
+                return (
+                    l1 * numpy.log(N / (N_norm * l2(l1)) + 1.0)
+                    - l3(l1) * N / N_norm
+                    + l1 * numpy.log(N / (N_norm * r2(l1)) + 1.0)
+                    - r3(l1) * N / N_norm
+                    - length
+                )
+
             l1 = brentq(constraint, 1.0e-15, 1.0e10, xtol=1.0e-15, rtol=1.0e-10)
             l3 = l3(l1)
             l2 = l2(l1)
@@ -2307,7 +2338,8 @@ class EquilibriumRegion(PsiContour):
 
             # sN(iN) = int(diN sprime)
             #        = int(diN l1/(iN + l2) - l3 + l1/(r2 + N/N_norm - iN) - r3
-            #        = l1*ln(iN + l2) - l1*ln(l2) - l3*iN - l1*ln(r2 + N/N_norm - iN) + l1*ln(r2 + N/N_norm) - r3*iN
+            #        = l1*ln(iN + l2) - l1*ln(l2) - l3*iN - l1*ln(r2 + N/N_norm - iN)
+            #          + l1*ln(r2 + N/N_norm) - r3*iN
             #        = l1*ln(iN/l2 + 1.) - l3*iN - l1*ln(1. - iN/(r2 + N/N_norm)) - r3*iN
             return lambda i: numpy.piecewise(
                 i,
@@ -2359,15 +2391,15 @@ class EquilibriumRegion(PsiContour):
     ):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
-        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it has the
-        same form when resolution is changed. The total Ny in the grid might be a good
-        choice for N_norm.
+        Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it
+        has the same form when resolution is changed. The total Ny in the grid might be a
+        good choice for N_norm.
         sN(0) = 0
         sN(N/N_norm) = L
         ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0 (if a_lower not None, else no
                                                            sqrt(iN) term)
         ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm (if a_upper is
-                                               not None, else no sqrt(N/N_norm - iN) term)
+                                              not None, else no sqrt(N/N_norm - iN) term)
 
         By default a_lower=b_lower and a_upper=b_upper, unless both are
         specified explicitly
@@ -2383,7 +2415,8 @@ class EquilibriumRegion(PsiContour):
                 a_upper = 0.0
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
-            # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm ~ a_upper/sqrt(N/N_norm-iN)+b_upper
+            # ds/diN(N/N_norm) = b/(2*sqrt(N/N_norm-iN))+d+2*e*N/N_norm
+            #                  ~ a_upper/sqrt(N/N_norm-iN)+b_upper
             # b = 2*a_upper
             # d + 2*e*N/N_norm = b_upper
             # d = b_upper - 2*e*N/N_norm
@@ -2452,17 +2485,24 @@ class EquilibriumRegion(PsiContour):
             # s(iN) = a*sqrt(iN) - b*sqrt(N/N_norm-iN) + c + d*iN + e*iN^2 + f*iN^3
             # s(0) = 0 = -b*sqrt(N/N_norm) + c
             # c = b*sqrt(N/N_norm)
-            # ds/diN(0) = a/(2*sqrt(iN))+b/(2*sqrt(N/N_norm))+d ~ a_lower/sqrt(iN)+b_lower
+            # ds/diN(0) = a/(2*sqrt(iN))+b/(2*sqrt(N/N_norm))+d
+            #           ~ a_lower/sqrt(iN)+b_lower
             # a = 2*a_lower
             # b/(2*sqrt(N/N_norm)) + d = b_lower
             # d = b_lower - b/(2*sqrt(N/N_norm)
-            # ds/di(N) = b/(2*sqrt(N/N_norm-iN))+a/(2*sqrt(N))+d+2*e*N/N_norm+3*f*(N/N_norm)^2 ~ a_upper/sqrt(N/N_norm-i)+b_upper
+            # ds/di(N) = b/(2*sqrt(N/N_norm-iN)) + a/(2*sqrt(N))
+            #            + d + 2*e*N/N_norm + 3*f*(N/N_norm)^2
+            #          ~ a_upper/sqrt(N/N_norm-i)+b_upper
             # b = 2*a_upper
             # a/(2*sqrt(N/N_norm) + d + 2*e*N/N_norm + 3*f*(N/N_norm)^2 = b_upper
             # e = (b_upper - a/(2*sqrt(N/N_norm)) - d)/(2*N/N_norm) - 3/2*f*N/N_norm
-            # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm + e*(N/N_norm)^2 + f*(N/N_norm)^3
-            # L = a*sqrt(N/N_norm) + c + d*N/N_norm + (b_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm) - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
-            # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + b_upper*N/(2*N_norm) - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
+            # s(N/N_norm) = L = a*sqrt(N/N_norm) + c + d*N/N_norm
+            #                   + e*(N/N_norm)^2 + f*(N/N_norm)^3
+            # L = a*sqrt(N/N_norm) + c + d*N/N_norm
+            #     + (b_upper - a/(2*sqrt(N/N_norm)) - d)*N/(2*N_norm)
+            #     - 3/2*f*(N/N_norm)^3 + f*(N/N_norm)^3
+            # f = 2*(a*sqrt(N/N_norm) + c + d*N/(2*N_norm) + b_upper*N/(2*N_norm)
+            #     - a*sqrt(N/N_norm)/4 - L)*N_norm^3/N^3
             a = 2.0 * a_lower
             b = 2.0 * a_upper
             c = b * numpy.sqrt(N / N_norm)
@@ -2490,7 +2530,8 @@ class EquilibriumRegion(PsiContour):
             # lower boundary:
             assert a >= 0.0, "sqrt part of function should be positive at start"
             if a_lower == 0.0:
-                # Gradient must be strictly positive as there is no positive a_lower piece
+                # Gradient must be strictly positive as there is no positive a_lower
+                # piece
                 assert (
                     b / (2.0 * numpy.sqrt(N / N_norm)) + d > 0.0
                 ), "gradient of non-singular part should be positive at start"
@@ -2504,7 +2545,8 @@ class EquilibriumRegion(PsiContour):
             # upper boundary:
             assert b >= 0.0, "sqrt part of function should be positive at end"
             if a_upper == 0.0:
-                # Gradient must be strictly positive as there is no positive a_upper piece
+                # Gradient must be strictly positive as there is no positive a_upper
+                # piece
                 assert (
                     a / (2.0 * numpy.sqrt(N / N_norm))
                     + d
@@ -2535,14 +2577,15 @@ class EquilibriumRegion(PsiContour):
 
 class Equilibrium:
     """
-    Base class to provide an interface to an interpolating function for the flux function psi that defines
-    the magnetic equilibrium, along with some useful methods.
+    Base class to provide an interface to an interpolating function for the flux function
+    psi that defines the magnetic equilibrium, along with some useful methods.
 
     psi is the magnetic flux function.
 
     f_R and f_Z are the components of a vector Grad(psi)/|Grad(psi)|**2. This vector
-    points along a path perpendicular to psi-contours, and its value is ds/dpsi where s is
-    the coordinate along the path, so we can follow the path by integrating this vector:
+    points along a path perpendicular to psi-contours, and its value is ds/dpsi where s
+    is the coordinate along the path, so we can follow the path by integrating this
+    vector:
     R(psi) = \\int_0^\\psi f_R
     and
     Z(psi) = \\int_0^\\psi f_Z
@@ -2558,15 +2601,16 @@ class Equilibrium:
         component of the poloidal magnetic field.
       - self.Bp_Z: function which takes two arguments, {R,Z}, and returns the Z
         component of the poloidal magnetic field.
-      - self.x_points: list of Point2D objects giving the position of the X-points ordered
-        from primary X-point (nearest the core) outward
+      - self.x_points: list of Point2D objects giving the position of the X-points
+        ordered from primary X-point (nearest the core) outward
       - self.psi_sep: values of psi on the separatrices ordered the same as self.x_points
       - self.fpol: poloidal current function, takes one argument, psi, and returns fpol
         (function such that B_toroidal = fpol/R)
       - self.fpolprime: psi-derivative of fpol
-      - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a bounding
-        box for the gridding
-      - self.regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
+      - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a
+        bounding box for the gridding
+      - self.regions: OrderedDict of EquilibriumRegion objects that specify this
+        equilibrium
       - self.wall: list of Point2D giving vertices of polygon representing the wall, in
         anti-clockwise order; assumed to be closed so last element and first are taken to
         be connected
@@ -2631,8 +2675,8 @@ class Equilibrium:
             uRegion.connections[upperSegment]["lower"] is None
         ), "uRegion.connections['lower'] should not have been set already"
 
-        # Check nx of both segments is the same - otherwise the connection must be between
-        # some wrong regions
+        # Check nx of both segments is the same - otherwise the connection must be
+        # between some wrong regions
         assert (
             lRegion.options.nx[lowerSegment] == uRegion.options.nx[upperSegment]
         ), "nx should match across connection"
@@ -2658,7 +2702,9 @@ class Equilibrium:
         self.d2psidRdZ = self._dct.d2dRdZ
 
     def findMinimum_1d(self, pos1, pos2, atol=1.0e-14):
-        coords = lambda s: pos1 + s * (pos2 - pos1)
+        def coords(s):
+            return pos1 + s * (pos2 - pos1)
+
         result = minimize_scalar(
             lambda s: self.psi(*coords(s)),
             method="bounded",
@@ -2671,7 +2717,9 @@ class Equilibrium:
             raise SolutionError("findMinimum_1d failed")
 
     def findMaximum_1d(self, pos1, pos2, atol=1.0e-14):
-        coords = lambda s: pos1 + s * (pos2 - pos1)
+        def coords(s):
+            return pos1 + s * (pos2 - pos1)
+
         # minimize -f to find maximum
         result = minimize_scalar(
             lambda s: -self.psi(*coords(s)),
@@ -2706,10 +2754,10 @@ class Equilibrium:
 
     def findSaddlePoint(self, p1, p2, atol=2.0e-8):
         """
-        Find a saddle point in the function self.psi atol is the tolerance on the position
-        of the saddle point. p1, p2 are the positions of two adjacent corners of the
-        square box to search for a saddle point in (the other corners p3 and p4 are taken
-        to be to the right of the line p1->p2).
+        Find a saddle point in the function self.psi atol is the tolerance on the
+        position of the saddle point. p1, p2 are the positions of two adjacent corners of
+        the square box to search for a saddle point in (the other corners p3 and p4 are
+        taken to be to the right of the line p1->p2).
         """
 
         # Note: in this method, Point2D objects are used as displacement vectors as well
@@ -2786,10 +2834,9 @@ class Equilibrium:
     ):
         """
         Find n roots of a scalar function f(x) in the range xmin<=x<=xmax
-        Assume they're not too close to each other - exclude a small region around each found
-        root when searching for more.
+        Assume they're not too close to each other - exclude a small region around each
+        found root when searching for more.
         """
-        smallDistance = rtol * (xmax - xmin)
         foundRoots = 0
         roots = []
         n_intervals = n
@@ -2960,9 +3007,9 @@ class Equilibrium:
         non-uniformly place grid point values in index space.
         Optionally matches the gradient grad_lower at the lower end and grad_upper at the
         upper end.
-        If the gradient is specified, the second derivative is set to zero, to ensure that
-        the derivative of the grid spacing is zero, and so the grid spacing will be smooth
-        across boundaries.
+        If the gradient is specified, the second derivative is set to zero, to ensure
+        that the derivative of the grid spacing is zero, and so the grid spacing will be
+        smooth across boundaries.
         Linear if neither gradient given, cubic if one given, quintic if both given.
         """
         if grad_lower is None and grad_upper is None:

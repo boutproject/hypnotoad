@@ -20,9 +20,17 @@
 import numpy
 import pytest
 from copy import deepcopy
-from ..core.equilibrium import *
+from ..core.equilibrium import (
+    calc_distance,
+    find_intersections,
+    Equilibrium,
+    EquilibriumRegion,
+    FineContour,
+    Point2D,
+    PsiContour,
+)
 from ..utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
-from .utils_for_tests import *
+from .utils_for_tests import tight_approx
 
 FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.0e-8)
 
@@ -108,7 +116,7 @@ def test_find_intersectionRRNone1():
     l2start = Point2D(-1.0, 0.1)
     l2end = Point2D(1.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRRNone2():
@@ -116,7 +124,7 @@ def test_find_intersectionRRNone2():
     l2start = Point2D(-1.0, 0.1)
     l2end = Point2D(1.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRRNone3():
@@ -124,7 +132,7 @@ def test_find_intersectionRRNone3():
     l2end = Point2D(-1.0, 0.1)
     l2start = Point2D(1.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRRNone4():
@@ -132,7 +140,7 @@ def test_find_intersectionRRNone4():
     l2end = Point2D(-1.0, 0.1)
     l2start = Point2D(1.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRZ1():
@@ -172,7 +180,7 @@ def test_find_intersectionRZNone1():
     l2start = Point2D(-0.1, 1.0)
     l2end = Point2D(0.1, -1.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRZNone2():
@@ -180,7 +188,7 @@ def test_find_intersectionRZNone2():
     l2start = Point2D(-0.1, 1.0)
     l2end = Point2D(0.1, -1.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRZNone3():
@@ -188,7 +196,7 @@ def test_find_intersectionRZNone3():
     l2end = Point2D(-0.1, 1.0)
     l2start = Point2D(0.1, -1.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionRZNone4():
@@ -196,7 +204,7 @@ def test_find_intersectionRZNone4():
     l2end = Point2D(-0.1, 1.0)
     l2start = Point2D(0.1, -1.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZR1():
@@ -236,7 +244,7 @@ def test_find_intersectionZRNone1():
     l2start = Point2D(2.0, 0.1)
     l2end = Point2D(4.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZRNone2():
@@ -244,7 +252,7 @@ def test_find_intersectionZRNone2():
     l2start = Point2D(2.0, 0.1)
     l2end = Point2D(4.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZRNone3():
@@ -252,7 +260,7 @@ def test_find_intersectionZRNone3():
     l2end = Point2D(2.0, 0.1)
     l2start = Point2D(4.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZRNone4():
@@ -260,7 +268,7 @@ def test_find_intersectionZRNone4():
     l2end = Point2D(2.0, 0.1)
     l2start = Point2D(4.0, -0.1)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZZ1():
@@ -300,7 +308,7 @@ def test_find_intersectionZZNone1():
     l2start = Point2D(-0.1, 4.0)
     l2end = Point2D(0.1, 2.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZZNone2():
@@ -308,7 +316,7 @@ def test_find_intersectionZZNone2():
     l2start = Point2D(-0.1, 4.0)
     l2end = Point2D(0.1, 2.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZZNone3():
@@ -316,7 +324,7 @@ def test_find_intersectionZZNone3():
     l2end = Point2D(-0.1, 4.0)
     l2start = Point2D(0.1, 2.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 def test_find_intersectionZZNone4():
@@ -324,7 +332,7 @@ def test_find_intersectionZZNone4():
     l2end = Point2D(-0.1, 4.0)
     l2start = Point2D(0.1, 2.0)
     intersect = find_intersections(l1, l2start, l2end)
-    assert intersect == None
+    assert intersect is None
 
 
 class TestContour:
@@ -339,7 +347,8 @@ class TestContour:
             theta = numpy.linspace(0.0, numpy.pi, npoints)
 
             def __init__(self):
-                psifunc = lambda R, Z: (R - self.R0) ** 2 + (Z - self.Z0) ** 2
+                def psifunc(R, Z):
+                    return (R - self.R0) ** 2 + (Z - self.Z0) ** 2
 
                 self.R = self.R0 + self.r * numpy.cos(self.theta)
                 self.Z = self.Z0 + self.r * numpy.sin(self.theta)
@@ -355,7 +364,6 @@ class TestContour:
 
     def test_distance(self, testcontour):
         segment_length = testcontour.r * numpy.pi / (testcontour.npoints - 1)
-        c = testcontour.c
         assert testcontour.c.distance == pytest.approx(
             segment_length * numpy.arange(testcontour.npoints), abs=1.0e-4
         )
@@ -430,8 +438,13 @@ class TestContour:
         r = testcontour.r
 
         newNpoints = 97
-        sfunc_true = lambda i: numpy.sqrt(i / (newNpoints - 1)) * numpy.pi * r
-        sfunc = lambda i: numpy.sqrt(i / (newNpoints - 1)) * orig.distance[-1]
+
+        def sfunc_true(i):
+            return numpy.sqrt(i / (newNpoints - 1)) * numpy.pi * r
+
+        def sfunc(i):
+            return numpy.sqrt(i / (newNpoints - 1)) * orig.distance[-1]
+
         newTheta = sfunc_true(numpy.arange(newNpoints)) / r
         newR = testcontour.R0 + r * numpy.cos(newTheta)
         newZ = testcontour.Z0 + r * numpy.sin(newTheta)
@@ -509,8 +522,8 @@ class TestContour:
         # 'sfunc_list'
         for c in c_list:
             sfunc_orig = c.contourSfunc()
-            sfunc = lambda i: sfunc_orig(i) - 3.0
-            sfunc_list.append(sfunc)
+
+            sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
         # notice we check that the first test *fails*
         assert not sfunc_list[0](float(n)) == pytest.approx(
@@ -521,6 +534,7 @@ class TestContour:
         )
 
         sfunc_list2 = []
+
         # This version does work, because when the lambda is evaluated it uses
         # 'sfunc_orig' from the scope of 'shift_sfunc' in which it was created.
         def shift_sfunc(c):
@@ -595,7 +609,10 @@ class TestEquilibrium:
 
     def test_make1dGrid(self, eq):
         n = 4
-        f = lambda i: i ** 2
+
+        def f(i):
+            return i ** 2
+
         r = eq.make1dGrid(n, f)
         assert r == tight_approx([0.0, 0.5, 1.0, 2.5, 4.0, 6.5, 9.0, 12.5, 16.0])
 
@@ -858,7 +875,8 @@ class TestEquilibriumRegion:
             monotonic_d_lower=L, monotonic_d_upper=L, N_norm=n - 1,
         )
 
-        sfunc_orthogonal = lambda i: i / (n - 1.0) * L
+        def sfunc_orthogonal(i):
+            return i / (n - 1.0) * L
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
@@ -879,9 +897,10 @@ class TestEquilibriumRegion:
             N_norm=40.0,
         )
 
-        sfunc_orthogonal = lambda i: numpy.piecewise(
-            i, [i < 0.0], [100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L]
-        )
+        def sfunc_orthogonal(i):
+            return numpy.piecewise(
+                i, [i < 0.0], [100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L]
+            )
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
@@ -906,9 +925,10 @@ class TestEquilibriumRegion:
             N_norm=40.0,
         )
 
-        sfunc_orthogonal = lambda i: numpy.piecewise(
-            i, [i > n - 1.0], [100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L]
-        )
+        def sfunc_orthogonal(i):
+            return numpy.piecewise(
+                i, [i > n - 1.0], [100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L]
+            )
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
@@ -936,11 +956,12 @@ class TestEquilibriumRegion:
             N_norm=40.0,
         )
 
-        sfunc_orthogonal = lambda i: numpy.piecewise(
-            i,
-            [i < 0.0, i > n - 1.0],
-            [-100.0, 100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L],
-        )
+        def sfunc_orthogonal(i):
+            return numpy.piecewise(
+                i,
+                [i < 0.0, i > n - 1.0],
+                [-100.0, 100.0, lambda i: numpy.sqrt(i / (n - 1.0)) * L],
+            )
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
@@ -957,7 +978,6 @@ class TestEquilibriumRegion:
         # This test follows roughly the operations in
         # MeshRegion.distributePointsNonorthogonal for the default 'combined' option.
         n = len(eqReg)
-        L = eqReg.totalDistance()
 
         eqReg.options.set(
             monotonic_d_lower=0.1,

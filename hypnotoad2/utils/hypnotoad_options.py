@@ -27,7 +27,9 @@ from options import Options
 
 """ Options to be set by the user """
 HypnotoadOptions = Options(
-    ## General options for the mesh
+    # General options for the mesh
+    ##############################
+    #
     # Grid is orthogonal
     orthogonal=True,
     # Grid generated for paralleltransform=ShiftedMetric
@@ -37,9 +39,14 @@ HypnotoadOptions = Options(
     # Expression to use to calculate curvature operator 'bxcv'
     # Possible values: 'Curl(b/B)' or 'bxkappa'
     curvature_type="bxkappa",
-    ## Radial spacing options
+    #
+    # Radial spacing options
+    ########################
     psi_spacing_separatrix_multiplier=None,
-    ## Input parameters for poloidal spacing functions
+    #
+    # Input parameters for poloidal spacing functions
+    #################################################
+    #
     # Method to use for poloidal spacing function:
     #  - 'sqrt' for getSqrtPoloidalSpacingFunction
     #  - 'monotonic' for getMonotonicPoloidalDistanceFunc
@@ -77,26 +84,40 @@ HypnotoadOptions = Options(
     # separatrix segment
     poloidal_spacing_delta_psi=None,
     #
-    ## Accuracy options for following Grad(psi)
+    # Accuracy options for following Grad(psi)
+    ##########################################
     follow_perpendicular_rtol=None,
     follow_perpendicular_atol=None,
-    ## Options for refining grids
+    #
+    # Options for refining grids
+    ############################
     refine_width=None,
     refine_atol=None,
     refine_methods="line",
-    ## Accuracy options for FineContour
+    #
+    # Accuracy options for FineContour
+    ##################################
     finecontour_Nfine=1000,
     finecontour_atol=1.0e-12,
     finecontour_maxits=None,  # Maximum number of iterations.
-    ## Accuracy options for poloidal spacing functions
+    #
+    # Accuracy options for poloidal spacing functions
+    #################################################
     sfunc_checktol=1.0e-13,
-    ## Accuracy options for geometry checking
+    #
+    # Accuracy options for geometry checking
+    ########################################
     geometry_rtol=1.0e-10,
-    ## Switches for diagnostics to investigate when something is not converging
+    #
+    # Switches for diagnostics to investigate when something is not converging
+    ##########################################################################
+    #
     # Info for FineContour.__init__
     finecontour_diagnose=False,
     poloidalfunction_diagnose=False,
-    ## Switches for fudges to get rid of spikes near the X-point
+    #
+    # Switches for fudges to get rid of spikes near the X-point
+    ###########################################################
     cap_Bp_ylow_xpoint=False,
 )
 
@@ -115,8 +136,12 @@ HypnotoadInternalOptions = Options(
     # - 'X.X' starts at an X-point and ends at an X-point
     kind=None,
     #
-    ### Parameters used by spacing functions
-    ## Parameters for sqrt spacing function
+    ######################################
+    # Parameters used by spacing functions
+    ######################################
+    #
+    # Parameters for sqrt spacing function
+    ######################################
     # Distance for polynomial part of spacing function at lower end
     sqrt_b_lower=None,
     #
@@ -129,7 +154,9 @@ HypnotoadInternalOptions = Options(
     # Distance for sqrt part of spacing function (if used) at upper end
     sqrt_a_upper=None,
     #
-    ## Parameters for monotonic spacing function
+    # Parameters for monotonic spacing function
+    ###########################################
+    #
     # Distance for spacing function at lower end
     monotonic_d_lower=None,
     #
@@ -148,17 +175,20 @@ HypnotoadInternalOptions = Options(
     N_norm=None,
     #
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-    # at the lower end. If 'None' then the value of monotonic_d_lower will be used instead.
+    # at the lower end. If 'None' then the value of monotonic_d_lower will be used
+    # instead.
     nonorthogonal_range_lower=None,
     nonorthogonal_range_lower_inner=None,
     nonorthogonal_range_lower_outer=None,
     #
     # Distance for transition between fixed-poloidal-spacing grid and orthogonal grid
-    # at the upper end. If 'None' then the value of monotonic_d_upper will be used instead.
+    # at the upper end. If 'None' then the value of monotonic_d_upper will be used
+    # instead.
     nonorthogonal_range_upper=None,
     nonorthogonal_range_upper_inner=None,
     nonorthogonal_range_upper_outer=None,
 )
+
 
 # Helper function to convert options to string
 def optionsTableString(options, defaults=None):

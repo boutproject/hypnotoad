@@ -25,8 +25,8 @@ from ..core.mesh import MultiLocationArray
 
 class DCT_2D:
     """
-    Helper class to calculate the discrete cosine transform (DCT) of a 2d array, and provide
-    an interpolation.
+    Helper class to calculate the discrete cosine transform (DCT) of a 2d array, and
+    provide an interpolation.
 
     From the scipy docuentation
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.fftpack.dct.html
@@ -106,10 +106,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be constructed before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be constructed before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = numpy.sum(
@@ -160,10 +160,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be contlucted before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be contlucted before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = -numpy.sum(
@@ -216,10 +216,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be contlucted before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be contlucted before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = -numpy.sum(
@@ -272,10 +272,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be contlucted before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be contlucted before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = -numpy.sum(
@@ -327,10 +327,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be contlucted before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be contlucted before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = -numpy.sum(
@@ -382,10 +382,10 @@ class DCT_2D:
         iZ = (Z - self.Zmin) / self.Zsize * (self.nZ - 1)
 
         def getResult(this_iR, this_iZ):
-            # Using numpy array broadcasting instead of this explicit iteration requires a
-            # high-dimensional array to be contlucted before the sum is calculated - this can
-            # use a lot of memory [(size of R,Z)*(size of DCT), rather than either
-            # (size of R,Z) or (size of DCT)]
+            # Using numpy array broadcasting instead of this explicit iteration requires
+            # a high-dimensional array to be contlucted before the sum is calculated -
+            # this can use a lot of memory [(size of R,Z)*(size of DCT), rather than
+            # either (size of R,Z) or (size of DCT)]
             with numpy.nditer([this_iR, this_iZ, None]) as it:
                 for ir, iz, result in it:
                     result[...] = numpy.sum(

@@ -22,25 +22,17 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 
 from scipy import interpolate
-from numpy import zeros, shape
 from numpy.linalg import inv
 from numpy import (
     dot,
     linspace,
-    argmax,
     argmin,
     abs,
     clip,
-    sin,
-    cos,
-    pi,
     amax,
-    arctan2,
-    sqrt,
-    sum,
+    zeros,
 )
 import numpy as np
-from warnings import warn
 
 
 def find_critical(R, Z, psi, discard_xpoints=False):
@@ -49,14 +41,14 @@ def find_critical(R, Z, psi, discard_xpoints=False):
 
     Inputs
     ------
-    
+
     R - R(nr, nz) 2D array of major radii
     Z - Z(nr, nz) 2D array of heights
     psi - psi(nr, nz) 2D array of psi values
 
     Returns
     -------
-    
+
     Two lists of critical points
 
     opoint, xpoint
@@ -65,7 +57,7 @@ def find_critical(R, Z, psi, discard_xpoints=False):
 
     The first tuple is the primary O-point (magnetic axis)
     and primary X-point (separatrix)
-    
+
     """
 
     # Get a spline interpolation function
@@ -171,11 +163,13 @@ def find_critical(R, Z, psi, discard_xpoints=False):
 
                         if D < 0.0:
                             # Found X-point
-                            # print("Found X-point at %e, %e (f=%e, D=%e)" % (R1,Z1, f(R1,Z1)[0][0], D) )
+                            # print("Found X-point at %e, %e (f=%e, D=%e)"
+                            #       % (R1,Z1, f(R1,Z1)[0][0], D) )
                             xpoint.append((R1, Z1, f(R1, Z1)[0][0]))
                         else:
                             # Found O-point
-                            # print("Found O-point at %e, %e (f=%e, D=%e)" % (R1,Z1, f(R1,Z1)[0][0], D) )
+                            # print("Found O-point at %e, %e (f=%e, D=%e)"
+                            #       % (R1,Z1, f(R1,Z1)[0][0], D) )
                             opoint.append((R1, Z1, f(R1, Z1)[0][0]))
                         break
 

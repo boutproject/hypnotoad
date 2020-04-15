@@ -6,10 +6,10 @@ import numpy as np
 def create_tokamak(geometry="sn", nx=65, ny=65):
     """
     Create an example, based on a simple analytic form for the poloidal flux.
-    
+
     Inputs
     ------
-    
+
     geometry  string    lsn, usn, cdn, udn, ldn, udn2
     nx        int       Number of points in major radius
     ny        int       Number of points in height

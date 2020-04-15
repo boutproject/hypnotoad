@@ -298,12 +298,6 @@ class MeshRegion:
         else:
             start_psi_sep_plus_delta = start_psi - self.user_options.poloidal_spacing_delta_psi
 
-        # set sign of step in psi towards this region from primary separatrix at end of region
-        if temp_psi_vals[-1] - end_psi > 0:
-            end_psi_sep_plus_delta = end_psi + self.user_options.poloidal_spacing_delta_psi
-        else:
-            end_psi_sep_plus_delta = end_psi - self.user_options.poloidal_spacing_delta_psi
-        
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
                 start_point,
@@ -316,7 +310,13 @@ class MeshRegion:
         # Make vector along grad(psi) at end of equilibriumRegion
         end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
         end_psi = self.equilibriumRegion.psi(*end_point)
-        
+
+        # set sign of step in psi towards this region from primary separatrix at end of region
+        if temp_psi_vals[-1] - end_psi > 0:
+            end_psi_sep_plus_delta = end_psi + self.user_options.poloidal_spacing_delta_psi
+        else:
+            end_psi_sep_plus_delta = end_psi - self.user_options.poloidal_spacing_delta_psi
+
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
                 end_point,

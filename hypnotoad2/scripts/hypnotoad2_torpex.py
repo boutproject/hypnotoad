@@ -33,32 +33,39 @@ centre of the cell.
 
 plotStuff = True
 
-if plotStuff:
-    from matplotlib import pyplot
-from sys import argv
 
-from ..cases.torpex import createMesh
+def main():
+    if plotStuff:
+        from matplotlib import pyplot
+    from sys import argv
 
-filename = argv[1]
-gridname = 'torpex.grd.nc'
+    from ..cases.torpex import createMesh
 
-mesh = createMesh(filename)
+    filename = argv[1]
+    gridname = "torpex.grd.nc"
 
-try:
-    mesh.geometry()
-except Exception as e:
-    import traceback
-    print('There was an exception in mesh.geometry:', str(e))
-    print('****************************************')
-    traceback.print_tb(e.__traceback__)
-    print('****************************************')
+    mesh = createMesh(filename)
 
-if plotStuff:
-    pyplot.figure()
-    mesh.equilibrium.plotPotential()
-    mesh.equilibrium.addWallToPlot()
-    pyplot.plot(*mesh.equilibrium.x_points[0], 'rx')
-    mesh.plotPoints(xlow=True, ylow=True, corners=True)
-    pyplot.show()
+    try:
+        mesh.geometry()
+    except Exception as e:
+        import traceback
 
-mesh.writeGridfile(gridname)
+        print("There was an exception in mesh.geometry:", str(e))
+        print("****************************************")
+        traceback.print_tb(e.__traceback__)
+        print("****************************************")
+
+    if plotStuff:
+        pyplot.figure()
+        mesh.equilibrium.plotPotential()
+        mesh.equilibrium.addWallToPlot()
+        pyplot.plot(*mesh.equilibrium.x_points[0], "rx")
+        mesh.plotPoints(xlow=True, ylow=True, corners=True)
+        pyplot.show()
+
+    mesh.writeGridfile(gridname)
+
+
+if __name__ == "__main__":
+    main()

@@ -90,10 +90,12 @@ HypnotoadOptions = Options(
     ## Options for refining grids
         refine_width = None,
         refine_atol = None,
+        refine_methods = "line",
 
     ## Accuracy options for FineContour
         finecontour_Nfine = 1000,
         finecontour_atol = 1.e-12,
+        finecontour_maxits = None, # Maximum number of iterations.
 
     ## Accuracy options for poloidal spacing functions
         sfunc_checktol = 1.e-13,
@@ -172,3 +174,23 @@ HypnotoadInternalOptions = Options(
     nonorthogonal_range_upper_outer = None,
 
     )
+
+# Helper function to convert options to string
+def optionsTableString(options, defaults=None):
+    """Return a string containing a table of options set"""
+    formatstring = '{:<50}|  {:<30}\n'
+
+    # Header
+    result = ('\nOptions\n=======\n'
+              + formatstring.format('Name', 'Value')
+              + '-'*80
+              + "\n")
+
+    # Row for each value
+    for name, value in sorted(options.items()):
+        valuestring = str(value)
+        if defaults is not None and value == defaults[name]:
+            valuestring += '\t(default)'
+        result += formatstring.format(name, valuestring)
+    return result
+

@@ -42,9 +42,9 @@ import numpy
 
 from hypnotoad2.mesh import BoutMesh
 from hypnotoad2.equilibrium import setDefault, Equilibrium, PsiContour, Point2D, EquilibriumRegion, SolutionError
-from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from hypnotoad2.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions, optionsTableString
 
-# type for manipulating inforation about magnetic field coils
+# type for manipulating information about magnetic field coils
 from collections import namedtuple
 Coil = namedtuple('Coil', 'R, Z, I')
 
@@ -112,16 +112,7 @@ class TORPEXMagneticField(Equilibrium):
         setDefault(self.user_options, 'poloidal_spacing_delta_psi',
                 numpy.abs((self.user_options.psi_core - self.user_options.psi_sol)/20.))
 
-        formatstring = '{:<50}|  {:<50}'
-        print('\nOptions\n=======')
-        print(formatstring.format('Name', 'Value'))
-        print('----------------------------------------------------------------------------------------------------')
-        for name, value in sorted(self.user_options.items()):
-            valuestring = str(value)
-            if value == default_options[name]:
-                valuestring += '\t(default)'
-            print(formatstring.format(name, valuestring))
-        print('')
+        print(optionsTableString(self.user_options, default_options))
 
         # Call Equilibrium constructor after adding stuff to options
         super().__init__(**kwargs)
@@ -355,7 +346,7 @@ class TORPEXMagneticField(Equilibrium):
         boundary = boundary[2::-1] + [boundary[3]]
 
         legnames = ['inner_lower_divertor', 'inner_upper_divertor',
-                'outer_upper_divertor', 'outer_lower_divertor']
+                    'outer_upper_divertor', 'outer_lower_divertor']
         kinds = ['wall.X', 'X.wall', 'wall.X', 'X.wall']
 
         # create input options for EquilibriumRegions

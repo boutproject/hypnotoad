@@ -284,27 +284,44 @@ class MeshRegion:
         else:
             temp_psi_vals = self.psi_vals
 
-        # set sign of step in psi towards this region from primary separatrix
-        if temp_psi_vals[-1] - self.equilibriumRegion.psival > 0:
-            psi_sep_plus_delta = self.equilibriumRegion.psival + self.user_options.poloidal_spacing_delta_psi
-        else:
-            psi_sep_plus_delta = self.equilibriumRegion.psival - self.user_options.poloidal_spacing_delta_psi
 
         # Make vector along grad(psi) at start of equilibriumRegion
+        # Here we assume that the equilibriumRegion at a separatrix
+        # at the beginning and end, but not necessarily in between.
+        # This is to handle disconnected double null
+        start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
+        start_psi = self.equilibriumRegion.psi(*start_point)
+
+        # set sign of step in psi towards this region from primary separatrix at start of region
+        if temp_psi_vals[-1] - start_psi > 0:
+            start_psi_sep_plus_delta = start_psi + self.user_options.poloidal_spacing_delta_psi
+        else:
+            start_psi_sep_plus_delta = start_psi - self.user_options.poloidal_spacing_delta_psi
+
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
-                self.equilibriumRegion[self.equilibriumRegion.startInd],
-                self.equilibriumRegion.psival,
-                [self.equilibriumRegion.psival, psi_sep_plus_delta],
+                start_point,
+                start_psi,
+                [start_psi, start_psi_sep_plus_delta],
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtStart = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
+        
         # Make vector along grad(psi) at end of equilibriumRegion
+        end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
+        end_psi = self.equilibriumRegion.psi(*end_point)
+
+        # set sign of step in psi towards this region from primary separatrix at end of region
+        if temp_psi_vals[-1] - end_psi > 0:
+            end_psi_sep_plus_delta = end_psi + self.user_options.poloidal_spacing_delta_psi
+        else:
+            end_psi_sep_plus_delta = end_psi - self.user_options.poloidal_spacing_delta_psi
+
         vec_points = followPerpendicular(
                 self.meshParent.equilibrium.f_R, self.meshParent.equilibrium.f_Z,
-                self.equilibriumRegion[self.equilibriumRegion.endInd],
-                self.equilibriumRegion.psival,
-                [self.equilibriumRegion.psival, psi_sep_plus_delta],
+                end_point,
+                end_psi,
+                [end_psi, end_psi_sep_plus_delta],
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
         self.equilibriumRegion.gradPsiSurfaceAtEnd = (vec_points[1].as_ndarray() - vec_points[0].as_ndarray())
@@ -346,14 +363,17 @@ class MeshRegion:
 
         print('Following perpendicular: ' + str(1) + '/'
                 + str(len(self.equilibriumRegion)), end='\r')
+        
         perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                 self.meshParent.equilibrium.f_Z, self.equilibriumRegion[0],
-                self.equilibriumRegion.psival, temp_psi_vals,
+                self.equilibriumRegion.psi(*self.equilibriumRegion[0]), temp_psi_vals,
                 rtol=self.user_options.follow_perpendicular_rtol,
                 atol=self.user_options.follow_perpendicular_atol)
+        
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             # region is inside separatrix, so points were found from last to first
             perp_points.reverse()
+            
         for i,point in enumerate(perp_points):
             self.contours.append(self.equilibriumRegion.newContourFromSelf(points=[point],
                 psival=self.psi_vals[i]))
@@ -361,9 +381,10 @@ class MeshRegion:
         for i,p in enumerate(self.equilibriumRegion[1:]):
             print('Following perpendicular: ' + str(i+2) + '/'
                     + str(len(self.equilibriumRegion)), end='\r')
+            
             perp_points = followPerpendicular(self.meshParent.equilibrium.f_R,
                     self.meshParent.equilibrium.f_Z, p,
-                    self.equilibriumRegion.psival, temp_psi_vals,
+                    self.equilibriumRegion.psi(*p), temp_psi_vals,
                     rtol=self.user_options.follow_perpendicular_rtol,
                     atol=self.user_options.follow_perpendicular_atol)
             if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
@@ -737,6 +758,9 @@ class MeshRegion:
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
+        if hasattr(self.meshParent.equilibrium.regions[self.equilibriumRegion.name], 'pressure'):
+            self.pressure = self.meshParent.equilibrium.regions[self.equilibriumRegion.name].pressure(self.psixy)
+
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = (
@@ -753,13 +777,13 @@ class MeshRegion:
             self.Bpxy = -self.Bpxy
             if self.bpsign > 0.:
                 raise ValueError("Sign of Bp should be negative? (note this check will "
-                        "raise an exception when bpsign was correct if you only have a "
-                        "private flux region)")
+                                 "raise an exception when bpsign was correct if you only have a "
+                                 "private flux region)")
         else:
             if self.bpsign < 0.:
                 raise ValueError("Sign of Bp should be negative? (note this check will "
-                        "raise an exception when bpsign was correct if you only have a "
-                        "private flux region)")
+                                 "raise an exception when bpsign was correct if you only have a "
+                                 "private flux region)")
 
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
@@ -967,21 +991,24 @@ class MeshRegion:
             pyplot.title('rel difference')
             pyplot.colorbar()
             pyplot.show()
+            
         if not numpy.all(check.centre):
             ploterror('centre')
+            raise ValueError('Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+
         if not numpy.all(check.ylow):
             ploterror('ylow')
-        assert numpy.all(check.centre), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-        assert numpy.all(check.ylow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+            raise ValueError('Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+        
         if check._xlow_array is not None:
-            if not numpy.all(check.xlow):
-                ploterror('xlow')
-            assert numpy.all(check.xlow), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
+             if not numpy.all(check.xlow):
+                 ploterror('xlow')
+                 raise ValueError('Geometry: Jacobian at xlow should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
         if check._corners_array is not None:
             if not numpy.all(check.corners):
-                ploterror('corners')
-            assert numpy.all(check.corners), 'Jacobian should be consistent with 1/sqrt(det(g)) calculated from the metric tensor'
-
+                 ploterror('corners')
+                 raise ValueError('Geometry: Jacobian at corners should be consistent with 1/sqrt(det(g)) calculated from the metric tensor')
+        
         # curvature terms
         self.calc_curvature()
 
@@ -1294,7 +1321,8 @@ class MeshRegion:
                                         + i_corners_upper
 
             next_region = region.getNeighbour('upper')
-            if next_region is None:
+            if (next_region is None) or (next_region is self):
+                # Note: If periodic, next_region is self (back to start)
                 break
             else:
                 next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)
@@ -1308,8 +1336,10 @@ class MeshRegion:
             # This is a periodic region (we already checked that the self.yGroupIndex is
             # 0).
             # 'region' is the last region in the y-group
-            self.ShiftAngle.centre = region.zShift.ylow[:, -1] - self.zShift.ylow[:, 0]
-            self.ShiftAngle.xlow = region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
+            self.ShiftAngle.centre = (region.zShift.ylow[:, -1]
+                                      - self.zShift.ylow[:, 0]).reshape((-1,1))
+            self.ShiftAngle.xlow = (region.zShift.corners[:, -1]
+                                    - self.zShift.corners[:, 0]).reshape((-1,1))
         else:
             self.ShiftAngle.centre = float('nan')
             self.ShiftAngle.xlow = float('nan')
@@ -1640,6 +1670,26 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
     Follow a line perpendicular to Bp from point p0 until magnetic potential A_target is
     reached.
     """
+
+    # A0 might be in somewhere in the range of Avals, rather than at one end
+    if min(Avals) < A0 < max(Avals):
+        # Integrate in each direction, then put together
+        # Partition into left and right halves
+        if Avals[0] < A0:
+            left = [A for A in Avals if A < A0]
+            right = [A for A in Avals if A >= A0]
+        else:
+            left = [A for A in Avals if A >= A0]
+            right = [A for A in Avals if A < A0]
+
+        return (followPerpendicular(f_R, f_Z, p0, A0, left[::-1], rtol=rtol, atol=atol)[::-1] +
+                followPerpendicular(f_R, f_Z, p0, A0, right, rtol=rtol, atol=atol))    
+
+    if abs(Avals[-1] - A0) < abs(Avals[0] - A0):
+        # Closer at the end than the start -> Reverse
+        return followPerpendicular(f_R, f_Z, p0, A0, Avals[::-1], rtol=rtol, atol=atol)[::-1]
+    Avals = Avals.copy()
+    
     f = lambda A,x: (f_R(x[0], x[1]), f_Z(x[0], x[1]))
     Arange = (A0, Avals[-1])
     # make sure rounding errors do not cause exception:
@@ -1653,8 +1703,12 @@ def followPerpendicular(f_R, f_Z, p0, A0, Avals, rtol=2.e-8, atol=1.e-8):
         if Avals[0] > Arange[0] and Avals[0]-Arange[0]<1.e-15*numpy.abs(Arange[0]):
             # rounding error present, reset Avals[0]
             Avals[0] = Arange[0]
-    solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
-            vectorized=True)
+    try:
+        solution = solve_ivp(f, Arange, tuple(p0), t_eval=Avals, rtol=rtol, atol=atol,
+                             vectorized=True)
+    except ValueError:
+        print(Arange, Avals)
+        raise
 
     return [Point2D(*p) for p in solution.y.T]
 
@@ -1691,6 +1745,8 @@ class BoutMesh(Mesh):
         # because we don't want MeshRegion objects to depend on global indices
         assert all([r.options.nx == eq_region0.options.nx for r in self.equilibrium.regions.values()]), 'all regions should have same set of x-grid sizes to be compatible with a global, logically-rectangular grid'
         x_sizes = [0] + list(eq_region0.options.nx)
+
+        # Note: x_startinds includes the end: self.x_startinds[-1] = nx
         self.x_startinds = numpy.cumsum(x_sizes)
         x_regions = tuple(slice(self.x_startinds[i], self.x_startinds[i+1], None)
                      for i in range(len(self.x_startinds)-1))
@@ -1817,6 +1873,9 @@ class BoutMesh(Mesh):
         addFromRegions('bxcvy')
         addFromRegions('bxcvz')
 
+        if hasattr(next(iter(self.equilibrium.regions.values())), 'pressure'):
+            addFromRegions('pressure')
+
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(name+'_ylow', BoutArray(array.ylow[:, :-1], attributes=array.attributes))
@@ -1845,8 +1904,9 @@ class BoutMesh(Mesh):
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))
-            if len(self.x_startinds) == 1:
-                # No separatrix in grid
+
+            if len(self.x_startinds) == 2:
+                # No separatrix in grid: self.x_startinds = [0, nx]
                 if eq_region0.separatrix_radial_index == 0:
                     # SOL only
                     ixseps1 = -1
@@ -1855,11 +1915,11 @@ class BoutMesh(Mesh):
                     # core only
                     ixseps1 = self.nx
                     ixseps2 = self.nx
-            elif len(self.x_startinds) == 2:
-                # One separatrix
+            elif len(self.x_startinds) == 3:
+                # One separatrix: self.x_startinds = [0, ixseps, nx]
                 ixseps1 = self.x_startinds[1]
                 ixseps2 = self.nx # note: this may be changed below for cases where the two separatrices are in the same radial location
-            elif len(self.x_startinds) == 3:
+            elif len(self.x_startinds) == 4:
                 # Two separatrices
                 ixseps1 = self.x_startinds[1]
                 ixseps2 = self.x_startinds[2]

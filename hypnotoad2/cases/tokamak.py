@@ -98,7 +98,7 @@ class TokamakEquilibrium(Equilibrium):
         dct=False,
         make_regions=True,
         options={},
-        **kwargs
+        **kwargs,
     ):
         """
         Create a Tokamak equilibrium.
@@ -214,6 +214,11 @@ class TokamakEquilibrium(Equilibrium):
                 (self.Rmax - offset, self.Zmax - offset),
                 (self.Rmin + offset, self.Zmax - offset),
             ]
+        elif len(wall) < 3:
+            raise ValueError(
+                f"Wall must be a polygon, so should have at least 3 points. Got "
+                f"wall={wall}"
+            )
 
         if polygons.clockwise(wall):
             wall = wall[
@@ -1487,7 +1492,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     if "rlim" in data and "zlim" in data:
         wall = list(zip(data["rlim"], data["zlim"]))
     else:
-        wall = []
+        wall = None
 
     pressure = data["pres"]
     fpol = data["fpol"]
@@ -1518,5 +1523,5 @@ def read_geqdsk(filehandle, options={}, **kwargs):
         pressure=pressure,
         wall=wall,
         options=options,
-        **kwargs
+        **kwargs,
     )

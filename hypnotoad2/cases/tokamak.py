@@ -98,7 +98,7 @@ class TokamakEquilibrium(Equilibrium):
         dct=False,
         make_regions=True,
         options={},
-        **kwargs
+        **kwargs,
     ):
         """
         Create a Tokamak equilibrium.
@@ -1523,5 +1523,5 @@ def read_geqdsk(filehandle, options={}, **kwargs):
         pressure=pressure,
         wall=wall,
         options=options,
-        **kwargs
+        **kwargs,
     )

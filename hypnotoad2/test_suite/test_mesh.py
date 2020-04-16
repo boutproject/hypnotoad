@@ -1,8 +1,8 @@
 import numpy
 import pytest
-from copy import deepcopy
-from ..mesh import *
-from .utils_for_tests import *
+from ..core import mesh
+from .utils_for_tests import tight_approx
+
 
 class TestMultiLocationArray:
     nx = 4
@@ -10,7 +10,7 @@ class TestMultiLocationArray:
 
     @pytest.fixture
     def MLArray(self):
-        MLArray = MultiLocationArray(self.nx, self.ny)
+        MLArray = mesh.MultiLocationArray(self.nx, self.ny)
         return MLArray
 
     def test_zero(self, MLArray):

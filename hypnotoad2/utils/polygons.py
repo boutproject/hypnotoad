@@ -22,24 +22,27 @@ You should have received a copy of the GNU Lesser General Public License
 along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+
 def area(polygon):
     """
-    Calculate the area of a polygon. Can be positive (clockwise) or negative (anticlockwise)
+    Calculate the area of a polygon. Can be positive (clockwise) or negative
+    (anticlockwise)
 
     Input
-    
+
     polygon   [ (r1, z1), (r2, z2), ... ]
     """
-    nvert = len(polygon) # Number of vertices
-    
+    nvert = len(polygon)  # Number of vertices
+
     # Integrate using trapezium rule. The sign of (r2-r1) ensures that
     # positive and negative areas leave only the area of the polygon.
     area = 0.0
     for i in range(nvert):
-        r1,z1 = polygon[i]
-        r2,z2 = polygon[(i+1) % nvert]  # Next vertex in periodic list
-        area += (r2 - r1) * (z1 + z2) # 2*area
+        r1, z1 = polygon[i]
+        r2, z2 = polygon[(i + 1) % nvert]  # Next vertex in periodic list
+        area += (r2 - r1) * (z1 + z2)  # 2*area
     return 0.5 * area
+
 
 def clockwise(polygon):
     """
@@ -48,9 +51,8 @@ def clockwise(polygon):
     False -> anticlockwise
 
     Input
-    
+
     polygon   [ (r1, z1), (r2, z2), ... ]
     """
     # Work out the winding direction by calculating the area
     return area(polygon) > 0
-

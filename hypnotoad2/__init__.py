@@ -17,6 +17,22 @@
 # You should have received a copy of the GNU General Public License along with
 # Hypnotoad 2.  If not, see <http://www.gnu.org/licenses/>.
 
-from .equilibrium import Point2D, EquilibriumRegion, Equilibrium, SolutionError
-from .mesh import MultiLocationArray, MeshRegion, Mesh, BoutMesh
-from .hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from .cases import tokamak, torpex
+from .core.equilibrium import Point2D, EquilibriumRegion, Equilibrium, SolutionError
+from .core.mesh import MultiLocationArray, MeshRegion, Mesh, BoutMesh
+from .utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+
+__all__ = [
+    "tokamak",
+    "torpex",
+    "Point2D",
+    "EquilibriumRegion",
+    "Equilibrium",
+    "SolutionError",
+    "MultiLocationArray",
+    "MeshRegion",
+    "Mesh",
+    "BoutMesh",
+    "HypnotoadOptions",
+    "HypnotoadInternalOptions",
+]

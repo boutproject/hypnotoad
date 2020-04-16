@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Hypnotoad2</class>
+ <widget class="QMainWindow" name="Hypnotoad2">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1215</width>
+    <height>863</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QFormLayout" name="formLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="nx_coreLabel">
+            <property name="text">
+             <string>nx_core</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="nx_coreSpinBox"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="nx_pfLabel">
+            <property name="text">
+             <string>nx_pf</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="nx_pfSpinBox"/>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="nx_pf_lowerLabel">
+            <property name="text">
+             <string>nx_pf_lower</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="nx_pf_lowerSpinBox"/>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="nx_pf_upperLabel">
+            <property name="text">
+             <string>nx_pf_upper</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QSpinBox" name="nx_pf_upperSpinBox"/>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="nx_solLabel">
+            <property name="text">
+             <string>nx_sol</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QSpinBox" name="nx_solSpinBox"/>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="nx_sol_lowerLabel">
+            <property name="text">
+             <string>nx_sol_lower</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QSpinBox" name="nx_sol_lowerSpinBox"/>
+          </item>
+          <item row="6" column="0">
+           <widget class="QLabel" name="nx_sol_upperLabel">
+            <property name="text">
+             <string>nx_sol_upper</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QSpinBox" name="nx_sol_upperSpinBox"/>
+          </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="dCTLabel">
+            <property name="text">
+             <string>DCT</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QCheckBox" name="dCTCheckBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QLabel" name="options_file_label">
+            <property name="text">
+             <string>Options file</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="options_file_line_edit"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="options_file_browse_button">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="geqdsk_file_label">
+            <property name="text">
+             <string>geqdsk file</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="geqdsk_file_line_edit"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="geqdsk_file_browse_button">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="run_button">
+            <property name="text">
+             <string>Run</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QWidget" name="plottingArea" native="true"/>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1215</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionNew"/>
+    <addaction name="actionOpen"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionNew"/>
+   <addaction name="actionOpen"/>
+  </widget>
+  <action name="actionNew">
+   <property name="icon">
+    <iconset theme="document-new">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
+   <property name="text">
+    <string>New</string>
+   </property>
+  </action>
+  <action name="actionOpen">
+   <property name="icon">
+    <iconset theme="document-open">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
+   <property name="text">
+    <string>Open</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,11 +1,18 @@
 import setuptools
 
+import os.path
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version_dict = {}
+with open(os.path.join("hypnotoad2", "__version__.py")) as fh:
+    exec(fh.read(), version_dict)
+version = version_dict["__version__"]
+
 setuptools.setup(
     name="hypnotoad2",
-    version="0.1",
+    version=version,
     author="John Omotani, Ben Dudson and the BOUT++ team",
     author_email="john.omotani@ukaea.uk",
     description="Grid generator for BOUT++",

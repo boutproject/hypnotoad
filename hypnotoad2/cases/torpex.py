@@ -31,6 +31,7 @@ from ..core.equilibrium import (
     EquilibriumRegion,
     SolutionError,
 )
+from ..geqdsk._geqdsk import read as geq_read
 from ..utils.hypnotoad_options import (
     HypnotoadOptions,
     optionsTableString,
@@ -122,38 +123,29 @@ class TORPEXMagneticField(Equilibrium):
             self.Bt_axis = self.equilibOptions["Bt_axis"]
         elif "gfile" in self.equilibOptions:
             # load a g-file
-            try:
-                from pyEquilibrium.geqdsk import Geqdsk
-
-                gfile = Geqdsk(self.equilibOptions["gfile"])
-            except AttributeError:
-                from boututils.geqdsk import Geqdsk
-
-                gfile = Geqdsk()
-                gfile.openFile(self.equilibOptions["gfile"])
+            with open(self.equilibOptions["gfile"], "rt") as fh:
+                gfile = geq_read(fh)
 
             R = numpy.linspace(
-                gfile["rleft"], gfile["rleft"] + gfile["rdim"], gfile["nw"]
+                gfile["rleft"], gfile["rleft"] + gfile["rdim"], gfile["nx"]
             )
             Z = numpy.linspace(
                 gfile["zmid"] - 0.5 * gfile["zdim"],
                 gfile["zmid"] + 0.5 * gfile["zdim"],
-                gfile["nh"],
+                gfile["ny"],
             )
-            psirz = gfile["psirz"]
+            # Note we expect first index (row) of psirz to change with the height Z, and
+            # the second (column) to change with major radius R, which is the opposite
+            # from _geqdsk's (from FreeGS) convention, so transpose
+            psirz = gfile["psi"].T
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
             # plasma current
-            try:
-                # called siaxis by boututils.geqdsk.Geqdsk
-                psi_axis = gfile["siaxis"]
-            except KeyError:
-                # called simag by pyEquilibrium.geqdsk.Geqdsk
-                psi_axis = gfile["simag"]
-            R_axis = gfile["rmaxis"]
-            Z_axis = gfile["zmaxis"]
-            psi_bndry = gfile["sibry"]
-            Ip = gfile["current"]
+            psi_axis = gfile["simagx"]
+            R_axis = gfile["rmagx"]
+            Z_axis = gfile["zmagx"]
+            psi_bndry = gfile["sibdry"]
+            Ip = gfile["cpasma"]
             if psi_axis < psi_bndry:
                 # psi increases outward radially, so Bp is clockwise in the poloidal
                 # plane (outward in major radius at the top of the torus, inward at the
@@ -623,52 +615,43 @@ def createMesh(filename, **kwargs):
     return BoutMesh(equilibrium)
 
 
-def createEqdsk(
-    equilib,
-    *,
-    nR=None,
-    Rmin=None,
-    Rmax=None,
-    nZ=None,
-    Zmin=None,
-    Zmax=None,
-    filename="torpex_test.g"
-):
-    from pyEquilibrium.geqdsk import Geqdsk
+def createEqdsk(equilib, *, nR, Rmin, Rmax, nZ, Zmin, Zmax, filename="torpex_test.g"):
+    from ..geqdsk._geqdsk import write as geq_write
 
     R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
     Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]
 
-    gout = Geqdsk()
-    gout.set("nw", nR)
-    gout.set("nh", nZ)
-    gout.set("rdim", Rmax - Rmin)
-    gout.set("zdim", Zmax - Zmin)
-    gout.set("rcentr", 0.5 * (Rmax - Rmin))
-    gout.set("rleft", Rmin)
-    gout.set("zmid", 0.5 * (Zmax + Zmin))
-    gout.set("rmaxis", 1.0)
-    gout.set("zmaxis", 0.0)
+    data = {}
+    data["nx"] = nR
+    data["ny"] = nZ
+    data["rdim"] = Rmax - Rmin
+    data["zdim"] = Zmax - Zmin
+    data["rcentr"] = 0.5 * (Rmax - Rmin)
+    data["rleft"] = Rmin
+    data["zmid"] = 0.5 * (Zmax + Zmin)
+    data["rmagx"] = 1.0
+    data["zmagx"] = 0.0
     # these values very arbitrary as don't have a magnetic axis
-    gout.set("simag", equilib.psi(1.0, Zmax))
-    gout.set("sibry", equilib.psi_sep[0])
-    gout.set("bcentr", equilib.fpol(0.0) / 1.0)
-    gout.set("current", 0.0)
-    gout.set("xdum", 0.0)
+    data["simagx"] = equilib.psi(1.0, Zmax)
+    data["sibdry"] = equilib.psi_sep[0]
+    data["bcentr"] = equilib.fpol(0.0) / 1.0
+    data["cpasma"] = 0.0
 
-    gout.set(
-        "fpol", equilib.fpol(0.0) * numpy.ones(nR)
-    )  # works for TORPEX because we assume fpol is constant - plasma response neglected
-    gout.set("pres", numpy.zeros(nR))
-    gout.set("ffprime", numpy.zeros(nR))
-    gout.set("pprime", numpy.zeros(nR))
-    gout.set("psirz", equilib.psi(R, Z))
+    # works for TORPEX because we assume fpol is constant - plasma response neglected
+    data["fpol"] = equilib.fpol(0.0) * numpy.ones(nR)
 
-    gout.set("rbbbs", [Rmin, Rmax, Rmax, Rmin])
-    gout.set("zbbbs", [Zmin, Zmin, Zmax, Zmax])
+    data["pres"] = numpy.zeros(nR)
+    data["qpsi"] = numpy.zeros(nR)
+    data["ffprime"] = numpy.zeros(nR)
+    data["pprime"] = numpy.zeros(nR)
+    data["psi"] = equilib.psi(R, Z).T
+
+    data["rbdry"] = [Rmin, Rmax, Rmax, Rmin]
+    data["zbdry"] = [Zmin, Zmin, Zmax, Zmax]
 
     theta = numpy.linspace(0.0, 2.0 * numpy.pi, 100, endpoint=False)
-    gout.set("rlim", [equilib.TORPEX_wall(t).R for t in theta])
-    gout.set("zlim", [equilib.TORPEX_wall(t).Z for t in theta])
+    data["rlim"] = [equilib.TORPEX_wall(t).R for t in theta]
+    data["zlim"] = [equilib.TORPEX_wall(t).Z for t in theta]
 
-    gout.dump(filename)
+    with open(filename, "wt") as fh:
+        geq_write(data, fh)

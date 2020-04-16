@@ -29,7 +29,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "hypnotoad2_geqdsk = hypnotoad2.scripts.hypnotoad2_geqdsk:main",
-            "hypnotoad2_torpex = hypnotoad2.scripts.hypnotoad2_torpex:main"
+            "hypnotoad2_torpex = hypnotoad2.scripts.hypnotoad2_torpex:main",
         ],
-    }
+    },
 )

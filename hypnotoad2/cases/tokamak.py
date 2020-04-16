@@ -214,6 +214,11 @@ class TokamakEquilibrium(Equilibrium):
                 (self.Rmax - offset, self.Zmax - offset),
                 (self.Rmin + offset, self.Zmax - offset),
             ]
+        elif len(wall) < 3:
+            raise ValueError(
+                f"Wall must be a polygon, so should have at least 3 points. Got "
+                f"wall={wall}"
+            )
 
         if polygons.clockwise(wall):
             wall = wall[

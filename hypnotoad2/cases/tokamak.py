@@ -1487,7 +1487,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     if "rlim" in data and "zlim" in data:
         wall = list(zip(data["rlim"], data["zlim"]))
     else:
-        wall = []
+        wall = None
 
     pressure = data["pres"]
     fpol = data["fpol"]

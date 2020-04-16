@@ -1812,22 +1812,31 @@ class Mesh:
 
         self.equilibrium = equilibrium
 
-        # Get current git-commit hash of Hypnotoad2 for version-tracking
-        from boututils.run_wrapper import shell_safe
-        from pathlib import Path
+        # Get release version number for releases or current git-commit hash of
+        # Hypnotoad2 for git-clone'd versions for version-tracking
+        from ..__version__ import __release__
 
-        hypnotoad_path = str(Path(__file__).parent)
-        retval, self.git_hash = shell_safe(
-            "cd "
-            + hypnotoad_path
-            + '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
-            pipe=True,
-        )
-        self.git_hash = self.git_hash.strip()
-        retval, self.git_diff = shell_safe(
-            "cd " + hypnotoad_path + "&& git diff", pipe=True
-        )
-        self.git_diff = self.git_diff.strip()
+        if __release__:
+            from ..__version__ import __version__
+
+            self.version_identifier = __version__
+            self.git_diff = None
+        else:
+            from boututils.run_wrapper import shell_safe
+            from pathlib import Path
+
+            hypnotoad_path = str(Path(__file__).parent)
+            retval, self.version_identifier = shell_safe(
+                "cd "
+                + hypnotoad_path
+                + '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
+                pipe=True,
+            )
+            self.version_identifier = self.version_identifier.strip()
+            retval, self.git_diff = shell_safe(
+                "cd " + hypnotoad_path + "&& git diff", pipe=True
+            )
+            self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -2402,8 +2411,9 @@ class BoutMesh(Mesh):
                 f.write("parallel_transform", "identity")
 
             f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
-            f.write("hypnotoad_git_hash", self.git_hash)
-            f.write("hypnotoad_git_diff", self.git_diff)
+            f.write("hypnotoad_version", self.version_identifier)
+            if self.git_diff is not None:
+                f.write("hypnotoad_git_diff", self.git_diff)
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

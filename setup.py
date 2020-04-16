@@ -26,6 +26,16 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Operating System :: OS Independent",
     ],
+    install_requires=[
+        "boututils~=0.1.4",
+        "matplotlib~=3.2",
+        "netCDF4~=1.5",
+        "numpy~=1.18",
+        "options~=1.4",
+        "pyparsing~=2.4",
+        "PyYAML~=5.3",
+        "scipy~=1.4",
+    ],
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [

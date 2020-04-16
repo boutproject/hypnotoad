@@ -1,4 +1,2 @@
-options 
-PyYAML
-scipy>=1.3.0
-boututils
+# the following line installs requirements from setup.py
+-e .

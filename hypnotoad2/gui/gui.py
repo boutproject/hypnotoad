@@ -1,18 +1,10 @@
 from Qt.QtWidgets import (
-    QAbstractItemView,
-    QAction,
     QFileDialog,
     QMainWindow,
-    QMenu,
-    QMessageBox,
-    QStyle,
-    QTableWidgetItem,
-    QTreeWidgetItem,
-    QWidget,
     QCheckBox,
     QSpinBox,
     QDoubleSpinBox,
-    QLineEdit
+    QLineEdit,
 )
 
 import numbers

@@ -3,6 +3,7 @@ GUI for Hypnotoad2 using Qt
 
 """
 
+import copy
 import numbers
 import os
 import yaml
@@ -52,30 +53,104 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         super().__init__(None)
         self.setupUi(self)
 
+        try:
+            self.menu_File.setToolTipsVisible(True)
+            self.menu_Mesh.setToolTipsVisible(True)
+            self.menu_Help.setToolTipsVisible(True)
+        except AttributeError:
+            pass
+
         self.plot_widget = MatplotlibWidget(self.plottingArea)
 
-        self.geqdsk_file_browse_button.clicked.connect(self.select_geqdsk_file)
-        self.geqdsk_file_browse_button.setToolTip(
-            self.select_geqdsk_file.__doc__.strip()
-        )
+        def set_triggered(widget, function):
+            widget.triggered.connect(function)
+            if hasattr(function, "__doc__"):
+                widget.setToolTip(function.__doc__.strip())
+
+        def set_clicked(widget, function):
+            widget.clicked.connect(function)
+            if hasattr(function, "__doc__"):
+                widget.setToolTip(function.__doc__.strip())
+
+        set_clicked(self.geqdsk_file_browse_button, self.select_geqdsk_file)
         self.geqdsk_file_line_edit.editingFinished.connect(self.read_geqdsk)
-        self.options_file_browse_button.clicked.connect(self.select_options_file)
-        self.options_file_browse_button.setToolTip(
-            self.select_options_file.__doc__.strip()
-        )
+
+        set_clicked(self.options_file_browse_button, self.select_options_file)
         self.options_file_line_edit.editingFinished.connect(self.read_options)
 
-        self.run_button.clicked.connect(self.run)
-        self.run_button.setToolTip(self.run.__doc__.strip())
+        set_clicked(self.run_button, self.run)
+        set_triggered(self.action_Run, self.run)
 
-        self.write_grid_button.clicked.connect(self.write_grid)
-        self.write_grid_button.setToolTip(self.write_grid.__doc__)
+        set_clicked(self.write_grid_button, self.write_grid)
+        set_triggered(self.action_Write_grid, self.write_grid)
         self.write_grid_button.setEnabled(False)
 
-        self.options = dict(tokamak.TokamakEquilibrium.default_options.items())
+        set_triggered(self.action_Revert, self.revert_options)
+        set_triggered(self.action_Save, self.save_options)
+        set_triggered(self.action_Save_as, self.save_options_as)
+        set_triggered(self.action_New, self.new_options)
+        set_triggered(self.action_Open, self.select_options_file)
+
+        self.action_Quit.triggered.connect(self.close)
+
+        self.default_options = dict(tokamak.TokamakEquilibrium.default_options.items())
+        self.options = copy.deepcopy(self.default_options)
+        self.filename = "Untitled.yml"
 
         for key, value in sorted(self.options.items()):
             self.add_options_widget(key, value)
+
+    def revert_options(self):
+        """Revert the current options to the loaded file, or defaults if no
+        file loaded
+
+        """
+
+        self.statusbar.showMessage("Reverting options", 2000)
+        self.options = copy.deepcopy(self.default_options)
+
+        options_filename = self.options_file_line_edit.text()
+
+        if options_filename:
+            self.read_options()
+
+        self.update_options_form()
+
+    def new_options(self):
+        """New set of options
+
+        """
+
+        self.options = copy.deepcopy(self.default_options)
+        self.update_options_form()
+
+    def save_options(self):
+        """Save options to file
+
+        """
+
+        self.statusbar.showMessage("Saving...", 2000)
+
+        if not self.filename or self.filename == "Untitled.yml":
+            self.save_options_as()
+
+        self.options_file_line_edit.setText(self.filename)
+
+        non_null_options = {k: v for k, v in self.options.items() if v is not None}
+
+        with open(self.filename, "w") as f:
+            yaml.dump(non_null_options, f)
+
+    def save_options_as(self):
+        """Save options to file with new filename
+
+        """
+
+        self.filename, _ = QFileDialog.getSaveFileName(
+            self, "Save grid to file", self.filename, filter="YAML file (*yml *yaml)",
+        )
+
+        self.save_options()
 
     def add_options_widget(self, key, value):
         """Take a key, value pair and add a row with the appropriate widget
@@ -154,6 +229,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             return
 
         self.options_file_line_edit.setText(filename)
+        self.filename = filename
         self.read_options()
 
     def read_options(self):

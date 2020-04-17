@@ -1,4 +1,4 @@
-from ..utils import polygons
+from hypnotoad2.utils import polygons
 import numpy as np
 
 

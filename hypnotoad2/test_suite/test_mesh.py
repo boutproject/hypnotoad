@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from ..core import mesh
+from hypnotoad2.core import mesh
 from .utils_for_tests import tight_approx
 
 

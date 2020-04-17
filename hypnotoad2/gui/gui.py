@@ -133,7 +133,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         """
 
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open options file", ".", filter="YAML file (*.yml, *.yaml)"
+            self, "Open options file", ".", filter="YAML file (*.yml *.yaml)"
         )
 
         if (filename is None) or (filename == ""):

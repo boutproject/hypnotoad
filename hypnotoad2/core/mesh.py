@@ -1984,7 +1984,7 @@ class Mesh:
         l = pyplot.legend()
         l.set_draggable(True)
 
-    def plotPoints(self, xlow=False, ylow=False, corners=False, markers=None, **kwargs):
+    def plotPoints(self, xlow=False, ylow=False, corners=False, markers=None, ax=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
@@ -2003,10 +2003,15 @@ class Mesh:
         except TypeError:
             markers = list(markers)
 
+        if ax is None:
+            fig, ax = pyplot.subplots(1)
+        else:
+            fig = ax.figure
+
         for region in self.regions.values():
             c = next(colors)
             m = iter(markers)
-            pyplot.scatter(
+            ax.scatter(
                 region.Rxy.centre,
                 region.Zxy.centre,
                 marker=next(m),
@@ -2015,23 +2020,25 @@ class Mesh:
                 **kwargs,
             )
             if xlow:
-                pyplot.scatter(
+                ax.scatter(
                     region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
                 )
             if ylow:
-                pyplot.scatter(
+                ax.scatter(
                     region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs
                 )
             if corners:
-                pyplot.scatter(
+                ax.scatter(
                     region.Rxy.corners,
                     region.Zxy.corners,
                     marker=next(m),
                     c=c,
                     **kwargs,
                 )
-        l = pyplot.legend()
+        l = ax.legend()
         l.set_draggable(True)
+
+        return fig, ax
 
     def plotPotential(self, *args, **kwargs):
         """

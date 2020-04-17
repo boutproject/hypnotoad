@@ -20,6 +20,12 @@ from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
 
+
+colours = {
+    "red": "#aa0000",
+}
+
+
 def convert_python_type_to_qwidget(value):
     """
     Convert a python type into the appropriate Qt widget
@@ -163,9 +169,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             return  # Cancelled
         if not os.path.exists(filename):
             self.write("Could not find " + filename)
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color: {colours['red']} }}"
+            )
             return
 
         self.geqdsk_file_line_edit.setText(filename)
+        self.geqdsk_file_line_edit.setStyleSheet("")
+
         self.read_geqdsk()
 
     def read_geqdsk(self):
@@ -176,8 +187,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.statusbar.showMessage("Reading geqdsk", 2000)
         geqdsk_filename = self.geqdsk_file_line_edit.text()
 
-        if not geqdsk_filename:
-            raise ValueError("No geqdsk file given")
+        if not os.path.exists(geqdsk_filename):
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color : {colours['red']} }}"
+            )
+            self.statusbar.showMessage(
+                f"Could not find equilibrium file '{geqdsk_filename}'"
+            )
+            return
 
         with open(geqdsk_filename, "rt") as fh:
             self.eq = tokamak.read_geqdsk(fh, options=self.options)
@@ -191,7 +208,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         """
 
         if not hasattr(self, "eq"):
-            self.statusbar.showMessage("Missing equilibrium!")
+            self.statusbar.showMessage("Missing equilibrium file!")
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color: {colours['red']} }}"
+            )
             return
 
         mesh = BoutMesh(self.eq)

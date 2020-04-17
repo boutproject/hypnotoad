@@ -53,12 +53,12 @@ class MatplotlibWidget():
         # Get rid of any extra axes
         if isinstance(self.axes, list):
             for axes in self.axes:
-                del(axes)
-            self.axes = self.figure.add_subplot(111)
+                del axes
         else:
             self.axes.clear()
 
         self.figure.clear()
+        self.axes = self.figure.add_subplot(111)
         self.axes.grid(True)
         # Reset to some hardcoded default values
         self.figure.subplots_adjust(left=0.125, right=0.9, top=0.9, bottom=0.1,

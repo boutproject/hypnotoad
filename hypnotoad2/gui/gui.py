@@ -206,6 +206,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             self.eq = tokamak.read_geqdsk(fh, options=self.options)
 
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        for region in self.eq.regions.values():
+            self.plot_widget.axes.plot(
+                [p.R for p in region.points], [p.Z for p in region.points], "-o"
+            )
+
         self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
         self.plot_widget.canvas.draw()
 
@@ -220,5 +225,17 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             )
             return
 
+        self.statusbar.showMessage("Running...")
         mesh = BoutMesh(self.eq)
         mesh.geometry()
+        self.statusbar.showMessage("Done!", 2000)
+
+        self.plot_widget._clean_axes()
+        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        mesh.plotPoints(
+            xlow=self.options.get("plot_xlow", True),
+            ylow=self.options.get("plot_ylow", True),
+            corners=self.options.get("plot_corners", True),
+            ax=self.plot_widget.axes,
+        )
+        self.plot_widget.canvas.draw()

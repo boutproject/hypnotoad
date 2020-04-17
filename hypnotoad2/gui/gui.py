@@ -1,3 +1,7 @@
+"""
+GUI for Hypnotoad2 using Qt
+
+"""
 from Qt.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -32,6 +36,10 @@ def convert_python_type_to_qwidget(value):
 
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
+    """A graphical interface for Hypnotoad2
+
+    """
+
     def __init__(self):
         super().__init__(None)
         self.setupUi(self)
@@ -39,8 +47,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.plot_widget = MatplotlibWidget(self.plottingArea)
 
         self.geqdsk_file_browse_button.clicked.connect(self.select_geqdsk_file)
+        self.geqdsk_file_browse_button.setToolTip(
+            self.select_geqdsk_file.__doc__.strip()
+        )
         self.geqdsk_file_line_edit.editingFinished.connect(self.read_geqdsk)
         self.options_file_browse_button.clicked.connect(self.select_options_file)
+        self.options_file_browse_button.setToolTip(
+            self.select_options_file.__doc__.strip()
+        )
         self.options_file_line_edit.editingFinished.connect(self.read_options)
 
         self.run_button.clicked.connect(self.run)
@@ -51,6 +65,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             self.add_options_widget(key, value)
 
     def add_options_widget(self, key, value):
+        """Take a key, value pair and add a row with the appropriate widget
+        to the options form
+
+        """
         widget_type = convert_python_type_to_qwidget(value)
 
         widget = widget_type()
@@ -77,7 +95,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.options_form_layout.addRow(key, widget)
         return widget
 
-    def update_options(self):
+    def update_options_form(self):
+        """Update the widget values in the options form, based on the current
+        values in the options dict
+
+        """
         for key, value in self.options.items():
             widget_type = convert_python_type_to_qwidget(value)
             widget = self.options_form_layout.findChild(widget_type, key)
@@ -99,6 +121,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
                 )
 
     def select_options_file(self):
+        """Choose a Hypnotoad2 options file to load
+
+        """
+
         filename, _ = QFileDialog.getOpenFileName(
             self, "Open options file", ".", filter="YAML file (*.yml, *.yaml)"
         )
@@ -113,6 +139,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.read_options()
 
     def read_options(self):
+        """Read the options file
+
+        """
+
         self.statusbar.showMessage("Reading options", 2000)
         options_filename = self.options_file_line_edit.text()
 
@@ -120,9 +150,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             with open(options_filename, "r") as f:
                 self.options = yaml.safe_load(f)
 
-        self.update_options()
+        self.update_options_form()
 
     def select_geqdsk_file(self):
+        """Choose a "geqdsk" equilibrium file to open
+
+        """
+
         filename, _ = QFileDialog.getOpenFileName(self, "Open geqdsk file", ".")
 
         if (filename is None) or (filename == ""):
@@ -135,6 +169,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.read_geqdsk()
 
     def read_geqdsk(self):
+        """Read the equilibrium file
+
+        """
+
         self.statusbar.showMessage("Reading geqdsk", 2000)
         geqdsk_filename = self.geqdsk_file_line_edit.text()
 
@@ -149,6 +187,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.plot_widget.canvas.draw()
 
     def run(self):
+        """Run Hypnotoad2 and generate the grid
+        """
 
         if not hasattr(self, "eq"):
             self.statusbar.showMessage("Missing equilibrium!")

@@ -107,11 +107,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         values in the options dict
 
         """
-        for key, value in self.options.items():
+        for key, value in sorted(self.options.items()):
             widget_type = convert_python_type_to_qwidget(value)
-            widget = self.options_form_layout.findChild(widget_type, key)
+            widget = self.findChild(widget_type, key)
 
+            # If we didn't already know the type, then it would be a
+            # QLineEdit instead of a more specific widget
             if widget is None:
+                widget = self.findChild(QLineEdit, key)
+                if widget is not None:
+                    self.options_form_layout.removeRow(widget)
                 widget = self.add_options_widget(key, value)
 
             if isinstance(widget, QCheckBox):
@@ -155,7 +160,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         if options_filename:
             with open(options_filename, "r") as f:
-                self.options = yaml.safe_load(f)
+                self.options.update(yaml.safe_load(f))
 
         self.update_options_form()
 

@@ -2,6 +2,11 @@
 GUI for Hypnotoad2 using Qt
 
 """
+
+import numbers
+import os
+import yaml
+
 from Qt.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -10,10 +15,6 @@ from Qt.QtWidgets import (
     QDoubleSpinBox,
     QLineEdit,
 )
-
-import numbers
-import os
-import yaml
 
 from .hypnotoad2_mainWindow import Ui_Hypnotoad2
 from .matplotlib_widget import MatplotlibWidget

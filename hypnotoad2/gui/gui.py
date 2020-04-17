@@ -16,6 +16,20 @@ from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
 
+def convert_python_type_to_qwidget(value):
+    """
+    Convert a python type into the appropriate Qt widget
+    """
+    if isinstance(value, bool):
+        return QCheckBox
+    if isinstance(value, numbers.Integral):
+        return QSpinBox
+    if isinstance(value, numbers.Real):
+        return QDoubleSpinBox
+    if isinstance(value, str):
+        return QLineEdit
+    return QLineEdit
+
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
     def __init__(self):
@@ -36,20 +50,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         for key, value in sorted(self.options.items()):
             self.add_options_widget(key, value)
 
-    def convert_python_type_to_qwidget(self, value):
-        if isinstance(value, bool):
-            return QCheckBox
-        elif isinstance(value, numbers.Integral):
-            return QSpinBox
-        elif isinstance(value, numbers.Real):
-            return QDoubleSpinBox
-        elif isinstance(value, str):
-            return QLineEdit
-        else:
-            return QLineEdit
-
     def add_options_widget(self, key, value):
-        widget_type = self.convert_python_type_to_qwidget(value)
+        widget_type = convert_python_type_to_qwidget(value)
 
         widget = widget_type()
 
@@ -77,7 +79,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
     def update_options(self):
         for key, value in self.options.items():
-            widget_type = self.convert_python_type_to_qwidget(value)
+            widget_type = convert_python_type_to_qwidget(value)
             widget = self.options_form_layout.findChild(widget_type, key)
 
             if widget is None:

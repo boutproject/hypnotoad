@@ -29,7 +29,10 @@ from hypnotoad2.core.equilibrium import (
     Point2D,
     PsiContour,
 )
-from hypnotoad2.utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from hypnotoad2.utils.hypnotoad_options import (
+    HypnotoadOptions,
+    HypnotoadInternalOptions,
+)
 from .utils_for_tests import tight_approx
 
 FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.0e-8)

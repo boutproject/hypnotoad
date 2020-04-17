@@ -14,6 +14,7 @@ from Qt.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
     QLineEdit,
+    QMessageBox,
 )
 
 from .hypnotoad2_mainWindow import Ui_Hypnotoad2
@@ -65,6 +66,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.options_file_line_edit.editingFinished.connect(self.read_options)
 
         self.run_button.clicked.connect(self.run)
+        self.run_button.setToolTip(self.run.__doc__.strip())
+
+        self.write_grid_button.clicked.connect(self.write_grid)
+        self.write_grid_button.setToolTip(self.write_grid.__doc__)
+        self.write_grid_button.setEnabled(False)
 
         self.options = dict(tokamak.TokamakEquilibrium.default_options.items())
 
@@ -216,6 +222,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
     def run(self):
         """Run Hypnotoad2 and generate the grid
+
         """
 
         if not hasattr(self, "eq"):
@@ -226,16 +233,37 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             return
 
         self.statusbar.showMessage("Running...")
-        mesh = BoutMesh(self.eq)
-        mesh.geometry()
+        self.mesh = BoutMesh(self.eq)
+        self.mesh.geometry()
         self.statusbar.showMessage("Done!", 2000)
 
         self.plot_widget._clean_axes()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        mesh.plotPoints(
+        self.mesh.plotPoints(
             xlow=self.options.get("plot_xlow", True),
             ylow=self.options.get("plot_ylow", True),
             corners=self.options.get("plot_corners", True),
             ax=self.plot_widget.axes,
         )
         self.plot_widget.canvas.draw()
+
+        self.write_grid_button.setEnabled(True)
+
+    def write_grid(self):
+        """Write generated mesh to file
+
+        """
+
+        if not hasattr(self, "mesh"):
+            message_box = QMessageBox()
+            message_box.setText("No mesh found!")
+            message_box.exec_()
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save grid to file",
+            self.options.get("grid_file", "bout.grd.nc"),
+            filter="NetCDF (*nc)",
+        )
+
+        self.mesh.writeGridfile(filename)

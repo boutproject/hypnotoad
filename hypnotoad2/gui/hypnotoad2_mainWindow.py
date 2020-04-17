@@ -103,6 +103,11 @@ class Ui_Hypnotoad2(object):
 
         self.horizontalLayout_3.addWidget(self.run_button)
 
+        self.write_grid_button = QPushButton(self.centralwidget)
+        self.write_grid_button.setObjectName(u"write_grid_button")
+
+        self.horizontalLayout_3.addWidget(self.write_grid_button)
+
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_3)
 
@@ -151,6 +156,7 @@ class Ui_Hypnotoad2(object):
         self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None))
         self.geqdsk_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
         self.run_button.setText(QCoreApplication.translate("Hypnotoad2", u"Run", None))
+        self.write_grid_button.setText(QCoreApplication.translate("Hypnotoad2", u"Write Grid", None))
         self.menuFile.setTitle(QCoreApplication.translate("Hypnotoad2", u"File", None))
         self.toolBar.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"toolBar", None))
     # retranslateUi

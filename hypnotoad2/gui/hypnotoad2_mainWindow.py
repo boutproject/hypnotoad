@@ -49,90 +49,22 @@ class Ui_Hypnotoad2(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.formLayout = QFormLayout()
-        self.formLayout.setObjectName(u"formLayout")
-        self.nx_coreLabel = QLabel(self.centralwidget)
-        self.nx_coreLabel.setObjectName(u"nx_coreLabel")
+        self.scrollArea = QScrollArea(self.centralwidget)
+        self.scrollArea.setObjectName(u"scrollArea")
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollAreaWidgetContents = QWidget()
+        self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1185, 725))
+        self.verticalLayout = QVBoxLayout(self.scrollAreaWidgetContents)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.options_form_layout = QFormLayout()
+        self.options_form_layout.setObjectName(u"options_form_layout")
 
-        self.formLayout.setWidget(0, QFormLayout.LabelRole, self.nx_coreLabel)
+        self.verticalLayout.addLayout(self.options_form_layout)
 
-        self.nx_coreSpinBox = QSpinBox(self.centralwidget)
-        self.nx_coreSpinBox.setObjectName(u"nx_coreSpinBox")
+        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
 
-        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.nx_coreSpinBox)
-
-        self.nx_pfLabel = QLabel(self.centralwidget)
-        self.nx_pfLabel.setObjectName(u"nx_pfLabel")
-
-        self.formLayout.setWidget(1, QFormLayout.LabelRole, self.nx_pfLabel)
-
-        self.nx_pfSpinBox = QSpinBox(self.centralwidget)
-        self.nx_pfSpinBox.setObjectName(u"nx_pfSpinBox")
-
-        self.formLayout.setWidget(1, QFormLayout.FieldRole, self.nx_pfSpinBox)
-
-        self.nx_pf_lowerLabel = QLabel(self.centralwidget)
-        self.nx_pf_lowerLabel.setObjectName(u"nx_pf_lowerLabel")
-
-        self.formLayout.setWidget(2, QFormLayout.LabelRole, self.nx_pf_lowerLabel)
-
-        self.nx_pf_lowerSpinBox = QSpinBox(self.centralwidget)
-        self.nx_pf_lowerSpinBox.setObjectName(u"nx_pf_lowerSpinBox")
-
-        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.nx_pf_lowerSpinBox)
-
-        self.nx_pf_upperLabel = QLabel(self.centralwidget)
-        self.nx_pf_upperLabel.setObjectName(u"nx_pf_upperLabel")
-
-        self.formLayout.setWidget(3, QFormLayout.LabelRole, self.nx_pf_upperLabel)
-
-        self.nx_pf_upperSpinBox = QSpinBox(self.centralwidget)
-        self.nx_pf_upperSpinBox.setObjectName(u"nx_pf_upperSpinBox")
-
-        self.formLayout.setWidget(3, QFormLayout.FieldRole, self.nx_pf_upperSpinBox)
-
-        self.nx_solLabel = QLabel(self.centralwidget)
-        self.nx_solLabel.setObjectName(u"nx_solLabel")
-
-        self.formLayout.setWidget(4, QFormLayout.LabelRole, self.nx_solLabel)
-
-        self.nx_solSpinBox = QSpinBox(self.centralwidget)
-        self.nx_solSpinBox.setObjectName(u"nx_solSpinBox")
-
-        self.formLayout.setWidget(4, QFormLayout.FieldRole, self.nx_solSpinBox)
-
-        self.nx_sol_lowerLabel = QLabel(self.centralwidget)
-        self.nx_sol_lowerLabel.setObjectName(u"nx_sol_lowerLabel")
-
-        self.formLayout.setWidget(5, QFormLayout.LabelRole, self.nx_sol_lowerLabel)
-
-        self.nx_sol_lowerSpinBox = QSpinBox(self.centralwidget)
-        self.nx_sol_lowerSpinBox.setObjectName(u"nx_sol_lowerSpinBox")
-
-        self.formLayout.setWidget(5, QFormLayout.FieldRole, self.nx_sol_lowerSpinBox)
-
-        self.nx_sol_upperLabel = QLabel(self.centralwidget)
-        self.nx_sol_upperLabel.setObjectName(u"nx_sol_upperLabel")
-
-        self.formLayout.setWidget(6, QFormLayout.LabelRole, self.nx_sol_upperLabel)
-
-        self.nx_sol_upperSpinBox = QSpinBox(self.centralwidget)
-        self.nx_sol_upperSpinBox.setObjectName(u"nx_sol_upperSpinBox")
-
-        self.formLayout.setWidget(6, QFormLayout.FieldRole, self.nx_sol_upperSpinBox)
-
-        self.dCTLabel = QLabel(self.centralwidget)
-        self.dCTLabel.setObjectName(u"dCTLabel")
-
-        self.formLayout.setWidget(7, QFormLayout.LabelRole, self.dCTLabel)
-
-        self.dCTCheckBox = QCheckBox(self.centralwidget)
-        self.dCTCheckBox.setObjectName(u"dCTCheckBox")
-
-        self.formLayout.setWidget(7, QFormLayout.FieldRole, self.dCTCheckBox)
-
-
-        self.verticalLayout_2.addLayout(self.formLayout)
+        self.verticalLayout_2.addWidget(self.scrollArea)
 
         self.horizontalLayout_3 = QHBoxLayout()
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
@@ -214,14 +146,6 @@ class Ui_Hypnotoad2(object):
         Hypnotoad2.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"MainWindow", None))
         self.actionNew.setText(QCoreApplication.translate("Hypnotoad2", u"New", None))
         self.actionOpen.setText(QCoreApplication.translate("Hypnotoad2", u"Open", None))
-        self.nx_coreLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_core", None))
-        self.nx_pfLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_pf", None))
-        self.nx_pf_lowerLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_pf_lower", None))
-        self.nx_pf_upperLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_pf_upper", None))
-        self.nx_solLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_sol", None))
-        self.nx_sol_lowerLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_sol_lower", None))
-        self.nx_sol_upperLabel.setText(QCoreApplication.translate("Hypnotoad2", u"nx_sol_upper", None))
-        self.dCTLabel.setText(QCoreApplication.translate("Hypnotoad2", u"DCT", None))
         self.options_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"Options file", None))
         self.options_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
         self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None))

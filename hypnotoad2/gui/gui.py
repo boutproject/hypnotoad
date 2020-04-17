@@ -9,8 +9,13 @@ from Qt.QtWidgets import (
     QTableWidgetItem,
     QTreeWidgetItem,
     QWidget,
+    QCheckBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QLineEdit
 )
 
+import numbers
 import os
 import yaml
 
@@ -33,6 +38,25 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.options_file_line_edit.editingFinished.connect(self.read_options)
 
         self.run_button.clicked.connect(self.run)
+
+        for key, value in tokamak.TokamakEquilibrium.default_options.items():
+            if isinstance(value, bool):
+                widget = QCheckBox()
+                widget.setChecked(value)
+            elif isinstance(value, numbers.Integral):
+                widget = QSpinBox()
+                widget.setValue(value)
+            elif isinstance(value, numbers.Real):
+                widget = QDoubleSpinBox()
+                widget.setValue(value)
+            elif isinstance(value, str):
+                widget = QLineEdit()
+                widget.setText(value)
+            else:
+                widget = QLineEdit()
+
+            widget.setObjectName(key)
+            self.options_form_layout.addRow(key, widget)
 
     def select_geqdsk_file(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Open geqdsk file", ".")

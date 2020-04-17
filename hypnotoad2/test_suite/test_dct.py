@@ -22,7 +22,7 @@ import pytest
 import numpy
 
 from .utils_for_tests import tight_approx
-from ..utils.dct_interpolation import DCT_2D
+from hypnotoad2.utils.dct_interpolation import DCT_2D
 
 
 def test_DCT_2D():

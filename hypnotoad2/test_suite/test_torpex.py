@@ -2,9 +2,12 @@ import pytest
 
 import numpy
 
-from ..core.equilibrium import Equilibrium, Point2D
-from ..cases import torpex
-from ..utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from hypnotoad2.core.equilibrium import Equilibrium, Point2D
+from hypnotoad2.cases import torpex
+from hypnotoad2.utils.hypnotoad_options import (
+    HypnotoadOptions,
+    HypnotoadInternalOptions,
+)
 
 
 class ThisEquilibrium(Equilibrium):

@@ -1,4 +1,4 @@
-from ..geqdsk import _fileutils
+from hypnotoad2.geqdsk import _fileutils
 from io import StringIO
 
 

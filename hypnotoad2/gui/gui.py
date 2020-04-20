@@ -288,7 +288,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             # Need to take a copy so that read_geqdsk doesn't delete used keys
             self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
 
-        self.plot_widget._clean_axes()
+        self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
         for region in self.eq.regions.values():
             self.plot_widget.axes.plot(
@@ -315,7 +315,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.mesh.geometry()
         self.statusbar.showMessage("Done!", 2000)
 
-        self.plot_widget._clean_axes()
+        self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
         self.mesh.plotPoints(
             xlow=self.options.get("plot_xlow", True),

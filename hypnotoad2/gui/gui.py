@@ -285,7 +285,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             return
 
         with open(geqdsk_filename, "rt") as f:
-            self.eq = tokamak.read_geqdsk(f, options=self.options)
+            # Need to take a copy so that read_geqdsk doesn't delete used keys
+            self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
 
         self.plot_widget._clean_axes()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)

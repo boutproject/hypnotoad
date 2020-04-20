@@ -128,6 +128,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             self.options_form.setRowCount(0)
             self.update_options_form()
 
+            if hasattr(self, "eq"):
+                self.read_geqdsk()
+
     def new_options(self):
         """New set of options
 
@@ -136,6 +139,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.options = copy.deepcopy(self.default_options)
         self.options_form.setRowCount(0)
         self.update_options_form()
+
+        if hasattr(self, "eq"):
+            self.read_geqdsk()
 
     def save_options(self):
         """Save options to file
@@ -254,6 +260,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         self.options_form.setRowCount(0)
         self.update_options_form()
+
+        if hasattr(self, "eq"):
+            self.read_geqdsk()
 
     def select_geqdsk_file(self):
         """Choose a "geqdsk" equilibrium file to open

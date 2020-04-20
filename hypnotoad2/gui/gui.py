@@ -191,6 +191,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         """
 
         item = self.options_form.item(row, column)
+
+        if row == self.options_form.rowCount() - 1:
+            self.options[item.text()] = None
+            self.options_form.setRowCount(len(self.options) + 1)
+            return
+
         if column == 0:
             key = item.text()
             if key == item.old_key:

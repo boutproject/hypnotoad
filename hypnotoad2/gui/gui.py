@@ -327,8 +327,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             )
             return
 
-        with open(geqdsk_filename, "rt") as fh:
-            self.eq = tokamak.read_geqdsk(fh, options=self.options)
+        with open(geqdsk_filename, "rt") as f:
+            self.eq = tokamak.read_geqdsk(f, options=self.options)
 
         self.plot_widget._clean_axes()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)

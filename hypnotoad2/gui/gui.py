@@ -27,7 +27,7 @@ from ..core.mesh import BoutMesh
 from ..__version__ import __version__
 
 
-colours = {
+COLOURS = {
     "red": "#aa0000",
 }
 
@@ -301,7 +301,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         if not os.path.exists(filename):
             self.write("Could not find " + filename)
             self.geqdsk_file_line_edit.setStyleSheet(
-                f"QLineEdit {{ background-color: {colours['red']} }}"
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
             )
             return
 
@@ -320,7 +320,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         if not os.path.exists(geqdsk_filename):
             self.geqdsk_file_line_edit.setStyleSheet(
-                f"QLineEdit {{ background-color : {colours['red']} }}"
+                f"QLineEdit {{ background-color : {COLOURS['red']} }}"
             )
             self.statusbar.showMessage(
                 f"Could not find equilibrium file '{geqdsk_filename}'"
@@ -348,7 +348,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         if not hasattr(self, "eq"):
             self.statusbar.showMessage("Missing equilibrium file!")
             self.geqdsk_file_line_edit.setStyleSheet(
-                f"QLineEdit {{ background-color: {colours['red']} }}"
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
             )
             return
 

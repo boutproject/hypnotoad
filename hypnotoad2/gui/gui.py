@@ -334,7 +334,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         if not hasattr(self, "mesh"):
             flags = QMessageBox.StandardButton.Ok
-            message_box = QMessageBox.critical(
+            QMessageBox.critical(
                 self, "Error", "Can't write mesh to file; no mesh found!", flags
             )
             return

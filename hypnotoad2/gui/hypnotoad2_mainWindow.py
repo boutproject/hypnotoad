@@ -124,22 +124,16 @@ class Ui_Hypnotoad2(object):
 
         self.verticalLayout_2.addWidget(self.search_bar)
 
-        self.scrollArea = QScrollArea(self.centralwidget)
-        self.scrollArea.setObjectName(u"scrollArea")
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents = QWidget()
-        self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 1185, 725))
-        self.verticalLayout = QVBoxLayout(self.scrollAreaWidgetContents)
-        self.verticalLayout.setObjectName(u"verticalLayout")
-        self.options_form_layout = QFormLayout()
-        self.options_form_layout.setObjectName(u"options_form_layout")
+        self.options_form = QTableWidget(self.centralwidget)
+        if (self.options_form.columnCount() < 2):
+            self.options_form.setColumnCount(2)
+        __qtablewidgetitem = QTableWidgetItem()
+        self.options_form.setHorizontalHeaderItem(0, __qtablewidgetitem)
+        __qtablewidgetitem1 = QTableWidgetItem()
+        self.options_form.setHorizontalHeaderItem(1, __qtablewidgetitem1)
+        self.options_form.setObjectName(u"options_form")
 
-        self.verticalLayout.addLayout(self.options_form_layout)
-
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-
-        self.verticalLayout_2.addWidget(self.scrollArea)
+        self.verticalLayout_2.addWidget(self.options_form)
 
         self.horizontalLayout_3 = QHBoxLayout()
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
@@ -254,6 +248,10 @@ class Ui_Hypnotoad2(object):
         self.action_Run.setText(QCoreApplication.translate("Hypnotoad2", u"&Run", None))
         self.action_Write_grid.setText(QCoreApplication.translate("Hypnotoad2", u"&Write grid", None))
         self.action_Revert.setText(QCoreApplication.translate("Hypnotoad2", u"&Revert", None))
+        ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
+        ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad2", u"Name", None));
+        ___qtablewidgetitem1 = self.options_form.horizontalHeaderItem(1)
+        ___qtablewidgetitem1.setText(QCoreApplication.translate("Hypnotoad2", u"Value", None));
         self.options_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"Options file", None))
         self.options_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
         self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None))
@@ -265,4 +263,3 @@ class Ui_Hypnotoad2(object):
         self.menu_Mesh.setTitle(QCoreApplication.translate("Hypnotoad2", u"&Mesh", None))
         self.toolBar.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"toolBar", None))
     # retranslateUi
-

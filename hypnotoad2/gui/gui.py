@@ -3,8 +3,8 @@ GUI for Hypnotoad2 using Qt
 
 """
 
+import ast
 import copy
-import numbers
 import os
 import yaml
 
@@ -17,6 +17,9 @@ from Qt.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QCompleter,
+    QWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 from Qt.QtCore import Qt
 
@@ -30,21 +33,6 @@ from ..__version__ import __version__
 COLOURS = {
     "red": "#aa0000",
 }
-
-
-def convert_python_type_to_qwidget(value):
-    """
-    Convert a python type into the appropriate Qt widget
-    """
-    if isinstance(value, bool):
-        return QCheckBox
-    if isinstance(value, numbers.Integral):
-        return QSpinBox
-    if isinstance(value, numbers.Real):
-        return QDoubleSpinBox
-    if isinstance(value, str):
-        return QLineEdit
-    return QLineEdit
 
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
@@ -101,15 +89,15 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.options = copy.deepcopy(self.default_options)
         self.filename = "Untitled.yml"
 
-        for key, value in sorted(self.options.items()):
-            self.add_options_widget(key, value)
-
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
         self.search_bar_completer = QCompleter(self.options.keys())
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
+
+        self.options_form.cellChanged.connect(self.options_form_changed)
+        self.update_options_form()
 
     def help_about(self):
         """About Hypnotoad2
@@ -175,86 +163,55 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         self.save_options()
 
-    def add_options_widget(self, key, value):
-        """Take a key, value pair and add a row with the appropriate widget
-        to the options form
-
-        """
-        widget_type = convert_python_type_to_qwidget(value)
-
-        widget = widget_type()
-
-        if isinstance(value, bool):
-            widget.setChecked(value)
-            widget.stateChanged.connect(lambda state: self.options.update(key=value))
-        elif isinstance(value, numbers.Integral):
-            widget.setMaximum(100000)
-            widget.setValue(value)
-            widget.valueChanged.connect(lambda value: self.options.update(key=value))
-        elif isinstance(value, numbers.Real):
-            widget.setDecimals(8)
-            widget.setRange(-1e300, 1e300)
-            widget.setValue(value)
-            widget.valueChanged.connect(lambda value: self.options.update(key=value))
-        elif isinstance(value, str):
-            widget.setText(value)
-            widget.textChanged.connect(lambda text: self.options.update(key=text))
-        else:
-            widget.textChanged.connect(lambda text: self.options.update(key=text))
-
-        widget.setObjectName(key)
-        self.options_form_layout.addRow(key, widget)
-        return widget
-
     def update_options_form(self):
         """Update the widget values in the options form, based on the current
         values in the options dict
 
         """
-        for key, value in sorted(self.options.items()):
-            widget_type = convert_python_type_to_qwidget(value)
-            widget = self.findChild(widget_type, key)
 
-            # If we didn't already know the type, then it would be a
-            # QLineEdit instead of a more specific widget
-            if widget is None:
-                widget = self.findChild(QLineEdit, key)
-                if widget is not None:
-                    self.options_form_layout.removeRow(widget)
-                widget = self.add_options_widget(key, value)
+        self.options_form.setSortingEnabled(False)
+        self.options_form.cellChanged.disconnect(self.options_form_changed)
+        self.options_form.setRowCount(len(self.options))
 
-            if isinstance(widget, QCheckBox):
-                widget.setChecked(value)
-            elif isinstance(widget, QSpinBox):
-                widget.setValue(value)
-            elif isinstance(widget, QDoubleSpinBox):
-                widget.setValue(value)
-            elif isinstance(widget, QLineEdit):
-                widget.setText(value)
-            else:
-                raise RuntimeError(
-                    f"Unknown widget when trying to update options ({type(widget)})"
-                )
+        for row, (key, value) in enumerate(sorted(self.options.items())):
+            item = QTableWidgetItem(key)
+            item.old_key = key
+            self.options_form.setItem(row, 0, item)
+            self.options_form.setItem(row, 1, QTableWidgetItem(str(value)))
+
+        self.options_form.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.options_form.setSortingEnabled(True)
+        self.options_form.cellChanged.connect(self.options_form_changed)
+
+    def options_form_changed(self, row, column):
+        """Change the options form from the widget table
+
+        """
+
+        item = self.options_form.item(row, column)
+        if column == 0:
+            key = item.text()
+            if key == item.old_key:
+                return
+
+            self.options[key] = self.options.pop(item.old_key)
+            item.old_key = key
+        else:
+            key = self.options_form.item(row, 0).text()
+            self.options[key] = ast.literal_eval(item.text())
+            if hasattr(self, "eq"):
+                self.read_geqdsk()
 
     def search_options_form(self, text):
         """Search for specific options
 
         """
 
-        for key, value in self.options.items():
-            widget_type = convert_python_type_to_qwidget(value)
-            widget = self.findChild(widget_type, key)
-            if widget is None:
-                continue
+        for i in range(self.options_form.rowCount()):
+            row = self.options_form.item(i, 0)
 
-            label = self.options_form_layout.labelForField(widget)
-
-            if text.lower() in key.lower():
-                widget.show()
-                label.show()
-            else:
-                widget.hide()
-                label.hide()
+            matches = text.lower() in row.text().lower()
+            self.options_form.setRowHidden(i, not matches)
 
     def select_options_file(self):
         """Choose a Hypnotoad2 options file to load

@@ -23,25 +23,17 @@
          <widget class="QLineEdit" name="search_bar"/>
         </item>
         <item>
-         <widget class="QScrollArea" name="scrollArea">
-          <property name="widgetResizable">
-           <bool>true</bool>
-          </property>
-          <widget class="QWidget" name="scrollAreaWidgetContents">
-           <property name="geometry">
-            <rect>
-             <x>0</x>
-             <y>0</y>
-             <width>1185</width>
-             <height>725</height>
-            </rect>
+         <widget class="QTableWidget" name="options_form">
+          <column>
+           <property name="text">
+            <string>Name</string>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout">
-            <item>
-             <layout class="QFormLayout" name="options_form_layout"/>
-            </item>
-           </layout>
-          </widget>
+          </column>
+          <column>
+           <property name="text">
+            <string>Value</string>
+           </property>
+          </column>
          </widget>
         </item>
         <item>

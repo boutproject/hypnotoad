@@ -39,7 +39,7 @@ def main():
         from matplotlib import pyplot
     from sys import argv
 
-    from ..cases.torpex import createMesh
+    from hypnotoad2.cases.torpex import createMesh
 
     filename = argv[1]
     gridname = "torpex.grd.nc"

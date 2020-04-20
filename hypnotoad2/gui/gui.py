@@ -124,8 +124,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         if options_filename:
             self.read_options()
-
-        self.update_options_form()
+        else:
+            self.options_form.setRowCount(0)
+            self.update_options_form()
 
     def new_options(self):
         """New set of options
@@ -133,6 +134,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         """
 
         self.options = copy.deepcopy(self.default_options)
+        self.options_form.setRowCount(0)
         self.update_options_form()
 
     def save_options(self):
@@ -171,7 +173,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
-        self.options_form.setRowCount(len(self.options))
+        self.options_form.setRowCount(len(self.options) + 1)
 
         for row, (key, value) in enumerate(sorted(self.options.items())):
             item = QTableWidgetItem(key)
@@ -244,6 +246,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             with open(options_filename, "r") as f:
                 self.options.update(yaml.safe_load(f))
 
+        self.options_form.setRowCount(0)
         self.update_options_form()
 
     def select_geqdsk_file(self):

@@ -16,7 +16,9 @@ from Qt.QtWidgets import (
     QDoubleSpinBox,
     QLineEdit,
     QMessageBox,
+    QCompleter,
 )
+from Qt.QtCore import Qt
 
 from .hypnotoad2_mainWindow import Ui_Hypnotoad2
 from .matplotlib_widget import MatplotlibWidget
@@ -99,6 +101,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         for key, value in sorted(self.options.items()):
             self.add_options_widget(key, value)
+
+        self.search_bar.setPlaceholderText("Search options...")
+        self.search_bar.textChanged.connect(self.search_options_form)
+        self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
+        self.search_bar_completer = QCompleter(self.options.keys())
+        self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.search_bar.setCompleter(self.search_bar_completer)
 
     def revert_options(self):
         """Revert the current options to the loaded file, or defaults if no
@@ -212,6 +221,26 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
                 raise RuntimeError(
                     f"Unknown widget when trying to update options ({type(widget)})"
                 )
+
+    def search_options_form(self, text):
+        """Search for specific options
+
+        """
+
+        for key, value in self.options.items():
+            widget_type = convert_python_type_to_qwidget(value)
+            widget = self.findChild(widget_type, key)
+            if widget is None:
+                continue
+
+            label = self.options_form_layout.labelForField(widget)
+
+            if text.lower() in key.lower():
+                widget.show()
+                label.show()
+            else:
+                widget.hide()
+                label.hide()
 
     def select_options_file(self):
         """Choose a Hypnotoad2 options file to load

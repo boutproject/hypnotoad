@@ -77,6 +77,11 @@ class Ui_Hypnotoad2(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.search_bar = QLineEdit(self.centralwidget)
+        self.search_bar.setObjectName(u"search_bar")
+
+        self.verticalLayout_2.addWidget(self.search_bar)
+
         self.scrollArea = QScrollArea(self.centralwidget)
         self.scrollArea.setObjectName(u"scrollArea")
         self.scrollArea.setWidgetResizable(True)

@@ -29,7 +29,7 @@ class Ui_Hypnotoad2(object):
             icon = QIcon.fromTheme(iconThemeName)
         else:
             icon.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
-        
+
         self.action_New.setIcon(icon)
         self.action_Open = QAction(Hypnotoad2)
         self.action_Open.setObjectName(u"action_Open")
@@ -39,35 +39,77 @@ class Ui_Hypnotoad2(object):
             icon1 = QIcon.fromTheme(iconThemeName)
         else:
             icon1.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
-        
+
         self.action_Open.setIcon(icon1)
         self.action_Save = QAction(Hypnotoad2)
         self.action_Save.setObjectName(u"action_Save")
-        icon2 = QIcon(QIcon.fromTheme(u"document-save"))
+        icon2 = QIcon()
+        iconThemeName = u"document-save"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon2 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon2.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Save.setIcon(icon2)
         self.action_Save_as = QAction(Hypnotoad2)
         self.action_Save_as.setObjectName(u"action_Save_as")
-        icon3 = QIcon(QIcon.fromTheme(u"document-save-as"))
+        icon3 = QIcon()
+        iconThemeName = u"document-save-as"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon3 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon3.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Save_as.setIcon(icon3)
         self.action_Quit = QAction(Hypnotoad2)
         self.action_Quit.setObjectName(u"action_Quit")
-        icon4 = QIcon(QIcon.fromTheme(u"application-exit"))
+        icon4 = QIcon()
+        iconThemeName = u"application-exit"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon4 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon4.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Quit.setIcon(icon4)
         self.action_About = QAction(Hypnotoad2)
         self.action_About.setObjectName(u"action_About")
-        icon5 = QIcon(QIcon.fromTheme(u"help-about"))
+        icon5 = QIcon()
+        iconThemeName = u"help-about"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon5 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon5.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_About.setIcon(icon5)
         self.action_Run = QAction(Hypnotoad2)
         self.action_Run.setObjectName(u"action_Run")
-        icon6 = QIcon(QIcon.fromTheme(u"system-run"))
+        icon6 = QIcon()
+        iconThemeName = u"system-run"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon6 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon6.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Run.setIcon(icon6)
         self.action_Write_grid = QAction(Hypnotoad2)
         self.action_Write_grid.setObjectName(u"action_Write_grid")
-        icon7 = QIcon(QIcon.fromTheme(u"document-print"))
+        icon7 = QIcon()
+        iconThemeName = u"document-print"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon7 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon7.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Write_grid.setIcon(icon7)
         self.action_Revert = QAction(Hypnotoad2)
         self.action_Revert.setObjectName(u"action_Revert")
-        icon8 = QIcon(QIcon.fromTheme(u"document-revert"))
+        icon8 = QIcon()
+        iconThemeName = u"document-revert"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon8 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon8.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Revert.setIcon(icon8)
         self.centralwidget = QWidget(Hypnotoad2)
         self.centralwidget.setObjectName(u"centralwidget")

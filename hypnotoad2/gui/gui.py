@@ -24,6 +24,7 @@ from .hypnotoad2_mainWindow import Ui_Hypnotoad2
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
+from ..__version__ import __version__
 
 
 colours = {
@@ -92,6 +93,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         set_triggered(self.action_Save_as, self.save_options_as)
         set_triggered(self.action_New, self.new_options)
         set_triggered(self.action_Open, self.select_options_file)
+        set_triggered(self.action_About, self.help_about)
 
         self.action_Quit.triggered.connect(self.close)
 
@@ -108,6 +110,18 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.search_bar_completer = QCompleter(self.options.keys())
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
+
+    def help_about(self):
+        """About Hypnotoad2
+
+        """
+
+        about_text = __doc__.strip()
+        about_text += f"\nVersion : {__version__}"
+
+        about_box = QMessageBox(self)
+        about_box.setText(about_text)
+        about_box.exec_()
 
     def revert_options(self):
         """Revert the current options to the loaded file, or defaults if no

@@ -26,7 +26,7 @@ def main():
     else:
         options = {}
 
-    from ..cases import tokamak
+    from hypnotoad2.cases import tokamak
 
     with open(filename, "rt") as fh:
         eq = tokamak.read_geqdsk(fh, options=options)
@@ -47,7 +47,7 @@ def main():
 
     # Create the mesh
 
-    from ..core.mesh import BoutMesh
+    from hypnotoad2.core.mesh import BoutMesh
 
     mesh = BoutMesh(eq)
     mesh.geometry()

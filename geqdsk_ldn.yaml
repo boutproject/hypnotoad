@@ -1,0 +1,45 @@
+# Settings for a lower double null GEQDSK file
+#
+# Usage:
+# $ ./hypnotoad2/scripts/hypnotoad2_geqdsk file.geqdsk geqdsk_cdn.yaml
+# 
+# Note: Other available options will be printed when the regions are generated
+# Generate the poloidal flux input
+
+# Ranges of normalised poloidal flux
+
+psinorm_core: 0.9
+psinorm_sol: 1.1
+psinorm_pf: 0.9
+
+# Number of points in poloidal regions
+
+ny_inner_lower_divertor: 4
+ny_inner_upper_divertor: 4
+ny_inner_sol: 4
+ny_outer_sol: 4
+ny_outer_lower_divertor: 4
+ny_outer_upper_divertor: 4
+
+# Number of points in radial segments
+
+nx_core: 5
+nx_sol: 5
+
+# Radial grid spacing
+
+psi_spacing_separatrix_multiplier: 1   # Smaller -> pack near separatrix
+
+# Poloidal grid spacing
+
+target_poloidal_spacing_length: 0.05   # Smaller -> pack near targets
+xpoint_poloidal_spacing_length: 0.05   # Smaller -> pack near X-points
+
+# Plotting
+
+plot_regions: False
+plot_mesh: True
+plot_xlow: False
+plot_ylow: False
+plot_corners: False
+

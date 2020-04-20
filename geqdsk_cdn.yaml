@@ -1,14 +1,14 @@
 # Settings for a connected double null GEQDSK file
 #
 # Usage:
-# $ ./tokamak_geqdsk file.geqdsk  geqdsk_cdn.yaml
+# $ ./hypnotoad2/scripts/hypnotoad2_geqdsk file.geqdsk geqdsk_cdn.yaml
 # 
 # Note: Other available options will be printed when the regions are generated
 
 grid_file: "bout.grd.nc"  # Output BOUT++ grid file
 
-reverse_current: True   # Reversed poloidal field
-extrapolate_profiles: True   # Use exponential pressure profile in SOL and PF
+reverse_current: False   # Reversed poloidal field
+extrapolate_profiles: False   # Use exponential pressure profile in SOL and PF
 
 # Ranges of normalised poloidal flux
 

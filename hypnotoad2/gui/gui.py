@@ -330,6 +330,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         with open(geqdsk_filename, "rt") as fh:
             self.eq = tokamak.read_geqdsk(fh, options=self.options)
 
+        self.plot_widget._clean_axes()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
         for region in self.eq.regions.values():
             self.plot_widget.axes.plot(

@@ -1928,15 +1928,25 @@ class Mesh:
             region.equilibriumRegion.setupOptions(force=True)
             region.distributePointsNonorthogonal()
 
-    def geometry(self):
+    def calculateRZ(self):
         """
-        Calculate geometrical quantities for BOUT++
+        Create arrays with R and Z values of all points in the grid
         """
         print("Get RZ values")
         for region in self.regions.values():
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
+
+    def geometry(self):
+        """
+        Calculate geometrical quantities for BOUT++
+        """
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
         print("Calculate geometry")
         for region in self.regions.values():
             print("1", region.name, end="\r")

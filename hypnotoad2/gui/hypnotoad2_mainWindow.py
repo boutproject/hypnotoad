@@ -8,11 +8,34 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from Qt.QtCore import (QCoreApplication, QDate, QDateTime, QMetaObject,
-    QObject, QPoint, QRect, QSize, QTime, QUrl, Qt)
-from Qt.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
-    QFontDatabase, QIcon, QKeySequence, QLinearGradient, QPalette, QPainter,
-    QPixmap, QRadialGradient)
+from Qt.QtCore import (
+    QCoreApplication,
+    QDate,
+    QDateTime,
+    QMetaObject,
+    QObject,
+    QPoint,
+    QRect,
+    QSize,
+    QTime,
+    QUrl,
+    Qt,
+)
+from Qt.QtGui import (
+    QBrush,
+    QColor,
+    QConicalGradient,
+    QCursor,
+    QFont,
+    QFontDatabase,
+    QIcon,
+    QKeySequence,
+    QLinearGradient,
+    QPalette,
+    QPainter,
+    QPixmap,
+    QRadialGradient,
+)
 from Qt.QtWidgets import *
 
 
@@ -125,7 +148,7 @@ class Ui_Hypnotoad2(object):
         self.verticalLayout_2.addWidget(self.search_bar)
 
         self.options_form = QTableWidget(self.centralwidget)
-        if (self.options_form.columnCount() < 2):
+        if self.options_form.columnCount() < 2:
             self.options_form.setColumnCount(2)
         __qtablewidgetitem = QTableWidgetItem()
         self.options_form.setHorizontalHeaderItem(0, __qtablewidgetitem)
@@ -177,9 +200,7 @@ class Ui_Hypnotoad2(object):
 
         self.horizontalLayout_3.addWidget(self.write_grid_button)
 
-
         self.verticalLayout_2.addLayout(self.horizontalLayout_3)
-
 
         self.horizontalLayout.addLayout(self.verticalLayout_2)
 
@@ -187,7 +208,6 @@ class Ui_Hypnotoad2(object):
         self.plottingArea.setObjectName(u"plottingArea")
 
         self.horizontalLayout.addWidget(self.plottingArea)
-
 
         self.horizontalLayout_2.addLayout(self.horizontalLayout)
 
@@ -232,34 +252,76 @@ class Ui_Hypnotoad2(object):
         self.retranslateUi(Hypnotoad2)
 
         QMetaObject.connectSlotsByName(Hypnotoad2)
+
     # setupUi
 
     def retranslateUi(self, Hypnotoad2):
-        Hypnotoad2.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"MainWindow", None))
+        Hypnotoad2.setWindowTitle(
+            QCoreApplication.translate("Hypnotoad2", u"MainWindow", None)
+        )
         self.action_New.setText(QCoreApplication.translate("Hypnotoad2", u"&New", None))
-        self.action_Open.setText(QCoreApplication.translate("Hypnotoad2", u"&Open", None))
-        self.action_Save.setText(QCoreApplication.translate("Hypnotoad2", u"&Save", None))
-#if QT_CONFIG(tooltip)
-        self.action_Save.setToolTip(QCoreApplication.translate("Hypnotoad2", u"Save", None))
-#endif // QT_CONFIG(tooltip)
-        self.action_Save_as.setText(QCoreApplication.translate("Hypnotoad2", u"Save as", None))
-        self.action_Quit.setText(QCoreApplication.translate("Hypnotoad2", u"&Quit", None))
-        self.action_About.setText(QCoreApplication.translate("Hypnotoad2", u"&About", None))
+        self.action_Open.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&Open", None)
+        )
+        self.action_Save.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&Save", None)
+        )
+        # if QT_CONFIG(tooltip)
+        self.action_Save.setToolTip(
+            QCoreApplication.translate("Hypnotoad2", u"Save", None)
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.action_Save_as.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Save as", None)
+        )
+        self.action_Quit.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&Quit", None)
+        )
+        self.action_About.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&About", None)
+        )
         self.action_Run.setText(QCoreApplication.translate("Hypnotoad2", u"&Run", None))
-        self.action_Write_grid.setText(QCoreApplication.translate("Hypnotoad2", u"&Write grid", None))
-        self.action_Revert.setText(QCoreApplication.translate("Hypnotoad2", u"&Revert", None))
+        self.action_Write_grid.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&Write grid", None)
+        )
+        self.action_Revert.setText(
+            QCoreApplication.translate("Hypnotoad2", u"&Revert", None)
+        )
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
-        ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad2", u"Name", None));
+        ___qtablewidgetitem.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Name", None)
+        )
         ___qtablewidgetitem1 = self.options_form.horizontalHeaderItem(1)
-        ___qtablewidgetitem1.setText(QCoreApplication.translate("Hypnotoad2", u"Value", None));
-        self.options_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"Options file", None))
-        self.options_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
-        self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None))
-        self.geqdsk_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
+        ___qtablewidgetitem1.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Value", None)
+        )
+        self.options_file_label.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Options file", None)
+        )
+        self.options_file_browse_button.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Browse", None)
+        )
+        self.geqdsk_file_label.setText(
+            QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None)
+        )
+        self.geqdsk_file_browse_button.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Browse", None)
+        )
         self.run_button.setText(QCoreApplication.translate("Hypnotoad2", u"Run", None))
-        self.write_grid_button.setText(QCoreApplication.translate("Hypnotoad2", u"Write Grid", None))
-        self.menu_File.setTitle(QCoreApplication.translate("Hypnotoad2", u"&File", None))
-        self.menu_Help.setTitle(QCoreApplication.translate("Hypnotoad2", u"&Help", None))
-        self.menu_Mesh.setTitle(QCoreApplication.translate("Hypnotoad2", u"&Mesh", None))
-        self.toolBar.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"toolBar", None))
+        self.write_grid_button.setText(
+            QCoreApplication.translate("Hypnotoad2", u"Write Grid", None)
+        )
+        self.menu_File.setTitle(
+            QCoreApplication.translate("Hypnotoad2", u"&File", None)
+        )
+        self.menu_Help.setTitle(
+            QCoreApplication.translate("Hypnotoad2", u"&Help", None)
+        )
+        self.menu_Mesh.setTitle(
+            QCoreApplication.translate("Hypnotoad2", u"&Mesh", None)
+        )
+        self.toolBar.setWindowTitle(
+            QCoreApplication.translate("Hypnotoad2", u"toolBar", None)
+        )
+
     # retranslateUi

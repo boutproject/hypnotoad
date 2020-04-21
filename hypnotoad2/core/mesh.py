@@ -1984,7 +1984,9 @@ class Mesh:
         l = pyplot.legend()
         l.set_draggable(True)
 
-    def plotPoints(self, xlow=False, ylow=False, corners=False, markers=None, ax=None, **kwargs):
+    def plotPoints(
+        self, xlow=False, ylow=False, corners=False, markers=None, ax=None, **kwargs
+    ):
         from matplotlib import pyplot
         from cycler import cycle
 

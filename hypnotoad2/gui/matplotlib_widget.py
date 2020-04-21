@@ -1,18 +1,16 @@
-#
-# Initial code taken from  http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
+# Initial code taken from
+# http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
 # Additional bits from https://gist.github.com/jfburkhart/2423179
 
 import matplotlib
-
+from matplotlib.figure import Figure
 from Qt.QtWidgets import QVBoxLayout
 
 matplotlib.use("Qt5Agg")
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
-)
-
-from matplotlib.figure import Figure
+)  # noqa E402
 
 
 class MatplotlibWidget:

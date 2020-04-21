@@ -11,13 +11,8 @@ import yaml
 from Qt.QtWidgets import (
     QFileDialog,
     QMainWindow,
-    QCheckBox,
-    QSpinBox,
-    QDoubleSpinBox,
-    QLineEdit,
     QMessageBox,
     QCompleter,
-    QWidget,
     QTableWidgetItem,
     QHeaderView,
 )

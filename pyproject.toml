@@ -1,0 +1,6 @@
+[tool.black]
+exclude = '''
+(
+  hypnotoad2/gui/hypnotoad2_mainWindow.py
+)
+'''

@@ -33,7 +33,7 @@ setuptools.setup(
         "numpy~=1.18",
         "options~=1.4",
         "pyparsing~=2.4",
-        "PyYAML~=5.3",
+        "PyYAML~=5.1",
         "scipy~=1.4",
     ],
     extras_require={"gui": ["Qt.py~=1.2", "pyside2~=5.14"]},

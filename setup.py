@@ -37,18 +37,13 @@ setuptools.setup(
         "scipy~=1.4",
         "Qt.py~=1.2",
     ],
-    extras_require={
-        "gui-pyside2": ["pyside2~=5.14"],
-        "gui-PyQt5": ["PyQt5~=5.12"],
-    },
+    extras_require={"gui-pyside2": ["pyside2~=5.14"], "gui-PyQt5": ["PyQt5~=5.12"],},
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [
             "hypnotoad2_geqdsk = hypnotoad2.scripts.hypnotoad2_geqdsk:main",
             "hypnotoad2_torpex = hypnotoad2.scripts.hypnotoad2_torpex:main",
         ],
-        "gui_scripts": [
-            "hypnotoad2-gui = hypnotoad2.gui:main",
-        ],
+        "gui_scripts": ["hypnotoad2-gui = hypnotoad2.gui:main",],
     },
 )

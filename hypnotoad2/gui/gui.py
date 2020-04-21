@@ -325,7 +325,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
 
         self.statusbar.showMessage("Running...")
         self.mesh = BoutMesh(self.eq)
-        self.mesh.geometry()
+        self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 
         self.plot_widget.clear()
@@ -344,6 +344,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         """Write generated mesh to file
 
         """
+
+        # Create all the geometrical quantities
+        self.mesh.geometry()
 
         if not hasattr(self, "mesh"):
             flags = QMessageBox.StandardButton.Ok

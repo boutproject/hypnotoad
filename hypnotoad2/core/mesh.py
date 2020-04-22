@@ -29,10 +29,10 @@ import numpy
 from scipy.integrate import solve_ivp
 
 from boututils.boutarray import BoutArray
-from boututils.run_wrapper import shell, shell_safe
+from boututils.run_wrapper import shell_safe
 
 from .equilibrium import calc_distance, Point2D
-from ..__version__ import __version__
+from ..__version__ import get_versions
 
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -1814,43 +1814,23 @@ class Mesh:
 
         self.equilibrium = equilibrium
 
-        self.version = __version__
-        self.git_hash = None
+        versions = get_versions()
+        self.version = versions["version"]
+        self.git_hash = versions["full-revisionid"]
         self.git_diff = None
 
-        # check if git exists
-        retval, git_version = shell("git --version")
-        if retval == 0:
-            # git exists
+        if versions["dirty"]:
+            # There are changes from the last commit, get git diff
 
             from pathlib import Path
             from hypnotoad2.__init__ import __file__ as hypnotoad2_init_file
 
             hypnotoad2_path = Path(hypnotoad2_init_file).parent
 
-            # check if hypnotoad is in it's own git repo. hypnotoad2.__init__.py
-            # should be in the hypnotoad2/ subdirectory of the git repo if it is.
-            # So the parent directory of hypnotoad2_path should contain a '.git'
-            # directory if hypnotoad is in a git repo
-            if hypnotoad2_path.parent.joinpath(".git").is_dir():
-                retval, self.git_hash = shell_safe(
-                    "cd "
-                    + str(hypnotoad2_path)
-                    + '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
-                    pipe=True,
-                )
-                self.git_hash = self.git_hash.strip()
-                retval, self.git_diff = shell_safe(
-                    "cd " + str(hypnotoad2_path) + "&& git diff", pipe=True
-                )
-                self.git_diff = self.git_diff.strip()
-        elif retval == 127:
-            # git not installed
-            pass
-        else:
-            raise RuntimeError(
-                "'git --version' failed with {retval}. Output was {git_version}"
+            retval, self.git_diff = shell_safe(
+                "cd " + str(hypnotoad2_path) + "&& git diff", pipe=True
             )
+            self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -2447,8 +2427,10 @@ class BoutMesh(Mesh):
             f.write("hypnotoad_version", self.version)
             if self.git_hash is not None:
                 f.write("hypnotoad_git_hash", self.git_hash)
-            if self.git_diff is not None:
-                f.write("hypnotoad_git_diff", self.git_diff)
+                f.write(
+                    "hypnotoad_git_diff",
+                    self.git_diff if self.git_diff is not None else "",
+                )
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

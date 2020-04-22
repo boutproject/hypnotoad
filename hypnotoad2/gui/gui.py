@@ -22,7 +22,7 @@ from .hypnotoad2_mainWindow import Ui_Hypnotoad2
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
-from ..__version__ import __version__
+from ..__init.py__ import __version__
 
 
 COLOURS = {

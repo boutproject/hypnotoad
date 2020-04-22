@@ -9,4 +9,5 @@ ignore = (
 exclude =
     hypnotoad2/gui/hypnotoad2_mainWindow.py,
     hypnotoad2/gui/__init__.py
-
+    hypnotoad2/__version__.py
+    versioneer.py

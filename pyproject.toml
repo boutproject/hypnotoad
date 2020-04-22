@@ -2,5 +2,7 @@
 exclude = '''
 (
   hypnotoad2/gui/hypnotoad2_mainWindow.py
+  | versioneer.py
+  | hypnotoad2/__version__.py
 )
 '''

@@ -577,10 +577,11 @@ class MeshRegion:
                         break
 
                 count = 0
+                ds_extend = contour.distance[1] - contour.distance[0]
                 while lower_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
-                    contour.temporaryExtend(extend_lower=1)
+                    contour.temporaryExtend(extend_lower=1, ds_lower=ds_extend)
                     lower_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[1], contour[0]
                     )
@@ -606,10 +607,11 @@ class MeshRegion:
                         break
 
                 count = 0
+                ds_extend = contour.distance[-1] - contour.distance[-2]
                 while upper_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
-                    contour.temporaryExtend(extend_upper=1)
+                    contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
                     upper_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[-2], contour[-1]
                     )

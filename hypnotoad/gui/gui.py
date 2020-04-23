@@ -100,6 +100,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_Write_grid, self.write_grid)
         self.write_grid_button.setEnabled(False)
 
+        self.nonorthogonal_box.stateChanged.connect(self.set_nonorthogonal)
+
+        set_clicked(self.regrid_button, self.regrid)
+        set_triggered(self.action_Regrid, self.regrid)
+
         set_triggered(self.action_Revert, self.revert_options)
         set_triggered(self.action_Save, self.save_options)
         set_triggered(self.action_Save_as, self.save_options_as)
@@ -113,6 +118,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options = {}
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
+
+        self.regrid_button.setEnabled(not self.options["orthogonal"])
+        self.action_Regrid.setEnabled(not self.options["orthogonal"])
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
@@ -154,6 +162,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Reverting options", 2000)
         self.options = {}
+        self.regrid_button.setEnabled(not self.options["orthogonal"])
+        self.action_Regrid.setEnabled(not self.options["orthogonal"])
 
         options_filename = self.options_file_line_edit.text()
 
@@ -254,7 +264,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
         )
         # Skip options handled specially elsewhere
-        # ...
+        del filtered_options["orthogonal"]
+        del filtered_defaults["orthogonal"]
 
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
@@ -331,6 +342,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_file_line_edit.setText(filename)
         self.filename = filename
         self.read_options()
+        self.nonorthogonal_box.setEnabled(True)
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def read_options(self):
         """Read the options file
@@ -406,6 +419,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_grid()
 
+        self.nonorthogonal_box.setEnabled(True)
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
+
     def run(self):
         """Run Hypnotoad and generate the grid
 
@@ -437,6 +453,41 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
+        self.regrid_button.setEnabled(not self.options["orthogonal"])
+        self.action_Regrid.setEnabled(not self.options["orthogonal"])
+
+    def set_nonorthogonal(self, state):
+        state = bool(state)
+        self.options["orthogonal"] = not state
+        if hasattr(self, "mesh"):
+            self.regrid_button.setEnabled(state)
+            self.action_Regrid.setEnabled(state)
+
+    def regrid(self):
+        """Regrid a nonorthogonal grid after spacing settings are changed
+
+        """
+
+        if not hasattr(self, "mesh"):
+            self.statusbar.showMessage("Generate grid first!")
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
+            )
+            return
+
+        self.statusbar.showMessage("Running...")
+        self.mesh.redistributePoints()
+        self.statusbar.showMessage("Done!", 2000)
+
+        self.plot_widget.clear()
+        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        self.mesh.plotPoints(
+            xlow=self.gui_options["plot_xlow"],
+            ylow=self.gui_options["plot_ylow"],
+            corners=self.gui_options["plot_corners"],
+            ax=self.plot_widget.axes,
+        )
+        self.plot_widget.canvas.draw()
 
     def write_grid(self):
         """Write generated mesh to file

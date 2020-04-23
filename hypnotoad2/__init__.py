@@ -21,6 +21,9 @@ from .cases import tokamak, torpex
 from .core.equilibrium import Point2D, EquilibriumRegion, Equilibrium, SolutionError
 from .core.mesh import MultiLocationArray, MeshRegion, Mesh, BoutMesh
 from .utils.hypnotoad_options import HypnotoadOptions, HypnotoadInternalOptions
+from .__version__ import get_versions
+
+__version__ = get_versions()["version"]
 
 __all__ = [
     "tokamak",
@@ -35,4 +38,5 @@ __all__ = [
     "BoutMesh",
     "HypnotoadOptions",
     "HypnotoadInternalOptions",
+    "__version__",
 ]

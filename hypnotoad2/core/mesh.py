@@ -29,8 +29,10 @@ import numpy
 from scipy.integrate import solve_ivp
 
 from boututils.boutarray import BoutArray
+from boututils.run_wrapper import shell_safe
 
 from .equilibrium import calc_distance, Point2D
+from ..__version__ import get_versions
 
 
 class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -1812,29 +1814,21 @@ class Mesh:
 
         self.equilibrium = equilibrium
 
-        # Get release version number for releases or current git-commit hash of
-        # Hypnotoad2 for git-clone'd versions for version-tracking
-        from ..__version__ import __release__
+        versions = get_versions()
+        self.version = versions["version"]
+        self.git_hash = versions["full-revisionid"]
+        self.git_diff = None
 
-        if __release__:
-            from ..__version__ import __version__
+        if versions["dirty"]:
+            # There are changes from the last commit, get git diff
 
-            self.version_identifier = __version__
-            self.git_diff = None
-        else:
-            from boututils.run_wrapper import shell_safe
             from pathlib import Path
+            from hypnotoad2.__init__ import __file__ as hypnotoad2_init_file
 
-            hypnotoad_path = str(Path(__file__).parent)
-            retval, self.version_identifier = shell_safe(
-                "cd "
-                + hypnotoad_path
-                + '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
-                pipe=True,
-            )
-            self.version_identifier = self.version_identifier.strip()
+            hypnotoad2_path = Path(hypnotoad2_init_file).parent
+
             retval, self.git_diff = shell_safe(
-                "cd " + hypnotoad_path + "&& git diff", pipe=True
+                "cd " + str(hypnotoad2_path) + "&& git diff", pipe=True
             )
             self.git_diff = self.git_diff.strip()
 
@@ -2430,9 +2424,13 @@ class BoutMesh(Mesh):
                 f.write("parallel_transform", "identity")
 
             f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
-            f.write("hypnotoad_version", self.version_identifier)
-            if self.git_diff is not None:
-                f.write("hypnotoad_git_diff", self.git_diff)
+            f.write("hypnotoad_version", self.version)
+            if self.git_hash is not None:
+                f.write("hypnotoad_git_hash", self.git_hash)
+                f.write(
+                    "hypnotoad_git_diff",
+                    self.git_diff if self.git_diff is not None else "",
+                )
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

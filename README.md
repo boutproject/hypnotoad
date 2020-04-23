@@ -6,6 +6,37 @@ Dependencies
 - scipy (recent enough version, tested with 1.3.0 'pip3 install --user --upgrade scipy')
 
 
+Installation
+------------
+
+#### From PyPi
+
+The simplest way to get hypnotoad2 is by simply running
+
+    $ pip install --user hypnotoad2
+
+#### git repo
+
+If you need to modify the hypnotoad2 code, or get development versions, clone
+from github
+
+    $ git clone git@github.com:boutproject/hypnotoad2.git
+
+You can install from the git repo with ``pip``, this is useful to get the
+executables added to your path. Make sure to do an 'editable' install using
+``-e`` or ``--editable`` option like
+
+    $ cd hypnotoad2
+    $ pip install -e .
+
+This installs executables which use the code that's currently in the git repo,
+so if you edit or update it you will see the updates. If you install with ``pip
+install .`` (without the ``-e``) then ``pip`` can get confused because it can't
+tell which version number is newer, as the git repo versions have a version
+number based on the git hash, not a simple x.y.z; then pip may for example not
+uninstall hypnotoad2 correctly.
+
+
 Usage
 -----
 

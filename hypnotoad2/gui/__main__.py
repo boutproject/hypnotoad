@@ -4,7 +4,7 @@ import argparse
 from Qt.QtWidgets import QApplication
 import sys
 
-from ..__version__ import __version__
+from ..__init__ import __version__
 from .gui import HypnotoadGui
 
 

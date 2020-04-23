@@ -560,6 +560,10 @@ class MeshRegion:
 
             # index of the segment of the contour that intersects the upper wall
             upper_intersect_index = -2
+
+            # starting orthogonal spacing function
+            sfunc_orthogonal = contour.contourSfunc()
+
             if lower_wall:
                 if upper_wall:
                     starti = len(contour) // 2

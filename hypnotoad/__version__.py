@@ -42,8 +42,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = ""
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = "hypnotoad2-"
-    cfg.versionfile_source = "hypnotoad2/__version__.py"
+    cfg.parentdir_prefix = "hypnotoad-"
+    cfg.versionfile_source = "hypnotoad/__version__.py"
     cfg.verbose = False
     return cfg
 

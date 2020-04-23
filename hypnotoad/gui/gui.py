@@ -1,5 +1,5 @@
 """
-GUI for Hypnotoad2 using Qt
+GUI for Hypnotoad using Qt
 
 """
 
@@ -18,7 +18,7 @@ from Qt.QtWidgets import (
 )
 from Qt.QtCore import Qt
 
-from .hypnotoad2_mainWindow import Ui_Hypnotoad2
+from .hypnotoad_mainWindow import Ui_Hypnotoad
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
@@ -30,8 +30,8 @@ COLOURS = {
 }
 
 
-class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
-    """A graphical interface for Hypnotoad2
+class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
+    """A graphical interface for Hypnotoad
 
     """
 
@@ -95,7 +95,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.update_options_form()
 
     def help_about(self):
-        """About Hypnotoad2
+        """About Hypnotoad
 
         """
 
@@ -223,7 +223,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
             self.options_form.setRowHidden(i, not matches)
 
     def select_options_file(self):
-        """Choose a Hypnotoad2 options file to load
+        """Choose a Hypnotoad options file to load
 
         """
 
@@ -312,7 +312,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad2):
         self.plot_widget.canvas.draw()
 
     def run(self):
-        """Run Hypnotoad2 and generate the grid
+        """Run Hypnotoad and generate the grid
 
         """
 

@@ -7,7 +7,7 @@ ignore = (
     E231, # missing whitespace after ',', but black formats some expressions without space after ','
 )
 exclude =
-    hypnotoad2/gui/hypnotoad2_mainWindow.py,
-    hypnotoad2/gui/__init__.py
-    hypnotoad2/__version__.py
+    hypnotoad/gui/hypnotoad_mainWindow.py,
+    hypnotoad/gui/__init__.py
+    hypnotoad/__version__.py
     versioneer.py

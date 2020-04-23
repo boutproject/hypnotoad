@@ -1,6 +1,6 @@
 import numpy as np
 
-from hypnotoad2.utils import critical
+from hypnotoad.utils import critical
 
 
 def test_one_opoint():

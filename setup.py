@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="hypnotoad2",
+    name="hypnotoad",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     author="John Omotani, Ben Dudson and the BOUT++ team",
@@ -14,7 +14,7 @@ setuptools.setup(
     license="OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/boutproject/hypnotoad2",
+    url="https://github.com/boutproject/hypnotoad",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -36,9 +36,9 @@ setuptools.setup(
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [
-            "hypnotoad2_geqdsk = hypnotoad2.scripts.hypnotoad2_geqdsk:main",
-            "hypnotoad2_torpex = hypnotoad2.scripts.hypnotoad2_torpex:main",
+            "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
+            "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
         ],
-        "gui_scripts": ["hypnotoad2-gui = hypnotoad2.gui:main",],
+        "gui_scripts": ["hypnotoad-gui = hypnotoad.gui:main",],
     },
 )

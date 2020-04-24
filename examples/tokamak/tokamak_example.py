@@ -93,13 +93,13 @@ if __name__ == "__main__":
         ny=options.get("ny", 65),
     )
 
-    from hypnotoad2 import tokamak
+    from hypnotoad import tokamak
 
     eq = tokamak.TokamakEquilibrium(
         r1d, z1d, psi2d, [], [], options=options  # psi1d, fpol
     )
 
-    from hypnotoad2.mesh import BoutMesh
+    from hypnotoad.mesh import BoutMesh
 
     mesh = BoutMesh(eq)
     mesh.geometry()

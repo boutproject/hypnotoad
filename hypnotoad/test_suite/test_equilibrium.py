@@ -20,7 +20,7 @@
 import numpy
 import pytest
 from copy import deepcopy
-from hypnotoad2.core.equilibrium import (
+from hypnotoad.core.equilibrium import (
     calc_distance,
     find_intersections,
     Equilibrium,
@@ -29,7 +29,7 @@ from hypnotoad2.core.equilibrium import (
     Point2D,
     PsiContour,
 )
-from hypnotoad2.utils.hypnotoad_options import (
+from hypnotoad.utils.hypnotoad_options import (
     HypnotoadOptions,
     HypnotoadInternalOptions,
 )

@@ -1,9 +1,9 @@
-from hypnotoad2.__version__ import get_versions
+from hypnotoad.__version__ import get_versions
 
 
 class TestVersioning:
     def test_init_version(self):
-        from hypnotoad2 import __version__
+        from hypnotoad import __version__
 
         assert __version__ == get_versions()["version"]
 
@@ -18,18 +18,18 @@ class TestVersioning:
             # git exists
 
             from pathlib import Path
-            from hypnotoad2.__init__ import __file__ as hypnotoad2_init_file
+            from hypnotoad.__init__ import __file__ as hypnotoad_init_file
 
-            hypnotoad2_path = Path(hypnotoad2_init_file).parent
+            hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            # check if hypnotoad is in it's own git repo. hypnotoad2.__init__.py
-            # should be in the hypnotoad2/ subdirectory of the git repo if it is.
-            # So the parent directory of hypnotoad2_path should contain a '.git'
+            # check if hypnotoad is in it's own git repo. hypnotoad.__init__.py
+            # should be in the hypnotoad/ subdirectory of the git repo if it is.
+            # So the parent directory of hypnotoad_path should contain a '.git'
             # directory if hypnotoad is in a git repo
-            if hypnotoad2_path.parent.joinpath(".git").is_dir():
+            if hypnotoad_path.parent.joinpath(".git").is_dir():
                 retval, git_hash = shell_safe(
                     "cd "
-                    + str(hypnotoad2_path)
+                    + str(hypnotoad_path)
                     + '&& git describe --always --abbrev=0 --dirty --match "NOT A TAG"',
                     pipe=True,
                 )

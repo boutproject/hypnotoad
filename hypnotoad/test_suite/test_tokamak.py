@@ -1,8 +1,8 @@
 import numpy as np
 from io import StringIO
 
-from hypnotoad2.cases import tokamak
-from hypnotoad2.geqdsk import _geqdsk
+from hypnotoad.cases import tokamak
+from hypnotoad.geqdsk import _geqdsk
 
 
 def test_tokamak_interpolations():

@@ -1823,12 +1823,12 @@ class Mesh:
             # There are changes from the last commit, get git diff
 
             from pathlib import Path
-            from hypnotoad2.__init__ import __file__ as hypnotoad2_init_file
+            from hypnotoad.__init__ import __file__ as hypnotoad_init_file
 
-            hypnotoad2_path = Path(hypnotoad2_init_file).parent
+            hypnotoad_path = Path(hypnotoad_init_file).parent
 
             retval, self.git_diff = shell_safe(
-                "cd " + str(hypnotoad2_path) + "&& git diff", pipe=True
+                "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
             )
             self.git_diff = self.git_diff.strip()
 

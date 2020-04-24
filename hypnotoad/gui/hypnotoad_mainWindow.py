@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'hypnotoad2_mainWindow.ui'
+## Form generated from reading UI file 'hypnotoad_mainWindow.ui'
 ##
 ## Created by: Qt User Interface Compiler version 5.14.2
 ##
@@ -16,12 +16,12 @@ from Qt.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
 from Qt.QtWidgets import *
 
 
-class Ui_Hypnotoad2(object):
-    def setupUi(self, Hypnotoad2):
-        if not Hypnotoad2.objectName():
-            Hypnotoad2.setObjectName(u"Hypnotoad2")
-        Hypnotoad2.resize(1215, 863)
-        self.action_New = QAction(Hypnotoad2)
+class Ui_Hypnotoad(object):
+    def setupUi(self, Hypnotoad):
+        if not Hypnotoad.objectName():
+            Hypnotoad.setObjectName(u"Hypnotoad")
+        Hypnotoad.resize(1215, 863)
+        self.action_New = QAction(Hypnotoad)
         self.action_New.setObjectName(u"action_New")
         icon = QIcon()
         iconThemeName = u"document-new"
@@ -31,7 +31,7 @@ class Ui_Hypnotoad2(object):
             icon.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_New.setIcon(icon)
-        self.action_Open = QAction(Hypnotoad2)
+        self.action_Open = QAction(Hypnotoad)
         self.action_Open.setObjectName(u"action_Open")
         icon1 = QIcon()
         iconThemeName = u"document-open"
@@ -41,7 +41,7 @@ class Ui_Hypnotoad2(object):
             icon1.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Open.setIcon(icon1)
-        self.action_Save = QAction(Hypnotoad2)
+        self.action_Save = QAction(Hypnotoad)
         self.action_Save.setObjectName(u"action_Save")
         icon2 = QIcon()
         iconThemeName = u"document-save"
@@ -51,7 +51,7 @@ class Ui_Hypnotoad2(object):
             icon2.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Save.setIcon(icon2)
-        self.action_Save_as = QAction(Hypnotoad2)
+        self.action_Save_as = QAction(Hypnotoad)
         self.action_Save_as.setObjectName(u"action_Save_as")
         icon3 = QIcon()
         iconThemeName = u"document-save-as"
@@ -61,7 +61,7 @@ class Ui_Hypnotoad2(object):
             icon3.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Save_as.setIcon(icon3)
-        self.action_Quit = QAction(Hypnotoad2)
+        self.action_Quit = QAction(Hypnotoad)
         self.action_Quit.setObjectName(u"action_Quit")
         icon4 = QIcon()
         iconThemeName = u"application-exit"
@@ -71,7 +71,7 @@ class Ui_Hypnotoad2(object):
             icon4.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Quit.setIcon(icon4)
-        self.action_About = QAction(Hypnotoad2)
+        self.action_About = QAction(Hypnotoad)
         self.action_About.setObjectName(u"action_About")
         icon5 = QIcon()
         iconThemeName = u"help-about"
@@ -81,7 +81,7 @@ class Ui_Hypnotoad2(object):
             icon5.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_About.setIcon(icon5)
-        self.action_Run = QAction(Hypnotoad2)
+        self.action_Run = QAction(Hypnotoad)
         self.action_Run.setObjectName(u"action_Run")
         icon6 = QIcon()
         iconThemeName = u"system-run"
@@ -91,7 +91,7 @@ class Ui_Hypnotoad2(object):
             icon6.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Run.setIcon(icon6)
-        self.action_Write_grid = QAction(Hypnotoad2)
+        self.action_Write_grid = QAction(Hypnotoad)
         self.action_Write_grid.setObjectName(u"action_Write_grid")
         icon7 = QIcon()
         iconThemeName = u"document-print"
@@ -101,7 +101,7 @@ class Ui_Hypnotoad2(object):
             icon7.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Write_grid.setIcon(icon7)
-        self.action_Revert = QAction(Hypnotoad2)
+        self.action_Revert = QAction(Hypnotoad)
         self.action_Revert.setObjectName(u"action_Revert")
         icon8 = QIcon()
         iconThemeName = u"document-revert"
@@ -111,7 +111,7 @@ class Ui_Hypnotoad2(object):
             icon8.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Revert.setIcon(icon8)
-        self.centralwidget = QWidget(Hypnotoad2)
+        self.centralwidget = QWidget(Hypnotoad)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
@@ -191,8 +191,8 @@ class Ui_Hypnotoad2(object):
 
         self.horizontalLayout_2.addLayout(self.horizontalLayout)
 
-        Hypnotoad2.setCentralWidget(self.centralwidget)
-        self.menubar = QMenuBar(Hypnotoad2)
+        Hypnotoad.setCentralWidget(self.centralwidget)
+        self.menubar = QMenuBar(Hypnotoad)
         self.menubar.setObjectName(u"menubar")
         self.menubar.setGeometry(QRect(0, 0, 1215, 22))
         self.menu_File = QMenu(self.menubar)
@@ -201,13 +201,13 @@ class Ui_Hypnotoad2(object):
         self.menu_Help.setObjectName(u"menu_Help")
         self.menu_Mesh = QMenu(self.menubar)
         self.menu_Mesh.setObjectName(u"menu_Mesh")
-        Hypnotoad2.setMenuBar(self.menubar)
-        self.statusbar = QStatusBar(Hypnotoad2)
+        Hypnotoad.setMenuBar(self.menubar)
+        self.statusbar = QStatusBar(Hypnotoad)
         self.statusbar.setObjectName(u"statusbar")
-        Hypnotoad2.setStatusBar(self.statusbar)
-        self.toolBar = QToolBar(Hypnotoad2)
+        Hypnotoad.setStatusBar(self.statusbar)
+        self.toolBar = QToolBar(Hypnotoad)
         self.toolBar.setObjectName(u"toolBar")
-        Hypnotoad2.addToolBar(Qt.TopToolBarArea, self.toolBar)
+        Hypnotoad.addToolBar(Qt.TopToolBarArea, self.toolBar)
 
         self.menubar.addAction(self.menu_File.menuAction())
         self.menubar.addAction(self.menu_Mesh.menuAction())
@@ -229,37 +229,37 @@ class Ui_Hypnotoad2(object):
         self.toolBar.addAction(self.action_Run)
         self.toolBar.addAction(self.action_Write_grid)
 
-        self.retranslateUi(Hypnotoad2)
+        self.retranslateUi(Hypnotoad)
 
-        QMetaObject.connectSlotsByName(Hypnotoad2)
+        QMetaObject.connectSlotsByName(Hypnotoad)
     # setupUi
 
-    def retranslateUi(self, Hypnotoad2):
-        Hypnotoad2.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"MainWindow", None))
-        self.action_New.setText(QCoreApplication.translate("Hypnotoad2", u"&New", None))
-        self.action_Open.setText(QCoreApplication.translate("Hypnotoad2", u"&Open", None))
-        self.action_Save.setText(QCoreApplication.translate("Hypnotoad2", u"&Save", None))
+    def retranslateUi(self, Hypnotoad):
+        Hypnotoad.setWindowTitle(QCoreApplication.translate("Hypnotoad", u"MainWindow", None))
+        self.action_New.setText(QCoreApplication.translate("Hypnotoad", u"&New", None))
+        self.action_Open.setText(QCoreApplication.translate("Hypnotoad", u"&Open", None))
+        self.action_Save.setText(QCoreApplication.translate("Hypnotoad", u"&Save", None))
 #if QT_CONFIG(tooltip)
-        self.action_Save.setToolTip(QCoreApplication.translate("Hypnotoad2", u"Save", None))
+        self.action_Save.setToolTip(QCoreApplication.translate("Hypnotoad", u"Save", None))
 #endif // QT_CONFIG(tooltip)
-        self.action_Save_as.setText(QCoreApplication.translate("Hypnotoad2", u"Save as", None))
-        self.action_Quit.setText(QCoreApplication.translate("Hypnotoad2", u"&Quit", None))
-        self.action_About.setText(QCoreApplication.translate("Hypnotoad2", u"&About", None))
-        self.action_Run.setText(QCoreApplication.translate("Hypnotoad2", u"&Run", None))
-        self.action_Write_grid.setText(QCoreApplication.translate("Hypnotoad2", u"&Write grid", None))
-        self.action_Revert.setText(QCoreApplication.translate("Hypnotoad2", u"&Revert", None))
+        self.action_Save_as.setText(QCoreApplication.translate("Hypnotoad", u"Save as", None))
+        self.action_Quit.setText(QCoreApplication.translate("Hypnotoad", u"&Quit", None))
+        self.action_About.setText(QCoreApplication.translate("Hypnotoad", u"&About", None))
+        self.action_Run.setText(QCoreApplication.translate("Hypnotoad", u"&Run", None))
+        self.action_Write_grid.setText(QCoreApplication.translate("Hypnotoad", u"&Write grid", None))
+        self.action_Revert.setText(QCoreApplication.translate("Hypnotoad", u"&Revert", None))
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
-        ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad2", u"Name", None));
+        ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad", u"Name", None));
         ___qtablewidgetitem1 = self.options_form.horizontalHeaderItem(1)
-        ___qtablewidgetitem1.setText(QCoreApplication.translate("Hypnotoad2", u"Value", None));
-        self.options_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"Options file", None))
-        self.options_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
-        self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad2", u"geqdsk file", None))
-        self.geqdsk_file_browse_button.setText(QCoreApplication.translate("Hypnotoad2", u"Browse", None))
-        self.run_button.setText(QCoreApplication.translate("Hypnotoad2", u"Run", None))
-        self.write_grid_button.setText(QCoreApplication.translate("Hypnotoad2", u"Write Grid", None))
-        self.menu_File.setTitle(QCoreApplication.translate("Hypnotoad2", u"&File", None))
-        self.menu_Help.setTitle(QCoreApplication.translate("Hypnotoad2", u"&Help", None))
-        self.menu_Mesh.setTitle(QCoreApplication.translate("Hypnotoad2", u"&Mesh", None))
-        self.toolBar.setWindowTitle(QCoreApplication.translate("Hypnotoad2", u"toolBar", None))
+        ___qtablewidgetitem1.setText(QCoreApplication.translate("Hypnotoad", u"Value", None));
+        self.options_file_label.setText(QCoreApplication.translate("Hypnotoad", u"Options file", None))
+        self.options_file_browse_button.setText(QCoreApplication.translate("Hypnotoad", u"Browse", None))
+        self.geqdsk_file_label.setText(QCoreApplication.translate("Hypnotoad", u"geqdsk file", None))
+        self.geqdsk_file_browse_button.setText(QCoreApplication.translate("Hypnotoad", u"Browse", None))
+        self.run_button.setText(QCoreApplication.translate("Hypnotoad", u"Run", None))
+        self.write_grid_button.setText(QCoreApplication.translate("Hypnotoad", u"Write Grid", None))
+        self.menu_File.setTitle(QCoreApplication.translate("Hypnotoad", u"&File", None))
+        self.menu_Help.setTitle(QCoreApplication.translate("Hypnotoad", u"&Help", None))
+        self.menu_Mesh.setTitle(QCoreApplication.translate("Hypnotoad", u"&Mesh", None))
+        self.toolBar.setWindowTitle(QCoreApplication.translate("Hypnotoad", u"toolBar", None))
     # retranslateUi

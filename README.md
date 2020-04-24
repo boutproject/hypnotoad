@@ -11,22 +11,22 @@ Installation
 
 #### From PyPi
 
-The simplest way to get hypnotoad2 is by simply running
+The simplest way to get hypnotoad is by simply running
 
-    $ pip install --user hypnotoad2
+    $ pip install --user hypnotoad
 
 #### git repo
 
-If you need to modify the hypnotoad2 code, or get development versions, clone
+If you need to modify the hypnotoad code, or get development versions, clone
 from github
 
-    $ git clone git@github.com:boutproject/hypnotoad2.git
+    $ git clone git@github.com:boutproject/hypnotoad.git
 
 You can install from the git repo with ``pip``, this is useful to get the
 executables added to your path. Make sure to do an 'editable' install using
 ``-e`` or ``--editable`` option like
 
-    $ cd hypnotoad2
+    $ cd hypnotoad
     $ pip install -e .
 
 This installs executables which use the code that's currently in the git repo,
@@ -34,7 +34,7 @@ so if you edit or update it you will see the updates. If you install with ``pip
 install .`` (without the ``-e``) then ``pip`` can get confused because it can't
 tell which version number is newer, as the git repo versions have a version
 number based on the git hash, not a simple x.y.z; then pip may for example not
-uninstall hypnotoad2 correctly.
+uninstall hypnotoad correctly.
 
 
 Usage
@@ -48,7 +48,7 @@ Equilibrium object is created.  Internal options should not need to be set by
 the user, but can be overridden with keyword arguments to the Equilibrium
 constructor.
 
-Hypnotoad2 can be run either as an executable, which just reads from an input
+Hypnotoad can be run either as an executable, which just reads from an input
 file, or interactively from a Python shell. To ensure reproducibility, it is
 suggested to create your final grid non-interactively. The interactive mode is
 intended to make it easier to prototype the grid and find a good set of input

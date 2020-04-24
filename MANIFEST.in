@@ -1,2 +1,2 @@
 include versioneer.py
-include hypnotoad2/__version__.py
+include hypnotoad/__version__.py

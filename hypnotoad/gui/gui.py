@@ -179,6 +179,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         for row, (key, value) in enumerate(sorted(self.options.items())):
             item = QTableWidgetItem(key)
             item.old_key = key
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.options_form.setItem(row, 0, item)
             self.options_form.setItem(row, 1, QTableWidgetItem(str(value)))
 
@@ -193,18 +194,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         item = self.options_form.item(row, column)
 
-        if row == self.options_form.rowCount() - 1:
-            self.options[item.text()] = None
-            self.options_form.setRowCount(len(self.options) + 1)
-            return
-
         if column == 0:
-            key = item.text()
-            if key == item.old_key:
-                return
-
-            self.options[key] = self.options.pop(item.old_key)
-            item.old_key = key
+            # column 0 is not editable, so this should not be possible
+            raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
             self.options[key] = ast.literal_eval(item.text())

@@ -1,7 +1,7 @@
 Release process
 ---------------
 
-To make a release fo hypnotoad and upload to PyPi:
+To make a release for hypnotoad and upload to PyPi:
 1. merge one or more PRs to `master`
 2. pick the new version number, e.g. 0.1.2, for the next release (bumping
    major, minor, or patch version according to semantic versioning)

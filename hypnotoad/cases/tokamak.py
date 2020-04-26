@@ -68,6 +68,11 @@ class TokamakEquilibrium(Equilibrium):
         psi_sol_inner=None,  # Default: psinorm_sol_inner
         psi_pf_lower=None,  # Default: psinorm_pf_lower
         psi_pf_upper=None,  # Default: psinorm_pf_upper
+        #
+        # Tolerance for positioning points that should be at X-point, but need to be
+        # slightly displaced from the null so code can follow Grad(psi).
+        # Number between 0. and 1.
+        xpoint_offset=0.5,
     ).push(
         Options(
             # These are HypnotoadOptions
@@ -1179,7 +1184,9 @@ class TokamakEquilibrium(Equilibrium):
             ]
 
             # Add points to the beginning and end near (but not at) the X-points
-            diff = 0.5
+            diff = self.user_options.xpoint_offset
+            if diff < 0.0 or diff > 1.0:
+                raise ValueError(f"xpoint_offset={diff} should be between 0 and 1.")
 
             region["points"] = (
                 [(1.0 - diff) * start_x + diff * points[0]]

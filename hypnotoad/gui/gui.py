@@ -476,7 +476,19 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             return
 
         self.statusbar.showMessage("Running...")
-        self.mesh.redistributePoints()
+
+        try:
+            self.mesh.redistributePoints()
+        except ValueError:
+            self.statusbar.showMessage(
+                "Error in grid generation, change settings and regrid!"
+            )
+            self.statusbar.setStyleSheet(
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
+            )
+            self.plot_widget.clear(keep_limits=True)
+            return
+
         self.statusbar.showMessage("Done!", 2000)
 
         self.plot_widget.clear(keep_limits=True)

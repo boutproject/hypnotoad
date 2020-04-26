@@ -298,6 +298,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.eq = tokamak.read_geqdsk(f, options=dict(self.options))
         # Use eq object's options so they get updated when we change the options table
         self.options = self.eq.user_options
+        self.update_options_form()
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)

@@ -323,6 +323,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
+        # Call read_geqdsk to recreate self.eq object in case any settings needed in
+        # __init__ have been changed
+        self.read_geqdsk()
+
         self.statusbar.showMessage("Running...")
         self.mesh = BoutMesh(self.eq)
         self.mesh.calculateRZ()

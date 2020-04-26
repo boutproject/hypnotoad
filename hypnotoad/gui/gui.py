@@ -328,7 +328,17 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.read_geqdsk()
 
         self.statusbar.showMessage("Running...")
-        self.mesh = BoutMesh(self.eq)
+        try:
+            self.mesh = BoutMesh(self.eq)
+        except (ValueError, SolutionError):
+            self.statusbar.showMessage(
+                "Error in grid generation, change settings and run again!"
+            )
+            self.statusbar.setStyleSheet(
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
+            )
+            return
+
         self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 

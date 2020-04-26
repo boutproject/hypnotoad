@@ -22,6 +22,7 @@ from .hypnotoad_mainWindow import Ui_Hypnotoad
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
+from ..core.equilibrium import SolutionError
 from ..__init__ import __version__
 
 

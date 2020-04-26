@@ -3118,6 +3118,22 @@ class Equilibrium:
 
         return axis
 
+    def plotWall(self, ax=None):
+        if self.wall:
+            wall_R = [p.R for p in self.wall]
+            wall_Z = [p.Z for p in self.wall]
+
+            # make contours closed
+            wall_R.append(wall_R[0])
+            wall_Z.append(wall_Z[0])
+
+            if ax is None:
+                from matplotlib import pyplot
+
+                pyplot.plot(wall_R, wall_Z, "k-", linewidth=2)
+            else:
+                ax.plot(wall_R, wall_Z, "k-", linewidth=2)
+
     def plotSeparatrix(self):
         from matplotlib import pyplot
 

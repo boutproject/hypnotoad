@@ -303,6 +303,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        self.eq.plotWall(ax=self.plot_widget.axes)
         for region in self.eq.regions.values():
             self.plot_widget.axes.plot(
                 [p.R for p in region.points], [p.Z for p in region.points], "-o"
@@ -330,6 +331,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        self.eq.plotWall(ax=self.plot_widget.axes)
         self.mesh.plotPoints(
             xlow=self.options.get("plot_xlow", True),
             ylow=self.options.get("plot_ylow", True),

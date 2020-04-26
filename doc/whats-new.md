@@ -2,6 +2,15 @@ What's new
 ==========
 
 
+0.1.1 (unreleased)
+------------------
+
+### New Features
+
+- Plot wall in gui window (#23)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.1.0 (24th April 2020)
 -----------------------
 

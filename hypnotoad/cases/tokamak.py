@@ -236,6 +236,9 @@ class TokamakEquilibrium(Equilibrium):
 
         super().__init__(**kwargs)
 
+        # Print the table of options
+        print(optionsTableString(self.user_options, self.default_options))
+
         if make_regions:
             # Create self.regions
             self.makeRegions()
@@ -469,9 +472,6 @@ class TokamakEquilibrium(Equilibrium):
             "poloidal_spacing_delta_psi",
             np.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
         )
-
-        # Print the table of options
-        print(optionsTableString(self.user_options, self.default_options))
 
         # Filter out the X-points not in range.
         # Keep only those with normalised psi < psinorm_sol

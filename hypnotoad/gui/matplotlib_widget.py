@@ -29,10 +29,18 @@ class MatplotlibWidget:
 
         self.clear()
 
-    def clear(self):
+    def clear(self, *, keep_limits=False):
         """
         Make sure the figure is in a nice state
         """
+
+        if keep_limits:
+            # slightly hacky way to clear axes, but prevents axis limits being reset when
+            # we redraw
+            for artist in self.axes.lines + self.axes.collections:
+                artist.remove()
+            self.axes.set_prop_cycle(None)
+            return
 
         self.axes.clear()
         self.figure.clear()

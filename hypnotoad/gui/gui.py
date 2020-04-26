@@ -479,7 +479,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.mesh.redistributePoints()
         self.statusbar.showMessage("Done!", 2000)
 
-        self.plot_widget.clear()
+        self.plot_widget.clear(keep_limits=True)
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
         self.mesh.plotPoints(
             xlow=self.gui_options["plot_xlow"],

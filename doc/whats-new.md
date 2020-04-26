@@ -2,6 +2,18 @@ What's new
 ==========
 
 
+0.1.1 (unreleased)
+------------------
+
+### New Features
+
+
+### Internal changes
+
+- Use Options objects to store settings in HypnotoadGui (#25)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.1.0 (24th April 2020)
 -----------------------
 

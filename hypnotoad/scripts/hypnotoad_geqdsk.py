@@ -50,22 +50,25 @@ def main():
     from ..core.mesh import BoutMesh
 
     mesh = BoutMesh(eq, settings=options)
-    mesh.geometry()
+    mesh.calculateRZ()
 
     if options.get("plot_mesh", False):
         try:
             import matplotlib.pyplot as plt
 
-            eq.plotPotential(ncontours=40)
-            plt.plot(*eq.x_points[0], "rx")
+            ax = eq.plotPotential(ncontours=40)
+            ax.plot(*eq.x_points[0], "rx")
             mesh.plotPoints(
                 xlow=options.get("plot_xlow", True),
                 ylow=options.get("plot_ylow", True),
                 corners=options.get("plot_corners", True),
+                ax=ax,
             )
             plt.show()
         except Exception as err:
             warnings.warn(str(err))
+
+    mesh.geometry()
 
     mesh.writeGridfile(options.get("grid_file", "bout.grd.nc"))
 

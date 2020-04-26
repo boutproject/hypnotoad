@@ -178,7 +178,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.disconnect(self.options_form_changed)
         self.options_form.setRowCount(len(self.options))
 
-        for row, (key, value) in enumerate(sorted(self.options.items())):
+        filtered_options = dict(self.options)
+        # Skip special keys and options handled specially elsewhere
+        del filtered_options["_magic"]
+
+        for row, (key, value) in enumerate(sorted(filtered_options.items())):
             item = QTableWidgetItem(key)
             item.old_key = key
             item.setFlags(item.flags() & ~Qt.ItemIsEditable)

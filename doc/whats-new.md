@@ -18,9 +18,20 @@ What's new
   By [John Omotani](https://github.com/johnomotani)
 
 
+### Bug fixes
+
+- If an empty string is passed to a value in the options table of the GUI,
+  resets the option to its default value. Previously this caused a crash (#25)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 ### Internal changes
 
-- Use Options objects to store settings in HypnotoadGui (#25)\
+- Make options table keys in HypnotoadGui immutable. Also makes the use of
+  Options object in Equilibrium/TokamakEquilibrium more consistent by ensuring
+  self.user_options has only been delegated once from
+  TokamakEquilibrium.default_options (i.e. the push() method has only been used
+  once, otherwise update() or set() are called) (#25)\
   By [John Omotani](https://github.com/johnomotani)
 
 

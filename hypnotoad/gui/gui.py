@@ -186,13 +186,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        self.options_form.setSortingEnabled(False)
-        self.options_form.cellChanged.disconnect(self.options_form_changed)
-        self.options_form.setRowCount(len(self.options))
-
         filtered_options = dict(self.options)
         # Skip special keys and options handled specially elsewhere
         del filtered_options["_magic"]
+
+        self.options_form.setSortingEnabled(False)
+        self.options_form.cellChanged.disconnect(self.options_form_changed)
+        self.options_form.setRowCount(len(filtered_options))
 
         for row, (key, value) in enumerate(sorted(filtered_options.items())):
             item = QTableWidgetItem(key)

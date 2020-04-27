@@ -370,7 +370,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_widget.canvas.draw()
 
         self.write_grid_button.setEnabled(True)
-        self.mesh.calculateRZ()
 
     def write_grid(self):
         """Write generated mesh to file

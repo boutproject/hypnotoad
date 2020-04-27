@@ -4,6 +4,7 @@ GUI for Hypnotoad using Qt
 """
 
 import ast
+import copy
 import options
 import os
 import yaml
@@ -207,7 +208,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        filtered_options = self.options.copy()
+        filtered_options = copy.deepcopy(self.options)
         filtered_defaults = dict(tokamak.TokamakEquilibrium.default_options)
         # Skip options handled specially elsewhere
         del filtered_defaults["_magic"]
@@ -354,7 +355,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             with open(geqdsk_filename, "rt") as f:
-                self.eq = tokamak.read_geqdsk(f, options=self.options.copy())
+                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))

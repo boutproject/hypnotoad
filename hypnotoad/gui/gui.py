@@ -431,4 +431,6 @@ class Preferences(QDialog, Ui_Preferences):
             plot_corners=self.plotCornersCheckBox.isChecked(),
         )
 
+        self.parent.plot_grid()
+
         super().accept()

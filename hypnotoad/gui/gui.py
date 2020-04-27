@@ -479,13 +479,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             self.mesh.redistributePoints()
-        except ValueError:
-            self.statusbar.showMessage(
-                "Error in grid generation, change settings and regrid!"
-            )
-            self.statusbar.setStyleSheet(
-                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
-            )
+        except ValueError as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
             self.plot_widget.clear(keep_limits=True)
             return
 

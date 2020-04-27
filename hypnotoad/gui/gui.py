@@ -15,6 +15,7 @@ from Qt.QtWidgets import (
     QCompleter,
     QTableWidgetItem,
     QHeaderView,
+    QErrorMessage,
 )
 from Qt.QtCore import Qt
 
@@ -22,6 +23,7 @@ from .hypnotoad_mainWindow import Ui_Hypnotoad
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
+from ..core.equilibrium import SolutionError
 from ..__init__ import __version__
 
 
@@ -294,14 +296,22 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
-        with open(geqdsk_filename, "rt") as f:
-            self.eq = tokamak.read_geqdsk(f, options=dict(self.options))
-        # Use eq object's options so they get updated when we change the options table
-        self.options = self.eq.user_options
-        self.update_options_form()
+        try:
+            with open(geqdsk_filename, "rt") as f:
+                self.eq = tokamak.read_geqdsk(f, options=dict(self.options))
+            # Use eq object's options so they get updated when we change the options
+            # table
+            self.options = self.eq.user_options
+            self.update_options_form()
+        except (ValueError, RuntimeError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        self.eq.plotWall(axis=self.plot_widget.axes)
         for region in self.eq.regions.values():
             self.plot_widget.axes.plot(
                 [p.R for p in region.points], [p.Z for p in region.points], "-o"
@@ -322,13 +332,25 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
+        # Call read_geqdsk to recreate self.eq object in case any settings needed in
+        # __init__ have been changed
+        self.read_geqdsk()
+
         self.statusbar.showMessage("Running...")
-        self.mesh = BoutMesh(self.eq)
+        try:
+            self.mesh = BoutMesh(self.eq)
+        except (ValueError, SolutionError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
+
         self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+        self.eq.plotWall(axis=self.plot_widget.axes)
         self.mesh.plotPoints(
             xlow=self.gui_options["plot_xlow"],
             ylow=self.gui_options["plot_ylow"],

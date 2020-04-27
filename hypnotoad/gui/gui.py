@@ -15,6 +15,7 @@ from Qt.QtWidgets import (
     QCompleter,
     QTableWidgetItem,
     QHeaderView,
+    QErrorMessage,
 )
 from Qt.QtCore import Qt
 
@@ -22,6 +23,7 @@ from .hypnotoad_mainWindow import Ui_Hypnotoad
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
+from ..core.equilibrium import SolutionError
 from ..__init__ import __version__
 
 
@@ -297,9 +299,15 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
-        with open(geqdsk_filename, "rt") as f:
-            # Need to take a copy so that read_geqdsk doesn't delete used keys
-            self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+        try:
+            with open(geqdsk_filename, "rt") as f:
+                # Need to take a copy so that read_geqdsk doesn't delete used keys
+                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+        except (ValueError, RuntimeError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
@@ -324,8 +332,19 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
+        # Call read_geqdsk to recreate self.eq object in case any settings needed in
+        # __init__ have been changed
+        self.read_geqdsk()
+
         self.statusbar.showMessage("Running...")
-        self.mesh = BoutMesh(self.eq)
+        try:
+            self.mesh = BoutMesh(self.eq)
+        except (ValueError, SolutionError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
+
         self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 

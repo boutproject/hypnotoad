@@ -7,6 +7,10 @@ What's new
 
 ### New Features
 
+- Catch errors in HypnotoadGui.run(), allows changing settings and pressing Run
+  button again if there was an error in grid generation (#24)\
+  By [John Omotani](https://github.com/johnomotani)
+
 - Plot wall in gui window (#23)\
   By [John Omotani](https://github.com/johnomotani)
 

@@ -324,16 +324,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         if hasattr(self, "mesh"):
             del self.mesh
 
-        self.plot_widget.clear()
-        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        self.eq.plotWall(axis=self.plot_widget.axes)
-        for region in self.eq.regions.values():
-            self.plot_widget.axes.plot(
-                [p.R for p in region.points], [p.Z for p in region.points], "-o"
-            )
-
-        self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
-        self.plot_widget.canvas.draw()
+        self.plot_grid()
 
     def run(self):
         """Run Hypnotoad and generate the grid
@@ -363,16 +354,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 
-        self.plot_widget.clear()
-        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        self.eq.plotWall(axis=self.plot_widget.axes)
-        self.mesh.plotPoints(
-            xlow=self.gui_options["plot_xlow"],
-            ylow=self.gui_options["plot_ylow"],
-            corners=self.gui_options["plot_corners"],
-            ax=self.plot_widget.axes,
-        )
-        self.plot_widget.canvas.draw()
+        self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
 
@@ -399,6 +381,31 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         )
 
         self.mesh.writeGridfile(filename)
+
+    def plot_grid(self):
+        self.plot_widget.clear()
+
+        if hasattr(self, "eq"):
+            self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+            self.eq.plotWall(axis=self.plot_widget.axes)
+
+        if hasattr(self, "mesh"):
+            # mesh exists, so plot the grid points
+            self.mesh.plotPoints(
+                xlow=self.gui_options["plot_xlow"],
+                ylow=self.gui_options["plot_ylow"],
+                corners=self.gui_options["plot_corners"],
+                ax=self.plot_widget.axes,
+            )
+        elif hasattr(self, "eq"):
+            # no mesh, but do have equilibrium, so plot separatrices
+            for region in self.eq.regions.values():
+                self.plot_widget.axes.plot(
+                    [p.R for p in region.points], [p.Z for p in region.points], "-o"
+                )
+            self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
+
+        self.plot_widget.canvas.draw()
 
 
 class Preferences(QDialog, Ui_Preferences):

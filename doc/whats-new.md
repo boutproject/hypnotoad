@@ -11,6 +11,9 @@ What's new
   button again if there was an error in grid generation (#24)\
   By [John Omotani](https://github.com/johnomotani)
 
+- Plot wall in gui window (#23)\
+  By [John Omotani](https://github.com/johnomotani)
+
 
 0.1.0 (24th April 2020)
 -----------------------

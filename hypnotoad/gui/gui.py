@@ -89,14 +89,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.action_Quit.triggered.connect(self.close)
 
-        self.options = tokamak.TokamakEquilibrium.default_options.push({})
+        self.options = {}
         self.gui_options = HypnotoadGui.gui_options.push({})
         self.filename = "Untitled.yml"
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
-        self.search_bar_completer = QCompleter(self.options.keys())
+        self.search_bar_completer = QCompleter(
+            tokamak.TokamakEquilibrium.default_options.keys()
+        )
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
 
@@ -129,7 +131,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         self.statusbar.showMessage("Reverting options", 2000)
-        self.options = tokamak.TokamakEquilibrium.default_options.push({})
+        self.options = {}
         if hasattr(self, "eq"):
             self.eq.updateOptions()
 
@@ -146,7 +148,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        self.options = tokamak.TokamakEquilibrium.default_options.push({})
+        self.options = {}
         if hasattr(self, "eq"):
             self.eq.updateOptions()
         self.options_form.setRowCount(0)
@@ -186,20 +188,24 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        filtered_options = dict(self.options)
-        # Skip special keys and options handled specially elsewhere
-        del filtered_options["_magic"]
+        filtered_options = self.options.copy()
+        filtered_defaults = dict(tokamak.TokamakEquilibrium.default_options)
+        # Skip options handled specially elsewhere
+        del filtered_defaults["_magic"]
 
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
-        self.options_form.setRowCount(len(filtered_options))
+        self.options_form.setRowCount(len(filtered_defaults))
 
-        for row, (key, value) in enumerate(sorted(filtered_options.items())):
+        for row, (key, value) in enumerate(sorted(filtered_defaults.items())):
             item = QTableWidgetItem(key)
-            item.old_key = key
             item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.options_form.setItem(row, 0, item)
-            self.options_form.setItem(row, 1, QTableWidgetItem(str(value)))
+            if key in filtered_options:
+                value_to_set = str(filtered_options[key])
+            else:
+                value_to_set = f"{value} (default)"
+            self.options_form.setItem(row, 1, QTableWidgetItem(value_to_set))
 
         self.options_form.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.options_form.setSortingEnabled(True)
@@ -217,8 +223,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
-            self.options.set(**{key: ast.literal_eval(item.text())})
+            self.options[key] = ast.literal_eval(item.text())
             if hasattr(self, "eq"):
+                self.eq.user_options.update(**self.options)
                 self.eq.updateOptions()
 
     def search_options_form(self, text):
@@ -261,7 +268,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         if options_filename:
             with open(options_filename, "r") as f:
-                self.options.update(yaml.safe_load(f))
+                self.options = yaml.safe_load(f)
                 if hasattr(self, "eq"):
                     self.eq.updateOptions()
 
@@ -308,16 +315,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             with open(geqdsk_filename, "rt") as f:
-                self.eq = tokamak.read_geqdsk(f, options=dict(self.options))
+                self.eq = tokamak.read_geqdsk(f, options=self.options.copy())
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))
             error_message.exec_()
             return
 
-        # Use eq object's options so they get updated when we change the options
-        # table
-        self.options = self.eq.user_options
         self.update_options_form()
 
         # Delete mesh if it exists, since we have a new self.eq object

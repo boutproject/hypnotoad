@@ -223,6 +223,26 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
+
+            if item.text() == "":
+                # Reset to default
+                # Might be better to just keep the old value if nothing is passed, but
+                # don't know how to get that
+                default_value = tokamak.TokamakEquilibrium.default_options[key]
+                self.options_form.cellChanged.disconnect(self.options_form_changed)
+                self.options_form.setItem(
+                    row, 1, QTableWidgetItem(f"{default_value} (default)")
+                )
+                self.options_form.cellChanged.connect(self.options_form_changed)
+                if key in self.options:
+                    del self.options[key]
+                if hasattr(self, "eq"):
+                    # deleting from this object means self.eq uses the value from
+                    # TokamakEquilibrium.default_options
+                    del self.eq.user_options[key]
+                    self.eq.updateOptions()
+                return
+
             self.options[key] = ast.literal_eval(item.text())
             if hasattr(self, "eq"):
                 self.eq.user_options.update(**self.options)

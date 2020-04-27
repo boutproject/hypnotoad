@@ -88,6 +88,20 @@
          </property>
         </widget>
        </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="saveFullYamlLabel">
+         <property name="text">
+          <string>Include options set by\ndefault when saving to YAML</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="saveFullYamlCheckBox">
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </widget>

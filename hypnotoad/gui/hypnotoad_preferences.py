@@ -76,6 +76,17 @@ class Ui_Preferences(object):
 
         self.formLayout.setWidget(3, QFormLayout.FieldRole, self.plotCornersCheckBox)
 
+        self.saveFullYamlLabel = QLabel(self.formLayoutWidget)
+        self.saveFullYamlLabel.setObjectName(u"saveFullYamlLabel")
+
+        self.formLayout.setWidget(4, QFormLayout.LabelRole, self.saveFullYamlLabel)
+
+        self.saveFullYamlCheckBox = QCheckBox(self.formLayoutWidget)
+        self.saveFullYamlCheckBox.setObjectName(u"saveFullYamlCheckBox")
+        self.saveFullYamlCheckBox.setChecked(False)
+
+        self.formLayout.setWidget(4, QFormLayout.FieldRole, self.saveFullYamlCheckBox)
+
 
         self.verticalLayout.addWidget(self.frame)
 
@@ -101,5 +112,6 @@ class Ui_Preferences(object):
         self.plotXlowLabel.setText(QCoreApplication.translate("Preferences", u"Plot xlow", None))
         self.plotYlowLabel.setText(QCoreApplication.translate("Preferences", u"Plot ylow", None))
         self.plotCornersLabel.setText(QCoreApplication.translate("Preferences", u"Plot corners", None))
+        self.saveFullYamlLabel.setText(QCoreApplication.translate("Preferences", u"Include options set by\ndefault when saving to YAML", None))
     # retranslateUi
 

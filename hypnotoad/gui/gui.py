@@ -40,7 +40,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     """
 
     gui_options = options.Options(
-        grid_file="bout.grd.nc", plot_xlow=True, plot_ylow=True, plot_corners=True,
+        grid_file="bout.grd.nc",
+        plot_xlow=True,
+        plot_ylow=True,
+        plot_corners=True,
+        save_full_yaml=False,
     )
 
     def __init__(self):
@@ -166,10 +170,25 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.options_file_line_edit.setText(self.filename)
 
-        # Could consider (optionally?) saving just non-default options, but safer to save
-        # all options for reproducibility in case defaults are changed in future
-        with open(self.filename, "w") as f:
-            yaml.dump(self.options, f)
+        if self.gui_options["save_full_yaml"]:
+            if hasattr(self, "eq"):
+                dump_dict = dict(self.eq.user_options)
+                for key, value in dump_dict.items():
+                    # This converts any numpy types to native Python using the tolist()
+                    # method of any numpy objects/types. Note this does return a scalar
+                    # and not a list for values that aren't arrays.
+                    dump_dict[key] = getattr(value, "tolist", lambda: value)()
+                with open(self.filename, "w") as f:
+                    yaml.dump(dump_dict)
+            else:
+                options_to_save = tokamak.TokamakEquilibrium.default_options.push(
+                    self.options
+                )
+                with open(self.filename, "w") as f:
+                    yaml.dump(dict(options_to_save), f)
+        else:
+            with open(self.filename, "w") as f:
+                yaml.dump(self.options, f)
 
     def save_options_as(self):
         """Save options to file with new filename
@@ -445,14 +464,16 @@ class Preferences(QDialog, Ui_Preferences):
         self.plotXlowCheckBox.setChecked(self.parent.gui_options["plot_xlow"])
         self.plotYlowCheckBox.setChecked(self.parent.gui_options["plot_ylow"])
         self.plotCornersCheckBox.setChecked(self.parent.gui_options["plot_corners"])
+        self.saveFullYamlCheckBox.setChecked(self.parent.gui_options["save_full_yaml"])
 
     def accept(self):
 
-        self.parent.gui_options = options.Options(
+        self.parent.gui_options.set(
             grid_file=self.defaultGridFileNameLineEdit.text(),
             plot_xlow=self.plotXlowCheckBox.isChecked(),
             plot_ylow=self.plotYlowCheckBox.isChecked(),
             plot_corners=self.plotCornersCheckBox.isChecked(),
+            save_full_yaml=self.saveFullYamlCheckBox.isChecked(),
         )
 
         self.parent.plot_grid()

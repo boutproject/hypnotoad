@@ -8,7 +8,8 @@ What's new
 ### New Features
 
 - Add preferences dialog to GUI (#25)\
-  By [Peter Hill](https://github.com/ZedThree)
+  By [Peter Hill](https://github.com/ZedThree) and [John
+  Omotani](https://github.com/johnomotani)
 
 - Catch errors in HypnotoadGui.run(), allows changing settings and pressing Run
   button again if there was an error in grid generation (#24)\

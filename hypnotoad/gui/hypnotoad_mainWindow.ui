@@ -161,6 +161,9 @@
    <property name="text">
     <string>&amp;New</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
   </action>
   <action name="action_Open">
    <property name="icon">
@@ -169,6 +172,9 @@
    </property>
    <property name="text">
     <string>&amp;Open</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="action_Save">
@@ -182,6 +188,9 @@
    <property name="toolTip">
     <string>Save</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="action_Save_as">
    <property name="icon">
@@ -191,6 +200,9 @@
    <property name="text">
     <string>Save as</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
   </action>
   <action name="action_Quit">
    <property name="icon">
@@ -199,6 +211,9 @@
    </property>
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
    </property>
   </action>
   <action name="action_About">
@@ -218,6 +233,9 @@
    <property name="text">
     <string>&amp;Run</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
   </action>
   <action name="action_Write_grid">
    <property name="icon">
@@ -226,6 +244,9 @@
    </property>
    <property name="text">
     <string>&amp;Write grid</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
    </property>
   </action>
   <action name="action_Revert">

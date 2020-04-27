@@ -4,5 +4,6 @@ exclude = '''
   hypnotoad/gui/hypnotoad_mainWindow.py
   | versioneer.py
   | hypnotoad/__version__.py
+  | hypnotoad/gui/hypnotoad_preferences.py
 )
 '''

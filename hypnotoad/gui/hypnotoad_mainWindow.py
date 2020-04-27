@@ -111,6 +111,10 @@ class Ui_Hypnotoad(object):
             icon8.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
 
         self.action_Revert.setIcon(icon8)
+        self.action_Preferences = QAction(Hypnotoad)
+        self.action_Preferences.setObjectName(u"action_Preferences")
+        icon9 = QIcon(QIcon.fromTheme(u"document-properties"))
+        self.action_Preferences.setIcon(icon9)
         self.centralwidget = QWidget(Hypnotoad)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
@@ -218,6 +222,7 @@ class Ui_Hypnotoad(object):
         self.menu_File.addAction(self.action_Save_as)
         self.menu_File.addAction(self.action_Revert)
         self.menu_File.addSeparator()
+        self.menu_File.addAction(self.action_Preferences)
         self.menu_File.addAction(self.action_Quit)
         self.menu_Help.addAction(self.action_About)
         self.menu_Mesh.addAction(self.action_Run)
@@ -248,6 +253,7 @@ class Ui_Hypnotoad(object):
         self.action_Run.setText(QCoreApplication.translate("Hypnotoad", u"&Run", None))
         self.action_Write_grid.setText(QCoreApplication.translate("Hypnotoad", u"&Write grid", None))
         self.action_Revert.setText(QCoreApplication.translate("Hypnotoad", u"&Revert", None))
+        self.action_Preferences.setText(QCoreApplication.translate("Hypnotoad", u"&Preferences...", None))
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad", u"Name", None));
         ___qtablewidgetitem1 = self.options_form.horizontalHeaderItem(1)

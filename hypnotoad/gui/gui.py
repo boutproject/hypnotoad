@@ -16,10 +16,12 @@ from Qt.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QErrorMessage,
+    QDialog,
 )
 from Qt.QtCore import Qt
 
 from .hypnotoad_mainWindow import Ui_Hypnotoad
+from .hypnotoad_preferences import Ui_Preferences
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
@@ -83,6 +85,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_New, self.new_options)
         set_triggered(self.action_Open, self.select_options_file)
         set_triggered(self.action_About, self.help_about)
+        set_triggered(self.action_Preferences, self.open_preferences)
 
         self.action_Quit.triggered.connect(self.close)
 
@@ -111,6 +114,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         about_box = QMessageBox(self)
         about_box.setText(about_text)
         about_box.exec_()
+
+    def open_preferences(self):
+        """GUI preferences and settings
+
+        """
+        preferences_window = Preferences(self)
+        preferences_window.exec_()
 
     def revert_options(self):
         """Revert the current options to the loaded file, or defaults if no
@@ -385,3 +395,29 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         )
 
         self.mesh.writeGridfile(filename)
+
+
+class Preferences(QDialog, Ui_Preferences):
+    """Dialog box for editing Hypnotoad preferences
+    """
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setupUi(self)
+        self.parent = parent
+
+        self.defaultGridFileNameLineEdit.setText(self.parent.gui_options["grid_file"])
+        self.plotXlowCheckBox.setChecked(self.parent.gui_options["plot_xlow"])
+        self.plotYlowCheckBox.setChecked(self.parent.gui_options["plot_ylow"])
+        self.plotCornersCheckBox.setChecked(self.parent.gui_options["plot_corners"])
+
+    def accept(self):
+
+        self.parent.gui_options = options.Options(
+            grid_file=self.defaultGridFileNameLineEdit.text(),
+            plot_xlow=self.plotXlowCheckBox.isChecked(),
+            plot_ylow=self.plotYlowCheckBox.isChecked(),
+            plot_corners=self.plotCornersCheckBox.isChecked(),
+        )
+
+        super().accept()

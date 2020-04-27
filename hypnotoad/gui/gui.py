@@ -29,6 +29,8 @@ COLOURS = {
     "red": "#aa0000",
 }
 
+DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
+
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     """A graphical interface for Hypnotoad
@@ -82,7 +84,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.default_options = dict(tokamak.TokamakEquilibrium.default_options.items())
         self.options = copy.deepcopy(self.default_options)
-        self.filename = "Untitled.yml"
+        self.filename = DEFAULT_OPTIONS_FILENAME
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
@@ -145,8 +147,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Saving...", 2000)
 
-        if not self.filename or self.filename == "Untitled.yml":
+        if not self.filename or self.filename == DEFAULT_OPTIONS_FILENAME:
             self.save_options_as()
+
+        if not self.filename:
+            self.filename = DEFAULT_OPTIONS_FILENAME
+            return
 
         self.options_file_line_edit.setText(self.filename)
 
@@ -160,9 +166,15 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
+        if not self.filename:
+            self.filename = DEFAULT_OPTIONS_FILENAME
+
         self.filename, _ = QFileDialog.getSaveFileName(
             self, "Save grid to file", self.filename, filter="YAML file (*yml *yaml)",
         )
+
+        if not self.filename:
+            return
 
         self.save_options()
 
@@ -361,5 +373,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.options.get("grid_file", "bout.grd.nc"),
             filter="NetCDF (*nc)",
         )
+
+        if not filename:
+            return
 
         self.mesh.writeGridfile(filename)

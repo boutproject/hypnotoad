@@ -233,9 +233,8 @@ class TokamakEquilibrium(Equilibrium):
 
         # Take the default settings, then the options keyword, then
         # any additional keyword arguments
-        self.user_options = TokamakEquilibrium.default_options.push(options).push(
-            kwargs
-        )
+        self.user_options = TokamakEquilibrium.default_options.push(options)
+        self.user_options.update(kwargs)
 
         self.equilibOptions = {}
 
@@ -388,7 +387,7 @@ class TokamakEquilibrium(Equilibrium):
         assert self.psi_axis is not None
 
         # Options can be passed in here to customise the regions created
-        self.user_options = self.user_options.push(kwargs)
+        self.user_options.update(kwargs)
 
         self.updateOptions()
 

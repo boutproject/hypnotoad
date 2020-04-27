@@ -309,15 +309,20 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         try:
             with open(geqdsk_filename, "rt") as f:
                 self.eq = tokamak.read_geqdsk(f, options=dict(self.options))
-            # Use eq object's options so they get updated when we change the options
-            # table
-            self.options = self.eq.user_options
-            self.update_options_form()
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))
             error_message.exec_()
             return
+
+        # Use eq object's options so they get updated when we change the options
+        # table
+        self.options = self.eq.user_options
+        self.update_options_form()
+
+        # Delete mesh if it exists, since we have a new self.eq object
+        if hasattr(self, "mesh"):
+            del self.mesh
 
         self.plot_widget.clear()
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)

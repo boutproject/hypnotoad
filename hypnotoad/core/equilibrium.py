@@ -2636,7 +2636,7 @@ class Equilibrium:
         FineContour.options = FineContour.options.push(dict(self.user_options))
 
         # Set some default options
-        self.updateOptions()
+        Equilibrium.updateOptions(self)
 
     def updateOptions(self):
         """

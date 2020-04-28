@@ -181,25 +181,24 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.options_file_line_edit.setText(self.filename)
 
+        options_to_save = self.options
         if self.gui_options["save_full_yaml"]:
             if hasattr(self, "eq"):
-                dump_dict = dict(self.eq.user_options)
-                for key, value in dump_dict.items():
-                    # This converts any numpy types to native Python using the tolist()
-                    # method of any numpy objects/types. Note this does return a scalar
-                    # and not a list for values that aren't arrays.
-                    dump_dict[key] = getattr(value, "tolist", lambda: value)()
-                with open(self.filename, "w") as f:
-                    yaml.dump(dump_dict)
+                options_ = self.eq.user_options
             else:
-                options_to_save = tokamak.TokamakEquilibrium.default_options.push(
-                    self.options
-                )
-                with open(self.filename, "w") as f:
-                    yaml.dump(dict(options_to_save), f)
-        else:
-            with open(self.filename, "w") as f:
-                yaml.dump(self.options, f)
+                options_ = tokamak.TokamakEquilibrium.default_options.push(self.options)
+            # This converts any numpy types to native Python using the tolist()
+            # method of any numpy objects/types. Note this does return a scalar
+            # and not a list for values that aren't arrays. Also remove any
+            # private/magic keys
+            options_to_save = {
+                key: getattr(value, "tolist", lambda: value)()
+                for key, value in dict(options_).items()
+                if not key.startswith("_")
+            }
+
+        with open(self.filename, "w") as f:
+            yaml.dump(options_to_save, f)
 
     def save_options_as(self):
         """Save options to file with new filename

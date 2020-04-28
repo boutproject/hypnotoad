@@ -35,6 +35,15 @@ COLOURS = {
 }
 
 
+def _table_item_edit_display(item):
+    """Hide the "(default)" marker on table items in the options form
+
+    """
+    default_marker = " (default)"
+    if item.text().endswith(default_marker):
+        item.setText(item.text()[: -len(default_marker)])
+
+
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     """A graphical interface for Hypnotoad
 
@@ -108,6 +117,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.search_bar.setCompleter(self.search_bar_completer)
 
         self.options_form.cellChanged.connect(self.options_form_changed)
+        self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
 
     def help_about(self):

@@ -68,6 +68,11 @@ class TokamakEquilibrium(Equilibrium):
         psi_sol_inner=None,  # Default: psinorm_sol_inner
         psi_pf_lower=None,  # Default: psinorm_pf_lower
         psi_pf_upper=None,  # Default: psinorm_pf_upper
+        #
+        # Tolerance for positioning points that should be at X-point, but need to be
+        # slightly displaced from the null so code can follow Grad(psi).
+        # Number between 0. and 1.
+        xpoint_offset=0.5,
     ).push(
         Options(
             # These are HypnotoadOptions
@@ -228,13 +233,15 @@ class TokamakEquilibrium(Equilibrium):
 
         # Take the default settings, then the options keyword, then
         # any additional keyword arguments
-        self.user_options = TokamakEquilibrium.default_options.push(options).push(
-            kwargs
-        )
+        self.user_options = TokamakEquilibrium.default_options.push(options)
+        self.user_options.update(kwargs)
 
         self.equilibOptions = {}
 
         super().__init__(**kwargs)
+
+        # Print the table of options
+        print(optionsTableString(self.user_options, self.default_options))
 
         if make_regions:
             # Create self.regions
@@ -380,7 +387,34 @@ class TokamakEquilibrium(Equilibrium):
         assert self.psi_axis is not None
 
         # Options can be passed in here to customise the regions created
-        self.user_options = self.user_options.push(kwargs)
+        self.user_options.update(kwargs)
+
+        self.updateOptions()
+
+        # Check that there are only one or two left
+        assert 0 < len(self.x_points) <= 2
+
+        if len(self.x_points) == 1:
+            # Generate the specifications for a lower or upper single null
+            leg_regions, core_regions, segments, connections = self.describeSingleNull()
+        else:
+            # Specifications for a double null (connected or disconnected)
+            leg_regions, core_regions, segments, connections = self.describeDoubleNull()
+
+        # Create a new dictionary, which will contain all regions
+        # including core and legs
+        all_regions = leg_regions.copy()
+        all_regions.update(self.coreRegionToRegion(core_regions))
+
+        # Create the regions in an OrderedDict, assign to self.regions
+        self.regions = self.createRegionObjects(all_regions, segments)
+
+        # Make the connections between regions
+        for connection in connections:
+            self.makeConnection(*connection)
+
+    def updateOptions(self):
+        super().updateOptions()
 
         # Radial grid cells in PF regions
         setDefault(self.user_options, "nx_pf", self.user_options.nx_core)
@@ -470,9 +504,6 @@ class TokamakEquilibrium(Equilibrium):
             np.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
         )
 
-        # Print the table of options
-        print(optionsTableString(self.user_options, self.default_options))
-
         # Filter out the X-points not in range.
         # Keep only those with normalised psi < psinorm_sol
         self.psi_sep, self.x_points = zip(
@@ -482,28 +513,6 @@ class TokamakEquilibrium(Equilibrium):
                 if psi_to_psinorm(psi) < self.user_options.psinorm_sol
             )
         )
-
-        # Check that there are only one or two left
-        assert 0 < len(self.x_points) <= 2
-
-        if len(self.x_points) == 1:
-            # Generate the specifications for a lower or upper single null
-            leg_regions, core_regions, segments, connections = self.describeSingleNull()
-        else:
-            # Specifications for a double null (connected or disconnected)
-            leg_regions, core_regions, segments, connections = self.describeDoubleNull()
-
-        # Create a new dictionary, which will contain all regions
-        # including core and legs
-        all_regions = leg_regions.copy()
-        all_regions.update(self.coreRegionToRegion(core_regions))
-
-        # Create the regions in an OrderedDict, assign to self.regions
-        self.regions = self.createRegionObjects(all_regions, segments)
-
-        # Make the connections between regions
-        for connection in connections:
-            self.makeConnection(*connection)
 
     def describeSingleNull(self):
         """
@@ -1179,7 +1188,9 @@ class TokamakEquilibrium(Equilibrium):
             ]
 
             # Add points to the beginning and end near (but not at) the X-points
-            diff = 0.5
+            diff = self.user_options.xpoint_offset
+            if diff < 0.0 or diff > 1.0:
+                raise ValueError(f"xpoint_offset={diff} should be between 0 and 1.")
 
             region["points"] = (
                 [(1.0 - diff) * start_x + diff * points[0]]

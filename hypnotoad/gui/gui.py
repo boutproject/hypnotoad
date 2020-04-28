@@ -5,6 +5,7 @@ GUI for Hypnotoad using Qt
 
 import ast
 import copy
+import options
 import os
 import yaml
 
@@ -15,13 +16,17 @@ from Qt.QtWidgets import (
     QCompleter,
     QTableWidgetItem,
     QHeaderView,
+    QErrorMessage,
+    QDialog,
 )
 from Qt.QtCore import Qt
 
 from .hypnotoad_mainWindow import Ui_Hypnotoad
+from .hypnotoad_preferences import Ui_Preferences
 from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
+from ..core.equilibrium import SolutionError
 from ..__init__ import __version__
 
 
@@ -30,10 +35,27 @@ COLOURS = {
 }
 
 
+def _table_item_edit_display(item):
+    """Hide the "(default)" marker on table items in the options form
+
+    """
+    default_marker = " (default)"
+    if item.text().endswith(default_marker):
+        item.setText(item.text()[: -len(default_marker)])
+
+
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     """A graphical interface for Hypnotoad
 
     """
+
+    gui_options = options.Options(
+        grid_file="bout.grd.nc",
+        plot_xlow=True,
+        plot_ylow=True,
+        plot_corners=True,
+        save_full_yaml=False,
+    )
 
     def __init__(self):
         super().__init__(None)
@@ -77,21 +99,25 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_New, self.new_options)
         set_triggered(self.action_Open, self.select_options_file)
         set_triggered(self.action_About, self.help_about)
+        set_triggered(self.action_Preferences, self.open_preferences)
 
         self.action_Quit.triggered.connect(self.close)
 
-        self.default_options = dict(tokamak.TokamakEquilibrium.default_options.items())
-        self.options = copy.deepcopy(self.default_options)
+        self.options = {}
+        self.gui_options = HypnotoadGui.gui_options.push({})
         self.filename = "Untitled.yml"
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
-        self.search_bar_completer = QCompleter(self.options.keys())
+        self.search_bar_completer = QCompleter(
+            tokamak.TokamakEquilibrium.default_options.keys()
+        )
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
 
         self.options_form.cellChanged.connect(self.options_form_changed)
+        self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
 
     def help_about(self):
@@ -106,6 +132,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         about_box.setText(about_text)
         about_box.exec_()
 
+    def open_preferences(self):
+        """GUI preferences and settings
+
+        """
+        preferences_window = Preferences(self)
+        preferences_window.exec_()
+
     def revert_options(self):
         """Revert the current options to the loaded file, or defaults if no
         file loaded
@@ -113,7 +146,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         self.statusbar.showMessage("Reverting options", 2000)
-        self.options = copy.deepcopy(self.default_options)
+        self.options = {}
+        if hasattr(self, "eq"):
+            self.eq.updateOptions()
 
         options_filename = self.options_file_line_edit.text()
 
@@ -123,20 +158,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.options_form.setRowCount(0)
             self.update_options_form()
 
-            if hasattr(self, "eq"):
-                self.read_geqdsk()
-
     def new_options(self):
         """New set of options
 
         """
 
-        self.options = copy.deepcopy(self.default_options)
+        self.options = {}
+        if hasattr(self, "eq"):
+            self.eq.updateOptions()
         self.options_form.setRowCount(0)
         self.update_options_form()
-
-        if hasattr(self, "eq"):
-            self.read_geqdsk()
 
     def save_options(self):
         """Save options to file
@@ -150,10 +181,24 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.options_file_line_edit.setText(self.filename)
 
-        non_null_options = {k: v for k, v in self.options.items() if v is not None}
+        options_to_save = self.options
+        if self.gui_options["save_full_yaml"]:
+            if hasattr(self, "eq"):
+                options_ = self.eq.user_options
+            else:
+                options_ = tokamak.TokamakEquilibrium.default_options.push(self.options)
+            # This converts any numpy types to native Python using the tolist()
+            # method of any numpy objects/types. Note this does return a scalar
+            # and not a list for values that aren't arrays. Also remove any
+            # private/magic keys
+            options_to_save = {
+                key: getattr(value, "tolist", lambda: value)()
+                for key, value in dict(options_).items()
+                if not key.startswith("_")
+            }
 
         with open(self.filename, "w") as f:
-            yaml.dump(non_null_options, f)
+            yaml.dump(options_to_save, f)
 
     def save_options_as(self):
         """Save options to file with new filename
@@ -168,19 +213,28 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
     def update_options_form(self):
         """Update the widget values in the options form, based on the current
-        values in the options dict
+        values in the options object
 
         """
 
+        filtered_options = copy.deepcopy(self.options)
+        filtered_defaults = dict(tokamak.TokamakEquilibrium.default_options)
+        # Skip options handled specially elsewhere
+        del filtered_defaults["_magic"]
+
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
-        self.options_form.setRowCount(len(self.options) + 1)
+        self.options_form.setRowCount(len(filtered_defaults))
 
-        for row, (key, value) in enumerate(sorted(self.options.items())):
+        for row, (key, value) in enumerate(sorted(filtered_defaults.items())):
             item = QTableWidgetItem(key)
-            item.old_key = key
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.options_form.setItem(row, 0, item)
-            self.options_form.setItem(row, 1, QTableWidgetItem(str(value)))
+            if key in filtered_options:
+                value_to_set = str(filtered_options[key])
+            else:
+                value_to_set = f"{value} (default)"
+            self.options_form.setItem(row, 1, QTableWidgetItem(value_to_set))
 
         self.options_form.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.options_form.setSortingEnabled(True)
@@ -193,23 +247,35 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         item = self.options_form.item(row, column)
 
-        if row == self.options_form.rowCount() - 1:
-            self.options[item.text()] = None
-            self.options_form.setRowCount(len(self.options) + 1)
-            return
-
         if column == 0:
-            key = item.text()
-            if key == item.old_key:
-                return
-
-            self.options[key] = self.options.pop(item.old_key)
-            item.old_key = key
+            # column 0 is not editable, so this should not be possible
+            raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
+
+            if item.text() == "":
+                # Reset to default
+                # Might be better to just keep the old value if nothing is passed, but
+                # don't know how to get that
+                default_value = tokamak.TokamakEquilibrium.default_options[key]
+                self.options_form.cellChanged.disconnect(self.options_form_changed)
+                self.options_form.setItem(
+                    row, 1, QTableWidgetItem(f"{default_value} (default)")
+                )
+                self.options_form.cellChanged.connect(self.options_form_changed)
+                if key in self.options:
+                    del self.options[key]
+                if hasattr(self, "eq"):
+                    # deleting from this object means self.eq uses the value from
+                    # TokamakEquilibrium.default_options
+                    del self.eq.user_options[key]
+                    self.eq.updateOptions()
+                return
+
             self.options[key] = ast.literal_eval(item.text())
             if hasattr(self, "eq"):
-                self.read_geqdsk()
+                self.eq.user_options.update(**self.options)
+                self.eq.updateOptions()
 
     def search_options_form(self, text):
         """Search for specific options
@@ -251,13 +317,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         if options_filename:
             with open(options_filename, "r") as f:
-                self.options.update(yaml.safe_load(f))
+                self.options = yaml.safe_load(f)
+                if hasattr(self, "eq"):
+                    self.eq.updateOptions()
 
         self.options_form.setRowCount(0)
         self.update_options_form()
-
-        if hasattr(self, "eq"):
-            self.read_geqdsk()
 
     def select_geqdsk_file(self):
         """Choose a "geqdsk" equilibrium file to open
@@ -297,19 +362,22 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
-        with open(geqdsk_filename, "rt") as f:
-            # Need to take a copy so that read_geqdsk doesn't delete used keys
-            self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+        try:
+            with open(geqdsk_filename, "rt") as f:
+                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+        except (ValueError, RuntimeError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
 
-        self.plot_widget.clear()
-        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        for region in self.eq.regions.values():
-            self.plot_widget.axes.plot(
-                [p.R for p in region.points], [p.Z for p in region.points], "-o"
-            )
+        self.update_options_form()
 
-        self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
-        self.plot_widget.canvas.draw()
+        # Delete mesh if it exists, since we have a new self.eq object
+        if hasattr(self, "mesh"):
+            del self.mesh
+
+        self.plot_grid()
 
     def run(self):
         """Run Hypnotoad and generate the grid
@@ -323,20 +391,23 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             return
 
+        # Call read_geqdsk to recreate self.eq object in case any settings needed in
+        # __init__ have been changed
+        self.read_geqdsk()
+
         self.statusbar.showMessage("Running...")
-        self.mesh = BoutMesh(self.eq)
+        try:
+            self.mesh = BoutMesh(self.eq)
+        except (ValueError, SolutionError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
+
         self.mesh.calculateRZ()
         self.statusbar.showMessage("Done!", 2000)
 
-        self.plot_widget.clear()
-        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        self.mesh.plotPoints(
-            xlow=self.options.get("plot_xlow", True),
-            ylow=self.options.get("plot_ylow", True),
-            corners=self.options.get("plot_corners", True),
-            ax=self.plot_widget.axes,
-        )
-        self.plot_widget.canvas.draw()
+        self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
 
@@ -358,8 +429,63 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save grid to file",
-            self.options.get("grid_file", "bout.grd.nc"),
+            self.gui_options["grid_file"],
             filter="NetCDF (*nc)",
         )
 
         self.mesh.writeGridfile(filename)
+
+    def plot_grid(self):
+        self.plot_widget.clear()
+
+        if hasattr(self, "eq"):
+            self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+            self.eq.plotWall(axis=self.plot_widget.axes)
+
+        if hasattr(self, "mesh"):
+            # mesh exists, so plot the grid points
+            self.mesh.plotPoints(
+                xlow=self.gui_options["plot_xlow"],
+                ylow=self.gui_options["plot_ylow"],
+                corners=self.gui_options["plot_corners"],
+                ax=self.plot_widget.axes,
+            )
+        elif hasattr(self, "eq"):
+            # no mesh, but do have equilibrium, so plot separatrices
+            for region in self.eq.regions.values():
+                self.plot_widget.axes.plot(
+                    [p.R for p in region.points], [p.Z for p in region.points], "-o"
+                )
+            self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
+
+        self.plot_widget.canvas.draw()
+
+
+class Preferences(QDialog, Ui_Preferences):
+    """Dialog box for editing Hypnotoad preferences
+    """
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setupUi(self)
+        self.parent = parent
+
+        self.defaultGridFileNameLineEdit.setText(self.parent.gui_options["grid_file"])
+        self.plotXlowCheckBox.setChecked(self.parent.gui_options["plot_xlow"])
+        self.plotYlowCheckBox.setChecked(self.parent.gui_options["plot_ylow"])
+        self.plotCornersCheckBox.setChecked(self.parent.gui_options["plot_corners"])
+        self.saveFullYamlCheckBox.setChecked(self.parent.gui_options["save_full_yaml"])
+
+    def accept(self):
+
+        self.parent.gui_options.set(
+            grid_file=self.defaultGridFileNameLineEdit.text(),
+            plot_xlow=self.plotXlowCheckBox.isChecked(),
+            plot_ylow=self.plotYlowCheckBox.isChecked(),
+            plot_corners=self.plotCornersCheckBox.isChecked(),
+            save_full_yaml=self.saveFullYamlCheckBox.isChecked(),
+        )
+
+        self.parent.plot_grid()
+
+        super().accept()

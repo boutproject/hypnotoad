@@ -1534,7 +1534,7 @@ class EquilibriumRegion(PsiContour):
         self.user_options = user_options
 
         # Set up options for this object: poloidal spacing options need setting
-        self.options = options.copy()
+        self.options = options.push({})
 
         # Set object-specific options
         assert self.options.nx is not None, "nx must be set"
@@ -2636,6 +2636,12 @@ class Equilibrium:
         FineContour.options = FineContour.options.push(dict(self.user_options))
 
         # Set some default options
+        Equilibrium.updateOptions(self)
+
+    def updateOptions(self):
+        """
+        Set default values from user_options
+        """
         setDefault(
             self.user_options,
             "nonorthogonal_xpoint_poloidal_spacing_range_inner",
@@ -2656,6 +2662,10 @@ class Equilibrium:
             "nonorthogonal_target_poloidal_spacing_range_outer",
             self.user_options.nonorthogonal_target_poloidal_spacing_range,
         )
+
+        if hasattr(self, "regions"):
+            for region in self.regions.values():
+                region.setupOptions(force=False)
 
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """

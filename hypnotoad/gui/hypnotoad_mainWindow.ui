@@ -116,6 +116,7 @@
     <addaction name="action_Save_as"/>
     <addaction name="action_Revert"/>
     <addaction name="separator"/>
+    <addaction name="action_Preferences"/>
     <addaction name="action_Quit"/>
    </widget>
    <widget class="QMenu" name="menu_Help">
@@ -235,6 +236,14 @@
    </property>
    <property name="text">
     <string>&amp;Revert</string>
+   </property>
+  </action>
+  <action name="action_Preferences">
+   <property name="icon">
+    <iconset theme="document-properties"/>
+   </property>
+   <property name="text">
+    <string>&amp;Preferences...</string>
    </property>
   </action>
  </widget>

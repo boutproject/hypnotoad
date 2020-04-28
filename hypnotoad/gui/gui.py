@@ -6,6 +6,7 @@ GUI for Hypnotoad using Qt
 import ast
 import copy
 import os
+import pathlib
 import yaml
 
 from Qt.QtWidgets import (
@@ -30,6 +31,10 @@ COLOURS = {
 }
 
 DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
+
+# File type filters
+YAML_FILTER = "YAML file (*.yml *.yaml)"
+NETCDF_FILTER = "NetCDF (*nc)"
 
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
@@ -170,11 +175,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.filename = DEFAULT_OPTIONS_FILENAME
 
         self.filename, _ = QFileDialog.getSaveFileName(
-            self, "Save grid to file", self.filename, filter="YAML file (*yml *yaml)",
+            self, "Save grid to file", self.filename, filter=YAML_FILTER,
         )
 
         if not self.filename:
             return
+
+        # If there was no extension, add one, unless the file already exists
+        path = pathlib.Path(self.filename)
+        if not path.exists() and path.suffix == "":
+            self.filename += ".yml"
 
         self.save_options()
 
@@ -240,7 +250,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open options file", ".", filter="YAML file (*.yml *.yaml)"
+            self, "Open options file", ".", filter=YAML_FILTER,
         )
 
         if (filename is None) or (filename == ""):
@@ -371,10 +381,15 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self,
             "Save grid to file",
             self.options.get("grid_file", "bout.grd.nc"),
-            filter="NetCDF (*nc)",
+            filter=NETCDF_FILTER,
         )
 
         if not filename:
             return
+
+        # If there was no extension, add one, unless the file already exists
+        path = pathlib.Path(self.filename)
+        if not path.exists() and path.suffix == "":
+            self.filename += ".nc"
 
         self.mesh.writeGridfile(filename)

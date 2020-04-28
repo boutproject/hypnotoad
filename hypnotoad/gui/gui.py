@@ -7,6 +7,7 @@ import ast
 import copy
 import options
 import os
+import pathlib
 import yaml
 
 from Qt.QtWidgets import (
@@ -33,6 +34,12 @@ from ..__init__ import __version__
 COLOURS = {
     "red": "#aa0000",
 }
+
+DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
+
+# File type filters
+YAML_FILTER = "YAML file (*.yml *.yaml)"
+NETCDF_FILTER = "NetCDF (*nc)"
 
 
 def _table_item_edit_display(item):
@@ -105,7 +112,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.options = {}
         self.gui_options = HypnotoadGui.gui_options.push({})
-        self.filename = "Untitled.yml"
+        self.filename = DEFAULT_OPTIONS_FILENAME
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
@@ -176,8 +183,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Saving...", 2000)
 
-        if not self.filename or self.filename == "Untitled.yml":
+        if not self.filename or self.filename == DEFAULT_OPTIONS_FILENAME:
             self.save_options_as()
+
+        if not self.filename:
+            self.filename = DEFAULT_OPTIONS_FILENAME
+            return
 
         self.options_file_line_edit.setText(self.filename)
 
@@ -205,9 +216,20 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
+        if not self.filename:
+            self.filename = DEFAULT_OPTIONS_FILENAME
+
         self.filename, _ = QFileDialog.getSaveFileName(
-            self, "Save grid to file", self.filename, filter="YAML file (*yml *yaml)",
+            self, "Save grid to file", self.filename, filter=YAML_FILTER,
         )
+
+        if not self.filename:
+            return
+
+        # If there was no extension, add one, unless the file already exists
+        path = pathlib.Path(self.filename)
+        if not path.exists() and path.suffix == "":
+            self.filename += ".yml"
 
         self.save_options()
 
@@ -294,7 +316,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open options file", ".", filter="YAML file (*.yml *.yaml)"
+            self, "Open options file", ".", filter=YAML_FILTER,
         )
 
         if (filename is None) or (filename == ""):
@@ -430,8 +452,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self,
             "Save grid to file",
             self.gui_options["grid_file"],
-            filter="NetCDF (*nc)",
+            filter=NETCDF_FILTER,
         )
+
+        if not filename:
+            return
+
+        # If there was no extension, add one, unless the file already exists
+        path = pathlib.Path(self.filename)
+        if not path.exists() and path.suffix == "":
+            self.filename += ".nc"
 
         self.mesh.writeGridfile(filename)
 

@@ -258,9 +258,21 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             lambda state: self.deal_with_separate_psi_contour(state, name="pf_upper")
         )
 
-        for contour in self.psi_contours.values():
+        def add_to_and_update_options_form(value, name):
+            self.options[name] = value
+            self.update_options_form()
+
+        for name, contour in self.psi_contours.items():
             contour["unnorm_widget"].valueChanged.connect(contour["unnorm_slot"])
+            contour["unnorm_widget"].valueChanged.connect(
+                functools.partial(add_to_and_update_options_form, name=f"psi_{name}")
+            )
             contour["norm_widget"].valueChanged.connect(contour["norm_slot"])
+            contour["norm_widget"].valueChanged.connect(
+                functools.partial(
+                    add_to_and_update_options_form, name=f"psinorm_{name}"
+                )
+            )
 
     def help_about(self):
         """About Hypnotoad
@@ -555,7 +567,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        if not hasattr(self, "eq"):
+        if not (hasattr(self, "eq") or hasattr(self, "eq_data")):
             self.statusbar.showMessage("Missing equilibrium file!")
             self.geqdsk_file_line_edit.setStyleSheet(
                 f"QLineEdit {{ background-color: {COLOURS['red']} }}"
@@ -750,6 +762,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             )
             contour["norm_widget"].setValue(parent["norm_widget"].value())
             contour["unnorm_widget"].setValue(parent["unnorm_widget"].value())
+            try:
+                del self.options["psi_" + name]
+            except KeyError:
+                pass
 
     def _remove_contour_from_plot(self, name, redraw=False):
         """Remove named psi contour from equilibrium plot

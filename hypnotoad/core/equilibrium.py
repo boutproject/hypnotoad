@@ -27,12 +27,19 @@ from copy import deepcopy
 import warnings
 
 import numpy
-from options import Options
 from scipy.optimize import minimize_scalar, brentq
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 
-from ..utils.hypnotoad_options import HypnotoadInternalOptions
+from ..utils.options import (
+    OptionsFactory,
+    WithMeta,
+    NoneType,
+    is_positive,
+    is_positive_or_None,
+    is_non_negative,
+    is_non_negative_or_None,
+)
 
 
 class SolutionError(Exception):
@@ -47,12 +54,6 @@ class SolutionError(Exception):
 # also if two sets of lines appear to intersect twice, only count it once if the
 # distance between the intersections is less than this
 intersect_tolerance = 1.0e-14
-
-
-def setDefault(options, name, default):
-    if options[name] is None:
-        options[name] = default
-    return options[name]
 
 
 class Point2D:
@@ -343,17 +344,46 @@ class FineContour:
     Points in FineContour are uniformly spaced in poloidal distance along the contour.
     """
 
-    options = Options(
-        finecontour_Nfine=None,
-        finecontour_atol=None,
-        finecontour_diagnose=None,
-        finecontour_maxits=None,
+    user_options_factory = OptionsFactory(
+        finecontour_Nfine=WithMeta(
+            100,
+            doc=(
+                "number of points on each FineContour. Increase for more accurate "
+                "interpolation or distance calculations"
+            ),
+            value_type=int,
+            checks=is_positive,
+        ),
+        finecontour_atol=WithMeta(
+            1.0e-12,
+            doc="absolute tolerance for refinement of FineContours",
+            value_type=float,
+            checks=is_positive,
+        ),
+        finecontour_diagnose=WithMeta(
+            False,
+            doc=(
+                "print and display some information to help diagnose failures in "
+                "FineContour refinement and adjustment"
+            ),
+            value_type=bool,
+        ),
+        finecontour_maxits=WithMeta(
+            200,
+            doc=(
+                "maximum number of iterations for refinement and adjustment of a "
+                "FineContour"
+            ),
+            value_type=int,
+            checks=is_positive,
+        ),
     )
 
-    def __init__(self, parentContour):
+    def __init__(self, parentContour, settings):
         self.parentContour = parentContour
+        self.user_options = self.user_options_factory.create(settings)
         self.distance = None
-        Nfine = self.options.finecontour_Nfine
+        Nfine = self.user_options.finecontour_Nfine
 
         endInd = self.parentContour.endInd
         if endInd < 0:
@@ -402,7 +432,7 @@ class FineContour:
 
     def extend(self, *, extend_lower=0, extend_upper=0):
 
-        Nfine = self.options.finecontour_Nfine
+        Nfine = self.user_options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
 
@@ -498,7 +528,7 @@ class FineContour:
         # maximum error
         ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
 
-        if FineContour.options.finecontour_diagnose:
+        if self.user_options.finecontour_diagnose:
             from matplotlib import pyplot
 
             print("diagnosing FineContour.__init__()")
@@ -533,22 +563,22 @@ class FineContour:
             pyplot.show()
 
         count = 1
-        while ds_error > self.options.finecontour_atol:
+        while ds_error > self.user_options.finecontour_atol:
 
             if (
-                self.options.finecontour_maxits
-                and count > self.options.finecontour_maxits
+                self.user_options.finecontour_maxits
+                and count > self.user_options.finecontour_maxits
             ):
                 warnings.warn(
                     f"FineContour: maximum iterations "
-                    f"({self.options.finecontour_maxits}) exceeded with ds_error "
+                    f"({self.user_options.finecontour_maxits}) exceeded with ds_error "
                     f"{ds_error}"
                 )
                 break
 
             sfine = (
                 self.totalDistance()
-                / (self.options.finecontour_Nfine - 1)
+                / (self.user_options.finecontour_Nfine - 1)
                 * self.indices_fine
             )
 
@@ -572,7 +602,7 @@ class FineContour:
 
             count += 1
 
-            if FineContour.options.finecontour_diagnose:
+            if self.user_options.finecontour_diagnose:
                 print("iteration", count, "  ds_error", ds_error)
 
                 Rpoints = self.positions[:, 0]
@@ -764,9 +794,43 @@ class PsiContour:
     Mostly behaves like a list
     """
 
-    options = Options(refine_width=1.0e-5, refine_atol=2.0e-8, refine_methods="line")
+    # options = Options(refine_width=1.0e-5, refine_atol=2.0e-8, refine_methods="line")
+    user_options_factory = OptionsFactory(
+        # Include settings for member FineContour objects
+        FineContour.user_options_factory.defaults,
+        refine_width=WithMeta(
+            1.0e-5,
+            doc="width for line search when refining points",
+            value_type=float,
+            checks=is_positive,
+        ),
+        refine_atol=WithMeta(
+            2.0e-8,
+            doc="absolute tolerance for refinement of points",
+            value_type=float,
+            checks=is_positive,
+        ),
+        refine_methods=WithMeta(
+            "integrate+newton, integrate",
+            doc=(
+                """
+                ordered, comma-separated list of methods to try when refining points:
+                Valid names are:
+                - "newton"       Newton iteration
+                - "line"         A line search
+                - "integrate"    Integrate along psi gradient
+                - "integrate+newton"  Integrate, then refine with Newton
+                - "none"         No refinement (always succeeds)
+            """
+            ),
+            value_type=str,
+            # Don't check 'allowed' here, because we also support any permutation of
+            # these options, and correctness of value is checked where it is used.
+            # allowed=["newton", "line", "integrate", "integrate+newton", "none"],
+        ),
+    )
 
-    def __init__(self, points, psi, psival):
+    def __init__(self, *, points, psi, psival, settings):
         self.points = points
 
         self._startInd = 0
@@ -781,6 +845,8 @@ class PsiContour:
 
         # Value of vector potential on this contour
         self.psival = psival
+
+        self.user_options = self.user_options_factory.create(settings)
 
         # Number of boundary guard cells at either end
         # This may be set even if the contour has not been extended yet, to specify how
@@ -840,7 +906,7 @@ class PsiContour:
     @property
     def fine_contour(self):
         if self._fine_contour is None:
-            self._fine_contour = FineContour(self)
+            self._fine_contour = FineContour(self, dict(self.user_options))
         return self._fine_contour
 
     @property
@@ -880,7 +946,9 @@ class PsiContour:
             points = deepcopy(self.points)
         if psival is None:
             psival = self.psival
-        new_contour = PsiContour(points, self.psi, psival)
+        new_contour = PsiContour(
+            points=points, psi=self.psi, psival=psival, settings=dict(self.user_options)
+        )
 
         new_contour.startInd = self.startInd
         new_contour.endInd = self.endInd
@@ -935,7 +1003,7 @@ class PsiContour:
         minind = numpy.argmin(d)
 
         # check if point to be inserted is very close to existing point
-        if calc_distance(point, self[minind]) < self.options.refine_atol:
+        if calc_distance(point, self[minind]) < self.user_options.refine_atol:
             return minind
 
         if minind == 0 and d[1] > calc_distance(self[0], self[1]):
@@ -1146,15 +1214,15 @@ class PsiContour:
         }
 
         if width is None:
-            width = PsiContour.options.refine_width
+            width = self.user_options.refine_width
         if atol is None:
-            atol = PsiContour.options.refine_atol
+            atol = self.user_options.refine_atol
 
         assert width is not None
         assert atol is not None
 
         if methods is None:
-            methods = PsiContour.options.refine_methods
+            methods = self.user_options.refine_methods
             if methods is None:
                 methods = "line"  # For now, original method
 
@@ -1330,9 +1398,9 @@ class PsiContour:
         keyword, not positional, arguments
         """
         if width is None:
-            width = PsiContour.options.refine_width
+            width = self.user_options.refine_width
         if atol is None:
-            atol = PsiContour.options.refine_atol
+            atol = self.user_options.refine_atol
 
         if extend_lower is not None:
             self.extend_lower = extend_lower
@@ -1523,28 +1591,208 @@ class EquilibriumRegion(PsiContour):
     the boundaries where the contour starts or ends.
     """
 
+    user_options_factory = OptionsFactory(
+        # Include settings for member PsiContour objects
+        PsiContour.user_options_factory.defaults,
+        #
+        # General options for the grid
+        ##############################
+        orthogonal=WithMeta(True, doc="is grid orthogonal?", value_type=bool),
+        y_boundary_guards=WithMeta(
+            0, doc="number of y-boundary cells", value_type=int, checks=is_non_negative,
+        ),
+        # Input parameters for poloidal spacing functions
+        #################################################
+        poloidal_spacing_method=WithMeta(
+            "sqrt",
+            doc=(
+                "Method to use for poloidal spacing function: 'sqrt' for "
+                "getSqrtPoloidalSpacingFunction; 'monotonic' for "
+                "getMonotonicPoloidalDistanceFunc"
+            ),
+            value_type=str,
+            allowed=["sqrt", "monotonic"],
+        ),
+        xpoint_poloidal_spacing_length=WithMeta(
+            5.0e-2,
+            doc=(
+                "spacing at the X-point end of a region (used for orthogonal grids). "
+                "Use None to not constrain the spacing."
+            ),
+            value_type=[float, NoneType],
+            checks=is_positive_or_None,
+        ),
+        target_poloidal_spacing_length=WithMeta(
+            None,
+            doc=(
+                "spacing at the wall end of a region (used for orthogonal grids)"
+                "Use None to not constrain the spacing."
+            ),
+            value_type=[float, NoneType],
+            checks=is_positive_or_None,
+        ),
+        N_norm_prefactor=WithMeta(
+            1.0,
+            doc=(
+                "prefactor that multiplys ny_total to give the normalization factor for "
+                "the total number of points in contours. The normalisation factor is "
+                "used to scale the grid spacing with the total number of points, which "
+                "keeps the spacing functions consistent when the resolution is changed"
+            ),
+        ),
+        sfunc_checktol=WithMeta(
+            1.0e-13,
+            doc=(
+                "tolerance to check for small negative values that are not "
+                "significantly different from zero in poloidal spacing functions"
+            ),
+            value_type=float,
+            checks=is_non_negative,
+        ),
+        poloidalfunction_diagnose=WithMeta(
+            False,
+            doc=(
+                "print and plot extra information to diagnose when a poloidal spacing "
+                "function has an error"
+            ),
+            value_type=bool,
+        ),
+    )
+
+    nonorthogonal_options_factory = OptionsFactory(
+        nonorthogonal_xpoint_poloidal_spacing_length=WithMeta(
+            5.0e-2,
+            doc=(
+                "Poloidal spacing of grid points near the X-point (for nonorthogonal "
+                "grids)"
+            ),
+            value_type=float,
+            checks=is_positive,
+        ),
+        nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_xpoint_poloidal_spacing_length,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "X-point. This range is used at the radial location of separatrices"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_xpoint_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_xpoint_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "X-point. This range is used at 'outer' radial boundaries (SOL)"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_poloidal_spacing_length=WithMeta(
+            5.0e-2,
+            doc=(
+                "Poloidal spacing of grid points near the target (for nonorthogonal "
+                "grids)"
+            ),
+            value_type=float,
+            checks=is_positive,
+        ),
+        nonorthogonal_target_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_target_poloidal_spacing_length,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "target. This range is used at the radial location of separatrices"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_target_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "target. This range is used at 'inner' radial boundaries (core and PFR)"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_target_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "target. This range is used at 'outer' radial boundaries (SOL)"
+            ),
+            value_type=[float, NoneType],
+            checks=is_non_negative_or_None,
+        ),
+        nonorthogonal_radial_range_power=WithMeta(
+            1.0,
+            doc=(
+                "Controls radial transition between separatrix range value and inner "
+                "or outer range values"
+            ),
+            value_type=float,
+            checks=is_non_negative,
+        ),
+        nonorthogonal_spacing_method=WithMeta(
+            "combined",
+            doc="method used to determine poloidal spacing of non-orthogonal grid",
+            value_type=str,
+            allowed=[
+                "combined",
+                "poloidal_orthogonal_combined",
+                "perp_orthogonal_combined",
+                "orthogonal",
+            ],
+        ),
+    )
+
     def __init__(
-        self, equilibrium, name, nSegments, user_options, options, *args, **kwargs
+        self,
+        *,
+        equilibrium,
+        name,
+        nSegments,
+        settings,
+        nonorthogonal_settings,
+        nx,
+        ny,
+        kind,
+        ny_total,
+        points,
+        psival,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            points=points, psi=equilibrium.psi, psival=psival, settings=settings
+        )
         self.equilibrium = equilibrium
         self.name = name
         self.nSegments = nSegments
 
-        self.user_options = user_options
+        self.user_options = self.user_options_factory.create(settings)
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
 
-        # Set up options for this object: poloidal spacing options need setting
-        self.options = options.push({})
+        self.nx = nx
+        self.ny_noguards = ny
+        self.kind = kind
+        self.ny_total = ny_total
 
         # Set object-specific options
-        assert self.options.nx is not None, "nx must be set"
-        assert self.options.ny is not None, "ny must be set"
+        if self.nx is None:
+            raise ValueError("nx must be set")
+        if self.ny_noguards is None:
+            raise ValueError("ny must be set")
 
-        # Allow options to be overridden by kwargs
-        self.options = self.options.push(kwargs)
-
-        self.setupOptions(force=False)
-        self.ny_noguards = self.options.ny
+        self.setupSpacing(force=False)
         self.global_xind = (
             0  # 0 since EquilibriumRegion represents the contour at the separatrix
         )
@@ -1555,8 +1803,14 @@ class EquilibriumRegion(PsiContour):
         # Set if this segment starts on a wall, with value of vector along wall
         self.wallSurfaceAtStart = None
 
+        # Should be set if this segment does not start on a wall
+        self.sin_angle_at_start = None
+
         # Set if this segment ends on a wall, with value of vector along wall
         self.wallSurfaceAtEnd = None
+
+        # Should be set if this segment does not end on a wall
+        self.sin_angle_at_end = None
 
         self.connections = []
         self.psi_vals = []
@@ -1576,108 +1830,83 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
-    def setupOptions(self, *, force):
-        def setoption(key, val):
-            if force:
-                self.options[key] = val
-            else:
-                setDefault(self.options, key, val)
-
-        # Set default values depending on options.kind
-        if self.options.kind.split(".")[0] == "wall":
-            setoption("sqrt_b_lower", self.user_options.target_poloidal_spacing_length)
-            setoption(
-                "monotonic_d_lower",
-                self.user_options.nonorthogonal_target_poloidal_spacing_length,
+    def setupSpacing(self, *, force):
+        # Set spacings depending on options.kind
+        if self.kind.split(".")[0] == "wall":
+            self.sqrt_b_lower = self.user_options.target_poloidal_spacing_length
+            self.monotonic_d_lower = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
-            setoption(
-                "nonorthogonal_range_lower",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range,
+            self.nonorthogonal_range_lower = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
             )
-            setoption(
-                "nonorthogonal_range_lower_inner",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range_inner,
+            self.nonorthogonal_range_lower_inner = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
             )
-            setoption(
-                "nonorthogonal_range_lower_outer",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range_outer,
+            self.nonorthogonal_range_lower_outer = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
             )
-        elif self.options.kind.split(".")[0] == "X":
-            setoption("sqrt_a_lower", self.user_options.xpoint_poloidal_spacing_length)
-            setoption("sqrt_b_lower", 0.0)
-            setoption(
-                "monotonic_d_lower",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_length,
+        elif self.kind.split(".")[0] == "X":
+            self.sqrt_a_lower = self.user_options.xpoint_poloidal_spacing_length
+            self.monotonic_d_lower = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
-            setoption(
-                "nonorthogonal_range_lower",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+            self.nonorthogonal_range_lower = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range
             )
-            setoption(
-                "nonorthogonal_range_lower_inner",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner,
+            self.nonorthogonal_range_lower_inner = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_inner  # noqa: E501
             )
-            setoption(
-                "nonorthogonal_range_lower_outer",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer,
+            self.nonorthogonal_range_lower_outer = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_outer  # noqa: E501
             )
         else:
-            raise ValueError(
-                f"Unrecognized value before '.' in " f"kind={self.options.kind}"
+            raise ValueError(f"Unrecognized value before '.' in " f"kind={self.kind}")
+        if self.kind.split(".")[1] == "wall":
+            self.sqrt_b_upper = self.user_options.target_poloidal_spacing_length
+            self.monotonic_d_upper = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
-        if self.options.kind.split(".")[1] == "wall":
-            setoption("sqrt_b_upper", self.user_options.target_poloidal_spacing_length)
-            setoption(
-                "monotonic_d_upper",
-                self.user_options.nonorthogonal_target_poloidal_spacing_length,
+            self.nonorthogonal_range_upper = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
             )
-            setoption(
-                "nonorthogonal_range_upper",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range,
+            self.nonorthogonal_range_upper_inner = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
             )
-            setoption(
-                "nonorthogonal_range_upper_inner",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range_inner,
+            self.nonorthogonal_range_upper_outer = (
+                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
             )
-            setoption(
-                "nonorthogonal_range_upper_outer",
-                self.user_options.nonorthogonal_target_poloidal_spacing_range_outer,
+        elif self.kind.split(".")[1] == "X":
+            self.sqrt_a_upper = self.user_options.xpoint_poloidal_spacing_length
+            self.sqrt_b_upper = 0.0
+            self.monotonic_d_upper = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
-        elif self.options.kind.split(".")[1] == "X":
-            setoption("sqrt_a_upper", self.user_options.xpoint_poloidal_spacing_length)
-            setoption("sqrt_b_upper", 0.0)
-            setoption(
-                "monotonic_d_upper",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_length,
+            self.nonorthogonal_range_upper = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range
             )
-            setoption(
-                "nonorthogonal_range_upper",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
+            self.nonorthogonal_range_upper_inner = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_inner  # noqa: E501
             )
-            setoption(
-                "nonorthogonal_range_upper_inner",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_inner,
-            )
-            setoption(
-                "nonorthogonal_range_upper_outer",
-                self.user_options.nonorthogonal_xpoint_poloidal_spacing_range_outer,
+            self.nonorthogonal_range_upper_outer = (
+                self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_outer  # noqa: E501
             )
         else:
-            raise ValueError(
-                "Unrecognized value before '.' in self.options.kind="
-                + str(self.options.kind)
-            )
+            raise ValueError(f"Unrecognized value before '.' in self.kind={self.kind}")
 
     def copy(self):
         result = EquilibriumRegion(
-            self.equilibrium,
-            self.name,
-            self.nSegments,
-            self.user_options,
-            self.options,
-            deepcopy(self.points),
-            self.psi,
-            self.psival,
+            equilibrium=self.equilibrium,
+            name=self.name,
+            nSegments=self.nSegments,
+            settings=dict(self.user_options),
+            nonorthogonal_settings=dict(self.nonorthogonal_options),
+            nx=self.nx,
+            ny=self.ny_noguards,
+            kind=self.kind,
+            ny_total=self.ny_total,
+            points=deepcopy(self.points),
+            psival=self.psival,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
@@ -1694,14 +1923,17 @@ class EquilibriumRegion(PsiContour):
 
     def newRegionFromPsiContour(self, contour):
         result = EquilibriumRegion(
-            self.equilibrium,
-            self.name,
-            self.nSegments,
-            self.user_options,
-            self.options,
-            contour.points,
-            contour.psi,
-            contour.psival,
+            equilibrium=self.equilibrium,
+            name=self.name,
+            nSegments=self.nSegments,
+            settings=dict(self.user_options),
+            nonorthogonal_settings=dict(self.nonorthogonal_options),
+            nx=self.nx,
+            ny=self.ny_noguards,
+            kind=self.kind,
+            ny_total=self.ny_total,
+            points=contour.points,
+            psival=contour.psival,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
@@ -1728,11 +1960,11 @@ class EquilibriumRegion(PsiContour):
 
     def nxOutsideSeparatrix(self):
         # Note: includes point at separatrix
-        return 1 + sum(2 * n for n in self.options.nx[self.separatrix_radial_index :])
+        return 1 + sum(2 * n for n in self.nx[self.separatrix_radial_index :])
 
     def nxInsideSeparatrix(self):
         # Note: also includes point at separatrix
-        return 1 + sum(2 * n for n in self.options.nx[: self.separatrix_radial_index])
+        return 1 + sum(2 * n for n in self.nx[: self.separatrix_radial_index])
 
     def getRefined(self, *args, **kwargs):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
@@ -1807,35 +2039,40 @@ class EquilibriumRegion(PsiContour):
         if method == "sqrt":
             if self.user_options.poloidalfunction_diagnose:
                 print("in sqrt method:")
-                print("N_norm =", self.options.N_norm)
-                print("a_lower =", self.options.sqrt_a_lower)
-                print("b_lower =", self.options.sqrt_b_lower)
-                print("a_upper =", self.options.sqrt_a_upper)
-                print("b_upper =", self.options.sqrt_b_upper)
+                print("N_norm =", self.user_options.N_norm_prefactor * self.ny_total)
+                print("a_lower =", self.sqrt_a_lower)
+                print("b_lower =", self.sqrt_b_lower)
+                print("a_upper =", self.sqrt_a_upper)
+                print("b_upper =", self.sqrt_b_upper)
             sfunc = self.getSqrtPoloidalDistanceFunc(
                 distance,
                 npoints - 1,
-                self.options.N_norm,
-                b_lower=self.options.sqrt_b_lower,
-                a_lower=self.options.sqrt_a_lower,
-                b_upper=self.options.sqrt_b_upper,
-                a_upper=self.options.sqrt_a_upper,
+                self.user_options.N_norm_prefactor * self.ny_total,
+                b_lower=self.sqrt_b_lower,
+                a_lower=self.sqrt_a_lower,
+                b_upper=self.sqrt_b_upper,
+                a_upper=self.sqrt_a_upper,
             )
             self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
         elif method == "monotonic":
             sfunc = self.getMonotonicPoloidalDistanceFunc(
                 distance,
                 npoints - 1,
-                self.options.N_norm,
-                d_lower=self.options.monotonic_d_lower,
-                d_upper=self.options.monotonic_d_upper,
+                self.user_options.N_norm_prefactor * self.ny_total,
+                d_lower=self.monotonic_d_lower,
+                d_upper=self.monotonic_d_upper,
             )
             self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
         elif method == "nonorthogonal":
-            nonorth_method = self.user_options.nonorthogonal_spacing_method
-            if nonorth_method == "poloidal_orthogonal_combined":
+            if (
+                self.nonorthogonal_options.nonorthogonal_spacing_method
+                == "poloidal_orthogonal_combined"
+            ):
                 return self.combineSfuncs(self, None)
-            elif nonorth_method == "perp_orthogonal_combined":
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method
+                == "perp_orthogonal_combined"
+            ):
                 if self.wallSurfaceAtStart is not None:
                     # surface is a wall
                     lower_surface = self.wallSurfaceAtStart
@@ -1857,18 +2094,22 @@ class EquilibriumRegion(PsiContour):
                     upper_surface = None
 
                 sfunc = self.combineSfuncs(self, None, lower_surface, upper_surface)
-            elif nonorth_method == "combined":
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
                 # Use fixed poloidal spacing when gridding the separatrix contour so that
                 # the grid spacing is the same in different regions which share a
                 # separatrix segment but have different perpendicular vectors at the
                 # X-point
                 return self.combineSfuncs(self, None)
-            elif nonorth_method == "orthogonal":
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal"
+            ):
                 orth_method = self.user_options.poloidal_spacing_method
                 sfunc = self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
             else:
                 sfunc = self.getSfuncFixedSpacing(
-                    npoints, distance, method=nonorth_method
+                    npoints,
+                    distance,
+                    method=self.nonorthogonal_options.nonorthogonal_spacing_method,
                 )
         else:
             raise ValueError(
@@ -1922,25 +2163,14 @@ class EquilibriumRegion(PsiContour):
                 2 * self.ny_noguards + 1, contour, vec_upper, False
             )
 
-        if self.options.nonorthogonal_range_lower is not None:
-            range_lower = self.options.nonorthogonal_range_lower
-            range_lower_inner = self.options.nonorthogonal_range_lower_inner
-            range_lower_outer = self.options.nonorthogonal_range_lower_outer
-        else:
-            range_lower = self.options.monotonic_d_lower
-            range_lower_inner = self.options.monotonic_d_lower
-            range_lower_outer = self.options.monotonic_d_lower
+        range_lower = self.nonorthogonal_range_lower
+        range_lower_inner = self.nonorthogonal_range_lower_inner
+        range_lower_outer = self.nonorthogonal_range_lower_outer
+        range_upper = self.nonorthogonal_range_upper
+        range_upper_inner = self.nonorthogonal_range_upper_inner
+        range_upper_outer = self.nonorthogonal_range_upper_outer
 
-        if self.options.nonorthogonal_range_upper is not None:
-            range_upper = self.options.nonorthogonal_range_upper
-            range_upper_inner = self.options.nonorthogonal_range_upper_inner
-            range_upper_outer = self.options.nonorthogonal_range_upper_outer
-        else:
-            range_upper = self.options.monotonic_d_upper
-            range_upper_inner = self.options.monotonic_d_upper
-            range_upper_outer = self.options.monotonic_d_upper
-
-        N_norm = self.options.N_norm
+        N_norm = self.user_options.N_norm_prefactor * self.ny_total
 
         index_length = 2.0 * self.ny_noguards
 
@@ -1953,14 +2183,14 @@ class EquilibriumRegion(PsiContour):
             if ix >= 0:
                 xweight = (
                     ix / (self.nxOutsideSeparatrix() - 1.0)
-                ) ** self.user_options.nonorthogonal_radial_range_power
+                ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
                 this_range_lower = (
                     1.0 - xweight
                 ) * range_lower + xweight * range_lower_outer
             else:
                 xweight = (
                     -ix / (self.nxInsideSeparatrix() - 1.0)
-                ) ** self.user_options.nonorthogonal_radial_range_power
+                ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
                 this_range_lower = (
                     1.0 - xweight
                 ) * range_lower + xweight * range_lower_inner
@@ -1972,14 +2202,14 @@ class EquilibriumRegion(PsiContour):
             if ix >= 0:
                 xweight = (
                     ix / (self.nxOutsideSeparatrix() - 1.0)
-                ) ** self.user_options.nonorthogonal_radial_range_power
+                ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
                 this_range_upper = (
                     1.0 - xweight
                 ) * range_upper + xweight * range_upper_outer
             else:
                 xweight = (
                     -ix / (self.nxInsideSeparatrix() - 1.0)
-                ) ** self.user_options.nonorthogonal_radial_range_power
+                ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
                 this_range_upper = (
                     1.0 - xweight
                 ) * range_upper + xweight * range_upper_inner
@@ -2162,17 +2392,17 @@ class EquilibriumRegion(PsiContour):
         at the upper end, where s_perp is the distance normal to the vector
         'surface_direction'.
         """
-        N_norm = self.options.N_norm
+        N_norm = self.user_options.N_norm_prefactor * self.ny_total
 
-        if self.options.perp_d_lower is not None:
-            d_lower = self.options.perp_d_lower
+        if self.wallSurfaceAtStart is not None:
+            d_lower = self.monotonic_d_lower * self.sin_angle_at_start
         else:
-            d_lower = self.options.monotonic_d_lower
+            d_lower = self.monotonic_d_lower
 
-        if self.options.perp_d_upper is not None:
-            d_upper = self.options.perp_d_upper
+        if self.wallSurfaceAtEnd is not None:
+            d_upper = self.monotonic_d_upper * self.sin_angle_at_end
         else:
-            d_upper = self.options.monotonic_d_upper
+            d_upper = self.monotonic_d_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getMonotonicPoloidalDistanceFunc(
@@ -2616,56 +2846,54 @@ class Equilibrium:
         be connected
     """
 
-    def __init__(self, **kwargs):
+    user_options_factory = OptionsFactory(
+        # Include settings for member EquilibriumRegion objects
+        EquilibriumRegion.user_options_factory.defaults,
+        #
+        # Radial spacing options
+        ########################
+        psi_spacing_separatrix_multiplier=WithMeta(
+            1.0,
+            doc=(
+                "change radial spacing at separatrics: <1 to make points closer, >1 to "
+                "make points further apart"
+            ),
+            value_type=float,
+            checks=is_positive,
+        ),
+        poloidal_spacing_delta_psi=WithMeta(
+            None,
+            doc=(
+                "Small increment in psi used to find vector along grad(psi) at end of "
+                "separatrix segment. Use None for an automatically selected increment."
+            ),
+            value_type=[float, NoneType],
+            checks=is_positive_or_None,
+        ),
+    )
+    options_factory = OptionsFactory()
+
+    nonorthogonal_options_factory = OptionsFactory(
+        EquilibriumRegion.nonorthogonal_options_factory.defaults,
+    )
+
+    def __init__(self, nonorthogonal_settings):
         """
         Does some generic setup common to all Equilibrium derived classes.
         Note: should be called by derived class __init__() constructor after the
         user_options have been initialized.
         """
-
-        # Set up internal options
-        # '.push(kwargs)' here lets the kwargs override any values (including for
-        # 'internal' options that should not need to be set by the user) set as defaults
-        # from HypnotoadOptions
-        self.options = HypnotoadInternalOptions.push(kwargs)
-
-        # Set some global parameters for PsiContours and FineContours
-        # Convert self.user_options to a dict so we can use it to set the values in
-        # FineContour.options using 'push'
-        PsiContour.options = PsiContour.options.push(dict(self.user_options))
-        FineContour.options = FineContour.options.push(dict(self.user_options))
-
-        # Set some default options
-        Equilibrium.updateOptions(self)
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
 
     def updateOptions(self):
         """
         Set default values from user_options
         """
-        setDefault(
-            self.user_options,
-            "nonorthogonal_xpoint_poloidal_spacing_range_inner",
-            self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
-        )
-        setDefault(
-            self.user_options,
-            "nonorthogonal_xpoint_poloidal_spacing_range_outer",
-            self.user_options.nonorthogonal_xpoint_poloidal_spacing_range,
-        )
-        setDefault(
-            self.user_options,
-            "nonorthogonal_target_poloidal_spacing_range_inner",
-            self.user_options.nonorthogonal_target_poloidal_spacing_range,
-        )
-        setDefault(
-            self.user_options,
-            "nonorthogonal_target_poloidal_spacing_range_outer",
-            self.user_options.nonorthogonal_target_poloidal_spacing_range,
-        )
-
         if hasattr(self, "regions"):
             for region in self.regions.values():
-                region.setupOptions(force=False)
+                region.setupSpacing(force=False)
 
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """
@@ -2688,7 +2916,7 @@ class Equilibrium:
         # Check nx of both segments is the same - otherwise the connection must be
         # between some wrong regions
         assert (
-            lRegion.options.nx[lowerSegment] == uRegion.options.nx[upperSegment]
+            lRegion.nx[lowerSegment] == uRegion.nx[upperSegment]
         ), "nx should match across connection"
 
         lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)

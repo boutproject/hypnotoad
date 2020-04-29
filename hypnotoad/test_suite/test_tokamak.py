@@ -409,7 +409,7 @@ def make_upper_double_null():
     )
 
 
-def make_upper_double_null_largesep():
+def make_upper_double_null_largesep(settings={}):
     """UDN with larger separation between X-points.
     With psinorm = 1.1 this should be single null
     With psinorm = 1.2 it's double null"""
@@ -432,7 +432,7 @@ def make_upper_double_null_largesep():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False, settings=settings
     )
 
 
@@ -506,11 +506,11 @@ def test_makeregions_ldn():
 
 def test_makeregions_udn_largesep_1():
     eq = make_upper_double_null_largesep()
-    eq.makeRegions(psinorm_sol=1.1)
+    eq.makeRegions()
     assert len(eq.regions) == 3  # Only one X-point in range -> single null
 
 
 def test_makeregions_udn_largesep_2():
-    eq = make_upper_double_null_largesep()
-    eq.makeRegions(psinorm_sol=1.2)
+    eq = make_upper_double_null_largesep(settings={"psinorm_sol": 1.2})
+    eq.makeRegions()
     assert len(eq.regions) == 6  # Becomes double null

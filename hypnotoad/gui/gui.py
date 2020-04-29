@@ -4,11 +4,15 @@ GUI for Hypnotoad using Qt
 """
 
 import ast
+import contextlib
 import copy
-import options
+import functools
 import os
 import pathlib
 import yaml
+
+import numpy as np
+import options
 
 from Qt.QtWidgets import (
     QFileDialog,
@@ -28,6 +32,7 @@ from .matplotlib_widget import MatplotlibWidget
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
 from ..core.equilibrium import SolutionError
+from ..utils import critical
 from ..__init__ import __version__
 
 
@@ -49,6 +54,29 @@ def _table_item_edit_display(item):
     default_marker = " (default)"
     if item.text().endswith(default_marker):
         item.setText(item.text()[: -len(default_marker)])
+
+
+def psinorm_to_psi(psinorm, psi_axis, psi_sep):
+    if psinorm is None:
+        return None
+    return psi_axis + psinorm * (psi_sep[0] - psi_axis)
+
+
+def psi_to_psinorm(psi, psi_axis, psi_sep):
+    if psi is None:
+        return None
+    return (psi - psi_axis) / (psi_sep[0] - psi_axis)
+
+
+@contextlib.contextmanager
+def disconnected(signal, function):
+    """Temporarily disconnect a function from a signal
+
+    """
+    try:
+        yield signal.disconnect(function)
+    finally:
+        signal.connect(function)
 
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
@@ -126,6 +154,125 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.connect(self.options_form_changed)
         self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
+
+        # Equilibrium tab
+        self.equilibrium_plot_widget = MatplotlibWidget(self.equilibrium_plotting_area)
+
+        set_clicked(self.eq_geqdsk_browse, self.eq_select_geqdsk_file)
+        self.eq_geqdsk_lineedit.editingFinished.connect(self.eq_read_geqdsk)
+
+        # Different limits in psi
+        self.psi_contours = {
+            "core": {
+                "unnorm_widget": self.psi_coreDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="core", direction="norm"
+                ),
+                "norm_widget": self.psinorm_coreDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="core", direction="unnorm"
+                ),
+                "style": "solid",
+                "enabled": True,
+            },
+            "sol": {
+                "unnorm_widget": self.psi_solDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol", direction="norm"
+                ),
+                "norm_widget": self.psinorm_solDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol", direction="unnorm"
+                ),
+                "style": "dashed",
+                "enabled": True,
+            },
+            "sol_inner": {
+                "unnorm_widget": self.psi_sol_innerDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol_inner", direction="norm"
+                ),
+                "norm_widget": self.psinorm_sol_innerDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol_inner", direction="unnorm"
+                ),
+                "style": "dotted",
+                "enabled": False,
+                "parent": "sol",
+            },
+            "pf": {
+                "unnorm_widget": self.psi_pfDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pfDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "core",
+            },
+            "pf_lower": {
+                "unnorm_widget": self.psi_pf_lowerDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_lower", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pf_lowerDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_lower", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "pf",
+            },
+            "pf_upper": {
+                "unnorm_widget": self.psi_pf_upperDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_upper", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pf_upperDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_upper", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "pf",
+            },
+        }
+
+        self.deal_with_separate_psi_contour(False, "sol_inner")
+        self.separateInnerSolCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="sol_inner")
+        )
+        self.deal_with_separate_psi_contour(False, "pf")
+        self.separatePrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf")
+        )
+        self.deal_with_separate_psi_contour(False, "pf_lower")
+        self.deal_with_separate_psi_contour(False, "pf_upper")
+        self.separate_upper_lowerPrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf_lower")
+        )
+        self.separate_upper_lowerPrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf_upper")
+        )
+
+        def add_to_and_update_options_form(value, name):
+            self.options[name] = value
+            self.update_options_form()
+
+        for name, contour in self.psi_contours.items():
+            contour["unnorm_widget"].valueChanged.connect(contour["unnorm_slot"])
+            contour["unnorm_widget"].valueChanged.connect(
+                functools.partial(add_to_and_update_options_form, name=f"psi_{name}")
+            )
+            contour["norm_widget"].valueChanged.connect(contour["norm_slot"])
+            contour["norm_widget"].valueChanged.connect(
+                functools.partial(
+                    add_to_and_update_options_form, name=f"psinorm_{name}"
+                )
+            )
 
     def help_about(self):
         """About Hypnotoad
@@ -385,8 +532,22 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             return
 
         try:
-            with open(geqdsk_filename, "rt") as f:
-                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+            try:
+                self.eq = tokamak.TokamakEquilibrium(
+                    self.eq_data["R1D"],
+                    self.eq_data["Z1D"],
+                    self.eq_data["psi2D"],
+                    self.eq_data["psi1D"],
+                    self.eq_data["fpol1D"],
+                    self.eq_data["pressure"],
+                    self.eq_data["wall"],
+                    options=copy.deepcopy(self.options),
+                )
+            except AttributeError:
+                with open(geqdsk_filename, "rt") as f:
+                    self.eq = tokamak.read_geqdsk(
+                        f, options=copy.deepcopy(self.options)
+                    )
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))
@@ -406,7 +567,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        if not hasattr(self, "eq"):
+        if not (hasattr(self, "eq") or hasattr(self, "eq_data")):
             self.statusbar.showMessage("Missing equilibrium file!")
             self.geqdsk_file_line_edit.setStyleSheet(
                 f"QLineEdit {{ background-color: {COLOURS['red']} }}"
@@ -489,6 +650,208 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
 
         self.plot_widget.canvas.draw()
+
+    def eq_select_geqdsk_file(self):
+        """Choose a "geqdsk" equilibrium file to open
+
+        """
+
+        filename, _ = QFileDialog.getOpenFileName(self, "Open geqdsk file", ".")
+
+        if (filename is None) or (filename == ""):
+            return  # Cancelled
+        if not os.path.exists(filename):
+            self.write("Could not find " + filename)
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
+            )
+            return
+
+        self.eq_geqdsk_lineedit.setText(filename)
+        self.eq_geqdsk_lineedit.setStyleSheet("")
+
+        self.eq_read_geqdsk()
+
+    def eq_read_geqdsk(self):
+        """Read an equilibrium file
+
+        """
+
+        self.statusbar.showMessage("Reading geqdsk", 2000)
+        geqdsk_filename = self.eq_geqdsk_lineedit.text()
+
+        if not os.path.exists(geqdsk_filename):
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color : {COLOURS['red']} }}"
+            )
+            self.statusbar.showMessage(
+                f"Could not find equilibrium file '{geqdsk_filename}'"
+            )
+            return
+
+        try:
+            with open(geqdsk_filename, "rt") as f:
+                self.eq_data = tokamak.just_read_geqdsk(f)
+        except (ValueError, RuntimeError) as e:
+            error_message = QErrorMessage()
+            error_message.showMessage(str(e))
+            error_message.exec_()
+            return
+
+        self.R2D, self.Z2D = np.meshgrid(
+            self.eq_data["R1D"], self.eq_data["Z1D"], indexing="ij"
+        )
+        self.opoints, self.xpoints = critical.find_critical(
+            self.R2D, self.Z2D, self.eq_data["psi2D"]
+        )
+        self.eq_data["psi_axis"] = self.opoints[0][2]
+        self.eq_data["psi_sep"] = [x[2] for x in self.xpoints]
+        self.eq_data["Rmin"] = min(self.eq_data["R1D"])
+        self.eq_data["Rmax"] = max(self.eq_data["R1D"])
+        self.eq_data["Zmin"] = min(self.eq_data["Z1D"])
+        self.eq_data["Zmax"] = max(self.eq_data["Z1D"])
+
+        min_psi = self.eq_data["psi2D"].min()
+        max_psi = self.eq_data["psi2D"].max()
+
+        def setup_psi_widget(widget):
+            widget.setRange(min_psi, max_psi)
+            widget.setDecimals(4)
+            widget.setSingleStep(0.0001)
+
+        def setup_psinorm_widget(widget):
+            widget.setDecimals(4)
+            widget.setSingleStep(0.01)
+
+        for contour in self.psi_contours.values():
+            setup_psi_widget(contour["unnorm_widget"])
+            setup_psinorm_widget(contour["norm_widget"])
+
+        self.psinorm_coreDoubleSpinBox.setValue(
+            tokamak.TokamakEquilibrium.default_options["psinorm_core"]
+        )
+        self.psinorm_solDoubleSpinBox.setValue(
+            tokamak.TokamakEquilibrium.default_options["psinorm_sol"]
+        )
+
+        self.plot_equilibrium()
+
+    def deal_with_separate_psi_contour(self, state, name):
+        checked = state == Qt.Checked
+
+        contour = self.psi_contours[name]
+        parent = self.psi_contours[contour["parent"]]
+
+        self._remove_contour_from_plot(name, redraw=True)
+
+        contour["norm_widget"].setEnabled(checked)
+        contour["unnorm_widget"].setEnabled(checked)
+        contour["enabled"] = checked
+
+        if checked:
+            parent["norm_widget"].valueChanged.disconnect(
+                contour["norm_widget"].setValue
+            )
+            parent["unnorm_widget"].valueChanged.disconnect(
+                contour["unnorm_widget"].setValue
+            )
+        else:
+            parent["norm_widget"].valueChanged.connect(contour["norm_widget"].setValue)
+            parent["unnorm_widget"].valueChanged.connect(
+                contour["unnorm_widget"].setValue
+            )
+            contour["norm_widget"].setValue(parent["norm_widget"].value())
+            contour["unnorm_widget"].setValue(parent["unnorm_widget"].value())
+            try:
+                del self.options["psi_" + name]
+            except KeyError:
+                pass
+
+    def _remove_contour_from_plot(self, name, redraw=False):
+        """Remove named psi contour from equilibrium plot
+
+        """
+        try:
+            self.psi_contours[name]["plot"].collections[0].remove()
+            del self.psi_contours[name]["plot"]
+            if redraw:
+                self.equilibrium_plot_widget.canvas.draw()
+        except KeyError:
+            pass
+
+    def plot_equilibrium(self):
+        """Plot preliminary-equilibrium and psi contours
+        """
+        for contour in self.psi_contours:
+            self._remove_contour_from_plot(contour)
+
+        self.equilibrium_plot_widget.clear()
+
+        if not hasattr(self, "eq_data"):
+            return
+        self.statusbar.showMessage("plotting equilibrium", 2000)
+        self.equilibrium_plot_widget.axes.contour(
+            self.eq_data["R1D"], self.eq_data["Z1D"], self.eq_data["psi2D"].T, levels=40
+        )
+        for num, opoint in enumerate(self.opoints):
+            self.equilibrium_plot_widget.axes.plot(
+                opoint[0], opoint[1], "o", label=f"O-point {num}"
+            )
+        for num, xpoint in enumerate(self.xpoints):
+            self.equilibrium_plot_widget.axes.plot(
+                xpoint[0], xpoint[1], "x", label=f"X-point {num}"
+            )
+        self.equilibrium_plot_widget.canvas.draw()
+
+        for contour in self.psi_contours:
+            self.plot_single_psi_contour(contour)
+
+    def update_linked_psi(self, value, name, direction):
+        """Update the value of the normalised/unnormalised psi widget
+
+        """
+        contour = self.psi_contours[name]
+        widget = direction + "_widget"
+        slot = direction + "_slot"
+
+        if direction == "norm":
+            conversion = psi_to_psinorm
+        elif direction == "unnorm":
+            conversion = psinorm_to_psi
+        else:
+            raise ValueError("Direction must be 'unnorm' or 'norm'")
+
+        with disconnected(contour[widget].valueChanged, contour[slot]):
+            contour[widget].setValue(
+                conversion(value, self.eq_data["psi_axis"], self.eq_data["psi_sep"])
+            )
+        self.plot_single_psi_contour(name)
+
+    def plot_single_psi_contour(self, name):
+        """Plot a single psi contour onto the equilibrium plot
+        """
+        if not hasattr(self, "eq_data"):
+            return
+
+        self._remove_contour_from_plot(name)
+
+        # Nicer local name
+        contour = self.psi_contours[name]
+
+        if not contour["enabled"]:
+            return
+
+        self.psi_contours[name]["plot"] = self.equilibrium_plot_widget.axes.contour(
+            self.eq_data["R1D"],
+            self.eq_data["Z1D"],
+            self.eq_data["psi2D"].T,
+            levels=[contour["unnorm_widget"].value()],
+            colors="k",
+            linewidths=3,
+            linestyles=contour["style"],
+        )
+
+        self.equilibrium_plot_widget.canvas.draw()
 
 
 class Preferences(QDialog, Ui_Preferences):

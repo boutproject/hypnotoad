@@ -113,22 +113,245 @@ class Ui_Hypnotoad(object):
         self.action_Revert.setIcon(icon8)
         self.action_Preferences = QAction(Hypnotoad)
         self.action_Preferences.setObjectName(u"action_Preferences")
-        icon9 = QIcon(QIcon.fromTheme(u"document-properties"))
+        icon9 = QIcon()
+        iconThemeName = u"document-properties"
+        if QIcon.hasThemeIcon(iconThemeName):
+            icon9 = QIcon.fromTheme(iconThemeName)
+        else:
+            icon9.addFile(u".", QSize(), QIcon.Normal, QIcon.Off)
+
         self.action_Preferences.setIcon(icon9)
         self.centralwidget = QWidget(Hypnotoad)
         self.centralwidget.setObjectName(u"centralwidget")
-        self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
+        self.verticalLayout = QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.tabWidget = QTabWidget(self.centralwidget)
+        self.tabWidget.setObjectName(u"tabWidget")
+        self.equilibrium_tab = QWidget()
+        self.equilibrium_tab.setObjectName(u"equilibrium_tab")
+        self.horizontalLayout_2 = QHBoxLayout(self.equilibrium_tab)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.verticalLayout_5 = QVBoxLayout()
+        self.verticalLayout_5.setObjectName(u"verticalLayout_5")
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.eq_geqdsk_label = QLabel(self.equilibrium_tab)
+        self.eq_geqdsk_label.setObjectName(u"eq_geqdsk_label")
+
+        self.horizontalLayout_4.addWidget(self.eq_geqdsk_label)
+
+        self.eq_geqdsk_lineedit = QLineEdit(self.equilibrium_tab)
+        self.eq_geqdsk_lineedit.setObjectName(u"eq_geqdsk_lineedit")
+
+        self.horizontalLayout_4.addWidget(self.eq_geqdsk_lineedit)
+
+        self.eq_geqdsk_browse = QPushButton(self.equilibrium_tab)
+        self.eq_geqdsk_browse.setObjectName(u"eq_geqdsk_browse")
+
+        self.horizontalLayout_4.addWidget(self.eq_geqdsk_browse)
+
+
+        self.verticalLayout_5.addLayout(self.horizontalLayout_4)
+
+        self.normalised_psi_box = QGroupBox(self.equilibrium_tab)
+        self.normalised_psi_box.setObjectName(u"normalised_psi_box")
+        self.formLayoutWidget = QWidget(self.normalised_psi_box)
+        self.formLayoutWidget.setObjectName(u"formLayoutWidget")
+        self.formLayoutWidget.setGeometry(QRect(10, 30, 361, 263))
+        self.formLayout_2 = QFormLayout(self.formLayoutWidget)
+        self.formLayout_2.setObjectName(u"formLayout_2")
+        self.formLayout_2.setSizeConstraint(QLayout.SetDefaultConstraint)
+        self.formLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.psinorm_coreLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_coreLabel.setObjectName(u"psinorm_coreLabel")
+
+        self.formLayout_2.setWidget(1, QFormLayout.LabelRole, self.psinorm_coreLabel)
+
+        self.psinorm_coreDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_coreDoubleSpinBox.setObjectName(u"psinorm_coreDoubleSpinBox")
+
+        self.formLayout_2.setWidget(1, QFormLayout.FieldRole, self.psinorm_coreDoubleSpinBox)
+
+        self.psinorm_solLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_solLabel.setObjectName(u"psinorm_solLabel")
+
+        self.formLayout_2.setWidget(2, QFormLayout.LabelRole, self.psinorm_solLabel)
+
+        self.psinorm_solDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_solDoubleSpinBox.setObjectName(u"psinorm_solDoubleSpinBox")
+
+        self.formLayout_2.setWidget(2, QFormLayout.FieldRole, self.psinorm_solDoubleSpinBox)
+
+        self.separateInnerSolLabel = QLabel(self.formLayoutWidget)
+        self.separateInnerSolLabel.setObjectName(u"separateInnerSolLabel")
+
+        self.formLayout_2.setWidget(3, QFormLayout.LabelRole, self.separateInnerSolLabel)
+
+        self.separateInnerSolCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separateInnerSolCheckBox.setObjectName(u"separateInnerSolCheckBox")
+
+        self.formLayout_2.setWidget(3, QFormLayout.FieldRole, self.separateInnerSolCheckBox)
+
+        self.innerSolLabel = QLabel(self.formLayoutWidget)
+        self.innerSolLabel.setObjectName(u"innerSolLabel")
+
+        self.formLayout_2.setWidget(4, QFormLayout.LabelRole, self.innerSolLabel)
+
+        self.psinorm_sol_innerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_sol_innerDoubleSpinBox.setObjectName(u"psinorm_sol_innerDoubleSpinBox")
+
+        self.formLayout_2.setWidget(4, QFormLayout.FieldRole, self.psinorm_sol_innerDoubleSpinBox)
+
+        self.separatePrivateFluxLabel = QLabel(self.formLayoutWidget)
+        self.separatePrivateFluxLabel.setObjectName(u"separatePrivateFluxLabel")
+
+        self.formLayout_2.setWidget(5, QFormLayout.LabelRole, self.separatePrivateFluxLabel)
+
+        self.separatePrivateFluxCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separatePrivateFluxCheckBox.setObjectName(u"separatePrivateFluxCheckBox")
+
+        self.formLayout_2.setWidget(5, QFormLayout.FieldRole, self.separatePrivateFluxCheckBox)
+
+        self.psinorm_pfLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pfLabel.setObjectName(u"psinorm_pfLabel")
+
+        self.formLayout_2.setWidget(6, QFormLayout.LabelRole, self.psinorm_pfLabel)
+
+        self.psinorm_pfDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pfDoubleSpinBox.setObjectName(u"psinorm_pfDoubleSpinBox")
+
+        self.formLayout_2.setWidget(6, QFormLayout.FieldRole, self.psinorm_pfDoubleSpinBox)
+
+        self.separateInnerPrivateFluxLabel = QLabel(self.formLayoutWidget)
+        self.separateInnerPrivateFluxLabel.setObjectName(u"separateInnerPrivateFluxLabel")
+
+        self.formLayout_2.setWidget(7, QFormLayout.LabelRole, self.separateInnerPrivateFluxLabel)
+
+        self.separate_upper_lowerPrivateFluxCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separate_upper_lowerPrivateFluxCheckBox.setObjectName(u"separate_upper_lowerPrivateFluxCheckBox")
+
+        self.formLayout_2.setWidget(7, QFormLayout.FieldRole, self.separate_upper_lowerPrivateFluxCheckBox)
+
+        self.psinorm_pf_upperLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pf_upperLabel.setObjectName(u"psinorm_pf_upperLabel")
+
+        self.formLayout_2.setWidget(8, QFormLayout.LabelRole, self.psinorm_pf_upperLabel)
+
+        self.psinorm_pf_upperDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pf_upperDoubleSpinBox.setObjectName(u"psinorm_pf_upperDoubleSpinBox")
+
+        self.formLayout_2.setWidget(8, QFormLayout.FieldRole, self.psinorm_pf_upperDoubleSpinBox)
+
+        self.psinorm_pf_lowerLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pf_lowerLabel.setObjectName(u"psinorm_pf_lowerLabel")
+
+        self.formLayout_2.setWidget(9, QFormLayout.LabelRole, self.psinorm_pf_lowerLabel)
+
+        self.psinorm_pf_lowerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pf_lowerDoubleSpinBox.setObjectName(u"psinorm_pf_lowerDoubleSpinBox")
+
+        self.formLayout_2.setWidget(9, QFormLayout.FieldRole, self.psinorm_pf_lowerDoubleSpinBox)
+
+
+        self.verticalLayout_5.addWidget(self.normalised_psi_box)
+
+        self.unnormalised_psi_box = QGroupBox(self.equilibrium_tab)
+        self.unnormalised_psi_box.setObjectName(u"unnormalised_psi_box")
+        self.formLayoutWidget_2 = QWidget(self.unnormalised_psi_box)
+        self.formLayoutWidget_2.setObjectName(u"formLayoutWidget_2")
+        self.formLayoutWidget_2.setGeometry(QRect(10, 20, 361, 217))
+        self.formLayout_4 = QFormLayout(self.formLayoutWidget_2)
+        self.formLayout_4.setObjectName(u"formLayout_4")
+        self.formLayout_4.setSizeConstraint(QLayout.SetMaximumSize)
+        self.formLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.psi_coreLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_coreLabel.setObjectName(u"psi_coreLabel")
+
+        self.formLayout_4.setWidget(0, QFormLayout.LabelRole, self.psi_coreLabel)
+
+        self.psi_coreDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_coreDoubleSpinBox.setObjectName(u"psi_coreDoubleSpinBox")
+
+        self.formLayout_4.setWidget(0, QFormLayout.FieldRole, self.psi_coreDoubleSpinBox)
+
+        self.psi_solLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_solLabel.setObjectName(u"psi_solLabel")
+
+        self.formLayout_4.setWidget(1, QFormLayout.LabelRole, self.psi_solLabel)
+
+        self.psi_solDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_solDoubleSpinBox.setObjectName(u"psi_solDoubleSpinBox")
+
+        self.formLayout_4.setWidget(1, QFormLayout.FieldRole, self.psi_solDoubleSpinBox)
+
+        self.psi_sol_innerLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_sol_innerLabel.setObjectName(u"psi_sol_innerLabel")
+
+        self.formLayout_4.setWidget(2, QFormLayout.LabelRole, self.psi_sol_innerLabel)
+
+        self.psi_sol_innerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_sol_innerDoubleSpinBox.setObjectName(u"psi_sol_innerDoubleSpinBox")
+
+        self.formLayout_4.setWidget(2, QFormLayout.FieldRole, self.psi_sol_innerDoubleSpinBox)
+
+        self.psi_pf_upperLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pf_upperLabel.setObjectName(u"psi_pf_upperLabel")
+
+        self.formLayout_4.setWidget(4, QFormLayout.LabelRole, self.psi_pf_upperLabel)
+
+        self.psi_pf_upperDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pf_upperDoubleSpinBox.setObjectName(u"psi_pf_upperDoubleSpinBox")
+
+        self.formLayout_4.setWidget(4, QFormLayout.FieldRole, self.psi_pf_upperDoubleSpinBox)
+
+        self.psi_pf_lowerLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pf_lowerLabel.setObjectName(u"psi_pf_lowerLabel")
+
+        self.formLayout_4.setWidget(5, QFormLayout.LabelRole, self.psi_pf_lowerLabel)
+
+        self.psi_pf_lowerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pf_lowerDoubleSpinBox.setObjectName(u"psi_pf_lowerDoubleSpinBox")
+
+        self.formLayout_4.setWidget(5, QFormLayout.FieldRole, self.psi_pf_lowerDoubleSpinBox)
+
+        self.psi_pfLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pfLabel.setObjectName(u"psi_pfLabel")
+
+        self.formLayout_4.setWidget(3, QFormLayout.LabelRole, self.psi_pfLabel)
+
+        self.psi_pfDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pfDoubleSpinBox.setObjectName(u"psi_pfDoubleSpinBox")
+
+        self.formLayout_4.setWidget(3, QFormLayout.FieldRole, self.psi_pfDoubleSpinBox)
+
+
+        self.verticalLayout_5.addWidget(self.unnormalised_psi_box)
+
+
+        self.horizontalLayout_2.addLayout(self.verticalLayout_5)
+
+        self.equilibrium_plotting_area = QFrame(self.equilibrium_tab)
+        self.equilibrium_plotting_area.setObjectName(u"equilibrium_plotting_area")
+        self.equilibrium_plotting_area.setFrameShape(QFrame.StyledPanel)
+        self.equilibrium_plotting_area.setFrameShadow(QFrame.Raised)
+
+        self.horizontalLayout_2.addWidget(self.equilibrium_plotting_area)
+
+        self.tabWidget.addTab(self.equilibrium_tab, "")
+        self.mesh_tab = QWidget()
+        self.mesh_tab.setObjectName(u"mesh_tab")
+        self.verticalLayout_3 = QVBoxLayout(self.mesh_tab)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.search_bar = QLineEdit(self.centralwidget)
+        self.search_bar = QLineEdit(self.mesh_tab)
         self.search_bar.setObjectName(u"search_bar")
 
         self.verticalLayout_2.addWidget(self.search_bar)
 
-        self.options_form = QTableWidget(self.centralwidget)
+        self.options_form = QTableWidget(self.mesh_tab)
         if (self.options_form.columnCount() < 2):
             self.options_form.setColumnCount(2)
         __qtablewidgetitem = QTableWidgetItem()
@@ -141,42 +364,42 @@ class Ui_Hypnotoad(object):
 
         self.horizontalLayout_3 = QHBoxLayout()
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.options_file_label = QLabel(self.centralwidget)
+        self.options_file_label = QLabel(self.mesh_tab)
         self.options_file_label.setObjectName(u"options_file_label")
 
         self.horizontalLayout_3.addWidget(self.options_file_label)
 
-        self.options_file_line_edit = QLineEdit(self.centralwidget)
+        self.options_file_line_edit = QLineEdit(self.mesh_tab)
         self.options_file_line_edit.setObjectName(u"options_file_line_edit")
 
         self.horizontalLayout_3.addWidget(self.options_file_line_edit)
 
-        self.options_file_browse_button = QPushButton(self.centralwidget)
+        self.options_file_browse_button = QPushButton(self.mesh_tab)
         self.options_file_browse_button.setObjectName(u"options_file_browse_button")
 
         self.horizontalLayout_3.addWidget(self.options_file_browse_button)
 
-        self.geqdsk_file_label = QLabel(self.centralwidget)
+        self.geqdsk_file_label = QLabel(self.mesh_tab)
         self.geqdsk_file_label.setObjectName(u"geqdsk_file_label")
 
         self.horizontalLayout_3.addWidget(self.geqdsk_file_label)
 
-        self.geqdsk_file_line_edit = QLineEdit(self.centralwidget)
+        self.geqdsk_file_line_edit = QLineEdit(self.mesh_tab)
         self.geqdsk_file_line_edit.setObjectName(u"geqdsk_file_line_edit")
 
         self.horizontalLayout_3.addWidget(self.geqdsk_file_line_edit)
 
-        self.geqdsk_file_browse_button = QPushButton(self.centralwidget)
+        self.geqdsk_file_browse_button = QPushButton(self.mesh_tab)
         self.geqdsk_file_browse_button.setObjectName(u"geqdsk_file_browse_button")
 
         self.horizontalLayout_3.addWidget(self.geqdsk_file_browse_button)
 
-        self.run_button = QPushButton(self.centralwidget)
+        self.run_button = QPushButton(self.mesh_tab)
         self.run_button.setObjectName(u"run_button")
 
         self.horizontalLayout_3.addWidget(self.run_button)
 
-        self.write_grid_button = QPushButton(self.centralwidget)
+        self.write_grid_button = QPushButton(self.mesh_tab)
         self.write_grid_button.setObjectName(u"write_grid_button")
 
         self.horizontalLayout_3.addWidget(self.write_grid_button)
@@ -187,13 +410,17 @@ class Ui_Hypnotoad(object):
 
         self.horizontalLayout.addLayout(self.verticalLayout_2)
 
-        self.plottingArea = QWidget(self.centralwidget)
+        self.plottingArea = QFrame(self.mesh_tab)
         self.plottingArea.setObjectName(u"plottingArea")
 
         self.horizontalLayout.addWidget(self.plottingArea)
 
 
-        self.horizontalLayout_2.addLayout(self.horizontalLayout)
+        self.verticalLayout_3.addLayout(self.horizontalLayout)
+
+        self.tabWidget.addTab(self.mesh_tab, "")
+
+        self.verticalLayout.addWidget(self.tabWidget)
 
         Hypnotoad.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(Hypnotoad)
@@ -236,6 +463,9 @@ class Ui_Hypnotoad(object):
 
         self.retranslateUi(Hypnotoad)
 
+        self.tabWidget.setCurrentIndex(0)
+
+
         QMetaObject.connectSlotsByName(Hypnotoad)
     # setupUi
 
@@ -275,6 +505,26 @@ class Ui_Hypnotoad(object):
 #endif // QT_CONFIG(shortcut)
         self.action_Revert.setText(QCoreApplication.translate("Hypnotoad", u"&Revert", None))
         self.action_Preferences.setText(QCoreApplication.translate("Hypnotoad", u"&Preferences...", None))
+        self.eq_geqdsk_label.setText(QCoreApplication.translate("Hypnotoad", u"geqdsk file", None))
+        self.eq_geqdsk_browse.setText(QCoreApplication.translate("Hypnotoad", u"Browse", None))
+        self.normalised_psi_box.setTitle(QCoreApplication.translate("Hypnotoad", u"Normalised Psi", None))
+        self.psinorm_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"Core", None))
+        self.psinorm_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"SOL", None))
+        self.separateInnerSolLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate inner SOL", None))
+        self.innerSolLabel.setText(QCoreApplication.translate("Hypnotoad", u"Inner SOL", None))
+        self.separatePrivateFluxLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate private flux", None))
+        self.psinorm_pfLabel.setText(QCoreApplication.translate("Hypnotoad", u"PF", None))
+        self.separateInnerPrivateFluxLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate upper/lower private flux", None))
+        self.psinorm_pf_upperLabel.setText(QCoreApplication.translate("Hypnotoad", u"Upper PF", None))
+        self.psinorm_pf_lowerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Lower PF", None))
+        self.unnormalised_psi_box.setTitle(QCoreApplication.translate("Hypnotoad", u"Unormalised Psi", None))
+        self.psi_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"Core", None))
+        self.psi_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"SOL", None))
+        self.psi_sol_innerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Inner sol", None))
+        self.psi_pf_upperLabel.setText(QCoreApplication.translate("Hypnotoad", u"Lower PF", None))
+        self.psi_pf_lowerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Upper PF", None))
+        self.psi_pfLabel.setText(QCoreApplication.translate("Hypnotoad", u"PF", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.equilibrium_tab), QCoreApplication.translate("Hypnotoad", u"&Equilibrium", None))
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad", u"Name", None));
         ___qtablewidgetitem1 = self.options_form.horizontalHeaderItem(1)
@@ -285,6 +535,7 @@ class Ui_Hypnotoad(object):
         self.geqdsk_file_browse_button.setText(QCoreApplication.translate("Hypnotoad", u"Browse", None))
         self.run_button.setText(QCoreApplication.translate("Hypnotoad", u"Run", None))
         self.write_grid_button.setText(QCoreApplication.translate("Hypnotoad", u"Write Grid", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.mesh_tab), QCoreApplication.translate("Hypnotoad", u"&Mesh", None))
         self.menu_File.setTitle(QCoreApplication.translate("Hypnotoad", u"&File", None))
         self.menu_Help.setTitle(QCoreApplication.translate("Hypnotoad", u"&Help", None))
         self.menu_Mesh.setTitle(QCoreApplication.translate("Hypnotoad", u"&Mesh", None))

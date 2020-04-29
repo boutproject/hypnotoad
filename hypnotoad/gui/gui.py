@@ -793,10 +793,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.equilibrium_plot_widget.axes.contour(
             self.eq_data["R1D"], self.eq_data["Z1D"], self.eq_data["psi2D"].T, levels=40
         )
-        for opoint in self.opoints:
-            self.equilibrium_plot_widget.axes.plot(opoint[0], opoint[1], "o")
-        for xpoint in self.xpoints:
-            self.equilibrium_plot_widget.axes.plot(xpoint[0], xpoint[1], "x")
+        for num, opoint in enumerate(self.opoints):
+            self.equilibrium_plot_widget.axes.plot(
+                opoint[0], opoint[1], "o", label=f"O-point {num}"
+            )
+        for num, xpoint in enumerate(self.xpoints):
+            self.equilibrium_plot_widget.axes.plot(
+                xpoint[0], xpoint[1], "x", label=f"X-point {num}"
+            )
         self.equilibrium_plot_widget.canvas.draw()
 
         for contour in self.psi_contours:

@@ -58,8 +58,8 @@
               <rect>
                <x>10</x>
                <y>30</y>
-               <width>241</width>
-               <height>191</height>
+               <width>361</width>
+               <height>263</height>
               </rect>
              </property>
              <layout class="QFormLayout" name="formLayout_2">
@@ -69,7 +69,7 @@
               <item row="1" column="0">
                <widget class="QLabel" name="psinorm_coreLabel">
                 <property name="text">
-                 <string>core</string>
+                 <string>Core</string>
                 </property>
                </widget>
               </item>
@@ -79,12 +79,82 @@
               <item row="2" column="0">
                <widget class="QLabel" name="psinorm_solLabel">
                 <property name="text">
-                 <string>sol</string>
+                 <string>SOL</string>
                 </property>
                </widget>
               </item>
               <item row="2" column="1">
                <widget class="QDoubleSpinBox" name="psinorm_solDoubleSpinBox"/>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="separateInnerSolLabel">
+                <property name="text">
+                 <string>Separate inner SOL</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QCheckBox" name="separateInnerSolCheckBox"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="innerSolLabel">
+                <property name="text">
+                 <string>Inner SOL</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QDoubleSpinBox" name="psinorm_sol_innerDoubleSpinBox"/>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="separatePrivateFluxLabel">
+                <property name="text">
+                 <string>Separate private flux</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QCheckBox" name="separatePrivateFluxCheckBox"/>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="psinorm_pfLabel">
+                <property name="text">
+                 <string>PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1">
+               <widget class="QDoubleSpinBox" name="psinorm_pfDoubleSpinBox"/>
+              </item>
+              <item row="7" column="0">
+               <widget class="QLabel" name="separateInnerPrivateFluxLabel">
+                <property name="text">
+                 <string>Separate upper/lower private flux</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="1">
+               <widget class="QCheckBox" name="separate_upper_lowerPrivateFluxCheckBox"/>
+              </item>
+              <item row="8" column="0">
+               <widget class="QLabel" name="psinorm_pf_upperLabel">
+                <property name="text">
+                 <string>Upper PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QDoubleSpinBox" name="psinorm_pf_upperDoubleSpinBox"/>
+              </item>
+              <item row="9" column="0">
+               <widget class="QLabel" name="psinorm_pf_lowerLabel">
+                <property name="text">
+                 <string>Lower PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="1">
+               <widget class="QDoubleSpinBox" name="psinorm_pf_lowerDoubleSpinBox"/>
               </item>
              </layout>
             </widget>
@@ -99,9 +169,9 @@
              <property name="geometry">
               <rect>
                <x>10</x>
-               <y>30</y>
-               <width>241</width>
-               <height>201</height>
+               <y>20</y>
+               <width>361</width>
+               <height>217</height>
               </rect>
              </property>
              <layout class="QFormLayout" name="formLayout_4">
@@ -111,7 +181,7 @@
               <item row="0" column="0">
                <widget class="QLabel" name="psi_coreLabel">
                 <property name="text">
-                 <string>core</string>
+                 <string>Core</string>
                 </property>
                </widget>
               </item>
@@ -121,12 +191,52 @@
               <item row="1" column="0">
                <widget class="QLabel" name="psi_solLabel">
                 <property name="text">
-                 <string>sol</string>
+                 <string>SOL</string>
                 </property>
                </widget>
               </item>
               <item row="1" column="1">
                <widget class="QDoubleSpinBox" name="psi_solDoubleSpinBox"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="psi_sol_innerLabel">
+                <property name="text">
+                 <string>Inner sol</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QDoubleSpinBox" name="psi_sol_innerDoubleSpinBox"/>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="psi_pf_upperLabel">
+                <property name="text">
+                 <string>Lower PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QDoubleSpinBox" name="psi_pf_upperDoubleSpinBox"/>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="psi_pf_lowerLabel">
+                <property name="text">
+                 <string>Upper PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QDoubleSpinBox" name="psi_pf_lowerDoubleSpinBox"/>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="psi_pfLabel">
+                <property name="text">
+                 <string>PF</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QDoubleSpinBox" name="psi_pfDoubleSpinBox"/>
               </item>
              </layout>
             </widget>

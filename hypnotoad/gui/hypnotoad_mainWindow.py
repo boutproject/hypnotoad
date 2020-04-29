@@ -157,7 +157,7 @@ class Ui_Hypnotoad(object):
         self.normalised_psi_box.setObjectName(u"normalised_psi_box")
         self.formLayoutWidget = QWidget(self.normalised_psi_box)
         self.formLayoutWidget.setObjectName(u"formLayoutWidget")
-        self.formLayoutWidget.setGeometry(QRect(10, 30, 241, 191))
+        self.formLayoutWidget.setGeometry(QRect(10, 30, 361, 263))
         self.formLayout_2 = QFormLayout(self.formLayoutWidget)
         self.formLayout_2.setObjectName(u"formLayout_2")
         self.formLayout_2.setSizeConstraint(QLayout.SetDefaultConstraint)
@@ -182,6 +182,76 @@ class Ui_Hypnotoad(object):
 
         self.formLayout_2.setWidget(2, QFormLayout.FieldRole, self.psinorm_solDoubleSpinBox)
 
+        self.separateInnerSolLabel = QLabel(self.formLayoutWidget)
+        self.separateInnerSolLabel.setObjectName(u"separateInnerSolLabel")
+
+        self.formLayout_2.setWidget(3, QFormLayout.LabelRole, self.separateInnerSolLabel)
+
+        self.separateInnerSolCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separateInnerSolCheckBox.setObjectName(u"separateInnerSolCheckBox")
+
+        self.formLayout_2.setWidget(3, QFormLayout.FieldRole, self.separateInnerSolCheckBox)
+
+        self.innerSolLabel = QLabel(self.formLayoutWidget)
+        self.innerSolLabel.setObjectName(u"innerSolLabel")
+
+        self.formLayout_2.setWidget(4, QFormLayout.LabelRole, self.innerSolLabel)
+
+        self.psinorm_sol_innerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_sol_innerDoubleSpinBox.setObjectName(u"psinorm_sol_innerDoubleSpinBox")
+
+        self.formLayout_2.setWidget(4, QFormLayout.FieldRole, self.psinorm_sol_innerDoubleSpinBox)
+
+        self.separatePrivateFluxLabel = QLabel(self.formLayoutWidget)
+        self.separatePrivateFluxLabel.setObjectName(u"separatePrivateFluxLabel")
+
+        self.formLayout_2.setWidget(5, QFormLayout.LabelRole, self.separatePrivateFluxLabel)
+
+        self.separatePrivateFluxCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separatePrivateFluxCheckBox.setObjectName(u"separatePrivateFluxCheckBox")
+
+        self.formLayout_2.setWidget(5, QFormLayout.FieldRole, self.separatePrivateFluxCheckBox)
+
+        self.psinorm_pfLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pfLabel.setObjectName(u"psinorm_pfLabel")
+
+        self.formLayout_2.setWidget(6, QFormLayout.LabelRole, self.psinorm_pfLabel)
+
+        self.psinorm_pfDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pfDoubleSpinBox.setObjectName(u"psinorm_pfDoubleSpinBox")
+
+        self.formLayout_2.setWidget(6, QFormLayout.FieldRole, self.psinorm_pfDoubleSpinBox)
+
+        self.separateInnerPrivateFluxLabel = QLabel(self.formLayoutWidget)
+        self.separateInnerPrivateFluxLabel.setObjectName(u"separateInnerPrivateFluxLabel")
+
+        self.formLayout_2.setWidget(7, QFormLayout.LabelRole, self.separateInnerPrivateFluxLabel)
+
+        self.separate_upper_lowerPrivateFluxCheckBox = QCheckBox(self.formLayoutWidget)
+        self.separate_upper_lowerPrivateFluxCheckBox.setObjectName(u"separate_upper_lowerPrivateFluxCheckBox")
+
+        self.formLayout_2.setWidget(7, QFormLayout.FieldRole, self.separate_upper_lowerPrivateFluxCheckBox)
+
+        self.psinorm_pf_upperLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pf_upperLabel.setObjectName(u"psinorm_pf_upperLabel")
+
+        self.formLayout_2.setWidget(8, QFormLayout.LabelRole, self.psinorm_pf_upperLabel)
+
+        self.psinorm_pf_upperDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pf_upperDoubleSpinBox.setObjectName(u"psinorm_pf_upperDoubleSpinBox")
+
+        self.formLayout_2.setWidget(8, QFormLayout.FieldRole, self.psinorm_pf_upperDoubleSpinBox)
+
+        self.psinorm_pf_lowerLabel = QLabel(self.formLayoutWidget)
+        self.psinorm_pf_lowerLabel.setObjectName(u"psinorm_pf_lowerLabel")
+
+        self.formLayout_2.setWidget(9, QFormLayout.LabelRole, self.psinorm_pf_lowerLabel)
+
+        self.psinorm_pf_lowerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget)
+        self.psinorm_pf_lowerDoubleSpinBox.setObjectName(u"psinorm_pf_lowerDoubleSpinBox")
+
+        self.formLayout_2.setWidget(9, QFormLayout.FieldRole, self.psinorm_pf_lowerDoubleSpinBox)
+
 
         self.verticalLayout_5.addWidget(self.normalised_psi_box)
 
@@ -189,7 +259,7 @@ class Ui_Hypnotoad(object):
         self.unnormalised_psi_box.setObjectName(u"unnormalised_psi_box")
         self.formLayoutWidget_2 = QWidget(self.unnormalised_psi_box)
         self.formLayoutWidget_2.setObjectName(u"formLayoutWidget_2")
-        self.formLayoutWidget_2.setGeometry(QRect(10, 30, 241, 201))
+        self.formLayoutWidget_2.setGeometry(QRect(10, 20, 361, 217))
         self.formLayout_4 = QFormLayout(self.formLayoutWidget_2)
         self.formLayout_4.setObjectName(u"formLayout_4")
         self.formLayout_4.setSizeConstraint(QLayout.SetMaximumSize)
@@ -213,6 +283,46 @@ class Ui_Hypnotoad(object):
         self.psi_solDoubleSpinBox.setObjectName(u"psi_solDoubleSpinBox")
 
         self.formLayout_4.setWidget(1, QFormLayout.FieldRole, self.psi_solDoubleSpinBox)
+
+        self.psi_sol_innerLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_sol_innerLabel.setObjectName(u"psi_sol_innerLabel")
+
+        self.formLayout_4.setWidget(2, QFormLayout.LabelRole, self.psi_sol_innerLabel)
+
+        self.psi_sol_innerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_sol_innerDoubleSpinBox.setObjectName(u"psi_sol_innerDoubleSpinBox")
+
+        self.formLayout_4.setWidget(2, QFormLayout.FieldRole, self.psi_sol_innerDoubleSpinBox)
+
+        self.psi_pf_upperLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pf_upperLabel.setObjectName(u"psi_pf_upperLabel")
+
+        self.formLayout_4.setWidget(4, QFormLayout.LabelRole, self.psi_pf_upperLabel)
+
+        self.psi_pf_upperDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pf_upperDoubleSpinBox.setObjectName(u"psi_pf_upperDoubleSpinBox")
+
+        self.formLayout_4.setWidget(4, QFormLayout.FieldRole, self.psi_pf_upperDoubleSpinBox)
+
+        self.psi_pf_lowerLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pf_lowerLabel.setObjectName(u"psi_pf_lowerLabel")
+
+        self.formLayout_4.setWidget(5, QFormLayout.LabelRole, self.psi_pf_lowerLabel)
+
+        self.psi_pf_lowerDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pf_lowerDoubleSpinBox.setObjectName(u"psi_pf_lowerDoubleSpinBox")
+
+        self.formLayout_4.setWidget(5, QFormLayout.FieldRole, self.psi_pf_lowerDoubleSpinBox)
+
+        self.psi_pfLabel = QLabel(self.formLayoutWidget_2)
+        self.psi_pfLabel.setObjectName(u"psi_pfLabel")
+
+        self.formLayout_4.setWidget(3, QFormLayout.LabelRole, self.psi_pfLabel)
+
+        self.psi_pfDoubleSpinBox = QDoubleSpinBox(self.formLayoutWidget_2)
+        self.psi_pfDoubleSpinBox.setObjectName(u"psi_pfDoubleSpinBox")
+
+        self.formLayout_4.setWidget(3, QFormLayout.FieldRole, self.psi_pfDoubleSpinBox)
 
 
         self.verticalLayout_5.addWidget(self.unnormalised_psi_box)
@@ -398,11 +508,22 @@ class Ui_Hypnotoad(object):
         self.eq_geqdsk_label.setText(QCoreApplication.translate("Hypnotoad", u"geqdsk file", None))
         self.eq_geqdsk_browse.setText(QCoreApplication.translate("Hypnotoad", u"Browse", None))
         self.normalised_psi_box.setTitle(QCoreApplication.translate("Hypnotoad", u"Normalised Psi", None))
-        self.psinorm_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"core", None))
-        self.psinorm_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"sol", None))
+        self.psinorm_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"Core", None))
+        self.psinorm_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"SOL", None))
+        self.separateInnerSolLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate inner SOL", None))
+        self.innerSolLabel.setText(QCoreApplication.translate("Hypnotoad", u"Inner SOL", None))
+        self.separatePrivateFluxLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate private flux", None))
+        self.psinorm_pfLabel.setText(QCoreApplication.translate("Hypnotoad", u"PF", None))
+        self.separateInnerPrivateFluxLabel.setText(QCoreApplication.translate("Hypnotoad", u"Separate upper/lower private flux", None))
+        self.psinorm_pf_upperLabel.setText(QCoreApplication.translate("Hypnotoad", u"Upper PF", None))
+        self.psinorm_pf_lowerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Lower PF", None))
         self.unnormalised_psi_box.setTitle(QCoreApplication.translate("Hypnotoad", u"Unormalised Psi", None))
-        self.psi_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"core", None))
-        self.psi_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"sol", None))
+        self.psi_coreLabel.setText(QCoreApplication.translate("Hypnotoad", u"Core", None))
+        self.psi_solLabel.setText(QCoreApplication.translate("Hypnotoad", u"SOL", None))
+        self.psi_sol_innerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Inner sol", None))
+        self.psi_pf_upperLabel.setText(QCoreApplication.translate("Hypnotoad", u"Lower PF", None))
+        self.psi_pf_lowerLabel.setText(QCoreApplication.translate("Hypnotoad", u"Upper PF", None))
+        self.psi_pfLabel.setText(QCoreApplication.translate("Hypnotoad", u"PF", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.equilibrium_tab), QCoreApplication.translate("Hypnotoad", u"&Equilibrium", None))
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("Hypnotoad", u"Name", None));

@@ -172,7 +172,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 "norm_slot": lambda value: self.update_linked_psi(
                     value, name="core", direction="unnorm"
                 ),
-                "style": "dashed",
+                "style": "solid",
+                "enabled": True,
             },
             "sol": {
                 "unnorm_widget": self.psi_solDoubleSpinBox,
@@ -183,9 +184,79 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 "norm_slot": lambda value: self.update_linked_psi(
                     value, name="sol", direction="unnorm"
                 ),
+                "style": "dashed",
+                "enabled": True,
+            },
+            "sol_inner": {
+                "unnorm_widget": self.psi_sol_innerDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol_inner", direction="norm"
+                ),
+                "norm_widget": self.psinorm_sol_innerDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol_inner", direction="unnorm"
+                ),
                 "style": "dotted",
+                "enabled": False,
+                "parent": "sol",
+            },
+            "pf": {
+                "unnorm_widget": self.psi_pfDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pfDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "core",
+            },
+            "pf_lower": {
+                "unnorm_widget": self.psi_pf_lowerDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_lower", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pf_lowerDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_lower", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "pf",
+            },
+            "pf_upper": {
+                "unnorm_widget": self.psi_pf_upperDoubleSpinBox,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_upper", direction="norm"
+                ),
+                "norm_widget": self.psinorm_pf_upperDoubleSpinBox,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="pf_upper", direction="unnorm"
+                ),
+                "style": "dashdot",
+                "enabled": False,
+                "parent": "pf",
             },
         }
+
+        self.deal_with_separate_psi_contour(False, "sol_inner")
+        self.separateInnerSolCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="sol_inner")
+        )
+        self.deal_with_separate_psi_contour(False, "pf")
+        self.separatePrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf")
+        )
+        self.deal_with_separate_psi_contour(False, "pf_lower")
+        self.deal_with_separate_psi_contour(False, "pf_upper")
+        self.separate_upper_lowerPrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf_lower")
+        )
+        self.separate_upper_lowerPrivateFluxCheckBox.stateChanged.connect(
+            lambda state: self.deal_with_separate_psi_contour(state, name="pf_upper")
+        )
 
         for contour in self.psi_contours.values():
             contour["unnorm_widget"].valueChanged.connect(contour["unnorm_slot"])
@@ -617,35 +688,73 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         min_psi = self.eq_data["psi2D"].min()
         max_psi = self.eq_data["psi2D"].max()
 
-        self.psi_coreDoubleSpinBox.setRange(min_psi, max_psi)
-        self.psi_coreDoubleSpinBox.setDecimals(4)
-        self.psi_coreDoubleSpinBox.setSingleStep(0.0001)
-        # self.psinorm_coreDoubleSpinBox.setRange(
-        #     psi_to_psinorm(min_psi, self.eq_data["psi_axis"], self.eq_data["psi_sep"]),
-        #     2.0,  # psi_to_psinorm(max_psi, self.eq_data["psi_axis"], self.eq_data["psi_sep"]),
-        # )
-        self.psinorm_coreDoubleSpinBox.setDecimals(4)
-        self.psinorm_coreDoubleSpinBox.setSingleStep(0.01)
+        def setup_psi_widget(widget):
+            widget.setRange(min_psi, max_psi)
+            widget.setDecimals(4)
+            widget.setSingleStep(0.0001)
+
+        def setup_psinorm_widget(widget):
+            widget.setDecimals(4)
+            widget.setSingleStep(0.01)
+
+        for contour in self.psi_contours.values():
+            setup_psi_widget(contour["unnorm_widget"])
+            setup_psinorm_widget(contour["norm_widget"])
+
         self.psinorm_coreDoubleSpinBox.setValue(
             tokamak.TokamakEquilibrium.default_options["psinorm_core"]
         )
-
-        self.psi_solDoubleSpinBox.setRange(min_psi, max_psi)
-        self.psi_solDoubleSpinBox.setDecimals(4)
-        self.psi_solDoubleSpinBox.setSingleStep(0.0001)
-        # self.psinorm_solDoubleSpinBox.setRange(
-        #     psi_to_psinorm(min_psi, self.eq_data["psi_axis"], self.eq_data["psi_sep"]),
-        #     2.0,  # psi_to_psinorm(max_psi, self.eq_data["psi_axis"], self.eq_data["psi_sep"]),
-        # )
-        self.psinorm_solDoubleSpinBox.setDecimals(4)
-        self.psinorm_solDoubleSpinBox.setSingleStep(0.01)
         self.psinorm_solDoubleSpinBox.setValue(
             tokamak.TokamakEquilibrium.default_options["psinorm_sol"]
         )
 
         self.plot_equilibrium()
 
+    def deal_with_separate_psi_contour(self, state, name):
+        checked = state == Qt.Checked
+
+        contour = self.psi_contours[name]
+        parent = self.psi_contours[contour["parent"]]
+
+        self._remove_contour_from_plot(name, redraw=True)
+
+        contour["norm_widget"].setEnabled(checked)
+        contour["unnorm_widget"].setEnabled(checked)
+        contour["enabled"] = checked
+
+        if checked:
+            parent["norm_widget"].valueChanged.disconnect(
+                contour["norm_widget"].setValue
+            )
+            parent["unnorm_widget"].valueChanged.disconnect(
+                contour["unnorm_widget"].setValue
+            )
+        else:
+            parent["norm_widget"].valueChanged.connect(contour["norm_widget"].setValue)
+            parent["unnorm_widget"].valueChanged.connect(
+                contour["unnorm_widget"].setValue
+            )
+            contour["norm_widget"].setValue(parent["norm_widget"].value())
+            contour["unnorm_widget"].setValue(parent["unnorm_widget"].value())
+
+    def _remove_contour_from_plot(self, name, redraw=False):
+        """Remove named psi contour from equilibrium plot
+
+        """
+        try:
+            self.psi_contours[name]["plot"].collections[0].remove()
+            del self.psi_contours[name]["plot"]
+            if redraw:
+                self.equilibrium_plot_widget.canvas.draw()
+        except KeyError:
+            pass
+
     def plot_equilibrium(self):
+        """Plot preliminary-equilibrium and psi contours
+        """
+        for contour in self.psi_contours:
+            self._remove_contour_from_plot(contour)
+
         self.equilibrium_plot_widget.clear()
 
         if not hasattr(self, "eq_data"):
@@ -690,17 +799,15 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         if not hasattr(self, "eq_data"):
             return
 
+        self._remove_contour_from_plot(name)
+
         # Nicer local name
         contour = self.psi_contours[name]
 
-        # Remove the contour before replotting
-        try:
-            contour["plot"].collections[0].remove()
-            del contour["plot"]
-        except KeyError:
-            pass
+        if not contour["enabled"]:
+            return
 
-        contour["plot"] = self.equilibrium_plot_widget.axes.contour(
+        self.psi_contours[name]["plot"] = self.equilibrium_plot_widget.axes.contour(
             self.eq_data["R1D"],
             self.eq_data["Z1D"],
             self.eq_data["psi2D"].T,

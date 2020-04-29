@@ -211,7 +211,7 @@
               <item row="4" column="0">
                <widget class="QLabel" name="psi_pf_upperLabel">
                 <property name="text">
-                 <string>Lower PF</string>
+                 <string>Upper PF</string>
                 </property>
                </widget>
               </item>
@@ -221,7 +221,7 @@
               <item row="5" column="0">
                <widget class="QLabel" name="psi_pf_lowerLabel">
                 <property name="text">
-                 <string>Upper PF</string>
+                 <string>Lower PF</string>
                 </property>
                </widget>
               </item>

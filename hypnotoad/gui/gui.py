@@ -160,27 +160,36 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         set_clicked(self.eq_geqdsk_browse, self.eq_select_geqdsk_file)
         self.eq_geqdsk_lineedit.editingFinished.connect(self.eq_read_geqdsk)
-        self.psi_coreDoubleSpinBox.valueChanged.connect(self.update_psinorm_core)
-        self.psinorm_coreDoubleSpinBox.valueChanged.connect(self.update_psi_core)
-        self.psi_solDoubleSpinBox.valueChanged.connect(self.update_psinorm_sol)
-        self.psinorm_solDoubleSpinBox.valueChanged.connect(self.update_psi_sol)
 
+        # Different limits in psi
         self.psi_contours = {
             "core": {
                 "unnorm_widget": self.psi_coreDoubleSpinBox,
-                "unnorm_slot": self.update_psinorm_core,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="core", direction="norm"
+                ),
                 "norm_widget": self.psinorm_coreDoubleSpinBox,
-                "norm_slot": self.update_psi_core,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="core", direction="unnorm"
+                ),
                 "style": "dashed",
             },
             "sol": {
                 "unnorm_widget": self.psi_solDoubleSpinBox,
-                "unnorm_slot": self.update_psinorm_sol,
+                "unnorm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol", direction="norm"
+                ),
                 "norm_widget": self.psinorm_solDoubleSpinBox,
-                "norm_slot": self.update_psi_sol,
+                "norm_slot": lambda value: self.update_linked_psi(
+                    value, name="sol", direction="unnorm"
+                ),
                 "style": "dotted",
             },
         }
+
+        for contour in self.psi_contours.values():
+            contour["unnorm_widget"].valueChanged.connect(contour["unnorm_slot"])
+            contour["norm_widget"].valueChanged.connect(contour["norm_slot"])
 
     def help_about(self):
         """About Hypnotoad
@@ -654,7 +663,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         for contour in self.psi_contours:
             self.plot_single_psi_contour(contour)
 
-    def update_linked_psi(self, name, value, direction):
+    def update_linked_psi(self, value, name, direction):
         """Update the value of the normalised/unnormalised psi widget
 
         """
@@ -674,18 +683,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 conversion(value, self.eq_data["psi_axis"], self.eq_data["psi_sep"])
             )
         self.plot_single_psi_contour(name)
-
-    def update_psi_core(self, value):
-        self.update_linked_psi("core", value, "unnorm")
-
-    def update_psinorm_core(self, value):
-        self.update_linked_psi("core", value, "norm")
-
-    def update_psi_sol(self, value):
-        self.update_linked_psi("sol", value, "unnorm")
-
-    def update_psinorm_sol(self, value):
-        self.update_linked_psi("sol", value, "norm")
 
     def plot_single_psi_contour(self, name):
         """Plot a single psi contour onto the equilibrium plot

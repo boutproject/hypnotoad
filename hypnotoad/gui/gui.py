@@ -520,8 +520,22 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             return
 
         try:
-            with open(geqdsk_filename, "rt") as f:
-                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+            try:
+                self.eq = tokamak.TokamakEquilibrium(
+                    self.eq_data["R1D"],
+                    self.eq_data["Z1D"],
+                    self.eq_data["psi2D"],
+                    self.eq_data["psi1D"],
+                    self.eq_data["fpol1D"],
+                    self.eq_data["pressure"],
+                    self.eq_data["wall"],
+                    options=copy.deepcopy(self.options),
+                )
+            except AttributeError:
+                with open(geqdsk_filename, "rt") as f:
+                    self.eq = tokamak.read_geqdsk(
+                        f, options=copy.deepcopy(self.options)
+                    )
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))

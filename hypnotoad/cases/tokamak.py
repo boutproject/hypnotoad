@@ -1452,7 +1452,7 @@ class TokamakEquilibrium(Equilibrium):
         return self.fpol(self.psi_axis) / self.o_point.R
 
 
-def read_geqdsk(filehandle, options={}, **kwargs):
+def just_read_geqdsk(filehandle, options=None, **kwargs):
     """
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
@@ -1471,6 +1471,9 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     """
 
     from ..geqdsk._geqdsk import read as geq_read
+
+    if options is None:
+        options = {}
 
     data = geq_read(filehandle)
 
@@ -1525,14 +1528,38 @@ def read_geqdsk(filehandle, options={}, **kwargs):
         # fpol constant in SOL
         fpol = np.concatenate([fpol, np.full(psiSOL.shape, fpol[-1])])
 
-    return TokamakEquilibrium(
-        R1D,
-        Z1D,
-        psi2D,
-        psi1D,
-        fpol,
+    return dict(
+        R1D=R1D,
+        Z1D=Z1D,
+        psi2D=psi2D,
+        psi1D=psi1D,
+        fpol1D=fpol,
         pressure=pressure,
         wall=wall,
-        options=options,
-        **kwargs,
+    )
+
+
+def read_geqdsk(filehandle, options=None, **kwargs):
+    """
+    Read geqdsk formatted data from a file object, returning
+    a TokamakEquilibrium object
+
+    Inputs
+    ------
+    filehandle   A file handle to read
+    options      Options|dict passed to TokamakEquilibrium
+    kwargs       Other keywords passed to TokamakEquilibrim
+                 These override values in options.
+
+    Options
+    -------
+    reverse_current = bool  Changes the sign of poloidal flux psi
+    extrapolate_profiles = bool   Extrapolate pressure using exponential
+    """
+
+    if options is None:
+        options = {}
+
+    return TokamakEquilibrium(
+        **just_read_geqdsk(filehandle), options=options, **kwargs,
     )

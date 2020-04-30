@@ -5,7 +5,6 @@ GUI for Hypnotoad using Qt
 
 import ast
 import copy
-import options
 import os
 import pathlib
 import yaml
@@ -41,6 +40,14 @@ DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
 YAML_FILTER = "YAML file (*.yml *.yaml)"
 NETCDF_FILTER = "NetCDF (*nc)"
 
+DEFAULT_GUI_OPTIONS = {
+    "grid_file": "bout.grd.nc",
+    "plot_xlow": True,
+    "plot_ylow": True,
+    "plot_corners": True,
+    "save_full_yaml": False,
+}
+
 
 def _table_item_edit_display(item):
     """Hide the "(default)" marker on table items in the options form
@@ -55,14 +62,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     """A graphical interface for Hypnotoad
 
     """
-
-    gui_options = options.Options(
-        grid_file="bout.grd.nc",
-        plot_xlow=True,
-        plot_ylow=True,
-        plot_corners=True,
-        save_full_yaml=False,
-    )
 
     def __init__(self):
         super().__init__(None)
@@ -111,14 +110,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.action_Quit.triggered.connect(self.close)
 
         self.options = {}
-        self.gui_options = HypnotoadGui.gui_options.push({})
+        self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
         self.search_bar_completer = QCompleter(
-            tokamak.TokamakEquilibrium.default_options.keys()
+            tokamak.TokamakEquilibrium.user_options_factory.defaults.keys()
         )
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
@@ -154,8 +153,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Reverting options", 2000)
         self.options = {}
-        if hasattr(self, "eq"):
-            self.eq.updateOptions()
 
         options_filename = self.options_file_line_edit.text()
 
@@ -171,8 +168,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         self.options = {}
-        if hasattr(self, "eq"):
-            self.eq.updateOptions()
         self.options_form.setRowCount(0)
         self.update_options_form()
 
@@ -194,10 +189,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         options_to_save = self.options
         if self.gui_options["save_full_yaml"]:
-            if hasattr(self, "eq"):
-                options_ = self.eq.user_options
-            else:
-                options_ = tokamak.TokamakEquilibrium.default_options.push(self.options)
+            options_ = tokamak.TokamakEquilibrium.user_options_factory.create(
+                self.options
+            )
+
             # This converts any numpy types to native Python using the tolist()
             # method of any numpy objects/types. Note this does return a scalar
             # and not a list for values that aren't arrays. Also remove any
@@ -205,7 +200,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             options_to_save = {
                 key: getattr(value, "tolist", lambda: value)()
                 for key, value in dict(options_).items()
-                if not key.startswith("_")
             }
 
         with open(self.filename, "w") as f:
@@ -240,23 +234,43 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         filtered_options = copy.deepcopy(self.options)
-        filtered_defaults = dict(tokamak.TokamakEquilibrium.default_options)
+
+        filtered_defaults = dict(
+            tokamak.TokamakEquilibrium.user_options_factory.defaults
+        )
+        filtered_defaults.update(
+            tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
+        )
+
+        # evaluate filtered_defaults using the values in self.options, so that any
+        # expressions get evaluated
+        filtered_default_values = dict(
+            tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
+        )
+        filtered_default_values.update(
+            tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                self.options
+            )
+        )
         # Skip options handled specially elsewhere
-        del filtered_defaults["_magic"]
+        # ...
 
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
         self.options_form.setRowCount(len(filtered_defaults))
 
         for row, (key, value) in enumerate(sorted(filtered_defaults.items())):
-            item = QTableWidgetItem(key)
-            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-            self.options_form.setItem(row, 0, item)
+            item0 = QTableWidgetItem(key)
+            item0.setFlags(item0.flags() & ~Qt.ItemIsEditable)
+            item0.setToolTip(value.doc)
+            self.options_form.setItem(row, 0, item0)
             if key in filtered_options:
                 value_to_set = str(filtered_options[key])
             else:
-                value_to_set = f"{value} (default)"
-            self.options_form.setItem(row, 1, QTableWidgetItem(value_to_set))
+                value_to_set = f"{filtered_default_values[key]} (default)"
+            item1 = QTableWidgetItem(value_to_set)
+            item1.setToolTip(value.doc)
+            self.options_form.setItem(row, 1, item1)
 
         self.options_form.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.options_form.setSortingEnabled(True)
@@ -279,25 +293,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 # Reset to default
                 # Might be better to just keep the old value if nothing is passed, but
                 # don't know how to get that
-                default_value = tokamak.TokamakEquilibrium.default_options[key]
-                self.options_form.cellChanged.disconnect(self.options_form_changed)
-                self.options_form.setItem(
-                    row, 1, QTableWidgetItem(f"{default_value} (default)")
-                )
-                self.options_form.cellChanged.connect(self.options_form_changed)
                 if key in self.options:
                     del self.options[key]
-                if hasattr(self, "eq"):
-                    # deleting from this object means self.eq uses the value from
-                    # TokamakEquilibrium.default_options
-                    del self.eq.user_options[key]
-                    self.eq.updateOptions()
                 return
 
             self.options[key] = ast.literal_eval(item.text())
-            if hasattr(self, "eq"):
-                self.eq.user_options.update(**self.options)
-                self.eq.updateOptions()
+
+        self.update_options_form()
 
     def search_options_form(self, text):
         """Search for specific options
@@ -340,8 +342,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         if options_filename:
             with open(options_filename, "r") as f:
                 self.options = yaml.safe_load(f)
-                if hasattr(self, "eq"):
-                    self.eq.updateOptions()
 
         self.options_form.setRowCount(0)
         self.update_options_form()
@@ -386,7 +386,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             with open(geqdsk_filename, "rt") as f:
-                self.eq = tokamak.read_geqdsk(f, options=copy.deepcopy(self.options))
+                self.eq = tokamak.read_geqdsk(
+                    f,
+                    settings=copy.deepcopy(self.options),
+                    nonorthogonal_settings=copy.deepcopy(self.options),
+                )
         except (ValueError, RuntimeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))
@@ -419,7 +423,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Running...")
         try:
-            self.mesh = BoutMesh(self.eq)
+            self.mesh = BoutMesh(self.eq, self.options)
         except (ValueError, SolutionError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))

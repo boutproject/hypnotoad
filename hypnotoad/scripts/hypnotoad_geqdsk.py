@@ -29,7 +29,7 @@ def main():
     from ..cases import tokamak
 
     with open(filename, "rt") as fh:
-        eq = tokamak.read_geqdsk(fh, options=options)
+        eq = tokamak.read_geqdsk(fh, settings=options, nonorthogonal_settings=options)
 
     if options.get("plot_regions", False):
         try:
@@ -49,7 +49,7 @@ def main():
 
     from ..core.mesh import BoutMesh
 
-    mesh = BoutMesh(eq)
+    mesh = BoutMesh(eq, settings=options)
     mesh.geometry()
 
     if options.get("plot_mesh", False):

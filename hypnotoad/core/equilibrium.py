@@ -1829,6 +1829,11 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
+    def resetNonorthogonalOptions(self, nonorthogonal_settings):
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
+
     def getSpacings(self):
         # Set spacings depending on options.kind
         if self.kind.split(".")[0] == "wall":
@@ -2907,13 +2912,12 @@ class Equilibrium:
             nonorthogonal_settings
         )
 
-    def updateOptions(self):
-        """
-        Set default values from user_options
-        """
-        if hasattr(self, "regions"):
-            for region in self.regions.values():
-                region.setupSpacing()
+    def resetNonorthogonalOptions(self, nonorthogonal_settings):
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
+        for region in self.regions.values():
+            region.resetNonorthogonalOptions(dict(self.nonorthogonal_options))
 
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """

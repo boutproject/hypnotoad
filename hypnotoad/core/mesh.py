@@ -2005,14 +2005,17 @@ class Mesh:
                     break
             self.y_groups.append(group)
 
-    def redistributePoints(self, **kwargs):
+    def redistributePoints(self, nonorthogonal_settings):
         warnings.warn(
             "It is not recommended to use Mesh.redistributePoints() for 'production' "
             "output. Suggest saving the final settings to a .yaml file and creating the "
             "'production' grid non-interactively to ensure reproducibility."
         )
 
-        self.user_options.set(**kwargs)
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
+        self.equilibrium.resetNonorthogonalOptions(dict(self.nonorthogonal_options))
 
         assert (
             not self.user_options.orthogonal

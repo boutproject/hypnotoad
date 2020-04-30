@@ -533,33 +533,6 @@ class TokamakEquilibrium(Equilibrium):
         """
         assert self.psi_axis is not None
 
-        self.updateOptions()
-
-        # Check that there are only one or two left
-        assert 0 < len(self.x_points) <= 2
-
-        if len(self.x_points) == 1:
-            # Generate the specifications for a lower or upper single null
-            leg_regions, core_regions, segments, connections = self.describeSingleNull()
-        else:
-            # Specifications for a double null (connected or disconnected)
-            leg_regions, core_regions, segments, connections = self.describeDoubleNull()
-
-        # Create a new dictionary, which will contain all regions
-        # including core and legs
-        all_regions = leg_regions.copy()
-        all_regions.update(self.coreRegionToRegion(core_regions))
-
-        # Create the regions in an OrderedDict, assign to self.regions
-        self.regions = self.createRegionObjects(all_regions, segments)
-
-        # Make the connections between regions
-        for connection in connections:
-            self.makeConnection(*connection)
-
-    def updateOptions(self):
-        super().updateOptions()
-
         # psi values
         def psinorm_to_psi(psinorm):
             if psinorm is None:
@@ -610,6 +583,28 @@ class TokamakEquilibrium(Equilibrium):
                 if psi_to_psinorm(psi) < self.user_options.psinorm_sol
             )
         )
+
+        # Check that there are only one or two left
+        assert 0 < len(self.x_points) <= 2
+
+        if len(self.x_points) == 1:
+            # Generate the specifications for a lower or upper single null
+            leg_regions, core_regions, segments, connections = self.describeSingleNull()
+        else:
+            # Specifications for a double null (connected or disconnected)
+            leg_regions, core_regions, segments, connections = self.describeDoubleNull()
+
+        # Create a new dictionary, which will contain all regions
+        # including core and legs
+        all_regions = leg_regions.copy()
+        all_regions.update(self.coreRegionToRegion(core_regions))
+
+        # Create the regions in an OrderedDict, assign to self.regions
+        self.regions = self.createRegionObjects(all_regions, segments)
+
+        # Make the connections between regions
+        for connection in connections:
+            self.makeConnection(*connection)
 
     def describeSingleNull(self):
         """

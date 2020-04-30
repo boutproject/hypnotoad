@@ -900,11 +900,11 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.monotonic_d_lower = L * 40.0 / (n - 1)
-        eqReg.monotonic_d_upper = L * 40.0 / (n - 1)
-        eqReg.nonorthogonal_range_lower = 0.1
-        eqReg.nonorthogonal_range_lower_inner = 0.1
-        eqReg.nonorthogonal_range_lower_outer = 0.1
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
@@ -926,11 +926,11 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.monotonic_d_lower = L * 40.0 / (n - 1)
-        eqReg.monotonic_d_upper = L * 40.0 / (n - 1)
-        eqReg.nonorthogonal_range_upper = 0.1
-        eqReg.nonorthogonal_range_upper_inner = 0.1
-        eqReg.nonorthogonal_range_upper_outer = 0.1
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
@@ -952,14 +952,11 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.monotonic_d_lower = L * 40.0 / (n - 1)
-        eqReg.monotonic_d_upper = L * 40.0 / (n - 1)
-        eqReg.nonorthogonal_range_lower = 0.1
-        eqReg.nonorthogonal_range_lower_inner = 0.1
-        eqReg.nonorthogonal_range_lower_outer = 0.1
-        eqReg.nonorthogonal_range_upper = 0.1
-        eqReg.nonorthogonal_range_upper_inner = 0.1
-        eqReg.nonorthogonal_range_upper_outer = 0.1
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
@@ -985,14 +982,11 @@ class TestEquilibriumRegion:
         # MeshRegion.distributePointsNonorthogonal for the default 'combined' option.
         n = len(eqReg)
 
-        eqReg.monotonic_d_lower = 0.1
-        eqReg.monotonic_d_upper = 0.1
-        eqReg.nonorthogonal_range_lower = 0.3
-        eqReg.nonorthogonal_range_lower_inner = 0.3
-        eqReg.nonorthogonal_range_lower_outer = 0.3
-        eqReg.nonorthogonal_range_upper = 0.3
-        eqReg.nonorthogonal_range_upper_inner = 0.3
-        eqReg.nonorthogonal_range_upper_outer = 0.3
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_poloidal_spacing_range": 0.3,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
@@ -1031,14 +1025,11 @@ class TestEquilibriumRegion:
         # option
         n = len(eqReg)
 
-        eqReg.monotonic_d_lower = 0.1
-        eqReg.monotonic_d_upper = 0.1
-        eqReg.nonorthogonal_range_lower = 0.2
-        eqReg.nonorthogonal_range_lower_inner = 0.2
-        eqReg.nonorthogonal_range_lower_outer = 0.2
-        eqReg.nonorthogonal_range_upper = 0.2
-        eqReg.nonorthogonal_range_upper_inner = 0.2
-        eqReg.nonorthogonal_range_upper_outer = 0.2
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_poloidal_spacing_range": 0.2,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
 
         sfunc_orthogonal_original = eqReg.contourSfunc()

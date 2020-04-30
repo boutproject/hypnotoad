@@ -735,7 +735,7 @@ class MeshRegion:
                     p_out = c_out[c_out.endInd]
                 return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-            if self.user_options.nonorthogonal_spacing_method == "orthogonal":
+            if self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal":
                 warnings.warn(
                     "'orthogonal' option is not currently compatible with "
                     "extending grid past targets"
@@ -753,7 +753,7 @@ class MeshRegion:
                     method="monotonic",
                 )
             elif (
-                self.user_options.nonorthogonal_spacing_method
+                self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
@@ -774,7 +774,7 @@ class MeshRegion:
                     2 * self.ny_noguards + 1, contour, surface_vec(False), False
                 )
             elif (
-                self.user_options.nonorthogonal_spacing_method
+                self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
@@ -783,7 +783,7 @@ class MeshRegion:
                     surface_vec(True),
                     surface_vec(False),
                 )
-            elif self.user_options.nonorthogonal_spacing_method == "combined":
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
@@ -805,7 +805,7 @@ class MeshRegion:
             else:
                 raise ValueError(
                     "Unrecognized option '"
-                    + str(self.user_options.nonorthogonal_spacing_method)
+                    + str(self.nonorthogonal_options.nonorthogonal_spacing_method)
                     + "' for nonorthogonal poloidal spacing function"
                 )
 

@@ -1792,7 +1792,6 @@ class EquilibriumRegion(PsiContour):
         if self.ny_noguards is None:
             raise ValueError("ny must be set")
 
-        self.setupSpacing(force=False)
         self.global_xind = (
             0  # 0 since EquilibriumRegion represents the contour at the separatrix
         )
@@ -1830,69 +1829,87 @@ class EquilibriumRegion(PsiContour):
             self.xPointsAtStart.append(None)
             self.xPointsAtEnd.append(None)
 
-    def setupSpacing(self, *, force):
+    def getSpacings(self):
         # Set spacings depending on options.kind
         if self.kind.split(".")[0] == "wall":
-            self.sqrt_b_lower = self.user_options.target_poloidal_spacing_length
-            self.monotonic_d_lower = (
+            sqrt_a_lower = None
+            sqrt_b_lower = self.user_options.target_poloidal_spacing_length
+            monotonic_d_lower = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
-            self.nonorthogonal_range_lower = (
+            nonorthogonal_range_lower = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
             )
-            self.nonorthogonal_range_lower_inner = (
+            nonorthogonal_range_lower_inner = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
             )
-            self.nonorthogonal_range_lower_outer = (
+            nonorthogonal_range_lower_outer = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
             )
         elif self.kind.split(".")[0] == "X":
-            self.sqrt_a_lower = self.user_options.xpoint_poloidal_spacing_length
-            self.monotonic_d_lower = (
+            sqrt_a_lower = self.user_options.xpoint_poloidal_spacing_length
+            sqrt_b_lower = 0.0
+            monotonic_d_lower = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
-            self.nonorthogonal_range_lower = (
+            nonorthogonal_range_lower = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range
             )
-            self.nonorthogonal_range_lower_inner = (
+            nonorthogonal_range_lower_inner = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_inner  # noqa: E501
             )
-            self.nonorthogonal_range_lower_outer = (
+            nonorthogonal_range_lower_outer = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_outer  # noqa: E501
             )
         else:
             raise ValueError(f"Unrecognized value before '.' in " f"kind={self.kind}")
         if self.kind.split(".")[1] == "wall":
-            self.sqrt_b_upper = self.user_options.target_poloidal_spacing_length
-            self.monotonic_d_upper = (
+            sqrt_a_upper = None
+            sqrt_b_upper = self.user_options.target_poloidal_spacing_length
+            monotonic_d_upper = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
-            self.nonorthogonal_range_upper = (
+            nonorthogonal_range_upper = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
             )
-            self.nonorthogonal_range_upper_inner = (
+            nonorthogonal_range_upper_inner = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
             )
-            self.nonorthogonal_range_upper_outer = (
+            nonorthogonal_range_upper_outer = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
             )
         elif self.kind.split(".")[1] == "X":
-            self.sqrt_a_upper = self.user_options.xpoint_poloidal_spacing_length
-            self.sqrt_b_upper = 0.0
-            self.monotonic_d_upper = (
+            sqrt_a_upper = self.user_options.xpoint_poloidal_spacing_length
+            sqrt_b_upper = 0.0
+            monotonic_d_upper = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
-            self.nonorthogonal_range_upper = (
+            nonorthogonal_range_upper = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range
             )
-            self.nonorthogonal_range_upper_inner = (
+            nonorthogonal_range_upper_inner = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_inner  # noqa: E501
             )
-            self.nonorthogonal_range_upper_outer = (
+            nonorthogonal_range_upper_outer = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_outer  # noqa: E501
             )
         else:
             raise ValueError(f"Unrecognized value before '.' in self.kind={self.kind}")
+
+        return {
+            "sqrt_a_lower": sqrt_a_lower,
+            "sqrt_a_upper": sqrt_a_upper,
+            "sqrt_b_lower": sqrt_b_lower,
+            "sqrt_b_upper": sqrt_b_upper,
+            "monotonic_d_lower": monotonic_d_lower,
+            "monotonic_d_upper": monotonic_d_upper,
+            "nonorthogonal_range_lower": nonorthogonal_range_lower,
+            "nonorthogonal_range_upper": nonorthogonal_range_upper,
+            "nonorthogonal_range_lower_inner": nonorthogonal_range_lower_inner,
+            "nonorthogonal_range_upper_inner": nonorthogonal_range_upper_inner,
+            "nonorthogonal_range_lower_outer": nonorthogonal_range_lower_outer,
+            "nonorthogonal_range_upper_outer": nonorthogonal_range_upper_outer,
+        }
 
     def copy(self):
         result = EquilibriumRegion(
@@ -2036,22 +2053,24 @@ class EquilibriumRegion(PsiContour):
             else:
                 method = "nonorthogonal"
 
+        spacings = self.getSpacings()
+
         if method == "sqrt":
             if self.user_options.poloidalfunction_diagnose:
                 print("in sqrt method:")
                 print("N_norm =", self.user_options.N_norm_prefactor * self.ny_total)
-                print("a_lower =", self.sqrt_a_lower)
-                print("b_lower =", self.sqrt_b_lower)
-                print("a_upper =", self.sqrt_a_upper)
-                print("b_upper =", self.sqrt_b_upper)
+                print("a_lower =", spacings["sqrt_a_lower"])
+                print("b_lower =", spacings["sqrt_b_lower"])
+                print("a_upper =", spacings["sqrt_a_upper"])
+                print("b_upper =", spacings["sqrt_b_upper"])
             sfunc = self.getSqrtPoloidalDistanceFunc(
                 distance,
                 npoints - 1,
                 self.user_options.N_norm_prefactor * self.ny_total,
-                b_lower=self.sqrt_b_lower,
-                a_lower=self.sqrt_a_lower,
-                b_upper=self.sqrt_b_upper,
-                a_upper=self.sqrt_a_upper,
+                b_lower=spacings["sqrt_b_lower"],
+                a_lower=spacings["sqrt_a_lower"],
+                b_upper=spacings["sqrt_b_upper"],
+                a_upper=spacings["sqrt_a_upper"],
             )
             self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
         elif method == "monotonic":
@@ -2059,8 +2078,8 @@ class EquilibriumRegion(PsiContour):
                 distance,
                 npoints - 1,
                 self.user_options.N_norm_prefactor * self.ny_total,
-                d_lower=self.monotonic_d_lower,
-                d_upper=self.monotonic_d_upper,
+                d_lower=spacings["monotonic_d_lower"],
+                d_upper=spacings["monotonic_d_upper"],
             )
             self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
         elif method == "nonorthogonal":
@@ -2163,58 +2182,58 @@ class EquilibriumRegion(PsiContour):
                 2 * self.ny_noguards + 1, contour, vec_upper, False
             )
 
-        range_lower = self.nonorthogonal_range_lower
-        range_lower_inner = self.nonorthogonal_range_lower_inner
-        range_lower_outer = self.nonorthogonal_range_lower_outer
-        range_upper = self.nonorthogonal_range_upper
-        range_upper_inner = self.nonorthogonal_range_upper_inner
-        range_upper_outer = self.nonorthogonal_range_upper_outer
+        spacings = self.getSpacings()
 
         N_norm = self.user_options.N_norm_prefactor * self.ny_total
 
         index_length = 2.0 * self.ny_noguards
 
         # Set up radial variation of weights
-        if range_lower is not None:
-            # this_range_lower is range_lower at separatrix, range_lower_outer at outer
-            # radial boundary, range_lower_inner at inner radial boundary and has zero
+        if spacings["nonorthogonal_range_lower"] is not None:
+            # this_range_lower is nonorthogonal_range_lower at separatrix,
+            # nonorthogonal_range_lower_outer at outer radial boundary,
+            # nonorthogonal_range_lower_inner at inner radial boundary and has zero
             # radial derivative at the separatrix
             ix = float(contour.global_xind)
             if ix >= 0:
                 xweight = (
                     ix / (self.nxOutsideSeparatrix() - 1.0)
                 ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
-                this_range_lower = (
-                    1.0 - xweight
-                ) * range_lower + xweight * range_lower_outer
+                this_range_lower = (1.0 - xweight) * spacings[
+                    "nonorthogonal_range_lower"
+                ] + xweight * spacings["nonorthogonal_range_lower_outer"]
             else:
                 xweight = (
                     -ix / (self.nxInsideSeparatrix() - 1.0)
                 ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
-                this_range_lower = (
-                    1.0 - xweight
-                ) * range_lower + xweight * range_lower_inner
-        if range_upper is not None:
-            # this_range_upper is range_upper at separatrix, range_upper_outer at outer
-            # radial boundary, range_upper_inner at inner radial boundary and has zero
+                this_range_lower = (1.0 - xweight) * spacings[
+                    "nonorthogonal_range_lower"
+                ] + xweight * spacings["nonorthogonal_range_lower_inner"]
+        if spacings["nonorthogonal_range_upper"] is not None:
+            # this_range_upper is nonorthogonal_range_upper at separatrix,
+            # nonorthogonal_range_upper_outer at outer radial boundary,
+            # nonorthogonal_range_upper_inner at inner radial boundary and has zero
             # radial derivative at the separatrix
             ix = float(contour.global_xind)
             if ix >= 0:
                 xweight = (
                     ix / (self.nxOutsideSeparatrix() - 1.0)
                 ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
-                this_range_upper = (
-                    1.0 - xweight
-                ) * range_upper + xweight * range_upper_outer
+                this_range_upper = (1.0 - xweight) * spacings[
+                    "nonorthogonal_range_upper"
+                ] + xweight * spacings["nonorthogonal_range_upper_outer"]
             else:
                 xweight = (
                     -ix / (self.nxInsideSeparatrix() - 1.0)
                 ) ** self.nonorthogonal_options.nonorthogonal_radial_range_power
-                this_range_upper = (
-                    1.0 - xweight
-                ) * range_upper + xweight * range_upper_inner
+                this_range_upper = (1.0 - xweight) * spacings[
+                    "nonorthogonal_range_upper"
+                ] + xweight * spacings["nonorthogonal_range_upper_inner"]
 
-        if range_lower is not None and range_upper is not None:
+        if (
+            spacings["nonorthogonal_range_lower"] is not None
+            and spacings["nonorthogonal_range_upper"] is not None
+        ):
 
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
@@ -2277,7 +2296,7 @@ class EquilibriumRegion(PsiContour):
                     + (1.0 - weight_lower - weight_upper) * sorth
                 )
 
-        elif range_lower is not None:
+        elif spacings["nonorthogonal_range_lower"] is not None:
 
             def new_sfunc(i):
                 sfixed_lower = sfunc_fixed_lower(i)
@@ -2310,7 +2329,7 @@ class EquilibriumRegion(PsiContour):
 
                 return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
 
-        elif range_upper is not None:
+        elif spacings["nonorthogonal_range_upper"] is not None:
 
             def new_sfunc(i):
                 sfixed_upper = sfunc_fixed_upper(i)
@@ -2369,16 +2388,16 @@ class EquilibriumRegion(PsiContour):
         except ValueError:
             print(
                 "check lower ranges",
-                range_lower_inner,
-                range_lower,
-                range_lower_outer,
+                spacings["nonorthogonal_range_lower_inner"],
+                spacings["nonorthogonal_range_lower"],
+                spacings["nonorthogonal_range_lower_outer"],
                 this_range_lower,
             )
             print(
                 "check upper ranges",
-                range_upper_inner,
-                range_upper,
-                range_upper_outer,
+                spacings["nonorthogonal_range_upper_inner"],
+                spacings["nonorthogonal_range_upper"],
+                spacings["nonorthogonal_range_upper_outer"],
                 this_range_upper,
             )
             raise
@@ -2393,16 +2412,17 @@ class EquilibriumRegion(PsiContour):
         'surface_direction'.
         """
         N_norm = self.user_options.N_norm_prefactor * self.ny_total
+        spacings = self.getSpacings()
 
         if self.wallSurfaceAtStart is not None:
-            d_lower = self.monotonic_d_lower * self.sin_angle_at_start
+            d_lower = spacings["monotonic_d_lower"] * self.sin_angle_at_start
         else:
-            d_lower = self.monotonic_d_lower
+            d_lower = spacings["monotonic_d_lower"]
 
         if self.wallSurfaceAtEnd is not None:
-            d_upper = self.monotonic_d_upper * self.sin_angle_at_end
+            d_upper = spacings["monotonic_d_upper"] * self.sin_angle_at_end
         else:
-            d_upper = self.monotonic_d_upper
+            d_upper = spacings["monotonic_d_upper"]
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getMonotonicPoloidalDistanceFunc(
@@ -2893,7 +2913,7 @@ class Equilibrium:
         """
         if hasattr(self, "regions"):
             for region in self.regions.values():
-                region.setupSpacing(force=False)
+                region.setupSpacing()
 
     def makeConnection(self, lowerRegion, lowerSegment, upperRegion, upperSegment):
         """

@@ -262,6 +262,11 @@ class MeshRegion:
 
     user_options_factory = OptionsFactory(
         EquilibriumRegion.user_options_factory.defaults,
+        shiftedmetric=WithMeta(
+            True,
+            doc="Is grid generated for paralleltransform=ShiftedMetric?",
+            value_type=bool,
+        ),
         curvature_type=WithMeta(
             "curl(b/B) with x-y derivatives",
             doc="Expression used to calculate curvature operator 'bxcv'",
@@ -2232,11 +2237,6 @@ class BoutMesh(Mesh):
     user_options_factory = Mesh.user_options_factory.add(
         # BoutMesh-specific options
         ###########################
-        shiftedmetric=WithMeta(
-            True,
-            doc="Is grid generated for paralleltransform=ShiftedMetric?",
-            value_type=bool,
-        ),
     )
 
     def __init__(self, equilibrium, settings):

@@ -30,19 +30,12 @@ from ..core.equilibrium import (
     SolutionError,
 )
 from ..geqdsk._geqdsk import read as geq_read
-from ..utils.options import WithMeta, is_positive, optionsTableString
+from ..utils.options import WithMeta, is_positive, optionsTableString, with_default
 
 # type for manipulating information about magnetic field coils
 from collections import namedtuple
 
 Coil = namedtuple("Coil", "R, Z, I")
-
-
-def withDefault(option, default):
-    if option is not None:
-        return option
-    else:
-        return default
 
 
 class TORPEXMagneticField(Equilibrium):
@@ -137,7 +130,7 @@ class TORPEXMagneticField(Equilibrium):
         # Set up options read from user input
         self.user_options = self.user_options_factory.create(meshOptions)
 
-        self.poloidal_spacing_delta_psi = withDefault(
+        self.poloidal_spacing_delta_psi = with_default(
             self.user_options.poloidal_spacing_delta_psi,
             numpy.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
         )

@@ -15,17 +15,11 @@ from ..utils.options import (
     is_positive,
     NoneType,
     optionsTableString,
+    with_default,
 )
 from ..core.mesh import MultiLocationArray
 
 from ..utils import critical, polygons
-
-
-def setDefault(options, name, value):
-    if options[name] is not None:
-        return options[name]
-    else:
-        return value
 
 
 class TokamakEquilibrium(Equilibrium):
@@ -544,33 +538,27 @@ class TokamakEquilibrium(Equilibrium):
                 return None
             return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
 
-        self.psi_core = setDefault(
-            self.user_options,
-            "psi_core",
-            psinorm_to_psi(self.user_options.psinorm_core),
+        self.psi_core = with_default(
+            self.user_options.psi_core, psinorm_to_psi(self.user_options.psinorm_core),
         )
-        self.psi_sol = setDefault(
-            self.user_options, "psi_sol", psinorm_to_psi(self.user_options.psinorm_sol)
+        self.psi_sol = with_default(
+            self.user_options.psi_sol, psinorm_to_psi(self.user_options.psinorm_sol)
         )
-        self.psi_sol_inner = setDefault(
-            self.user_options,
-            "psi_sol_inner",
+        self.psi_sol_inner = with_default(
+            self.user_options.psi_sol_inner,
             psinorm_to_psi(self.user_options.psinorm_sol_inner),
         )
-        self.psi_pf_lower = setDefault(
-            self.user_options,
-            "psi_pf_lower",
+        self.psi_pf_lower = with_default(
+            self.user_options.psi_pf_lower,
             psinorm_to_psi(self.user_options.psinorm_pf_lower),
         )
-        self.psi_pf_upper = setDefault(
-            self.user_options,
-            "psi_pf_upper",
+        self.psi_pf_upper = with_default(
+            self.user_options.psi_pf_upper,
             psinorm_to_psi(self.user_options.psinorm_pf_upper),
         )
 
-        self.poloidal_spacing_delta_psi = setDefault(
-            self.user_options,
-            "poloidal_spacing_delta_psi",
+        self.poloidal_spacing_delta_psi = with_default(
+            self.user_options.poloidal_spacing_delta_psi,
             np.abs((self.psi_core - self.psi_sol) / 20.0),
         )
 

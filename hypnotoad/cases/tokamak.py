@@ -54,7 +54,7 @@ class TokamakEquilibrium(Equilibrium):
             checks=is_positive,
         ),
         nx_pf=WithMeta(
-            lambda options: options.nx_core,
+            "nx_core",
             doc=(
                 "Number of radial points in the PF region Note: Currently can't be "
                 "varied due to BOUT++ limitations"
@@ -75,7 +75,7 @@ class TokamakEquilibrium(Equilibrium):
             checks=is_positive,
         ),
         nx_sol_inner=WithMeta(
-            lambda options: options.nx_sol,
+            "nx_sol",
             doc=(
                 "Number of radial points in the outer SOL. Note: Currently can't be "
                 "varied due to BOUT++ limitations"
@@ -84,7 +84,7 @@ class TokamakEquilibrium(Equilibrium):
             checks=is_positive,
         ),
         nx_sol_outer=WithMeta(
-            lambda options: options.nx_sol,
+            "nx_sol",
             doc=(
                 "Number of radial points in the inner SOL. Note: Currently can't be "
                 "varied due to BOUT++ limitations"
@@ -99,13 +99,13 @@ class TokamakEquilibrium(Equilibrium):
             checks=is_positive,
         ),
         ny_inner_lower_divertor=WithMeta(
-            lambda options: options.ny_inner_divertor,
+            "ny_inner_divertor",
             doc="Number of poloidal points in the inner, lower divertor",
             value_type=int,
             checks=is_positive,
         ),
         ny_inner_upper_divertor=WithMeta(
-            lambda options: options.ny_inner_divertor,
+            "ny_inner_divertor",
             doc="Number of poloidal points in the inner, upper divertor",
             value_type=int,
             checks=is_positive,
@@ -117,13 +117,13 @@ class TokamakEquilibrium(Equilibrium):
             checks=is_positive,
         ),
         ny_outer_lower_divertor=WithMeta(
-            lambda options: options.ny_outer_divertor,
+            "ny_outer_divertor",
             doc="Number of poloidal points in the outer, lower divertor",
             value_type=int,
             checks=is_positive,
         ),
         ny_outer_upper_divertor=WithMeta(
-            lambda options: options.ny_outer_divertor,
+            "ny_outer_divertor",
             doc="Number of poloidal points in the outer, upper divertor",
             value_type=int,
             checks=is_positive,
@@ -157,22 +157,22 @@ class TokamakEquilibrium(Equilibrium):
             value_type=float,
         ),
         psinorm_sol_inner=WithMeta(
-            lambda options: options.psinorm_sol,
+            "psinorm_sol",
             doc="Normalised psi of the outer radial boundary in the inner SOL",
             value_type=float,
         ),
         psinorm_pf=WithMeta(
-            lambda options: options.psinorm_core,
+            "psinorm_core",
             doc="Normalised psi of the inner radial boundary in the PFR",
             value_type=float,
         ),
         psinorm_pf_lower=WithMeta(
-            lambda options: options.psinorm_pf,
+            "psinorm_pf",
             doc="Normalised psi of the inner radial boundary in the lower PFR",
             value_type=float,
         ),
         psinorm_pf_upper=WithMeta(
-            lambda options: options.psinorm_pf,
+            "psinorm_pf",
             doc="Normalised psi of the inner radial boundary in the upper PFR",
             value_type=float,
         ),

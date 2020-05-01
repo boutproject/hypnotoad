@@ -264,26 +264,26 @@ class MeshRegion:
         EquilibriumRegion.user_options_factory.defaults,
         curvature_type=WithMeta(
             "curl(b/B) with x-y derivatives",
-            doc="expression used to calculate curvature operator 'bxcv'",
+            doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
             allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
         ),
         follow_perpendicular_rtol=WithMeta(
             2.0e-8,
-            doc="relative tolerance for following Grad(psi)",
+            doc="Relative tolerance for following Grad(psi)",
             value_type=float,
             checks=is_non_negative,
         ),
         follow_perpendicular_atol=WithMeta(
             1.0e-8,
-            doc="absolute tolerance for following Grad(psi)",
+            doc="Absolute tolerance for following Grad(psi)",
             value_type=float,
             checks=is_non_negative,
         ),
         geometry_rtol=WithMeta(
             1.0e-10,
             doc=(
-                "tolerance for checking identities on calculated geometrical quantities "
+                "Tolerance for checking identities on calculated geometrical quantities "
                 "(for example the Jacobian)"
             ),
             value_type=float,

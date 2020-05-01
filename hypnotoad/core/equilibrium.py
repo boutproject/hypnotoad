@@ -349,7 +349,7 @@ class FineContour:
         finecontour_Nfine=WithMeta(
             100,
             doc=(
-                "number of points on each FineContour. Increase for more accurate "
+                "Number of points on each FineContour. Increase for more accurate "
                 "interpolation or distance calculations"
             ),
             value_type=int,
@@ -357,14 +357,14 @@ class FineContour:
         ),
         finecontour_atol=WithMeta(
             1.0e-12,
-            doc="absolute tolerance for refinement of FineContours",
+            doc="Absolute tolerance for refinement of FineContours",
             value_type=float,
             checks=is_positive,
         ),
         finecontour_diagnose=WithMeta(
             False,
             doc=(
-                "print and display some information to help diagnose failures in "
+                "Print and display some information to help diagnose failures in "
                 "FineContour refinement and adjustment"
             ),
             value_type=bool,
@@ -372,7 +372,7 @@ class FineContour:
         finecontour_maxits=WithMeta(
             200,
             doc=(
-                "maximum number of iterations for refinement and adjustment of a "
+                "Maximum number of iterations for refinement and adjustment of a "
                 "FineContour"
             ),
             value_type=int,
@@ -800,28 +800,26 @@ class PsiContour:
         FineContour.user_options_factory.defaults,
         refine_width=WithMeta(
             1.0e-5,
-            doc="width for line search when refining points",
+            doc="Width for line search when refining points",
             value_type=float,
             checks=is_positive,
         ),
         refine_atol=WithMeta(
             2.0e-8,
-            doc="absolute tolerance for refinement of points",
+            doc="Absolute tolerance for refinement of points",
             value_type=float,
             checks=is_positive,
         ),
         refine_methods=WithMeta(
             ["integrate+newton", "integrate"],
             doc=(
-                """
-                ordered list of methods to try when refining points:
-                Valid names are:
-                - "newton"       Newton iteration
-                - "line"         A line search
-                - "integrate"    Integrate along psi gradient
-                - "integrate+newton"  Integrate, then refine with Newton
-                - "none"         No refinement (always succeeds)
-            """
+                "Ordered list of methods to try when refining points.\n"
+                "Valid names are:\n"
+                "- 'newton'       Newton iteration\n"
+                "- 'line'         A line search\n"
+                "- 'integrate'    Integrate along psi gradient\n"
+                "- 'integrate+newton'  Integrate, then refine with Newton\n"
+                "- 'none'         No refinement (always succeeds)\n"
             ),
             value_type=[str, Sequence],
             checks=lambda x: numpy.all(
@@ -1603,9 +1601,9 @@ class EquilibriumRegion(PsiContour):
         #
         # General options for the grid
         ##############################
-        orthogonal=WithMeta(True, doc="is grid orthogonal?", value_type=bool),
+        orthogonal=WithMeta(True, doc="Is grid orthogonal?", value_type=bool),
         y_boundary_guards=WithMeta(
-            0, doc="number of y-boundary cells", value_type=int, checks=is_non_negative,
+            0, doc="Number of y-boundary cells", value_type=int, checks=is_non_negative,
         ),
         # Input parameters for poloidal spacing functions
         #################################################
@@ -1622,7 +1620,7 @@ class EquilibriumRegion(PsiContour):
         xpoint_poloidal_spacing_length=WithMeta(
             5.0e-2,
             doc=(
-                "spacing at the X-point end of a region (used for orthogonal grids). "
+                "Spacing at the X-point end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, NoneType],
@@ -1631,7 +1629,7 @@ class EquilibriumRegion(PsiContour):
         target_poloidal_spacing_length=WithMeta(
             None,
             doc=(
-                "spacing at the wall end of a region (used for orthogonal grids)"
+                "Spacing at the wall end of a region (used for orthogonal grids)"
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, NoneType],
@@ -1640,7 +1638,7 @@ class EquilibriumRegion(PsiContour):
         N_norm_prefactor=WithMeta(
             1.0,
             doc=(
-                "prefactor that multiplys ny_total to give the normalization factor for "
+                "Prefactor that multiplys ny_total to give the normalization factor for "
                 "the total number of points in contours. The normalisation factor is "
                 "used to scale the grid spacing with the total number of points, which "
                 "keeps the spacing functions consistent when the resolution is changed"
@@ -1649,7 +1647,7 @@ class EquilibriumRegion(PsiContour):
         sfunc_checktol=WithMeta(
             1.0e-13,
             doc=(
-                "tolerance to check for small negative values that are not "
+                "Tolerance to check for small negative values that are not "
                 "significantly different from zero in poloidal spacing functions"
             ),
             value_type=float,
@@ -1658,7 +1656,7 @@ class EquilibriumRegion(PsiContour):
         poloidalfunction_diagnose=WithMeta(
             False,
             doc=(
-                "print and plot extra information to diagnose when a poloidal spacing "
+                "Print and plot extra information to diagnose when a poloidal spacing "
                 "function has an error"
             ),
             value_type=bool,
@@ -1749,7 +1747,7 @@ class EquilibriumRegion(PsiContour):
         ),
         nonorthogonal_spacing_method=WithMeta(
             "combined",
-            doc="method used to determine poloidal spacing of non-orthogonal grid",
+            doc="Method used to determine poloidal spacing of non-orthogonal grid",
             value_type=str,
             allowed=[
                 "combined",
@@ -2886,8 +2884,8 @@ class Equilibrium:
         psi_spacing_separatrix_multiplier=WithMeta(
             1.0,
             doc=(
-                "change radial spacing at separatrics: <1 to make points closer, >1 to "
-                "make points further apart"
+                "Factor modifying radial spacing at separatrics: <1 to make points "
+                "closer, >1 to make points further apart"
             ),
             value_type=float,
             checks=is_positive,

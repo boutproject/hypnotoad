@@ -23,6 +23,7 @@ the potential.
 """
 
 from collections import OrderedDict
+from collections.abc import Sequence
 from copy import deepcopy
 import warnings
 
@@ -794,7 +795,6 @@ class PsiContour:
     Mostly behaves like a list
     """
 
-    # options = Options(refine_width=1.0e-5, refine_atol=2.0e-8, refine_methods="line")
     user_options_factory = OptionsFactory(
         # Include settings for member FineContour objects
         FineContour.user_options_factory.defaults,
@@ -811,10 +811,10 @@ class PsiContour:
             checks=is_positive,
         ),
         refine_methods=WithMeta(
-            "integrate+newton, integrate",
+            ["integrate+newton", "integrate"],
             doc=(
                 """
-                ordered, comma-separated list of methods to try when refining points:
+                ordered list of methods to try when refining points:
                 Valid names are:
                 - "newton"       Newton iteration
                 - "line"         A line search
@@ -823,10 +823,13 @@ class PsiContour:
                 - "none"         No refinement (always succeeds)
             """
             ),
-            value_type=str,
-            # Don't check 'allowed' here, because we also support any permutation of
-            # these options, and correctness of value is checked where it is used.
-            # allowed=["newton", "line", "integrate", "integrate+newton", "none"],
+            value_type=[str, Sequence],
+            checks=lambda x: numpy.all(
+                [
+                    value in ["newton", "line", "integrate", "integrate+newton", "none"]
+                    for value in ([x] if isinstance(x, str) else x)
+                ]
+            ),
         ),
     )
 
@@ -1177,7 +1180,7 @@ class PsiContour:
         self.psi(p) is close to self.psival, by moving along
         the tangent vector.
 
-        methods   A comma-separated list of methods to use.
+        methods   An ordered list of methods to use.
                   This overrides options.refine_methods
 
                   Valid names are:
@@ -1226,10 +1229,13 @@ class PsiContour:
             if methods is None:
                 methods = "line"  # For now, original method
 
-        for method in methods.split(","):
+        if isinstance(methods, str):
+            methods = [methods]
+
+        for method in methods:
             try:
                 # Try each method
-                return available_methods[method.strip()](p, tangent, width, atol)
+                return available_methods[method](p, tangent, width, atol)
             except SolutionError:
                 # If it fails, try the next one
                 pass

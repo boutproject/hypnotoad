@@ -358,7 +358,7 @@ class OptionsFactory:
     def __contains__(self, key):
         return key in self.__default_values
 
-    def create(self, values={}):
+    def create(self, values=None):
         """Create an Options instance
 
         The members of the created Options are defined by this
@@ -371,6 +371,8 @@ class OptionsFactory:
         values : dict, optional
             Non-default values to be used
         """
+        if values is None:
+            values = {}
 
         # do not modify passed-in values
         values = deepcopy(dict(values))

@@ -245,8 +245,8 @@ class TokamakEquilibrium(Equilibrium):
         psi_axis=None,
         dct=False,
         make_regions=True,
-        settings={},
-        nonorthogonal_settings={},
+        settings=None,
+        nonorthogonal_settings=None,
     ):
         """
         Create a Tokamak equilibrium.
@@ -1501,7 +1501,9 @@ class TokamakEquilibrium(Equilibrium):
         return self.fpol(self.psi_axis) / self.o_point.R
 
 
-def read_geqdsk(filehandle, settings={}, nonorthogonal_settings={}, make_regions=True):
+def read_geqdsk(
+    filehandle, settings=None, nonorthogonal_settings=None, make_regions=True
+):
     """
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
@@ -1517,6 +1519,9 @@ def read_geqdsk(filehandle, settings={}, nonorthogonal_settings={}, make_regions
     reverse_current = bool  Changes the sign of poloidal flux psi
     extrapolate_profiles = bool   Extrapolate pressure using exponential
     """
+
+    if settings is None:
+        settings = {}
 
     from ..geqdsk._geqdsk import read as geq_read
 

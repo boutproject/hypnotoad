@@ -315,9 +315,7 @@ class OptionsFactory:
             pass
 
         # When setting default values, detect circular definitions
-        try:
-            self.__key_chain
-        except AttributeError:
+        if not hasattr(self, "_OptionsFactory__key_chain"):
             chain_start = True
             self.__key_chain = [key]
         else:

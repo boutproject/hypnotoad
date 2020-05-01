@@ -7,6 +7,7 @@ import ast
 import copy
 import os
 import pathlib
+import textwrap
 import yaml
 
 from Qt.QtWidgets import (
@@ -269,7 +270,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             else:
                 value_to_set = f"{filtered_default_values[key]} (default)"
             item1 = QTableWidgetItem(value_to_set)
-            item1.setToolTip(value.doc)
+            item1.setToolTip(textwrap.fill(value.doc))
             self.options_form.setItem(row, 1, item1)
 
         self.options_form.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)

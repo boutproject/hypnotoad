@@ -813,13 +813,10 @@ class PsiContour:
         refine_methods=WithMeta(
             ["integrate+newton", "integrate"],
             doc=(
-                "Ordered list of methods to try when refining points.\n"
-                "Valid names are:\n"
-                "- 'newton'       Newton iteration\n"
-                "- 'line'         A line search\n"
-                "- 'integrate'    Integrate along psi gradient\n"
-                "- 'integrate+newton'  Integrate, then refine with Newton\n"
-                "- 'none'         No refinement (always succeeds)\n"
+                "Ordered list of methods to try when refining points. Valid names are: "
+                "'newton' - Newton iteration; 'line' - a line search; 'integrate' "
+                "integrate along psi gradient; 'integrate+newton' integrate, then "
+                "refine with Newton; 'none' - no refinement (always succeeds)"
             ),
             value_type=[str, Sequence],
             checks=lambda x: numpy.all(

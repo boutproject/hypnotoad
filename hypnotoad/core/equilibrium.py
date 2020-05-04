@@ -1663,7 +1663,7 @@ class EquilibriumRegion(PsiContour):
 
     nonorthogonal_options_factory = OptionsFactory(
         nonorthogonal_xpoint_poloidal_spacing_length=WithMeta(
-            5.0e-2,
+            1.0,
             doc=(
                 "Poloidal spacing of grid points near the X-point (for nonorthogonal "
                 "grids)"
@@ -1672,7 +1672,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
-            "nonorthogonal_xpoint_poloidal_spacing_length",
+            lambda options: 0.02 * options.nonorthogonal_xpoint_poloidal_spacing_length,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at the radial location of separatrices"
@@ -1681,7 +1681,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
-            "nonorthogonal_xpoint_poloidal_spacing_range",
+            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
@@ -1690,7 +1690,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
-            "nonorthogonal_xpoint_poloidal_spacing_range",
+            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'outer' radial boundaries (SOL)"
@@ -1699,7 +1699,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_length=WithMeta(
-            5.0e-2,
+            1.0,
             doc=(
                 "Poloidal spacing of grid points near the target (for nonorthogonal "
                 "grids)"
@@ -1708,7 +1708,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_target_poloidal_spacing_range=WithMeta(
-            "nonorthogonal_target_poloidal_spacing_length",
+            lambda options: 0.1 * options.nonorthogonal_target_poloidal_spacing_length,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"

@@ -1235,7 +1235,7 @@ class PsiContour:
 
         # All methods failed. If the user wants to continue anyway,
         # the last method in the methods list can be set to "none"
-        raise SolutionError("refinePoint failed to converge with methods: " + methods)
+        raise SolutionError(f"refinePoint failed to converge with methods: {methods}")
 
     def getRefined(self, **kwargs):
         newpoints = []

@@ -179,7 +179,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
         self.options_form.setRowCount(0)
         self.update_options_form()
 

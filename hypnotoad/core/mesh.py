@@ -26,18 +26,17 @@ import re
 import warnings
 
 import numpy
+from optionsfactory import OptionsFactory, WithMeta
+from optionsfactory.checks import (
+    is_non_negative,
+    is_positive,
+)
 from scipy.integrate import solve_ivp
 
 from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
 
 from .equilibrium import calc_distance, Equilibrium, EquilibriumRegion, Point2D
-from ..utils.options import (
-    OptionsFactory,
-    WithMeta,
-    is_non_negative,
-    is_positive,
-)
 from ..__version__ import get_versions
 
 

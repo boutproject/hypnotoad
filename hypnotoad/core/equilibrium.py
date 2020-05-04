@@ -25,22 +25,20 @@ the potential.
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
-import warnings
-
-import numpy
-from scipy.optimize import minimize_scalar, brentq
-from scipy.interpolate import interp1d
-from scipy.integrate import solve_ivp
-
-from ..utils.options import (
-    OptionsFactory,
-    WithMeta,
+from optionsfactory import OptionsFactory, WithMeta
+from optionsfactory.checks import (
     NoneType,
     is_positive,
     is_positive_or_None,
     is_non_negative,
     is_non_negative_or_None,
 )
+import warnings
+
+import numpy
+from scipy.optimize import minimize_scalar, brentq
+from scipy.interpolate import interp1d
+from scipy.integrate import solve_ivp
 
 
 class SolutionError(Exception):

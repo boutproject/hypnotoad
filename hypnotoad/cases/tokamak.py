@@ -2,6 +2,12 @@
 #
 
 import numpy as np
+from optionsfactory import WithMeta
+from optionsfactory.checks import (
+    is_non_negative,
+    is_positive,
+    NoneType,
+)
 from scipy import interpolate
 from scipy.integrate import solve_ivp
 import warnings
@@ -9,13 +15,6 @@ from collections import OrderedDict
 import functools
 
 from ..core.equilibrium import Equilibrium, EquilibriumRegion, Point2D
-from ..utils.options import (
-    WithMeta,
-    is_non_negative,
-    is_positive,
-    NoneType,
-    optionsTableString,
-)
 from ..core.mesh import MultiLocationArray
 
 from ..utils import critical, polygons

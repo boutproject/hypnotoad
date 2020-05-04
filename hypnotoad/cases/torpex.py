@@ -21,6 +21,8 @@ from collections import OrderedDict
 import warnings
 
 import numpy
+from optionsfactory import WithMeta
+from optionsfactory.checks import is_positive
 
 from ..core.mesh import BoutMesh
 from ..core.equilibrium import (
@@ -30,7 +32,6 @@ from ..core.equilibrium import (
     SolutionError,
 )
 from ..geqdsk._geqdsk import read as geq_read
-from ..utils.options import WithMeta, is_positive, optionsTableString
 from ..utils.utils import with_default
 
 # type for manipulating information about magnetic field coils

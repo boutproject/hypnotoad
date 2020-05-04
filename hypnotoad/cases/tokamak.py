@@ -222,7 +222,7 @@ class TokamakEquilibrium(Equilibrium):
         # slightly displaced from the null so code can follow Grad(psi).
         # Number between 0. and 1.
         xpoint_offset=WithMeta(
-            0.5,
+            0.1,
             doc=(
                 "Tolerance for positioning points that should be at X-point, but need "
                 "to be slightly displaced from the null so code can follow Grad(psi)."

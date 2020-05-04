@@ -487,7 +487,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_widget.clear(keep_limits=True)
         self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        self.eq.plotWall(ax=self.plot_widget.axes)
+        self.eq.plotWall(axis=self.plot_widget.axes)
         self.mesh.plotPoints(
             xlow=self.gui_options["plot_xlow"],
             ylow=self.gui_options["plot_ylow"],

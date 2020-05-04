@@ -889,6 +889,13 @@ class TokamakEquilibrium(Equilibrium):
         if nx_inter_sep == 0:
             print("Generating a connected double null")
 
+            # Only use psi of inner separatrix, not the outer one (if it is slightly
+            # different)
+            segments["upper_pf"]["psi_end"] = self.psi_sep[0]
+            segments["lower_pf"]["psi_end"] = self.psi_sep[0]
+            segments["inner_sol"]["psi_start"] = self.psi_sep[0]
+            segments["outer_sol"]["psi_start"] = self.psi_sep[0]
+
             # Description of each poloidal region
             leg_regions = {
                 "inner_lower_divertor": {

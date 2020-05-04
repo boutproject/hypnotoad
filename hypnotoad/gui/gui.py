@@ -557,7 +557,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         error_message = QErrorMessage()
         error_message.showMessage(str(error))
         error_message.exec_()
-        self.plot_widget.clear(keep_limits=True)
 
 
 class Preferences(QDialog, Ui_Preferences):

@@ -696,7 +696,10 @@ class MeshRegion:
             contour.refine(width=self.user_options.refine_width)
             contour.checkFineContourExtend()
 
-    def distributePointsNonorthogonal(self):
+    def distributePointsNonorthogonal(self, nonorthogonal_settings=None):
+        if nonorthogonal_settings is not None:
+            self.equilibriumRegion.resetNonorthogonalOptions(nonorthogonal_settings)
+
         # regrid the contours (which all know where the wall is)
         for i_contour, contour in enumerate(self.contours):
             print(
@@ -2029,18 +2032,14 @@ class Mesh:
             "'production' grid non-interactively to ensure reproducibility."
         )
 
-        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
-            nonorthogonal_settings
-        )
-        self.equilibrium.resetNonorthogonalOptions(dict(self.nonorthogonal_options))
+        self.equilibrium.resetNonorthogonalOptions(nonorthogonal_settings)
 
         assert (
             not self.user_options.orthogonal
         ), "redistributePoints would do nothing for an orthogonal grid."
         for region in self.regions.values():
             print("redistributing", region.name)
-            region.equilibriumRegion.setupOptions(force=True)
-            region.distributePointsNonorthogonal()
+            region.distributePointsNonorthogonal(nonorthogonal_settings)
 
     def calculateRZ(self):
         """

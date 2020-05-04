@@ -406,9 +406,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     nonorthogonal_settings=copy.deepcopy(self.options),
                 )
         except (ValueError, RuntimeError) as e:
-            error_message = QErrorMessage()
-            error_message.showMessage(str(e))
-            error_message.exec_()
+            self._popup_error_message(e)
             return
 
         self.update_options_form()
@@ -443,9 +441,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         try:
             self.mesh = BoutMesh(self.eq, self.options)
         except (ValueError, SolutionError) as e:
-            error_message = QErrorMessage()
-            error_message.showMessage(str(e))
-            error_message.exec_()
+            self._popup_error_message(e)
             return
 
         self.mesh.calculateRZ()
@@ -478,10 +474,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         try:
             self.mesh.redistributePoints(self.options)
         except (ValueError, TypeError) as e:
-            error_message = QErrorMessage()
-            error_message.showMessage(str(e))
-            error_message.exec_()
-            self.plot_widget.clear(keep_limits=True)
+            self._popup_error_message(e)
             return
 
         self.statusbar.showMessage("Done!", 2000)
@@ -553,6 +546,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
 
         self.plot_widget.canvas.draw()
+
+    def _popup_error_message(self, error):
+        error_message = QErrorMessage()
+        error_message.showMessage(str(error))
+        error_message.exec_()
+        self.plot_widget.clear(keep_limits=True)
 
 
 class Preferences(QDialog, Ui_Preferences):

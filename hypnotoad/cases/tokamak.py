@@ -614,7 +614,7 @@ class TokamakEquilibrium(Equilibrium):
         legs = self.findLegs(self.x_points[0])
 
         # Move the first point of each leg slightly away from the X-point
-        diff = 0.1
+        diff = self.user_options.xpoint_offset
         for leg in legs.values():
             leg[0] = diff * leg[1] + (1.0 - diff) * leg[0]
 
@@ -805,7 +805,7 @@ class TokamakEquilibrium(Equilibrium):
         upper_legs = self.findLegs(upper_x_point)
 
         # Move the first point of each leg slightly away from the X-point
-        diff = 0.1
+        diff = self.user_options.xpoint_offset
         for legs in [lower_legs, upper_legs]:
             for leg in legs.values():
                 leg[0] = diff * leg[1] + (1.0 - diff) * leg[0]

@@ -260,7 +260,7 @@ class MeshRegion:
     """
 
     user_options_factory = OptionsFactory(
-        EquilibriumRegion.user_options_factory.defaults,
+        EquilibriumRegion.user_options_factory,
         shiftedmetric=WithMeta(
             True,
             doc="Is grid generated for paralleltransform=ShiftedMetric?",
@@ -276,13 +276,13 @@ class MeshRegion:
             2.0e-8,
             doc="Relative tolerance for following Grad(psi)",
             value_type=float,
-            checks=is_non_negative,
+            check_all=is_non_negative,
         ),
         follow_perpendicular_atol=WithMeta(
             1.0e-8,
             doc="Absolute tolerance for following Grad(psi)",
             value_type=float,
-            checks=is_non_negative,
+            check_all=is_non_negative,
         ),
         geometry_rtol=WithMeta(
             1.0e-10,
@@ -291,7 +291,7 @@ class MeshRegion:
                 "(for example the Jacobian)"
             ),
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         cap_Bp_ylow_xpoint=WithMeta(
             False,
@@ -1879,9 +1879,9 @@ class Mesh:
 
     user_options_factory = OptionsFactory(
         # Include settings for member Equilibrium object
-        Equilibrium.user_options_factory.defaults,
+        Equilibrium.user_options_factory,
         # Include settings for member MeshRegion objects
-        MeshRegion.user_options_factory.defaults,
+        MeshRegion.user_options_factory,
     )
 
     def __init__(self, equilibrium, settings):

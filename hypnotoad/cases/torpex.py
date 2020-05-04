@@ -63,37 +63,37 @@ class TORPEXMagneticField(Equilibrium):
             4,
             doc="Number of radial points in the PFR regions",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nx_sol=WithMeta(
             4,
             doc="Number of radial points in the SOL regions",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_lower_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the inner, lower leg",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_upper_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the inner, upper leg",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_upper_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the outer, upper leg",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_lower_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the outer, lower leg",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         psi_core=WithMeta(
             None,
@@ -101,7 +101,7 @@ class TORPEXMagneticField(Equilibrium):
             value_type=float,
         ),
         psi_sol=WithMeta(
-            None, doc="psi value of the SOL", value_type=float, checks=is_positive,
+            None, doc="psi value of the SOL", value_type=float, check_all=is_positive,
         ),
         psi_sol_inner=WithMeta(
             lambda options: options.psi_sol,
@@ -137,7 +137,7 @@ class TORPEXMagneticField(Equilibrium):
             numpy.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
         )
 
-        print(optionsTableString(self.user_options))
+        print(self.user_options.as_table())
 
         # Call Equilibrium constructor after adding stuff to options
         super().__init__(meshOptions)

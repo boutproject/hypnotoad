@@ -351,13 +351,13 @@ class FineContour:
                 "interpolation or distance calculations"
             ),
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         finecontour_atol=WithMeta(
             1.0e-12,
             doc="Absolute tolerance for refinement of FineContours",
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         finecontour_diagnose=WithMeta(
             False,
@@ -374,7 +374,7 @@ class FineContour:
                 "FineContour"
             ),
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
     )
 
@@ -795,18 +795,18 @@ class PsiContour:
 
     user_options_factory = OptionsFactory(
         # Include settings for member FineContour objects
-        FineContour.user_options_factory.defaults,
+        FineContour.user_options_factory,
         refine_width=WithMeta(
             1.0e-5,
             doc="Width for line search when refining points",
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         refine_atol=WithMeta(
             2.0e-8,
             doc="Absolute tolerance for refinement of points",
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         refine_methods=WithMeta(
             ["integrate+newton", "integrate"],
@@ -817,7 +817,7 @@ class PsiContour:
                 "refine with Newton; 'none' - no refinement (always succeeds)"
             ),
             value_type=[str, Sequence],
-            checks=lambda x: numpy.all(
+            check_all=lambda x: numpy.all(
                 [
                     value in ["newton", "line", "integrate", "integrate+newton", "none"]
                     for value in ([x] if isinstance(x, str) else x)
@@ -1592,13 +1592,16 @@ class EquilibriumRegion(PsiContour):
 
     user_options_factory = OptionsFactory(
         # Include settings for member PsiContour objects
-        PsiContour.user_options_factory.defaults,
+        PsiContour.user_options_factory,
         #
         # General options for the grid
         ##############################
         orthogonal=WithMeta(True, doc="Is grid orthogonal?", value_type=bool),
         y_boundary_guards=WithMeta(
-            0, doc="Number of y-boundary cells", value_type=int, checks=is_non_negative,
+            0,
+            doc="Number of y-boundary cells",
+            value_type=int,
+            check_all=is_non_negative,
         ),
         # Input parameters for poloidal spacing functions
         #################################################
@@ -1619,7 +1622,7 @@ class EquilibriumRegion(PsiContour):
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, NoneType],
-            checks=is_positive_or_None,
+            check_all=is_positive_or_None,
         ),
         target_poloidal_spacing_length=WithMeta(
             None,
@@ -1628,7 +1631,7 @@ class EquilibriumRegion(PsiContour):
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, NoneType],
-            checks=is_positive_or_None,
+            check_all=is_positive_or_None,
         ),
         N_norm_prefactor=WithMeta(
             1.0,
@@ -1646,7 +1649,7 @@ class EquilibriumRegion(PsiContour):
                 "significantly different from zero in poloidal spacing functions"
             ),
             value_type=float,
-            checks=is_non_negative,
+            check_all=is_non_negative,
         ),
         poloidalfunction_diagnose=WithMeta(
             False,
@@ -1666,7 +1669,7 @@ class EquilibriumRegion(PsiContour):
                 "grids)"
             ),
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
             "nonorthogonal_xpoint_poloidal_spacing_length",
@@ -1675,7 +1678,7 @@ class EquilibriumRegion(PsiContour):
                 "X-point. This range is used at the radial location of separatrices"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
             "nonorthogonal_xpoint_poloidal_spacing_range",
@@ -1684,7 +1687,7 @@ class EquilibriumRegion(PsiContour):
                 "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
             "nonorthogonal_xpoint_poloidal_spacing_range",
@@ -1693,7 +1696,7 @@ class EquilibriumRegion(PsiContour):
                 "X-point. This range is used at 'outer' radial boundaries (SOL)"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_length=WithMeta(
             5.0e-2,
@@ -1702,7 +1705,7 @@ class EquilibriumRegion(PsiContour):
                 "grids)"
             ),
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nonorthogonal_target_poloidal_spacing_range=WithMeta(
             "nonorthogonal_target_poloidal_spacing_length",
@@ -1711,7 +1714,7 @@ class EquilibriumRegion(PsiContour):
                 "target. This range is used at the radial location of separatrices"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_inner=WithMeta(
             "nonorthogonal_target_poloidal_spacing_range",
@@ -1720,7 +1723,7 @@ class EquilibriumRegion(PsiContour):
                 "target. This range is used at 'inner' radial boundaries (core and PFR)"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_outer=WithMeta(
             "nonorthogonal_target_poloidal_spacing_range",
@@ -1729,7 +1732,7 @@ class EquilibriumRegion(PsiContour):
                 "target. This range is used at 'outer' radial boundaries (SOL)"
             ),
             value_type=[float, NoneType],
-            checks=is_non_negative_or_None,
+            check_all=is_non_negative_or_None,
         ),
         nonorthogonal_radial_range_power=WithMeta(
             1.0,
@@ -1738,7 +1741,7 @@ class EquilibriumRegion(PsiContour):
                 "or outer range values"
             ),
             value_type=float,
-            checks=is_non_negative,
+            check_all=is_non_negative,
         ),
         nonorthogonal_spacing_method=WithMeta(
             "combined",
@@ -2872,7 +2875,7 @@ class Equilibrium:
 
     user_options_factory = OptionsFactory(
         # Include settings for member EquilibriumRegion objects
-        EquilibriumRegion.user_options_factory.defaults,
+        EquilibriumRegion.user_options_factory,
         #
         # Radial spacing options
         ########################
@@ -2883,7 +2886,7 @@ class Equilibrium:
                 "closer, >1 to make points further apart"
             ),
             value_type=float,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         poloidal_spacing_delta_psi=WithMeta(
             None,
@@ -2892,12 +2895,12 @@ class Equilibrium:
                 "separatrix segment. Use None for an automatically selected increment."
             ),
             value_type=[float, NoneType],
-            checks=is_positive_or_None,
+            check_all=is_positive_or_None,
         ),
     )
 
     nonorthogonal_options_factory = OptionsFactory(
-        EquilibriumRegion.nonorthogonal_options_factory.defaults,
+        EquilibriumRegion.nonorthogonal_options_factory,
     )
 
     def __init__(self, nonorthogonal_settings):

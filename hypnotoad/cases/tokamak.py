@@ -44,7 +44,7 @@ class TokamakEquilibrium(Equilibrium):
             5,
             doc="Number of radial points in the core",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nx_pf=WithMeta(
             "nx_core",
@@ -53,19 +53,19 @@ class TokamakEquilibrium(Equilibrium):
                 "varied due to BOUT++ limitations"
             ),
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nx_inter_sep=WithMeta(
             0,
             doc="Number of radial points in the inter-separatrix region",
             value_type=int,
-            checks=is_non_negative,
+            check_all=is_non_negative,
         ),
         nx_sol=WithMeta(
             5,
             doc="Number of radial points in the SOL",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nx_sol_inner=WithMeta(
             "nx_sol",
@@ -74,7 +74,7 @@ class TokamakEquilibrium(Equilibrium):
                 "varied due to BOUT++ limitations"
             ),
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         nx_sol_outer=WithMeta(
             "nx_sol",
@@ -83,61 +83,61 @@ class TokamakEquilibrium(Equilibrium):
                 "varied due to BOUT++ limitations"
             ),
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the inner divertor(s)",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_lower_divertor=WithMeta(
             "ny_inner_divertor",
             doc="Number of poloidal points in the inner, lower divertor",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_upper_divertor=WithMeta(
             "ny_inner_divertor",
             doc="Number of poloidal points in the inner, upper divertor",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_divertor=WithMeta(
             4,
             doc="Number of poloidal points in the outer divertor(s)",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_lower_divertor=WithMeta(
             "ny_outer_divertor",
             doc="Number of poloidal points in the outer, lower divertor",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_upper_divertor=WithMeta(
             "ny_outer_divertor",
             doc="Number of poloidal points in the outer, upper divertor",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_sol=WithMeta(
             8,
             doc="Number of poloidal points in the SOL upstream of the X-point(s)",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_inner_sol=WithMeta(
             lambda options: options.ny_sol // 2,
             doc="Number of poloidal points in the inner SOL upstream of the X-point(s)",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         ny_outer_sol=WithMeta(
             lambda options: options.ny_sol - options.ny_inner_sol,
             doc="Number of poloidal points in the outer SOL upstream of the X-point(s)",
             value_type=int,
-            checks=is_positive,
+            check_all=is_positive,
         ),
         psinorm_core=WithMeta(
             0.9,
@@ -228,7 +228,7 @@ class TokamakEquilibrium(Equilibrium):
                 "to be slightly displaced from the null so code can follow Grad(psi)."
             ),
             value_type=float,
-            checks=[is_positive, lambda x: x < 1.0],
+            check_all=[is_positive, lambda x: x < 1.0],
         ),
     )
 
@@ -381,7 +381,7 @@ class TokamakEquilibrium(Equilibrium):
         super().__init__(nonorthogonal_settings)
 
         # Print the table of options
-        print(optionsTableString(self.user_options))
+        print(self.user_options.as_table())
 
         if make_regions:
             # Create self.regions

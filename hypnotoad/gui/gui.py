@@ -478,6 +478,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             self.mesh.redistributePoints(self.options)
+            self.mesh.calculateRZ()
         except (ValueError, TypeError) as e:
             self._popup_error_message(e)
             return

@@ -485,16 +485,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Done!", 2000)
 
-        self.plot_widget.clear(keep_limits=True)
-        self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-        self.eq.plotWall(axis=self.plot_widget.axes)
-        self.mesh.plotPoints(
-            xlow=self.gui_options["plot_xlow"],
-            ylow=self.gui_options["plot_ylow"],
-            corners=self.gui_options["plot_corners"],
-            ax=self.plot_widget.axes,
-        )
-        self.plot_widget.canvas.draw()
+        self.plot_grid(keep_limits=True)
 
     def write_grid(self):
         """Write generated mesh to file
@@ -528,8 +519,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.mesh.writeGridfile(filename)
 
-    def plot_grid(self):
-        self.plot_widget.clear()
+    def plot_grid(self, *, keep_limits=False):
+        self.plot_widget.clear(keep_limits=keep_limits)
 
         if hasattr(self, "eq"):
             self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)

@@ -41,6 +41,12 @@ DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
 YAML_FILTER = "YAML file (*.yml *.yaml)"
 NETCDF_FILTER = "NetCDF (*nc)"
 
+DEFAULT_OPTIONS = {
+    "orthogonal": tokamak.TokamakEquilibrium.user_options_factory.defaults[
+        "orthogonal"
+    ].value
+}
+
 DEFAULT_GUI_OPTIONS = {
     "grid_file": "bout.grd.nc",
     "plot_xlow": True,
@@ -115,7 +121,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.action_Quit.triggered.connect(self.close)
 
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
 
@@ -161,7 +167,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         self.statusbar.showMessage("Reverting options", 2000)
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
         self.regrid_button.setEnabled(not self.options["orthogonal"])
         self.action_Regrid.setEnabled(not self.options["orthogonal"])
 

@@ -745,14 +745,17 @@ class MeshRegion:
                     p_out = c_out[c_out.endInd]
                 return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-            if self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal":
+            if (
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                == "orthogonal"
+            ):
                 warnings.warn(
                     "'orthogonal' option is not currently compatible with "
                     "extending grid past targets"
                 )
                 sfunc = self.sfunc_orthogonal_list[i_contour]
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_poloidal"
             ):
                 # this sfunc gives a fixed poloidal spacing at beginning and end of
@@ -763,28 +766,28 @@ class MeshRegion:
                     method="monotonic",
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
                     contour, self.sfunc_orthogonal_list[i_contour]
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_lower"
             ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(True), True
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_upper"
             ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(False), False
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
@@ -793,7 +796,10 @@ class MeshRegion:
                     surface_vec(True),
                     surface_vec(False),
                 )
-            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
+            elif (
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                == "combined"
+            ):
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
@@ -815,7 +821,9 @@ class MeshRegion:
             else:
                 raise ValueError(
                     "Unrecognized option '"
-                    + str(self.nonorthogonal_options.nonorthogonal_spacing_method)
+                    + str(
+                        self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method  # noqa: E501
+                    )
                     + "' for nonorthogonal poloidal spacing function"
                 )
 

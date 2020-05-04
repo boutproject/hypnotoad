@@ -241,7 +241,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
     def update_options_form(self):
         """Update the widget values in the options form, based on the current
-        values in the options object
+        values in self.options
 
         """
 
@@ -256,14 +256,19 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         # evaluate filtered_defaults using the values in self.options, so that any
         # expressions get evaluated
-        filtered_default_values = dict(
-            tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
-        )
-        filtered_default_values.update(
-            tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
-                self.options
+        try:
+            filtered_default_values = dict(
+                tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
-        )
+            filtered_default_values.update(
+                tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                    self.options
+                )
+            )
+        except (ValueError, TypeError) as e:
+            self._popup_error_message(e)
+            return
+
         # Skip options handled specially elsewhere
         del filtered_options["orthogonal"]
         del filtered_defaults["orthogonal"]

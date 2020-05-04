@@ -193,7 +193,7 @@ class Ui_Hypnotoad(object):
 
         self.nonorthogonal_box = QCheckBox(self.centralwidget)
         self.nonorthogonal_box.setObjectName(u"nonorthogonal_box")
-        self.nonorthogonal_box.setEnabled(False)
+        self.nonorthogonal_box.setEnabled(True)
 
         self.gridLayout_2.addWidget(self.nonorthogonal_box, 1, 6, 1, 1)
 

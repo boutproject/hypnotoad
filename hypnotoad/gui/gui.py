@@ -125,9 +125,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
 
-        self.regrid_button.setEnabled(not self.options["orthogonal"])
-        self.action_Regrid.setEnabled(not self.options["orthogonal"])
-
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
@@ -168,8 +165,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.statusbar.showMessage("Reverting options", 2000)
         self.options = DEFAULT_OPTIONS
-        self.regrid_button.setEnabled(not self.options["orthogonal"])
-        self.action_Regrid.setEnabled(not self.options["orthogonal"])
 
         options_filename = self.options_file_line_edit.text()
 
@@ -348,7 +343,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_file_line_edit.setText(filename)
         self.filename = filename
         self.read_options()
-        self.nonorthogonal_box.setEnabled(True)
         self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def read_options(self):
@@ -422,10 +416,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         # Delete mesh if it exists, since we have a new self.eq object
         if hasattr(self, "mesh"):
             del self.mesh
+        self.regrid_button.setEnabled(False)
+        self.action_Regrid.setEnabled(False)
 
         self.plot_grid()
 
-        self.nonorthogonal_box.setEnabled(True)
         self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def run(self):
@@ -465,9 +460,6 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     def set_nonorthogonal(self, state):
         state = bool(state)
         self.options["orthogonal"] = not state
-        if hasattr(self, "mesh"):
-            self.regrid_button.setEnabled(state)
-            self.action_Regrid.setEnabled(state)
 
     def regrid(self):
         """Regrid a nonorthogonal grid after spacing settings are changed

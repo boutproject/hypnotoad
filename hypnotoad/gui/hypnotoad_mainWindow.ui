@@ -102,7 +102,7 @@
           <item row="1" column="6">
            <widget class="QCheckBox" name="nonorthogonal_box">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <property name="toolTip">
              <string>Check to generate non-orthogonal grids</string>

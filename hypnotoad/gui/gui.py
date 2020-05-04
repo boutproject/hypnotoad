@@ -476,7 +476,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.statusbar.showMessage("Running...")
 
         try:
-            self.mesh.redistributePoints()
+            self.mesh.redistributePoints(self.options)
         except ValueError as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))

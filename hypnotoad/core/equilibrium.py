@@ -2897,7 +2897,6 @@ class Equilibrium:
             checks=is_positive_or_None,
         ),
     )
-    options_factory = OptionsFactory()
 
     nonorthogonal_options_factory = OptionsFactory(
         EquilibriumRegion.nonorthogonal_options_factory.defaults,

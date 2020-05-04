@@ -1884,7 +1884,6 @@ class Mesh:
         # Include settings for member MeshRegion objects
         MeshRegion.user_options_factory.defaults,
     )
-    options_factory = OptionsFactory(Equilibrium.options_factory.defaults)
 
     def __init__(self, equilibrium, settings):
         """

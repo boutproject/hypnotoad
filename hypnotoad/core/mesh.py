@@ -275,13 +275,13 @@ class MeshRegion:
         follow_perpendicular_rtol=WithMeta(
             2.0e-8,
             doc="Relative tolerance for following Grad(psi)",
-            value_type=float,
+            value_type=[float, int],
             check_all=is_non_negative,
         ),
         follow_perpendicular_atol=WithMeta(
             1.0e-8,
             doc="Absolute tolerance for following Grad(psi)",
-            value_type=float,
+            value_type=[float, int],
             check_all=is_non_negative,
         ),
         geometry_rtol=WithMeta(
@@ -290,7 +290,7 @@ class MeshRegion:
                 "Tolerance for checking identities on calculated geometrical quantities "
                 "(for example the Jacobian)"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         cap_Bp_ylow_xpoint=WithMeta(

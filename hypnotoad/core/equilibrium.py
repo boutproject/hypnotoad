@@ -356,7 +356,7 @@ class FineContour:
         finecontour_atol=WithMeta(
             1.0e-12,
             doc="Absolute tolerance for refinement of FineContours",
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         finecontour_diagnose=WithMeta(
@@ -799,13 +799,13 @@ class PsiContour:
         refine_width=WithMeta(
             1.0e-5,
             doc="Width for line search when refining points",
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         refine_atol=WithMeta(
             2.0e-8,
             doc="Absolute tolerance for refinement of points",
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         refine_methods=WithMeta(
@@ -1621,7 +1621,7 @@ class EquilibriumRegion(PsiContour):
                 "Spacing at the X-point end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_positive_or_None,
         ),
         target_poloidal_spacing_length=WithMeta(
@@ -1630,7 +1630,7 @@ class EquilibriumRegion(PsiContour):
                 "Spacing at the wall end of a region (used for orthogonal grids)"
                 "Use None to not constrain the spacing."
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_positive_or_None,
         ),
         N_norm_prefactor=WithMeta(
@@ -1648,7 +1648,7 @@ class EquilibriumRegion(PsiContour):
                 "Tolerance to check for small negative values that are not "
                 "significantly different from zero in poloidal spacing functions"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_non_negative,
         ),
         poloidalfunction_diagnose=WithMeta(
@@ -1668,7 +1668,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal spacing of grid points near the X-point (for nonorthogonal "
                 "grids)"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
@@ -1677,7 +1677,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at the radial location of separatrices"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
@@ -1686,7 +1686,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
@@ -1695,7 +1695,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'outer' radial boundaries (SOL)"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_length=WithMeta(
@@ -1704,7 +1704,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal spacing of grid points near the target (for nonorthogonal "
                 "grids)"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         nonorthogonal_target_poloidal_spacing_range=WithMeta(
@@ -1713,7 +1713,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_inner=WithMeta(
@@ -1722,7 +1722,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'inner' radial boundaries (core and PFR)"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_outer=WithMeta(
@@ -1731,7 +1731,7 @@ class EquilibriumRegion(PsiContour):
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'outer' radial boundaries (SOL)"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_radial_range_power=WithMeta(
@@ -1740,7 +1740,7 @@ class EquilibriumRegion(PsiContour):
                 "Controls radial transition between separatrix range value and inner "
                 "or outer range values"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_non_negative,
         ),
         nonorthogonal_spacing_method=WithMeta(
@@ -2885,7 +2885,7 @@ class Equilibrium:
                 "Factor modifying radial spacing at separatrics: <1 to make points "
                 "closer, >1 to make points further apart"
             ),
-            value_type=float,
+            value_type=[float, int],
             check_all=is_positive,
         ),
         poloidal_spacing_delta_psi=WithMeta(
@@ -2894,7 +2894,7 @@ class Equilibrium:
                 "Small increment in psi used to find vector along grad(psi) at end of "
                 "separatrix segment. Use None for an automatically selected increment."
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
             check_all=is_positive_or_None,
         ),
     )

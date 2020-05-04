@@ -142,32 +142,32 @@ class TokamakEquilibrium(Equilibrium):
         psinorm_core=WithMeta(
             0.9,
             doc="Normalised psi of the inner radial (core) boundary",
-            value_type=float,
+            value_type=[float, int],
         ),
         psinorm_sol=WithMeta(
             1.1,
             doc="Normalised psi of the outer radial (SOL) boundary",
-            value_type=float,
+            value_type=[float, int],
         ),
         psinorm_sol_inner=WithMeta(
             "psinorm_sol",
             doc="Normalised psi of the outer radial boundary in the inner SOL",
-            value_type=float,
+            value_type=[float, int],
         ),
         psinorm_pf=WithMeta(
             "psinorm_core",
             doc="Normalised psi of the inner radial boundary in the PFR",
-            value_type=float,
+            value_type=[float, int],
         ),
         psinorm_pf_lower=WithMeta(
             "psinorm_pf",
             doc="Normalised psi of the inner radial boundary in the lower PFR",
-            value_type=float,
+            value_type=[float, int],
         ),
         psinorm_pf_upper=WithMeta(
             "psinorm_pf",
             doc="Normalised psi of the inner radial boundary in the upper PFR",
-            value_type=float,
+            value_type=[float, int],
         ),
         # Poloidal flux ranges.
         # These are the values which are used in the mesh generation
@@ -180,7 +180,7 @@ class TokamakEquilibrium(Equilibrium):
                 "generation. Overrides psinorm_core if this value is given, if the "
                 "option is none, then calculated from psinorm_core"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
         ),
         psi_sol=WithMeta(
             None,
@@ -189,7 +189,7 @@ class TokamakEquilibrium(Equilibrium):
                 "generation. Overrides psinorm_sol if this value is given, if the "
                 "option is none, then calculated from psinorm_sol"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
         ),
         psi_sol_inner=WithMeta(
             None,
@@ -198,7 +198,7 @@ class TokamakEquilibrium(Equilibrium):
                 "mesh generation. Overrides psinorm_sol_inner if this value is given, "
                 "if the option is none, then calculated from psinorm_sol_inner"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
         ),
         psi_pf_lower=WithMeta(
             None,
@@ -207,7 +207,7 @@ class TokamakEquilibrium(Equilibrium):
                 "mesh generation. Overrides psinorm_pf_lower if this value is given, "
                 "if the option is none, then calculated from psinorm_pf_lower"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
         ),
         psi_pf_upper=WithMeta(
             None,
@@ -216,7 +216,7 @@ class TokamakEquilibrium(Equilibrium):
                 "mesh generation. Overrides psinorm_pf_upper if this value is given, "
                 "if the option is none, then calculated from psinorm_pf_upper"
             ),
-            value_type=[float, NoneType],
+            value_type=[float, int, NoneType],
         ),
         # Tolerance for positioning points that should be at X-point, but need to be
         # slightly displaced from the null so code can follow Grad(psi).

@@ -477,7 +477,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         try:
             self.mesh.redistributePoints(self.options)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             error_message = QErrorMessage()
             error_message.showMessage(str(e))
             error_message.exec_()

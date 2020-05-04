@@ -2108,10 +2108,20 @@ class Mesh:
         l.set_draggable(True)
 
     def plotPoints(
-        self, xlow=False, ylow=False, corners=False, markers=None, ax=None, **kwargs
+        self,
+        xlow=False,
+        ylow=False,
+        corners=False,
+        markers=None,
+        ax=None,
+        plot_types="scatter",
+        **kwargs,
     ):
         from matplotlib import pyplot
         from cycler import cycle
+
+        if isinstance(plot_types, str):
+            plot_types = [plot_types]
 
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
@@ -2135,31 +2145,71 @@ class Mesh:
 
         for region in self.regions.values():
             c = next(colors)
-            m = iter(markers)
-            ax.scatter(
-                region.Rxy.centre,
-                region.Zxy.centre,
-                marker=next(m),
-                c=c,
-                label=region.myID,
-                **kwargs,
-            )
-            if xlow:
+
+            if "scatter" in plot_types:
+                m = iter(markers)
                 ax.scatter(
-                    region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
-                )
-            if ylow:
-                ax.scatter(
-                    region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs
-                )
-            if corners:
-                ax.scatter(
-                    region.Rxy.corners,
-                    region.Zxy.corners,
+                    region.Rxy.centre,
+                    region.Zxy.centre,
                     marker=next(m),
                     c=c,
+                    label=region.myID,
                     **kwargs,
                 )
+                if xlow:
+                    ax.scatter(
+                        region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
+                    )
+                if ylow:
+                    ax.scatter(
+                        region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs
+                    )
+                if corners:
+                    ax.scatter(
+                        region.Rxy.corners,
+                        region.Zxy.corners,
+                        marker=next(m),
+                        c=c,
+                        **kwargs,
+                    )
+            if "radial" in plot_types:
+                R = numpy.empty([2 * region.nx + 1, region.ny])
+                R[1::2, :] = region.Rxy.centre
+                R[::2, :] = region.Rxy.xlow
+                Z = numpy.empty([2 * region.nx + 1, region.ny])
+                Z[1::2, :] = region.Zxy.centre
+                Z[::2, :] = region.Zxy.xlow
+                lines = ax.plot(R, Z, linestyle="-", c=c,)
+                lines[0].set_label(region.myID)
+                if ylow:
+                    R = numpy.empty([2 * region.nx + 1, region.ny + 1])
+                    R[1::2, :] = region.Rxy.ylow
+                    R[::2, :] = region.Rxy.corners
+                    Z = numpy.empty([2 * region.nx + 1, region.ny + 1])
+                    Z[1::2, :] = region.Zxy.ylow
+                    Z[::2, :] = region.Zxy.corners
+                    ax.plot(
+                        R, Z, linestyle="--", c=c,
+                    )
+            if "poloidal" in plot_types:
+                R = numpy.empty([region.nx, 2 * region.ny + 1])
+                R[:, 1::2] = region.Rxy.centre
+                R[:, ::2] = region.Rxy.ylow
+                Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                Z[:, 1::2] = region.Zxy.centre
+                Z[:, ::2] = region.Zxy.ylow
+                lines = ax.plot(R.T, Z.T, linestyle="-", c=c, label=region.myID)
+                lines[0].set_label(region.myID)
+                if ylow:
+                    R = numpy.empty([region.nx + 1, 2 * region.ny + 1])
+                    R[:, 1::2] = region.Rxy.xlow
+                    R[:, ::2] = region.Rxy.corners
+                    Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                    Z[:, 1::2] = region.Zxy.xlow
+                    Z[:, ::2] = region.Zxy.corners
+                    ax.plot(
+                        R.T, Z.T, linestyle="--", c=c,
+                    )
         l = ax.legend()
         l.set_draggable(True)
 

@@ -15,11 +15,11 @@ from ..utils.options import (
     is_positive,
     NoneType,
     optionsTableString,
-    with_default,
 )
 from ..core.mesh import MultiLocationArray
 
 from ..utils import critical, polygons
+from ..utils.utils import with_default
 
 
 class TokamakEquilibrium(Equilibrium):

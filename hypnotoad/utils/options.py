@@ -45,14 +45,6 @@ def is_non_negative_or_None(x):
 NoneType = type(None)
 
 
-def with_default(value, default):
-
-    if value is not None:
-        return value
-
-    return default
-
-
 class WithMeta:
     """Type for passing metadata with options value or expression into *OptionsFactory
 

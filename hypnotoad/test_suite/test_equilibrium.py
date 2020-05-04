@@ -988,6 +988,8 @@ class TestEquilibriumRegion:
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.sin_angle_at_start = 1.0
+        eqReg.sin_angle_at_end = 1.0
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 

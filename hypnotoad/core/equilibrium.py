@@ -2421,12 +2421,12 @@ class EquilibriumRegion(PsiContour):
         N_norm = self.user_options.N_norm_prefactor * self.ny_total
         spacings = self.getSpacings()
 
-        if self.wallSurfaceAtStart is not None:
+        if self.wallSurfaceAtStart is None:
             d_lower = spacings["monotonic_d_lower"] * self.sin_angle_at_start
         else:
             d_lower = spacings["monotonic_d_lower"]
 
-        if self.wallSurfaceAtEnd is not None:
+        if self.wallSurfaceAtEnd is None:
             d_upper = spacings["monotonic_d_upper"] * self.sin_angle_at_end
         else:
             d_upper = spacings["monotonic_d_upper"]

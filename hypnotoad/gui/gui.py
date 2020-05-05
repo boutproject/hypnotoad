@@ -468,6 +468,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     def set_nonorthogonal(self, state):
         state = bool(state)
         self.options["orthogonal"] = not state
+        self.update_options_form()
 
     def regrid(self):
         """Regrid a nonorthogonal grid after spacing settings are changed

@@ -17,23 +17,10 @@
 # You should have received a copy of the GNU General Public License along with
 # Hypnotoad 2.  If not, see <http://www.gnu.org/licenses/>.
 
-from .cases import tokamak, torpex
-from .core.equilibrium import Point2D, EquilibriumRegion, Equilibrium, SolutionError
-from .core.mesh import MultiLocationArray, MeshRegion, Mesh, BoutMesh
-from .__version__ import get_versions
 
-__version__ = get_versions()["version"]
+def with_default(value, default):
 
-__all__ = [
-    "tokamak",
-    "torpex",
-    "Point2D",
-    "EquilibriumRegion",
-    "Equilibrium",
-    "SolutionError",
-    "MultiLocationArray",
-    "MeshRegion",
-    "Mesh",
-    "BoutMesh",
-    "__version__",
-]
+    if value is not None:
+        return value
+
+    return default

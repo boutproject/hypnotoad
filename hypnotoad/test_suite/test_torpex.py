@@ -4,17 +4,12 @@ import numpy
 
 from hypnotoad.core.equilibrium import Equilibrium, Point2D
 from hypnotoad.cases import torpex
-from hypnotoad.utils.hypnotoad_options import (
-    HypnotoadOptions,
-    HypnotoadInternalOptions,
-)
 
 
 class ThisEquilibrium(Equilibrium):
     def __init__(self):
-        self.user_options = HypnotoadOptions.push({})
-        self.options = HypnotoadInternalOptions.push({})
-        super().__init__()
+        self.user_options = self.user_options_factory.create({})
+        super().__init__({})
 
 
 class TestTORPEX:

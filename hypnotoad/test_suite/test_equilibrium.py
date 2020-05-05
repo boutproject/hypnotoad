@@ -29,13 +29,11 @@ from hypnotoad.core.equilibrium import (
     Point2D,
     PsiContour,
 )
-from hypnotoad.utils.hypnotoad_options import (
-    HypnotoadOptions,
-    HypnotoadInternalOptions,
-)
 from .utils_for_tests import tight_approx
 
-FineContour.options.set(finecontour_Nfine=1000, finecontour_atol=2.0e-8)
+PsiContour.user_options_factory = PsiContour.user_options_factory.add(
+    finecontour_Nfine=1000, finecontour_atol=2.0e-8
+)
 
 
 class TestPoints:
@@ -359,9 +357,11 @@ class TestContour:
                 psi_xpoint = psifunc(self.R[0], self.Z[0])
 
                 self.c = PsiContour(
-                    [Point2D(R, Z) for R, Z in zip(self.R, self.Z)], psifunc, psi_xpoint
+                    points=[Point2D(R, Z) for R, Z in zip(self.R, self.Z)],
+                    psi=psifunc,
+                    psival=psi_xpoint,
+                    settings={"refine_width": 1.0e-3, "refine_methods": "line"},
                 )
-                PsiContour.options.set(refine_width=1.0e-3)
 
         return returnObject()
 
@@ -512,7 +512,12 @@ class TestContour:
         R = R0 + r * numpy.cos(theta)
         Z = Z0 + r * numpy.sin(theta)
 
-        c2 = PsiContour([Point2D(R, Z) for R, Z in zip(R, Z)], c1.psi, c1.psival)
+        c2 = PsiContour(
+            points=[Point2D(R, Z) for R, Z in zip(R, Z)],
+            psi=c1.psi,
+            psival=c1.psival,
+            settings=dict(c1.user_options),
+        )
         c2.startInd = 2
         c2.endInd = len(c2) - 1
 
@@ -570,7 +575,7 @@ class TestContour:
     def test_FineContour(self, testcontour):
         testcontour.c.refine_width = 1.0e-2
 
-        fc = FineContour(testcontour.c)
+        fc = FineContour(testcontour.c, dict(testcontour.c.user_options))
 
         assert fc.totalDistance() == pytest.approx(numpy.pi, abs=1.0e-5)
 
@@ -588,14 +593,11 @@ class TestContour:
 
 class ThisEquilibrium(Equilibrium):
     def __init__(self):
-        self.user_options = HypnotoadOptions.push({})
-        self.options = HypnotoadInternalOptions.push({})
-
-        # set some defaults
-        self.user_options.set(
-            refine_width=1.0e-5, refine_atol=2.0e-8,
+        self.user_options = Equilibrium.user_options_factory.create(
+            {"refine_width": 1.0e-5, "refine_atol": 2.0e-8}
         )
-        super().__init__()
+
+        super().__init__({})
 
 
 class TestEquilibrium:
@@ -697,10 +699,6 @@ class TestEquilibrium:
 class TestEquilibriumRegion:
     @pytest.fixture
     def eqReg(self):
-        user_options = HypnotoadOptions.push({"y_boundary_guards": 1})
-        options = HypnotoadInternalOptions.push(
-            {"nx": [1], "ny": 5, "kind": "wall.wall"}
-        )
         equilib = ThisEquilibrium()
         equilib.psi = lambda R, Z: R - Z
         n = 11.0
@@ -708,7 +706,17 @@ class TestEquilibriumRegion:
             Point2D(i * 3.0 / (n - 1.0), i * 3.0 / (n - 1.0)) for i in numpy.arange(n)
         ]
         eqReg = EquilibriumRegion(
-            equilib, "", 1, user_options, options, points, equilib.psi, 0.0
+            equilibrium=equilib,
+            name="",
+            nSegments=1,
+            settings={"y_boundary_guards": 1},
+            nonorthogonal_settings={},
+            nx=[1],
+            ny=5,
+            kind="wall.wall",
+            ny_total=5,
+            points=points,
+            psival=0.0,
         )
         return eqReg
 
@@ -874,13 +882,14 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.set(
-            monotonic_d_lower=L, monotonic_d_upper=L, N_norm=n - 1,
-        )
+        eqReg.monotonic_d_lower = L
+        eqReg.monotonic_d_upper = L
+        eqReg.ny_total = n - 1
 
         def sfunc_orthogonal(i):
             return i / (n - 1.0) * L
 
+        print("check stuff", eqReg.nonorthogonal_options)
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.0) == tight_approx(0.0)
@@ -891,14 +900,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.set(
-            monotonic_d_lower=L * 40.0 / (n - 1),
-            monotonic_d_upper=L * 40.0 / (n - 1),
-            nonorthogonal_range_lower=0.1,
-            nonorthogonal_range_lower_inner=0.1,
-            nonorthogonal_range_lower_outer=0.1,
-            N_norm=40.0,
-        )
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
+        eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -919,14 +926,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.set(
-            monotonic_d_lower=L * 40.0 / (n - 1),
-            monotonic_d_upper=L * 40.0 / (n - 1),
-            nonorthogonal_range_upper=0.1,
-            nonorthogonal_range_upper_inner=0.1,
-            nonorthogonal_range_upper_outer=0.1,
-            N_norm=40.0,
-        )
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
+        eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -947,17 +952,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.options.set(
-            monotonic_d_lower=L * 40.0 / (n - 1),
-            monotonic_d_upper=L * 40.0 / (n - 1),
-            nonorthogonal_range_lower=0.1,
-            nonorthogonal_range_lower_inner=0.1,
-            nonorthogonal_range_lower_outer=0.1,
-            nonorthogonal_range_upper=0.1,
-            nonorthogonal_range_upper_inner=0.1,
-            nonorthogonal_range_upper_outer=0.1,
-            N_norm=40.0,
-        )
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
+        eqReg.ny_total = 40
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -982,17 +982,14 @@ class TestEquilibriumRegion:
         # MeshRegion.distributePointsNonorthogonal for the default 'combined' option.
         n = len(eqReg)
 
-        eqReg.options.set(
-            monotonic_d_lower=0.1,
-            monotonic_d_upper=0.1,
-            nonorthogonal_range_lower=0.3,
-            nonorthogonal_range_lower_inner=0.3,
-            nonorthogonal_range_lower_outer=0.3,
-            nonorthogonal_range_upper=0.3,
-            nonorthogonal_range_upper_inner=0.3,
-            nonorthogonal_range_upper_outer=0.3,
-            N_norm=40,
-        )
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_poloidal_spacing_range": 0.3,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
+        eqReg.ny_total = 40
+        eqReg.sin_angle_at_start = 1.0
+        eqReg.sin_angle_at_end = 1.0
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -1030,17 +1027,12 @@ class TestEquilibriumRegion:
         # option
         n = len(eqReg)
 
-        eqReg.options.set(
-            monotonic_d_lower=0.1,
-            monotonic_d_upper=0.1,
-            nonorthogonal_range_lower=0.2,
-            nonorthogonal_range_lower_inner=0.2,
-            nonorthogonal_range_lower_outer=0.2,
-            nonorthogonal_range_upper=0.2,
-            nonorthogonal_range_upper_inner=0.2,
-            nonorthogonal_range_upper_outer=0.2,
-            N_norm=40.0,
-        )
+        new_settings = {
+            "nonorthogonal_target_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_poloidal_spacing_range": 0.2,
+        }
+        eqReg.resetNonorthogonalOptions(new_settings)
+        eqReg.ny_total = 40
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 

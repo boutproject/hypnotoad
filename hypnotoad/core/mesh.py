@@ -26,12 +26,17 @@ import re
 import warnings
 
 import numpy
+from optionsfactory import OptionsFactory, WithMeta
+from optionsfactory.checks import (
+    is_non_negative,
+    is_positive,
+)
 from scipy.integrate import solve_ivp
 
 from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
 
-from .equilibrium import calc_distance, Point2D
+from .equilibrium import calc_distance, Equilibrium, EquilibriumRegion, Point2D
 from ..__version__ import get_versions
 
 
@@ -254,7 +259,57 @@ class MeshRegion:
     (2nx+1)*(2ny+1) points for an nx*ny grid.
     """
 
-    def __init__(self, meshParent, myID, equilibriumRegion, connections, radialIndex):
+    user_options_factory = OptionsFactory(
+        EquilibriumRegion.user_options_factory,
+        shiftedmetric=WithMeta(
+            True,
+            doc="Is grid generated for paralleltransform=ShiftedMetric?",
+            value_type=bool,
+        ),
+        curvature_type=WithMeta(
+            "curl(b/B) with x-y derivatives",
+            doc="Expression used to calculate curvature operator 'bxcv'",
+            value_type=str,
+            allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
+        ),
+        follow_perpendicular_rtol=WithMeta(
+            2.0e-8,
+            doc="Relative tolerance for following Grad(psi)",
+            value_type=[float, int],
+            check_all=is_non_negative,
+        ),
+        follow_perpendicular_atol=WithMeta(
+            1.0e-8,
+            doc="Absolute tolerance for following Grad(psi)",
+            value_type=[float, int],
+            check_all=is_non_negative,
+        ),
+        geometry_rtol=WithMeta(
+            1.0e-10,
+            doc=(
+                "Tolerance for checking identities on calculated geometrical quantities "
+                "(for example the Jacobian)"
+            ),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        cap_Bp_ylow_xpoint=WithMeta(
+            False,
+            doc=(
+                "Fudge to get rid of minimum in Bpxy.ylow field, because it can cause "
+                "large spikes in some metric coefficients, which may cause numerical "
+                "problems in simulations"
+            ),
+            value_type=bool,
+        ),
+    )
+
+    def __init__(
+        self, meshParent, myID, equilibriumRegion, connections, radialIndex, settings
+    ):
+
+        self.user_options = self.user_options_factory.create(settings)
+
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
         print("creating region", myID, "-", self.name)
 
@@ -267,11 +322,16 @@ class MeshRegion:
         # EquilibriumRegion representing the segment associated with this region
         self.equilibriumRegion = equilibriumRegion.copy()
 
-        self.user_options = self.equilibriumRegion.user_options
-        self.options = self.equilibriumRegion.options
+        # check settings were consistent
+        for key, value in self.equilibriumRegion.user_options.items():
+            if value != self.user_options[key]:
+                raise ValueError(
+                    f"{key} not consistent in MeshRegion user_options and "
+                    f"EquilibriumRegion user_options"
+                )
 
         # sizes of the grid in this MeshRegion, include boundary guard cells
-        self.nx = self.options.nx[radialIndex]
+        self.nx = self.equilibriumRegion.nx[radialIndex]
         self.ny = self.equilibriumRegion.ny(radialIndex)
         self.ny_noguards = self.equilibriumRegion.ny_noguards
 
@@ -313,11 +373,13 @@ class MeshRegion:
         # region
         if temp_psi_vals[-1] - start_psi > 0:
             start_psi_sep_plus_delta = (
-                start_psi + self.user_options.poloidal_spacing_delta_psi
+                start_psi
+                + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
             )
         else:
             start_psi_sep_plus_delta = (
-                start_psi - self.user_options.poloidal_spacing_delta_psi
+                start_psi
+                - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
             )
 
         vec_points = followPerpendicular(
@@ -341,11 +403,11 @@ class MeshRegion:
         # region
         if temp_psi_vals[-1] - end_psi > 0:
             end_psi_sep_plus_delta = (
-                end_psi + self.user_options.poloidal_spacing_delta_psi
+                end_psi + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
             )
         else:
             end_psi_sep_plus_delta = (
-                end_psi - self.user_options.poloidal_spacing_delta_psi
+                end_psi - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
             )
 
         vec_points = followPerpendicular(
@@ -361,8 +423,8 @@ class MeshRegion:
             vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
         )
 
-        # Calculate the perp_d_lower/perp_d_upper corresponding to d_lower/d_upper on the
-        # separatrix contour
+        # Calculate the angles for perp_d_lower/perp_d_upper corresponding to
+        # d_lower/d_upper on the separatrix contour
         # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
         # because then the vector will not change when the grid resolution changes
         if self.equilibriumRegion.wallSurfaceAtStart is None:
@@ -381,8 +443,7 @@ class MeshRegion:
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
             # this gives abs(sin_angle), but that's OK because we only want the magnitude
             # to calculate perp_d
-            sin_angle = numpy.sqrt(1.0 - cos_angle ** 2)
-            self.options.set(perp_d_lower=self.options.monotonic_d_lower * sin_angle)
+            self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(1.0 - cos_angle ** 2)
         if self.equilibriumRegion.wallSurfaceAtEnd is None:
             # upper end
             unit_vec_separatrix = (
@@ -399,8 +460,7 @@ class MeshRegion:
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
             # this gives abs(sin_angle), but that's OK because we only want the magnitude
             # to calculate perp_d
-            sin_angle = numpy.sqrt(1.0 - cos_angle ** 2)
-            self.options.set(perp_d_upper=self.options.monotonic_d_upper * sin_angle)
+            self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle ** 2)
 
         print(f"Following perpendicular: 1/{len(self.equilibriumRegion)}", end="\r")
 
@@ -679,13 +739,16 @@ class MeshRegion:
                     p_out = c_out[c_out.endInd]
                 return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-            if self.user_options.nonorthogonal_spacing_method == "orthogonal":
+            if self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal":
                 warnings.warn(
                     "'orthogonal' option is not currently compatible with "
                     "extending grid past targets"
                 )
                 sfunc = self.sfunc_orthogonal_list[i_contour]
-            elif self.user_options.nonorthogonal_spacing_method == "fixed_poloidal":
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method
+                == "fixed_poloidal"
+            ):
                 # this sfunc gives a fixed poloidal spacing at beginning and end of
                 # contours
                 sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
@@ -694,22 +757,28 @@ class MeshRegion:
                     method="monotonic",
                 )
             elif (
-                self.user_options.nonorthogonal_spacing_method
+                self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
                     contour, self.sfunc_orthogonal_list[i_contour]
                 )
-            elif self.user_options.nonorthogonal_spacing_method == "fixed_perp_lower":
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method
+                == "fixed_perp_lower"
+            ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(True), True
                 )
-            elif self.user_options.nonorthogonal_spacing_method == "fixed_perp_upper":
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method
+                == "fixed_perp_upper"
+            ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(False), False
                 )
             elif (
-                self.user_options.nonorthogonal_spacing_method
+                self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
@@ -718,7 +787,7 @@ class MeshRegion:
                     surface_vec(True),
                     surface_vec(False),
                 )
-            elif self.user_options.nonorthogonal_spacing_method == "combined":
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
@@ -740,7 +809,7 @@ class MeshRegion:
             else:
                 raise ValueError(
                     "Unrecognized option '"
-                    + str(self.user_options.nonorthogonal_spacing_method)
+                    + str(self.nonorthogonal_options.nonorthogonal_spacing_method)
                     + "' for nonorthogonal poloidal spacing function"
                 )
 
@@ -762,7 +831,7 @@ class MeshRegion:
             # outside separatrix
             return i + sum(
                 2 * n
-                for n in self.equilibriumRegion.options.nx[
+                for n in self.equilibriumRegion.nx[
                     self.equilibriumRegion.separatrix_radial_index : self.radialIndex
                 ]
             )
@@ -770,7 +839,7 @@ class MeshRegion:
             # inside separatrix
             return i - sum(
                 2 * n
-                for n in self.equilibriumRegion.options.nx[
+                for n in self.equilibriumRegion.nx[
                     self.equilibriumRegion.separatrix_radial_index : self.radialIndex : -1  # noqa: E501
                 ]
             )
@@ -1808,11 +1877,35 @@ class Mesh:
     Mesh represented by a collection of connected MeshRegion objects
     """
 
-    def __init__(self, equilibrium):
-        self.user_options = equilibrium.user_options
-        self.options = equilibrium.options
+    user_options_factory = OptionsFactory(
+        # Include settings for member Equilibrium object
+        Equilibrium.user_options_factory,
+        # Include settings for member MeshRegion objects
+        MeshRegion.user_options_factory,
+    )
 
+    def __init__(self, equilibrium, settings):
+        """
+        Parameters
+        ----------
+        equilibrium : Equilibrium
+            Used to generate the grid
+        settings : dict
+            Non-default values to use to generate the grid. Must be consistent with the
+            ones that were used to create the equilibrium
+        """
         self.equilibrium = equilibrium
+
+        self.user_options = self.user_options_factory.create(settings)
+        # Check settings didn't change since equilibrium was created
+        for key in self.equilibrium.user_options:
+            if (key in self.user_options) and (
+                self.equilibrium.user_options[key] != self.user_options[key]
+            ):
+                raise ValueError(
+                    f"Setting {key} has been changed since equilibrium was created."
+                    f"Re-create or re-load the equilibrium with the current settings."
+                )
 
         versions = get_versions()
         self.version = versions["version"]
@@ -1871,6 +1964,7 @@ class Mesh:
                     eq_region_with_boundaries,
                     self.connections[region_id],
                     i,
+                    self.user_options,
                 )
 
         # create groups that connect in x
@@ -1914,14 +2008,17 @@ class Mesh:
                     break
             self.y_groups.append(group)
 
-    def redistributePoints(self, **kwargs):
+    def redistributePoints(self, nonorthogonal_settings):
         warnings.warn(
             "It is not recommended to use Mesh.redistributePoints() for 'production' "
             "output. Suggest saving the final settings to a .yaml file and creating the "
             "'production' grid non-interactively to ensure reproducibility."
         )
 
-        self.user_options.set(**kwargs)
+        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
+            nonorthogonal_settings
+        )
+        self.equilibrium.resetNonorthogonalOptions(dict(self.nonorthogonal_options))
 
         assert (
             not self.user_options.orthogonal
@@ -2135,13 +2232,18 @@ class BoutMesh(Mesh):
     present (if they would have size 0).
     """
 
-    def __init__(self, equilibrium, *args, **kwargs):
+    user_options_factory = Mesh.user_options_factory.add(
+        # BoutMesh-specific options
+        ###########################
+    )
 
-        super().__init__(equilibrium, *args, **kwargs)
+    def __init__(self, equilibrium, settings):
+
+        super().__init__(equilibrium, settings)
 
         # nx, ny both include boundary guard cells
         eq_region0 = next(iter(self.equilibrium.regions.values()))
-        self.nx = sum(eq_region0.options.nx)
+        self.nx = sum(eq_region0.nx)
 
         self.ny = sum(r.ny(0) for r in self.equilibrium.regions.values())
 
@@ -2153,15 +2255,12 @@ class BoutMesh(Mesh):
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
         assert all(
-            [
-                r.options.nx == eq_region0.options.nx
-                for r in self.equilibrium.regions.values()
-            ]
+            [r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]
         ), (
             "all regions should have same set of x-grid sizes to be compatible with a "
             "global, logically-rectangular grid"
         )
-        x_sizes = [0] + list(eq_region0.options.nx)
+        x_sizes = [0] + list(eq_region0.nx)
 
         # Note: x_startinds includes the end: self.x_startinds[-1] = nx
         self.x_startinds = numpy.cumsum(x_sizes)

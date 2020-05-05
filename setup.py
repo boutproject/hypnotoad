@@ -26,7 +26,7 @@ setuptools.setup(
         "matplotlib~=3.2",
         "netCDF4~=1.5",
         "numpy~=1.18",
-        "options~=1.4",
+        "optionsfactory~=1.0.1",
         "pyparsing~=2.4",
         "PyYAML~=5.1",
         "scipy~=1.4",

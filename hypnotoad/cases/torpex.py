@@ -21,21 +21,18 @@ from collections import OrderedDict
 import warnings
 
 import numpy
+from optionsfactory import WithMeta
+from optionsfactory.checks import is_positive
 
 from ..core.mesh import BoutMesh
 from ..core.equilibrium import (
-    setDefault,
     Equilibrium,
-    PsiContour,
     Point2D,
     EquilibriumRegion,
     SolutionError,
 )
 from ..geqdsk._geqdsk import read as geq_read
-from ..utils.hypnotoad_options import (
-    HypnotoadOptions,
-    optionsTableString,
-)
+from ..utils.utils import with_default
 
 # type for manipulating information about magnetic field coils
 from collections import namedtuple
@@ -60,70 +57,103 @@ class TORPEXMagneticField(Equilibrium):
     Zmax = 0.2
 
     # Add TORPEX-specific options and default values
-    user_options = HypnotoadOptions.add(
-        nx_core=None,
-        nx_sol=None,
-        ny_inner_lower_divertor=None,
-        ny_inner_upper_divertor=None,
-        ny_outer_upper_divertor=None,
-        ny_outer_lower_divertor=None,
-        psi_core=None,
-        psi_sol=None,
-        psi_sol_inner=None,
-        psi_pf=None,
-        psi_pf_lower=None,
-        psi_pf_upper=None,
+    user_options_factory = Equilibrium.user_options_factory.add(
+        refine_methods="line",
+        nx_core=WithMeta(
+            4,
+            doc="Number of radial points in the PFR regions",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        nx_sol=WithMeta(
+            4,
+            doc="Number of radial points in the SOL regions",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_lower_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the inner, lower leg",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_upper_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the inner, upper leg",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_upper_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the outer, upper leg",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_lower_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the outer, lower leg",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        psi_core=WithMeta(
+            None,
+            doc="psi value of the 'core' (used as default for PFR regions)",
+            value_type=[float, int],
+        ),
+        psi_sol=WithMeta(
+            None,
+            doc="psi value of the SOL",
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        psi_sol_inner=WithMeta(
+            lambda options: options.psi_sol,
+            doc="psi value of the inner SOL",
+            value_type=[float, int],
+        ),
+        psi_pf=WithMeta(
+            lambda options: options.psi_core,
+            doc="psi value of the PFRs",
+            value_type=[float, int],
+        ),
+        psi_pf_lower=WithMeta(
+            lambda options: options.psi_pf,
+            doc="psi value of the lower PFR",
+            value_type=[float, int],
+        ),
+        psi_pf_upper=WithMeta(
+            lambda options: options.psi_pf,
+            doc="psi value of the upper PFR",
+            value_type=[float, int],
+        ),
         saddle_point_p1=[0.85, -0.15],
         saddle_point_p2=[0.85, 0.15],
     )
 
-    def __init__(self, equilibOptions, meshOptions, **kwargs):
-
-        self.equilibOptions = equilibOptions
+    def __init__(self, equilibOptions, meshOptions):
 
         # Set up options read from user input
-        self.user_options = TORPEXMagneticField.user_options
+        self.user_options = self.user_options_factory.create(meshOptions)
 
-        # Set sensible defaults for options
-        self.user_options.set(
-            xpoint_poloidal_spacing_length=5.0e-2,
-            nonorthogonal_xpoint_poloidal_spacing_length=5.0e-2,
-            follow_perpendicular_rtol=2.0e-8,
-            follow_perpendicular_atol=1.0e-8,
-            refine_width=1.0e-5,
-            refine_atol=2.0e-8,
-        )
-
-        default_options = self.user_options.copy()
-        self.user_options.set(**meshOptions)
-        self.user_options = self.user_options.push(kwargs)
-
-        setDefault(self.user_options, "psi_pf", self.user_options.psi_core)
-        setDefault(self.user_options, "psi_pf_lower", self.user_options.psi_pf)
-        setDefault(self.user_options, "psi_pf_upper", self.user_options.psi_pf)
-
-        setDefault(self.user_options, "psi_sol_inner", self.user_options.psi_sol)
-
-        setDefault(
-            self.user_options,
-            "poloidal_spacing_delta_psi",
+        self.poloidal_spacing_delta_psi = with_default(
+            self.user_options.poloidal_spacing_delta_psi,
             numpy.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
         )
 
-        print(optionsTableString(self.user_options, default_options))
+        print(self.user_options.as_table())
 
         # Call Equilibrium constructor after adding stuff to options
-        super().__init__(**kwargs)
+        super().__init__(meshOptions)
 
-        if "Coils" in self.equilibOptions:
-            self.coils = [Coil(**c) for c in self.equilibOptions["Coils"]]
+        if "Coils" in equilibOptions:
+            self.coils = [Coil(**c) for c in equilibOptions["Coils"]]
 
             self.magneticFunctionsFromCoils()
 
-            self.Bt_axis = self.equilibOptions["Bt_axis"]
-        elif "gfile" in self.equilibOptions:
+            self.Bt_axis = equilibOptions["Bt_axis"]
+        elif "gfile" in equilibOptions:
             # load a g-file
-            with open(self.equilibOptions["gfile"], "rt") as fh:
+            with open(equilibOptions["gfile"], "rt") as fh:
                 gfile = geq_read(fh)
 
             R = numpy.linspace(
@@ -202,13 +232,13 @@ class TORPEXMagneticField(Equilibrium):
             self.magneticFunctionsFromGrid(R, Z, psirz)
 
             self.Bt_axis = gfile["bcentr"]
-        elif "matfile" in self.equilibOptions:
+        elif "matfile" in equilibOptions:
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
             # double-precision
             from scipy.io import loadmat
 
-            eqfile = loadmat(self.equilibOptions["matfile"])["eq"]
+            eqfile = loadmat(equilibOptions["matfile"])["eq"]
 
             R = eqfile["R"][0, 0]
             Z = eqfile["Z"][0, 0]
@@ -463,26 +493,28 @@ class TORPEXMagneticField(Equilibrium):
             legoptions[name] = options
 
         # set hard-wired poloidal grid spacing options
-        ny_total = sum(opt["ny"] for opt in legoptions.values())
+        self.ny_total = sum(opt["ny"] for opt in legoptions.values())
 
-        setDefault(self.options, "N_norm", ny_total)
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
-        s = numpy.linspace(10.0 * PsiContour.options.refine_atol, 1.0, npoints)
+        s = numpy.linspace(10.0 * self.user_options.refine_atol, 1.0, npoints)
         for i, boundary_position in enumerate(boundary):
             name = legnames[i]
             boundaryPoint = self.wallPosition(boundary_position)
             legR = xpoint.R + s * (boundaryPoint.R - xpoint.R)
             legZ = xpoint.Z + s * (boundaryPoint.Z - xpoint.Z)
             leg = EquilibriumRegion(
-                self,
-                legnames[i],
-                2,
-                self.user_options,
-                self.options.push(legoptions[name]),
-                [Point2D(R, Z) for R, Z in zip(legR, legZ)],
-                self.psi,
-                self.psi_sep[0],
+                equilibrium=self,
+                name=name,
+                nSegments=2,
+                settings=dict(self.user_options),
+                nonorthogonal_settings=dict(self.nonorthogonal_options),
+                nx=legoptions[name]["nx"],
+                ny=legoptions[name]["ny"],
+                kind=legoptions[name]["kind"],
+                ny_total=self.ny_total,
+                points=[Point2D(R, Z) for R, Z in zip(legR, legZ)],
+                psi_val=self.psi_sep[0],
             )
             self.regions[name] = leg.getRefined()
             wall_vectors[name] = self.wallVector(boundary_position)
@@ -602,11 +634,11 @@ def parseInput(filename):
     return equilib_inputs, mesh_inputs
 
 
-def createMesh(filename, **kwargs):
+def createMesh(filename):
     # parse input file
     equilibOptions, meshOptions = parseInput(filename)
 
-    equilibrium = TORPEXMagneticField(equilibOptions, meshOptions, **kwargs)
+    equilibrium = TORPEXMagneticField(equilibOptions, meshOptions)
 
     print("X-point", equilibrium.x_points[0], "with psi=" + str(equilibrium.psi_sep[0]))
 

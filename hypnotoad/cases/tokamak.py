@@ -2,17 +2,23 @@
 #
 
 import numpy as np
+from optionsfactory import WithMeta
+from optionsfactory.checks import (
+    is_non_negative,
+    is_positive,
+    NoneType,
+)
 from scipy import interpolate
 from scipy.integrate import solve_ivp
 import warnings
 from collections import OrderedDict
 import functools
 
-from ..core.equilibrium import Equilibrium, EquilibriumRegion, Point2D, setDefault
-from ..utils.hypnotoad_options import Options, HypnotoadOptions, optionsTableString
+from ..core.equilibrium import Equilibrium, EquilibriumRegion, Point2D
 from ..core.mesh import MultiLocationArray
 
 from ..utils import critical, polygons
+from ..utils.utils import with_default
 
 
 class TokamakEquilibrium(Equilibrium):
@@ -33,61 +39,197 @@ class TokamakEquilibrium(Equilibrium):
     """
 
     # Tokamak-specific options and default values
-    default_options = HypnotoadOptions.add(
-        # Radial grid cell numbers
-        nx_core=5,  # Number of radial points in the core
-        nx_pf=None,  # Number of radial points in the PF region
-        nx_pf_lower=None,  # Default nx_pf
-        nx_pf_upper=None,  # Default nx_pf
-        nx_sol=5,  # Number of radial points in the SOL
-        nx_sol_inner=None,  # Default nx_sol
-        nx_sol_outer=None,  # Default nx_sol
-        # Poloidal grid cell numbers
-        ny_inner_divertor=4,
-        ny_inner_lower_divertor=None,  # Default: ny_inner_divertor
-        ny_inner_upper_divertor=None,  # Default: ny_inner_divertor
-        ny_outer_divertor=4,
-        ny_outer_lower_divertor=None,  # Default: ny_outer_divertor
-        ny_outer_upper_divertor=None,  # Default: ny_outer_divertor
-        ny_sol=8,
-        ny_inner_sol=None,  # Default: ny_sol // 2
-        ny_outer_sol=None,  # Default: ny_sol - ny_sol_inner
-        # Normalised poloidal flux ranges.
-        psinorm_core=0.9,
-        psinorm_sol=1.1,
-        psinorm_sol_inner=None,  # Default: psinorm_sol
-        psinorm_pf=None,  # Default: psinorm_core
-        psinorm_pf_lower=None,  # Default: psinorm_pf
-        psinorm_pf_upper=None,  # Default: psinorm_pf
+    user_options_factory = Equilibrium.user_options_factory.add(
+        nx_core=WithMeta(
+            5,
+            doc="Number of radial points in the core",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        nx_pf=WithMeta(
+            "nx_core",
+            doc=(
+                "Number of radial points in the PF region Note: Currently can't be "
+                "varied due to BOUT++ limitations"
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
+        nx_inter_sep=WithMeta(
+            0,
+            doc="Number of radial points in the inter-separatrix region",
+            value_type=int,
+            check_all=is_non_negative,
+        ),
+        nx_sol=WithMeta(
+            5,
+            doc="Number of radial points in the SOL",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        nx_sol_inner=WithMeta(
+            "nx_sol",
+            doc=(
+                "Number of radial points in the outer SOL. Note: Currently can't be "
+                "varied due to BOUT++ limitations"
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
+        nx_sol_outer=WithMeta(
+            "nx_sol",
+            doc=(
+                "Number of radial points in the inner SOL. Note: Currently can't be "
+                "varied due to BOUT++ limitations"
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the inner divertor(s)",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_lower_divertor=WithMeta(
+            "ny_inner_divertor",
+            doc="Number of poloidal points in the inner, lower divertor",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_upper_divertor=WithMeta(
+            "ny_inner_divertor",
+            doc="Number of poloidal points in the inner, upper divertor",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_divertor=WithMeta(
+            4,
+            doc="Number of poloidal points in the outer divertor(s)",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_lower_divertor=WithMeta(
+            "ny_outer_divertor",
+            doc="Number of poloidal points in the outer, lower divertor",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_upper_divertor=WithMeta(
+            "ny_outer_divertor",
+            doc="Number of poloidal points in the outer, upper divertor",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_sol=WithMeta(
+            8,
+            doc="Number of poloidal points in the SOL upstream of the X-point(s)",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_inner_sol=WithMeta(
+            lambda options: options.ny_sol // 2,
+            doc="Number of poloidal points in the inner SOL upstream of the X-point(s)",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        ny_outer_sol=WithMeta(
+            lambda options: options.ny_sol - options.ny_inner_sol,
+            doc="Number of poloidal points in the outer SOL upstream of the X-point(s)",
+            value_type=int,
+            check_all=is_positive,
+        ),
+        psinorm_core=WithMeta(
+            0.9,
+            doc="Normalised psi of the inner radial (core) boundary",
+            value_type=[float, int],
+        ),
+        psinorm_sol=WithMeta(
+            1.1,
+            doc="Normalised psi of the outer radial (SOL) boundary",
+            value_type=[float, int],
+        ),
+        psinorm_sol_inner=WithMeta(
+            "psinorm_sol",
+            doc="Normalised psi of the outer radial boundary in the inner SOL",
+            value_type=[float, int],
+        ),
+        psinorm_pf=WithMeta(
+            "psinorm_core",
+            doc="Normalised psi of the inner radial boundary in the PFR",
+            value_type=[float, int],
+        ),
+        psinorm_pf_lower=WithMeta(
+            "psinorm_pf",
+            doc="Normalised psi of the inner radial boundary in the lower PFR",
+            value_type=[float, int],
+        ),
+        psinorm_pf_upper=WithMeta(
+            "psinorm_pf",
+            doc="Normalised psi of the inner radial boundary in the upper PFR",
+            value_type=[float, int],
+        ),
         # Poloidal flux ranges.
         # These are the values which are used in the mesh generation
         # The default values comes from the psinorm values, but the user
         # can override these defaults.
-        psi_core=None,  # Default: psinorm_core
-        psi_sol=None,  # Default: psnorm_sol
-        psi_sol_inner=None,  # Default: psinorm_sol_inner
-        psi_pf_lower=None,  # Default: psinorm_pf_lower
-        psi_pf_upper=None,  # Default: psinorm_pf_upper
-        #
+        psi_core=WithMeta(
+            None,
+            doc=(
+                "Unnormalised poloidal flux value at the core boundary, used in mesh "
+                "generation. Overrides psinorm_core if this value is given, if the "
+                "option is none, then calculated from psinorm_core"
+            ),
+            value_type=[float, int, NoneType],
+        ),
+        psi_sol=WithMeta(
+            None,
+            doc=(
+                "Unnormalised poloidal flux value at the SOL boundary, used in mesh "
+                "generation. Overrides psinorm_sol if this value is given, if the "
+                "option is none, then calculated from psinorm_sol"
+            ),
+            value_type=[float, int, NoneType],
+        ),
+        psi_sol_inner=WithMeta(
+            None,
+            doc=(
+                "Unnormalised poloidal flux value at the inner SOL boundary, used in "
+                "mesh generation. Overrides psinorm_sol_inner if this value is given, "
+                "if the option is none, then calculated from psinorm_sol_inner"
+            ),
+            value_type=[float, int, NoneType],
+        ),
+        psi_pf_lower=WithMeta(
+            None,
+            doc=(
+                "Unnormalised poloidal flux value at the lower PFR boundary, used in "
+                "mesh generation. Overrides psinorm_pf_lower if this value is given, "
+                "if the option is none, then calculated from psinorm_pf_lower"
+            ),
+            value_type=[float, int, NoneType],
+        ),
+        psi_pf_upper=WithMeta(
+            None,
+            doc=(
+                "Unnormalised poloidal flux value at the upper PFR boundary, used in "
+                "mesh generation. Overrides psinorm_pf_upper if this value is given, "
+                "if the option is none, then calculated from psinorm_pf_upper"
+            ),
+            value_type=[float, int, NoneType],
+        ),
         # Tolerance for positioning points that should be at X-point, but need to be
         # slightly displaced from the null so code can follow Grad(psi).
         # Number between 0. and 1.
-        xpoint_offset=0.5,
-    ).push(
-        Options(
-            # These are HypnotoadOptions
-            xpoint_poloidal_spacing_length=5.0e-2,
-            nonorthogonal_xpoint_poloidal_spacing_length=5.0e-2,
-            follow_perpendicular_rtol=2.0e-8,
-            follow_perpendicular_atol=1.0e-8,
-            refine_width=1.0e-2,
-            refine_atol=2.0e-8,
-            refine_methods="integrate+newton, integrate",
-            finecontour_Nfine=100,
-            finecontour_diagnose=False,
-            finecontour_maxits=200,
-            curvature_type="curl(b/B) with x-y derivatives",
-        )
+        xpoint_offset=WithMeta(
+            0.5,
+            doc=(
+                "Tolerance for positioning points that should be at X-point, but need "
+                "to be slightly displaced from the null so code can follow Grad(psi)."
+            ),
+            value_type=float,
+            check_all=[is_positive, lambda x: x < 1.0],
+        ),
     )
 
     def __init__(
@@ -102,8 +244,8 @@ class TokamakEquilibrium(Equilibrium):
         psi_axis=None,
         dct=False,
         make_regions=True,
-        options={},
-        **kwargs,
+        settings=None,
+        nonorthogonal_settings=None,
     ):
         """
         Create a Tokamak equilibrium.
@@ -136,11 +278,10 @@ class TokamakEquilibrium(Equilibrium):
                means that the object is complete after initialisation.
                If set to False, e.g. for testing, self.makeRegions() should
                be called to generate the regions.
-        options = A dict or Options object which will be pushed into the
-               class Options (self.user_options)
-        **kwargs   Other keywords are pushed into self.user_options
-               after the options input. This enables some settings to be overriden
-               manually.
+        settings = A dict that will be used to set non-default values of options
+               (self.user_options)
+        nonorthogonal_settings = A dict that will be used to set non-default values of
+               options (self.nonorthogonal_options)
 
         """
         if dct:
@@ -233,15 +374,14 @@ class TokamakEquilibrium(Equilibrium):
 
         # Take the default settings, then the options keyword, then
         # any additional keyword arguments
-        self.user_options = TokamakEquilibrium.default_options.push(options)
-        self.user_options.update(kwargs)
+        self.user_options = self.user_options_factory.create(settings)
 
         self.equilibOptions = {}
 
-        super().__init__(**kwargs)
+        super().__init__(nonorthogonal_settings)
 
         # Print the table of options
-        print(optionsTableString(self.user_options, self.default_options))
+        print(self.user_options.as_table())
 
         if make_regions:
             # Create self.regions
@@ -349,7 +489,7 @@ class TokamakEquilibrium(Equilibrium):
             leg_lines = leg_lines[::-1]
         return {"inner": leg_lines[0], "outer": leg_lines[1]}
 
-    def makeRegions(self, **kwargs):
+    def makeRegions(self):
         """Main region generation function. Regions are logically
         rectangular ranges in poloidal angle; segments are
         ranges of poloidal flux (radial coordinate). Poloidal ranges,
@@ -386,10 +526,50 @@ class TokamakEquilibrium(Equilibrium):
         """
         assert self.psi_axis is not None
 
-        # Options can be passed in here to customise the regions created
-        self.user_options.update(kwargs)
+        # psi values
+        def psinorm_to_psi(psinorm):
+            if psinorm is None:
+                return None
+            return self.psi_axis + psinorm * (self.psi_sep[0] - self.psi_axis)
 
-        self.updateOptions()
+        def psi_to_psinorm(psi):
+            if psi is None:
+                return None
+            return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
+
+        self.psi_core = with_default(
+            self.user_options.psi_core, psinorm_to_psi(self.user_options.psinorm_core),
+        )
+        self.psi_sol = with_default(
+            self.user_options.psi_sol, psinorm_to_psi(self.user_options.psinorm_sol)
+        )
+        self.psi_sol_inner = with_default(
+            self.user_options.psi_sol_inner,
+            psinorm_to_psi(self.user_options.psinorm_sol_inner),
+        )
+        self.psi_pf_lower = with_default(
+            self.user_options.psi_pf_lower,
+            psinorm_to_psi(self.user_options.psinorm_pf_lower),
+        )
+        self.psi_pf_upper = with_default(
+            self.user_options.psi_pf_upper,
+            psinorm_to_psi(self.user_options.psinorm_pf_upper),
+        )
+
+        self.poloidal_spacing_delta_psi = with_default(
+            self.user_options.poloidal_spacing_delta_psi,
+            np.abs((self.psi_core - self.psi_sol) / 20.0),
+        )
+
+        # Filter out the X-points not in range.
+        # Keep only those with normalised psi < psinorm_sol
+        self.psi_sep, self.x_points = zip(
+            *(
+                (psi, xpoint)
+                for psi, xpoint in zip(self.psi_sep, self.x_points)
+                if psi_to_psinorm(psi) < self.user_options.psinorm_sol
+            )
+        )
 
         # Check that there are only one or two left
         assert 0 < len(self.x_points) <= 2
@@ -413,107 +593,6 @@ class TokamakEquilibrium(Equilibrium):
         for connection in connections:
             self.makeConnection(*connection)
 
-    def updateOptions(self):
-        super().updateOptions()
-
-        # Radial grid cells in PF regions
-        setDefault(self.user_options, "nx_pf", self.user_options.nx_core)
-
-        # Radial grid cells in SOL regions (for double null)
-        # Note: Currently these can't be varied due to BOUT++ limitations
-        setDefault(self.user_options, "nx_sol_inner", self.user_options.nx_sol)
-        setDefault(self.user_options, "nx_sol_outer", self.user_options.nx_sol)
-
-        # Poloidal points in the leg and SOL regions
-        setDefault(
-            self.user_options,
-            "ny_inner_lower_divertor",
-            self.user_options.ny_inner_divertor,
-        )
-        setDefault(
-            self.user_options,
-            "ny_inner_upper_divertor",
-            self.user_options.ny_inner_divertor,
-        )
-
-        setDefault(
-            self.user_options,
-            "ny_outer_lower_divertor",
-            self.user_options.ny_outer_divertor,
-        )
-        setDefault(
-            self.user_options,
-            "ny_outer_upper_divertor",
-            self.user_options.ny_outer_divertor,
-        )
-
-        setDefault(self.user_options, "ny_inner_sol", self.user_options.ny_sol // 2)
-        setDefault(
-            self.user_options,
-            "ny_outer_sol",
-            self.user_options.ny_sol - self.user_options.ny_inner_sol,
-        )
-
-        # Normalised psi values
-        setDefault(self.user_options, "psinorm_pf", self.user_options.psinorm_core)
-        setDefault(self.user_options, "psinorm_pf_lower", self.user_options.psinorm_pf)
-        setDefault(self.user_options, "psinorm_pf_upper", self.user_options.psinorm_pf)
-
-        setDefault(
-            self.user_options, "psinorm_sol_inner", self.user_options.psinorm_sol
-        )
-
-        # psi values
-        def psinorm_to_psi(psinorm):
-            if psinorm is None:
-                return None
-            return self.psi_axis + psinorm * (self.psi_sep[0] - self.psi_axis)
-
-        def psi_to_psinorm(psi):
-            if psi is None:
-                return None
-            return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
-
-        setDefault(
-            self.user_options,
-            "psi_core",
-            psinorm_to_psi(self.user_options.psinorm_core),
-        )
-        setDefault(
-            self.user_options, "psi_sol", psinorm_to_psi(self.user_options.psinorm_sol)
-        )
-        setDefault(
-            self.user_options,
-            "psi_sol_inner",
-            psinorm_to_psi(self.user_options.psinorm_sol_inner),
-        )
-        setDefault(
-            self.user_options,
-            "psi_pf_lower",
-            psinorm_to_psi(self.user_options.psinorm_pf_lower),
-        )
-        setDefault(
-            self.user_options,
-            "psi_pf_upper",
-            psinorm_to_psi(self.user_options.psinorm_pf_upper),
-        )
-
-        setDefault(
-            self.user_options,
-            "poloidal_spacing_delta_psi",
-            np.abs((self.user_options.psi_core - self.user_options.psi_sol) / 20.0),
-        )
-
-        # Filter out the X-points not in range.
-        # Keep only those with normalised psi < psinorm_sol
-        self.psi_sep, self.x_points = zip(
-            *(
-                (psi, xpoint)
-                for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if psi_to_psinorm(psi) < self.user_options.psinorm_sol
-            )
-        )
-
     def describeSingleNull(self):
         """
         Create the specifications for a single null configuration
@@ -531,9 +610,6 @@ class TokamakEquilibrium(Equilibrium):
         assert len(self.x_points) == 1
         # Single null. Could be lower or upper
 
-        setDefault(self.user_options, "nx_pf_lower", self.user_options.nx_pf)
-        setDefault(self.user_options, "nx_pf_upper", self.user_options.nx_pf)
-
         # Find lines along the legs from X-point to target
         legs = self.findLegs(self.x_points[0])
 
@@ -546,22 +622,14 @@ class TokamakEquilibrium(Equilibrium):
         xpoint = self.x_points[0]
 
         # Average radial grid spacing in each region
-        dpsidi_sol = (
-            self.user_options.psi_sol - self.psi_sep[0]
-        ) / self.user_options.nx_sol
-        dpsidi_core = (
-            self.psi_sep[0] - self.user_options.psi_core
-        ) / self.user_options.nx_core
+        dpsidi_sol = (self.psi_sol - self.psi_sep[0]) / self.user_options.nx_sol
+        dpsidi_core = (self.psi_sep[0] - self.psi_core) / self.user_options.nx_core
         if self.x_points[0].Z < self.o_point.Z:
             # Lower single null
-            dpsidi_pf = (
-                self.psi_sep[0] - self.user_options.psi_pf_lower
-            ) / self.user_options.nx_pf_lower
+            dpsidi_pf = (self.psi_sep[0] - self.psi_pf_lower) / self.user_options.nx_pf
         else:
             # Upper single null
-            dpsidi_pf = (
-                self.psi_sep[0] - self.user_options.psi_pf_upper
-            ) / self.user_options.nx_pf_upper
+            dpsidi_pf = (self.psi_sep[0] - self.psi_pf_upper) / self.user_options.nx_pf
 
         # Get the smallest absolute grid spacing for the separatrix
         dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs)
@@ -575,14 +643,14 @@ class TokamakEquilibrium(Equilibrium):
         segments = {
             "core": {
                 "nx": self.user_options.nx_core,
-                "psi_start": self.user_options.psi_core,
+                "psi_start": self.psi_core,
                 "psi_end": psi_sep,
                 "grad_end": dpsidi_sep,
             },
             "sol": {
                 "nx": self.user_options.nx_sol,
                 "psi_start": psi_sep,
-                "psi_end": self.user_options.psi_sol,
+                "psi_end": self.psi_sol,
                 "grad_start": dpsidi_sep,
             },
         }
@@ -603,8 +671,8 @@ class TokamakEquilibrium(Equilibrium):
             print("Generating a lower single null")
 
             segments["lower_pf"] = {
-                "nx": self.user_options.nx_pf_lower,
-                "psi_start": self.user_options.psi_pf_lower,
+                "nx": self.user_options.nx_pf,
+                "psi_start": self.psi_pf_lower,
                 "psi_end": psi_sep,
                 "grad_end": dpsidi_sep,
             }
@@ -653,8 +721,8 @@ class TokamakEquilibrium(Equilibrium):
             # so here the outer leg needs to be reversed rather than the inner leg
 
             segments["upper_pf"] = {
-                "nx": self.user_options.nx_pf_upper,
-                "psi_start": self.user_options.psi_pf_upper,
+                "nx": self.user_options.nx_pf,
+                "psi_start": self.psi_pf_upper,
                 "psi_end": psi_sep,
                 "grad_end": dpsidi_sep,
             }
@@ -744,20 +812,14 @@ class TokamakEquilibrium(Equilibrium):
 
         # Average radial grid spacing in each region
         dpsidi_sol_inner = (
-            self.user_options.psi_sol_inner - self.psi_sep[0]
+            self.psi_sol_inner - self.psi_sep[0]
         ) / self.user_options.nx_sol_inner
         dpsidi_sol_outer = (
-            self.user_options.psi_sol - self.psi_sep[0]
+            self.psi_sol - self.psi_sep[0]
         ) / self.user_options.nx_sol_outer
-        dpsidi_core = (
-            self.psi_sep[0] - self.user_options.psi_core
-        ) / self.user_options.nx_core
-        dpsidi_pf_upper = (
-            upper_psi - self.user_options.psi_pf_upper
-        ) / self.user_options.nx_pf
-        dpsidi_pf_lower = (
-            lower_psi - self.user_options.psi_pf_lower
-        ) / self.user_options.nx_pf
+        dpsidi_core = (self.psi_sep[0] - self.psi_core) / self.user_options.nx_core
+        dpsidi_pf_upper = (upper_psi - self.psi_pf_upper) / self.user_options.nx_pf
+        dpsidi_pf_lower = (lower_psi - self.psi_pf_lower) / self.user_options.nx_pf
 
         # Get the smallest absolute grid spacing for the separatrix
         dpsidi_sep = min(
@@ -791,47 +853,43 @@ class TokamakEquilibrium(Equilibrium):
         # to keep nx constant between regions. This is because some regions
         # will have a near SOL but not others
         if self.x_points[0] == lower_x_point:
-            setDefault(self.user_options, "nx_pf_lower", self.user_options.nx_pf)
-            setDefault(
-                self.user_options, "nx_pf_upper", self.user_options.nx_pf + nx_inter_sep
-            )
+            nx_pf_lower = self.user_options.nx_pf
+            nx_pf_upper = self.user_options.nx_pf + nx_inter_sep
         else:
-            setDefault(
-                self.user_options, "nx_pf_lower", self.user_options.nx_pf + nx_inter_sep
-            )
-            setDefault(self.user_options, "nx_pf_upper", self.user_options.nx_pf)
+            nx_pf_lower = self.user_options.nx_pf + nx_inter_sep
+            nx_pf_upper = self.user_options.nx_pf
 
         # Radial segments i.e. gridded ranges of poloidal flux
         # These are common to both connected and disconnected double null
         segments = {
             "core": {
                 "nx": self.user_options.nx_core,
-                "psi_start": self.user_options.psi_core,
+                "psi_start": self.psi_core,
                 "psi_end": self.psi_sep[0],
                 "grad_end": dpsidi_sep,
             },
             "upper_pf": {
-                "nx": self.user_options.nx_pf_upper,
-                "psi_start": self.user_options.psi_pf_upper,
+                "nx": nx_pf_upper,
+                "psi_start": self.psi_pf_upper,
                 "psi_end": upper_psi,
                 "grad_end": dpsidi_sep,
             },
             "lower_pf": {
-                "nx": self.user_options.nx_pf_lower,
-                "psi_start": self.user_options.psi_pf_lower,
+                "nx": nx_pf_lower,
+                "psi_start": self.psi_pf_lower,
                 "psi_end": lower_psi,
                 "grad_end": dpsidi_sep,
             },
             "inner_sol": {
                 "nx": self.user_options.nx_sol_inner - nx_inter_sep,
                 "psi_start": self.psi_sep[-1],
-                "psi_end": self.user_options.psi_sol_inner,
+                "psi_end": self.psi_sol_inner,
                 "grad_start": dpsidi_sep,
             },
             "outer_sol": {
                 "nx": self.user_options.nx_sol_outer - nx_inter_sep,
                 "psi_start": self.psi_sep[-1],
-                "psi_end": self.user_options.psi_sol,
+                "psi_end": self.psi_sol,
                 "grad_start": dpsidi_sep,
             },
         }
@@ -1270,35 +1328,25 @@ class TokamakEquilibrium(Equilibrium):
         None. Modifies self.regions
         """
 
-        # Normalisation of the grid cells number
-        # Set N_norm to the total number of grid cells in y
-        setDefault(
-            self.options,
-            "N_norm",
-            sum([region["ny"] for region in all_regions.values()]),
-        )
+        # Set the total number of grid cells in y
+        self.ny_total = sum([region["ny"] for region in all_regions.values()])
 
         # Loop through all regions. For each one create an EquilibriumRegion
         region_objects = {}
         for name, region in all_regions.items():
             eqreg = EquilibriumRegion(
-                self,
-                name,
-                len(region["segments"]),  # The number of radial regions
-                self.user_options,
-                self.options.push(
-                    {
-                        "nx": [
-                            segments[seg_name]["nx"] for seg_name in region["segments"]
-                        ],
-                        "ny": region["ny"],
-                        "kind": region["kind"],
-                    }
-                ),
+                equilibrium=self,
+                name=name,
+                nSegments=len(region["segments"]),  # The number of radial regions
+                settings=dict(self.user_options),
+                nonorthogonal_settings=dict(self.nonorthogonal_options),
+                nx=[segments[seg_name]["nx"] for seg_name in region["segments"]],
+                ny=region["ny"],
+                ny_total=self.ny_total,
+                kind=region["kind"],
                 # The following arguments are passed through to PsiContour
-                region["points"],  # list of Point2D objects on the line
-                self.psi,  # Function to calculate the poloidal flux
-                region["psi"],
+                points=region["points"],  # list of Point2D objects on the line
+                psival=region["psi"],
             )
 
             # Grids of psi values in each segment
@@ -1452,7 +1500,9 @@ class TokamakEquilibrium(Equilibrium):
         return self.fpol(self.psi_axis) / self.o_point.R
 
 
-def read_geqdsk(filehandle, options={}, **kwargs):
+def read_geqdsk(
+    filehandle, settings=None, nonorthogonal_settings=None, make_regions=True
+):
     """
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
@@ -1460,15 +1510,17 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     Inputs
     ------
     filehandle   A file handle to read
-    options      Options|dict passed to TokamakEquilibrium
-    kwargs       Other keywords passed to TokamakEquilibrim
-                 These override values in options.
+    settings     dict passed to TokamakEquilibrium
+    nonorthogonal_settings  dict passed to TokamakEquilibrium
 
     Options
     -------
     reverse_current = bool  Changes the sign of poloidal flux psi
     extrapolate_profiles = bool   Extrapolate pressure using exponential
     """
+
+    if settings is None:
+        settings = {}
 
     from ..geqdsk._geqdsk import read as geq_read
 
@@ -1494,7 +1546,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
 
     psi2D = data["psi"]
 
-    if kwargs.get("reverse_current", options.get("reverse_current", False)):
+    if settings.get("reverse_current", False):
         warnings.warn("Reversing the sign of the poloidal field")
         psi2D *= -1.0
         psi1D *= -1.0
@@ -1508,7 +1560,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
     pressure = data["pres"]
     fpol = data["fpol"]
 
-    if kwargs.get("extrapolate_profiles", options.get("extrapolate_profiles", False)):
+    if settings.get("extrapolate_profiles", False):
         # Use an exponential decay for the pressure, based on
         # the value and gradient at the plasma edge
         dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
@@ -1533,6 +1585,7 @@ def read_geqdsk(filehandle, options={}, **kwargs):
         fpol,
         pressure=pressure,
         wall=wall,
-        options=options,
-        **kwargs,
+        make_regions=make_regions,
+        settings=settings,
+        nonorthogonal_settings=nonorthogonal_settings,
     )

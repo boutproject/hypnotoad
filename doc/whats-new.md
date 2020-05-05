@@ -7,6 +7,10 @@ What's new
 
 ### New Features
 
+- Options have associated `doc` attributes, visible as tool-tips in the GUI
+  (#33)\
+  By [John Omotani](https://github.com/johnomotani)
+
 - Add preferences dialog to GUI (#25)\
   By [Peter Hill](https://github.com/ZedThree) and [John
   Omotani](https://github.com/johnomotani)
@@ -27,6 +31,13 @@ What's new
 
 
 ### Internal changes
+
+- `options` package dependency removed, replaced by
+  hypnotoad.utils.OptionsFactory, which creates immutable Options objects.
+  WithMeta class used to store the value of each option along with (optionally)
+  a `doc` attribute, required type, list of allowed values, and list of checks
+  that the value must pass (else raise an exception) (#33)\
+  By [John Omotani](https://github.com/johnomotani)
 
 - Make options table keys in HypnotoadGui immutable. Also makes the use of
   Options object in Equilibrium/TokamakEquilibrium more consistent by ensuring

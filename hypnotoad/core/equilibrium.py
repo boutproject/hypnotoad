@@ -1616,7 +1616,7 @@ class EquilibriumRegion(PsiContour):
             allowed=["sqrt", "monotonic"],
         ),
         xpoint_poloidal_spacing_length=WithMeta(
-            lambda options: 5.0e-2 if options.orthogonal else 1.0,
+            lambda options: 5.0e-2 if options.orthogonal else 4.0,
             doc=(
                 "Spacing at the X-point end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
@@ -1712,7 +1712,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_target_poloidal_spacing_range=WithMeta(
-            lambda options: 0.1 * options.nonorthogonal_target_poloidal_spacing_length,
+            lambda options: 0.5 * options.nonorthogonal_target_poloidal_spacing_length,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"
@@ -1721,7 +1721,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_inner=WithMeta(
-            "nonorthogonal_target_poloidal_spacing_range",
+            lambda options: 2.0 * options.nonorthogonal_target_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'inner' radial boundaries (core and PFR)"
@@ -1730,7 +1730,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_range_outer=WithMeta(
-            "nonorthogonal_target_poloidal_spacing_range",
+            lambda options: 2.0 * options.nonorthogonal_target_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'outer' radial boundaries (SOL)"
@@ -1739,7 +1739,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_radial_range_power=WithMeta(
-            1.0,
+            2.0,
             doc=(
                 "Controls radial transition between separatrix range value and inner "
                 "or outer range values"
@@ -2999,7 +2999,7 @@ class Equilibrium:
         # Update nonorthogonal defaults from settings in user_options
         self.nonorthogonal_options_factory = self.nonorthogonal_options_factory.add(
             nonorthogonal_xpoint_poloidal_spacing_length=(
-                self.user_options.xpoint_poloidal_spacing_length
+                0.25 * self.user_options.xpoint_poloidal_spacing_length
             ),
             nonorthogonal_target_poloidal_spacing_length=(
                 self.user_options.target_poloidal_spacing_length

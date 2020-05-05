@@ -1841,6 +1841,9 @@ class EquilibriumRegion(PsiContour):
         if self.kind.split(".")[0] == "wall":
             sqrt_a_lower = None
             sqrt_b_lower = self.user_options.target_poloidal_spacing_length
+            nonorthogonal_orthogonal_d_lower = (
+                self.user_options.target_poloidal_spacing_length
+            )
             monotonic_d_lower = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
@@ -1856,6 +1859,9 @@ class EquilibriumRegion(PsiContour):
         elif self.kind.split(".")[0] == "X":
             sqrt_a_lower = self.user_options.xpoint_poloidal_spacing_length
             sqrt_b_lower = 0.0
+            nonorthogonal_orthogonal_d_lower = (
+                self.user_options.xpoint_poloidal_spacing_length
+            )
             monotonic_d_lower = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
@@ -1873,6 +1879,9 @@ class EquilibriumRegion(PsiContour):
         if self.kind.split(".")[1] == "wall":
             sqrt_a_upper = None
             sqrt_b_upper = self.user_options.target_poloidal_spacing_length
+            nonorthogonal_orthogonal_d_upper = (
+                self.user_options.target_poloidal_spacing_length
+            )
             monotonic_d_upper = (
                 self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
             )
@@ -1888,6 +1897,9 @@ class EquilibriumRegion(PsiContour):
         elif self.kind.split(".")[1] == "X":
             sqrt_a_upper = self.user_options.xpoint_poloidal_spacing_length
             sqrt_b_upper = 0.0
+            nonorthogonal_orthogonal_d_upper = (
+                self.user_options.xpoint_poloidal_spacing_length
+            )
             monotonic_d_upper = (
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_length
             )
@@ -1910,6 +1922,8 @@ class EquilibriumRegion(PsiContour):
             "sqrt_b_upper": sqrt_b_upper,
             "monotonic_d_lower": monotonic_d_lower,
             "monotonic_d_upper": monotonic_d_upper,
+            "nonorthogonal_orthogonal_d_lower": nonorthogonal_orthogonal_d_lower,
+            "nonorthogonal_orthogonal_d_upper": nonorthogonal_orthogonal_d_upper,
             "nonorthogonal_range_lower": nonorthogonal_range_lower,
             "nonorthogonal_range_upper": nonorthogonal_range_upper,
             "nonorthogonal_range_lower_inner": nonorthogonal_range_lower_inner,
@@ -2053,7 +2067,9 @@ class EquilibriumRegion(PsiContour):
                 f"{prefix}xpoint_poloidal_spacing_length."
             )
 
-    def getSfuncFixedSpacing(self, npoints, distance, *, method=None):
+    def getSfuncFixedSpacing(
+        self, npoints, distance, *, method=None, spacing_lower=None, spacing_upper=None
+    ):
         if method is None:
             if self.user_options.orthogonal:
                 method = self.user_options.poloidal_spacing_method
@@ -2081,20 +2097,29 @@ class EquilibriumRegion(PsiContour):
             )
             self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
         elif method == "monotonic":
+            if spacing_lower is None:
+                spacing_lower = spacings["monotonic_d_lower"]
+            if spacing_upper is None:
+                spacing_upper = spacings["monotonic_d_upper"]
             sfunc = self.getMonotonicPoloidalDistanceFunc(
                 distance,
                 npoints - 1,
                 self.user_options.N_norm_prefactor * self.ny_total,
-                d_lower=spacings["monotonic_d_lower"],
-                d_upper=spacings["monotonic_d_upper"],
+                d_lower=spacing_lower,
+                d_upper=spacing_upper,
             )
-            self._checkMonotonic([(sfunc, "sqrt")], total_distance=distance)
+            self._checkMonotonic([(sfunc, "monotonic")], total_distance=distance)
         elif method == "nonorthogonal":
             if (
                 self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
-                return self.combineSfuncs(self, None)
+                return self.combineSfuncs(
+                    self,
+                    None,
+                    spacing_lower=spacing_lower,
+                    spacing_upper=spacing_upper,
+                )
             elif (
                 self.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
@@ -2119,23 +2144,43 @@ class EquilibriumRegion(PsiContour):
                     # the X-point
                     upper_surface = None
 
-                sfunc = self.combineSfuncs(self, None, lower_surface, upper_surface)
+                sfunc = self.combineSfuncs(
+                    self,
+                    None,
+                    lower_surface,
+                    upper_surface,
+                    spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
+                    spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
+                )
             elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
                 # Use fixed poloidal spacing when gridding the separatrix contour so that
                 # the grid spacing is the same in different regions which share a
                 # separatrix segment but have different perpendicular vectors at the
                 # X-point
-                return self.combineSfuncs(self, None)
+                return self.combineSfuncs(
+                    self,
+                    None,
+                    spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
+                    spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
+                )
             elif (
                 self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal"
             ):
                 orth_method = self.user_options.poloidal_spacing_method
-                sfunc = self.getSfuncFixedSpacing(npoints, distance, method=orth_method)
+                sfunc = self.getSfuncFixedSpacing(
+                    npoints,
+                    distance,
+                    method=orth_method,
+                    spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
+                    spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
+                )
             else:
                 sfunc = self.getSfuncFixedSpacing(
                     npoints,
                     distance,
                     method=self.nonorthogonal_options.nonorthogonal_spacing_method,
+                    spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
+                    spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
         else:
             raise ValueError(
@@ -2158,7 +2203,18 @@ class EquilibriumRegion(PsiContour):
 
         return sfunc
 
-    def combineSfuncs(self, contour, sfunc_orthogonal, vec_lower=None, vec_upper=None):
+    def combineSfuncs(
+        self,
+        contour,
+        sfunc_orthogonal,
+        vec_lower=None,
+        vec_upper=None,
+        # spacing_lower/upper used only on the separatrix contours
+        # (equilibriumRegion objects) to allow the user to fine-tune spacings spacings
+        # set by 'sfunc_orthogonal's
+        spacing_lower=None,
+        spacing_upper=None,
+    ):
         # this sfunc gives:
         # * - if vec_lower is None: fixed poloidal spacing at the beginning of the
         #     contour
@@ -2173,20 +2229,38 @@ class EquilibriumRegion(PsiContour):
         #   the same spacing is given
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
-                2 * self.ny_noguards + 1, contour.totalDistance(), method="monotonic"
+                2 * self.ny_noguards + 1,
+                contour.totalDistance(),
+                method="monotonic",
+                spacing_lower=spacing_lower,
+                spacing_upper=spacing_upper,
             )
         else:
             sfunc_fixed_lower, sperp_func_lower = self.getSfuncFixedPerpSpacing(
-                2 * self.ny_noguards + 1, contour, vec_lower, True
+                2 * self.ny_noguards + 1,
+                contour,
+                vec_lower,
+                True,
+                spacing_lower=spacing_lower,
+                spacing_upper=spacing_upper,
             )
 
         if vec_upper is None:
             sfunc_fixed_upper = self.getSfuncFixedSpacing(
-                2 * self.ny_noguards + 1, contour.totalDistance(), method="monotonic"
+                2 * self.ny_noguards + 1,
+                contour.totalDistance(),
+                method="monotonic",
+                spacing_lower=spacing_lower,
+                spacing_upper=spacing_upper,
             )
         else:
             sfunc_fixed_upper, sperp_func_upper = self.getSfuncFixedPerpSpacing(
-                2 * self.ny_noguards + 1, contour, vec_upper, False
+                2 * self.ny_noguards + 1,
+                contour,
+                vec_upper,
+                False,
+                spacing_lower=spacing_lower,
+                spacing_upper=spacing_upper,
             )
 
         spacings = self.getSpacings()
@@ -2411,7 +2485,15 @@ class EquilibriumRegion(PsiContour):
 
         return new_sfunc
 
-    def getSfuncFixedPerpSpacing(self, N, contour, surface_direction, lower):
+    def getSfuncFixedPerpSpacing(
+        self,
+        N,
+        contour,
+        surface_direction,
+        lower,
+        spacing_lower=None,
+        spacing_upper=None,
+    ):
         """
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct so that ds_perp/diN = d_lower at the lower end or ds_perp/diN = d_upper
@@ -2421,15 +2503,20 @@ class EquilibriumRegion(PsiContour):
         N_norm = self.user_options.N_norm_prefactor * self.ny_total
         spacings = self.getSpacings()
 
+        if spacing_lower is None:
+            spacing_lower = spacings["monotonic_d_lower"]
+        if spacing_upper is None:
+            spacing_upper = spacings["monotonic_d_upper"]
+
         if self.wallSurfaceAtStart is None:
-            d_lower = spacings["monotonic_d_lower"] * self.sin_angle_at_start
+            d_lower = spacing_lower * self.sin_angle_at_start
         else:
-            d_lower = spacings["monotonic_d_lower"]
+            d_lower = spacing_lower
 
         if self.wallSurfaceAtEnd is None:
-            d_upper = spacings["monotonic_d_upper"] * self.sin_angle_at_end
+            d_upper = spacing_upper * self.sin_angle_at_end
         else:
-            d_upper = spacings["monotonic_d_upper"]
+            d_upper = spacing_upper
 
         s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
         sperp_func = self.getMonotonicPoloidalDistanceFunc(

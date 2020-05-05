@@ -507,8 +507,6 @@ class TORPEXMagneticField(Equilibrium):
                 equilibrium=self,
                 name=name,
                 nSegments=2,
-                settings=dict(self.user_options),
-                nonorthogonal_settings=dict(self.nonorthogonal_options),
                 nx=legoptions[name]["nx"],
                 ny=legoptions[name]["ny"],
                 kind=legoptions[name]["kind"],

@@ -1337,8 +1337,6 @@ class TokamakEquilibrium(Equilibrium):
                 equilibrium=self,
                 name=name,
                 nSegments=len(region["segments"]),  # The number of radial regions
-                settings=dict(self.user_options),
-                nonorthogonal_settings=dict(self.nonorthogonal_options),
                 nx=[segments[seg_name]["nx"] for seg_name in region["segments"]],
                 ny=region["ny"],
                 ny_total=self.ny_total,

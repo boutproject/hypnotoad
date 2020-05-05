@@ -260,11 +260,18 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             filtered_default_values = dict(
                 tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
-            filtered_default_values.update(
-                tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
-                    self.options
+            if not hasattr(self, "eq"):
+                filtered_default_values.update(
+                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                        self.options
+                    )
                 )
-            )
+            else:
+                # Use the object if it exists because some defaults are updated when the
+                # Equilibrium is created
+                filtered_default_values.update(
+                    self.eq.nonorthogonal_options_factory.create(self.options)
+                )
         except (ValueError, TypeError) as e:
             self._popup_error_message(e)
             return

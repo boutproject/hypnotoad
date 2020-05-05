@@ -1616,7 +1616,7 @@ class EquilibriumRegion(PsiContour):
             allowed=["sqrt", "monotonic"],
         ),
         xpoint_poloidal_spacing_length=WithMeta(
-            5.0e-2,
+            lambda options: 5.0e-2 if options.orthogonal else 1.0,
             doc=(
                 "Spacing at the X-point end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
@@ -1625,7 +1625,7 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive_or_None,
         ),
         target_poloidal_spacing_length=WithMeta(
-            None,
+            lambda options: None if options.orthogonal else 1.0,
             doc=(
                 "Spacing at the wall end of a region (used for orthogonal grids)"
                 "Use None to not constrain the spacing."
@@ -1663,6 +1663,8 @@ class EquilibriumRegion(PsiContour):
 
     nonorthogonal_options_factory = OptionsFactory(
         nonorthogonal_xpoint_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
             1.0,
             doc=(
                 "Poloidal spacing of grid points near the X-point (for nonorthogonal "
@@ -1699,6 +1701,8 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
             1.0,
             doc=(
                 "Poloidal spacing of grid points near the target (for nonorthogonal "
@@ -1757,30 +1761,30 @@ class EquilibriumRegion(PsiContour):
     )
 
     def __init__(
-        self,
-        *,
-        equilibrium,
-        name,
-        nSegments,
-        settings,
-        nonorthogonal_settings,
-        nx,
-        ny,
-        kind,
-        ny_total,
-        points,
-        psival,
+        self, *, equilibrium, name, nSegments, nx, ny, kind, ny_total, points, psival,
     ):
-        super().__init__(
-            points=points, psi=equilibrium.psi, psival=psival, settings=settings
-        )
         self.equilibrium = equilibrium
         self.name = name
         self.nSegments = nSegments
 
-        self.user_options = self.user_options_factory.create(settings)
+        self.user_options = self.user_options_factory.create(
+            self.equilibrium.user_options
+        )
+
+        super().__init__(
+            points=points,
+            psi=equilibrium.psi,
+            psival=psival,
+            settings=self.user_options,
+        )
+
+        # Use nonorthogonal defaults from settings updated in user_options by Equilibrium
+        self.nonorthogonal_options_factory = (
+            self.equilibrium.nonorthogonal_options_factory
+        )
+
         self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
-            nonorthogonal_settings
+            self.equilibrium.nonorthogonal_options
         )
 
         self.nx = nx
@@ -1937,8 +1941,6 @@ class EquilibriumRegion(PsiContour):
             equilibrium=self.equilibrium,
             name=self.name,
             nSegments=self.nSegments,
-            settings=dict(self.user_options),
-            nonorthogonal_settings=dict(self.nonorthogonal_options),
             nx=self.nx,
             ny=self.ny_noguards,
             kind=self.kind,
@@ -1964,8 +1966,6 @@ class EquilibriumRegion(PsiContour):
             equilibrium=self.equilibrium,
             name=self.name,
             nSegments=self.nSegments,
-            settings=dict(self.user_options),
-            nonorthogonal_settings=dict(self.nonorthogonal_options),
             nx=self.nx,
             ny=self.ny_noguards,
             kind=self.kind,
@@ -2996,6 +2996,18 @@ class Equilibrium:
         Note: should be called by derived class __init__() constructor after the
         user_options have been initialized.
         """
+        # Update nonorthogonal defaults from settings in user_options
+        self.nonorthogonal_options_factory = self.nonorthogonal_options_factory.add(
+            nonorthogonal_xpoint_poloidal_spacing_length=(
+                self.user_options.xpoint_poloidal_spacing_length
+            ),
+            nonorthogonal_target_poloidal_spacing_length=(
+                self.user_options.target_poloidal_spacing_length
+                if self.user_options.target_poloidal_spacing_length is not None
+                else 1.0
+            ),
+        )
+
         self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
             nonorthogonal_settings
         )

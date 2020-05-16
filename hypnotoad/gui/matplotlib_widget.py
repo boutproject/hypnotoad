@@ -7,10 +7,10 @@ from matplotlib.figure import Figure
 from Qt.QtWidgets import QVBoxLayout
 
 matplotlib.use("Qt5Agg")
-from matplotlib.backends.backend_qt5agg import (
+from matplotlib.backends.backend_qt5agg import (  # noqa: E402
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
-)  # noqa E402
+)
 
 
 class MatplotlibWidget:

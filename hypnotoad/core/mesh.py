@@ -2433,6 +2433,10 @@ class BoutMesh(Mesh):
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
 
+            if self.user_options.orthogonal:
+                # Also write hy as "hthe" for backward compatibility
+                self.writeArray("hthe", self.hy, f)
+
             # write the 1d fields
             for name in self.arrayXDirection_to_output:
                 self.writeArrayXDirection(name, self.__dict__[name], f)

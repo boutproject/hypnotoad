@@ -100,12 +100,7 @@ class TORPEXMagneticField(Equilibrium):
             doc="psi value of the 'core' (used as default for PFR regions)",
             value_type=[float, int],
         ),
-        psi_sol=WithMeta(
-            None,
-            doc="psi value of the SOL",
-            value_type=[float, int],
-            check_all=is_positive,
-        ),
+        psi_sol=WithMeta(None, doc="psi value of the SOL", value_type=[float, int]),
         psi_sol_inner=WithMeta(
             lambda options: options.psi_sol,
             doc="psi value of the inner SOL",
@@ -514,7 +509,7 @@ class TORPEXMagneticField(Equilibrium):
                 kind=legoptions[name]["kind"],
                 ny_total=self.ny_total,
                 points=[Point2D(R, Z) for R, Z in zip(legR, legZ)],
-                psi_val=self.psi_sep[0],
+                psival=self.psi_sep[0],
             )
             self.regions[name] = leg.getRefined()
             wall_vectors[name] = self.wallVector(boundary_position)
@@ -644,7 +639,7 @@ def createMesh(filename):
 
     equilibrium.makeRegions()
 
-    return BoutMesh(equilibrium)
+    return BoutMesh(equilibrium, settings=equilibrium.user_options)
 
 
 def createEqdsk(equilib, *, nR, Rmin, Rmax, nZ, Zmin, Zmax, filename="torpex_test.g"):

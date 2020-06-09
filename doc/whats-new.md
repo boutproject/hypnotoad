@@ -7,6 +7,13 @@ What's new
 
 ### New Features
 
+- For orthogonal grids, save hy as 'hthe'. Allows backward compatibility with
+  codes that compute metric coefficients for themselves. hy and hthe
+  definitions are the same for orthogonal grids. They differ for non-orthogonal
+  grids, so hy is *not* written as 'hthe' for non-orthogonal grids, to prevent
+  silent errors (#39)\
+  By [John Omotani](https://github.com/johnomotani)
+
 - Options have associated `doc` attributes, visible as tool-tips in the GUI
   (#33)\
   By [John Omotani](https://github.com/johnomotani)

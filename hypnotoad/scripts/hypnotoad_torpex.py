@@ -31,17 +31,21 @@ Note: positions of cell corners are generated first, grid points are then put in
 centre of the cell.
 """
 
-plotStuff = True
-
 
 def main():
-    if plotStuff:
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument("filename")
+    parser.add_argument("--noplot", action="store_true")
+    args = parser.parse_args()
+
+    if not args.noplot:
         from matplotlib import pyplot
-    from sys import argv
 
     from ..cases.torpex import createMesh
 
-    filename = argv[1]
+    filename = args.filename
     gridname = "torpex.grd.nc"
 
     mesh = createMesh(filename)
@@ -56,7 +60,7 @@ def main():
         traceback.print_tb(e.__traceback__)
         print("****************************************")
 
-    if plotStuff:
+    if not args.noplot:
         pyplot.figure()
         mesh.equilibrium.plotPotential()
         mesh.equilibrium.addWallToPlot()

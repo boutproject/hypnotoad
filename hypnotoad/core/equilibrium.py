@@ -3510,7 +3510,7 @@ class Equilibrium:
         import yaml
 
         result = ""
-        result += yaml.dump(self.equilibOptions)
+        result += yaml.dump(self.user_options)
 
         mesh_options_dict = {"Mesh": {}}
         m = mesh_options_dict["Mesh"]

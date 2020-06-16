@@ -2,13 +2,20 @@ What's new
 ==========
 
 
-0.1.1 (unreleased)
-------------------
+0.1.1
+-----
 
 ### New features
 
 - Button allowing grid to be regenerated in the gui after nonorthogonal spacing
   options are changed (#26)\
+  By [John Omotani](https://github.com/johnomotani)
+
+- For orthogonal grids, save hy as 'hthe'. Allows backward compatibility with
+  codes that compute metric coefficients for themselves. hy and hthe
+  definitions are the same for orthogonal grids. They differ for non-orthogonal
+  grids, so hy is *not* written as 'hthe' for non-orthogonal grids, to prevent
+  silent errors (#39)\
   By [John Omotani](https://github.com/johnomotani)
 
 - Options have associated `doc` attributes, visible as tool-tips in the GUI

@@ -2,8 +2,16 @@ What's new
 ==========
 
 
-0.1.1
------
+0.1.2 (20th June 2020)
+----------------------
+
+### Internal changes
+
+- Use argparse in command line scripts (#42)\
+  By [John Omotani](https://github.com/johnomotani)
+
+0.1.1 (9th June 2020)
+---------------------
 
 ### New Features
 

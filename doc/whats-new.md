@@ -2,6 +2,16 @@ What's new
 ==========
 
 
+0.1.3 (20th June 2020)
+----------------------
+
+### Internal changes
+
+- Warn instead of failing in case of ImportError when setting "Qt5Agg" backend
+  (#44)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.1.2 (20th June 2020)
 ----------------------
 
@@ -9,6 +19,7 @@ What's new
 
 - Use argparse in command line scripts (#42)\
   By [John Omotani](https://github.com/johnomotani)
+
 
 0.1.1 (9th June 2020)
 ---------------------

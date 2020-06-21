@@ -2,6 +2,15 @@ What's new
 ==========
 
 
+0.1.4 (21st June 2020)
+----------------------
+
+### Internal changes
+
+- Make compatible with v5.13 of pyside2 (#45)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.1.3 (20th June 2020)
 ----------------------
 

@@ -1,19 +1,36 @@
-Dependencies
-------------
-
-- options module ('pip3 install --user options')
-- yaml module ('pip3 install --user PyYAML')
-- scipy (recent enough version, tested with 1.3.0 'pip3 install --user --upgrade scipy')
-
-
 Installation
 ------------
 
+#### From conda
+
+``hypnotoad`` is available from the ``conda-forge`` channel. Install with
+
+    $ conda install -c conda-forge hypnotoad
+
+To use the GUI, one of PySide2 or PyQt5 is needed (PySide and PyQt4 may also
+work, but have not been tested). Install with
+
+    $ conda install -c conda-forge pyside2
+
+or
+
+    $ conda install -c conda-forge pyqt
+
 #### From PyPi
 
-The simplest way to get hypnotoad is by simply running
+``hypnotoad`` can be installed using ``pip`` by running
 
     $ pip install --user hypnotoad
+
+To use the GUI, one of PySide2 or PyQt5 is needed (PySide and PyQt4 may also
+work, but have not been tested). These can be fetched by choosing a variant.
+For PySide2 use
+
+    $ pip install --user hypnotoad[gui-pyside2]
+
+or for PyQt5 use
+
+    $ pip install --user hypnotoad[gui-PyQt5]
 
 #### git repo
 
@@ -23,12 +40,19 @@ from github
     $ git clone git@github.com:boutproject/hypnotoad.git
 
 You can install from the git repo with ``pip``, this is useful to get the
-executables added to your path. Make sure to do an 'editable' install using
+executables added to your path. If you use ``conda`` you may wish to first
+install the dependencies using
+
+    $ conda install boututils matplotlib netcdf4 numpy optionsfactory pyparsing pyqt pyyaml qt.py scipy
+
+(replacing ``pyqt`` with ``pyside2`` if you prefer PySide2 to PyQt5) to ensure
+they are not ``pip``-installed. Make sure to do an 'editable' install using
 ``-e`` or ``--editable`` option like
 
     $ cd hypnotoad
     $ pip install -e .
 
+(you may also need to ``pip``-install ``PySide2`` or ``PyQt5`` to use the GUI).
 This installs executables which use the code that's currently in the git repo,
 so if you edit or update it you will see the updates. If you install with ``pip
 install .`` (without the ``-e``) then ``pip`` can get confused because it can't

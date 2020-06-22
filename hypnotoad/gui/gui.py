@@ -41,6 +41,12 @@ DEFAULT_OPTIONS_FILENAME = "Untitled.yml"
 YAML_FILTER = "YAML file (*.yml *.yaml)"
 NETCDF_FILTER = "NetCDF (*nc)"
 
+DEFAULT_OPTIONS = {
+    "orthogonal": tokamak.TokamakEquilibrium.user_options_factory.defaults[
+        "orthogonal"
+    ].value
+}
+
 DEFAULT_GUI_OPTIONS = {
     "grid_file": "bout.grd.nc",
     "plot_xlow": True,
@@ -100,6 +106,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_Write_grid, self.write_grid)
         self.write_grid_button.setEnabled(False)
 
+        self.nonorthogonal_box.stateChanged.connect(self.set_nonorthogonal)
+
+        set_clicked(self.regrid_button, self.regrid)
+        set_triggered(self.action_Regrid, self.regrid)
+
         set_triggered(self.action_Revert, self.revert_options)
         set_triggered(self.action_Save, self.save_options)
         set_triggered(self.action_Save_as, self.save_options_as)
@@ -110,7 +121,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.action_Quit.triggered.connect(self.close)
 
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
 
@@ -153,7 +164,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
 
         self.statusbar.showMessage("Reverting options", 2000)
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
 
         options_filename = self.options_file_line_edit.text()
 
@@ -168,7 +179,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         """
 
-        self.options = {}
+        self.options = DEFAULT_OPTIONS
         self.options_form.setRowCount(0)
         self.update_options_form()
 
@@ -230,7 +241,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
     def update_options_form(self):
         """Update the widget values in the options form, based on the current
-        values in the options object
+        values in self.options
 
         """
 
@@ -245,16 +256,29 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         # evaluate filtered_defaults using the values in self.options, so that any
         # expressions get evaluated
-        filtered_default_values = dict(
-            tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
-        )
-        filtered_default_values.update(
-            tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
-                self.options
+        try:
+            filtered_default_values = dict(
+                tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
-        )
+            if not hasattr(self, "eq"):
+                filtered_default_values.update(
+                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                        self.options
+                    )
+                )
+            else:
+                # Use the object if it exists because some defaults are updated when the
+                # Equilibrium is created
+                filtered_default_values.update(
+                    self.eq.nonorthogonal_options_factory.create(self.options)
+                )
+        except (ValueError, TypeError) as e:
+            self._popup_error_message(e)
+            return
+
         # Skip options handled specially elsewhere
-        # ...
+        del filtered_options["orthogonal"]
+        del filtered_defaults["orthogonal"]
 
         self.options_form.setSortingEnabled(False)
         self.options_form.cellChanged.disconnect(self.options_form_changed)
@@ -331,6 +355,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_file_line_edit.setText(filename)
         self.filename = filename
         self.read_options()
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def read_options(self):
         """Read the options file
@@ -393,9 +418,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     nonorthogonal_settings=copy.deepcopy(self.options),
                 )
         except (ValueError, RuntimeError) as e:
-            error_message = QErrorMessage()
-            error_message.showMessage(str(e))
-            error_message.exec_()
+            self._popup_error_message(e)
             return
 
         self.update_options_form()
@@ -403,8 +426,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         # Delete mesh if it exists, since we have a new self.eq object
         if hasattr(self, "mesh"):
             del self.mesh
+        self.regrid_button.setEnabled(False)
+        self.action_Regrid.setEnabled(False)
 
         self.plot_grid()
+
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def run(self):
         """Run Hypnotoad and generate the grid
@@ -426,9 +453,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         try:
             self.mesh = BoutMesh(self.eq, self.options)
         except (ValueError, SolutionError) as e:
-            error_message = QErrorMessage()
-            error_message.showMessage(str(e))
-            error_message.exec_()
+            self._popup_error_message(e)
             return
 
         self.mesh.calculateRZ()
@@ -437,6 +462,38 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
+        self.regrid_button.setEnabled(not self.options["orthogonal"])
+        self.action_Regrid.setEnabled(not self.options["orthogonal"])
+
+    def set_nonorthogonal(self, state):
+        state = bool(state)
+        self.options["orthogonal"] = not state
+        self.update_options_form()
+
+    def regrid(self):
+        """Regrid a nonorthogonal grid after spacing settings are changed
+
+        """
+
+        if not hasattr(self, "mesh"):
+            self.statusbar.showMessage("Generate grid first!")
+            self.geqdsk_file_line_edit.setStyleSheet(
+                f"QLineEdit {{ background-color: {COLOURS['red']} }}"
+            )
+            return
+
+        self.statusbar.showMessage("Running...")
+
+        try:
+            self.mesh.redistributePoints(self.options)
+            self.mesh.calculateRZ()
+        except (ValueError, TypeError) as e:
+            self._popup_error_message(e)
+            return
+
+        self.statusbar.showMessage("Done!", 2000)
+
+        self.plot_grid(keep_limits=True)
 
     def write_grid(self):
         """Write generated mesh to file
@@ -470,8 +527,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.mesh.writeGridfile(filename)
 
-    def plot_grid(self):
-        self.plot_widget.clear()
+    def plot_grid(self, *, keep_limits=False):
+        self.plot_widget.clear(keep_limits=keep_limits)
 
         if hasattr(self, "eq"):
             self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
@@ -494,6 +551,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
 
         self.plot_widget.canvas.draw()
+
+    def _popup_error_message(self, error):
+        error_message = QErrorMessage()
+        error_message.showMessage(str(error))
+        error_message.exec_()
 
 
 class Preferences(QDialog, Ui_Preferences):

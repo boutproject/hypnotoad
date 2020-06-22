@@ -560,6 +560,10 @@ class MeshRegion:
 
             # index of the segment of the contour that intersects the upper wall
             upper_intersect_index = -2
+
+            # starting orthogonal spacing function
+            sfunc_orthogonal = contour.contourSfunc()
+
             if lower_wall:
                 if upper_wall:
                     starti = len(contour) // 2
@@ -577,10 +581,11 @@ class MeshRegion:
                         break
 
                 count = 0
+                ds_extend = contour.distance[1] - contour.distance[0]
                 while lower_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
-                    contour.temporaryExtend(extend_lower=1)
+                    contour.temporaryExtend(extend_lower=1, ds_lower=ds_extend)
                     lower_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[1], contour[0]
                     )
@@ -606,10 +611,11 @@ class MeshRegion:
                         break
 
                 count = 0
+                ds_extend = contour.distance[-1] - contour.distance[-2]
                 while upper_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
-                    contour.temporaryExtend(extend_upper=1)
+                    contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
                     upper_intersect = self.meshParent.equilibrium.wallIntersection(
                         contour[-2], contour[-1]
                     )
@@ -690,7 +696,10 @@ class MeshRegion:
             contour.refine(width=self.user_options.refine_width)
             contour.checkFineContourExtend()
 
-    def distributePointsNonorthogonal(self):
+    def distributePointsNonorthogonal(self, nonorthogonal_settings=None):
+        if nonorthogonal_settings is not None:
+            self.equilibriumRegion.resetNonorthogonalOptions(nonorthogonal_settings)
+
         # regrid the contours (which all know where the wall is)
         for i_contour, contour in enumerate(self.contours):
             print(
@@ -739,14 +748,17 @@ class MeshRegion:
                     p_out = c_out[c_out.endInd]
                 return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-            if self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal":
+            if (
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                == "orthogonal"
+            ):
                 warnings.warn(
                     "'orthogonal' option is not currently compatible with "
                     "extending grid past targets"
                 )
                 sfunc = self.sfunc_orthogonal_list[i_contour]
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_poloidal"
             ):
                 # this sfunc gives a fixed poloidal spacing at beginning and end of
@@ -757,28 +769,28 @@ class MeshRegion:
                     method="monotonic",
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
                     contour, self.sfunc_orthogonal_list[i_contour]
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_lower"
             ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(True), True
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_upper"
             ):
                 sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
                     2 * self.ny_noguards + 1, contour, surface_vec(False), False
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
             ):
                 sfunc = self.equilibriumRegion.combineSfuncs(
@@ -787,7 +799,10 @@ class MeshRegion:
                     surface_vec(True),
                     surface_vec(False),
                 )
-            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "combined":
+            elif (
+                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                == "combined"
+            ):
                 if self.equilibriumRegion.wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
@@ -809,7 +824,9 @@ class MeshRegion:
             else:
                 raise ValueError(
                     "Unrecognized option '"
-                    + str(self.nonorthogonal_options.nonorthogonal_spacing_method)
+                    + str(
+                        self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method  # noqa: E501
+                    )
                     + "' for nonorthogonal poloidal spacing function"
                 )
 
@@ -2015,18 +2032,14 @@ class Mesh:
             "'production' grid non-interactively to ensure reproducibility."
         )
 
-        self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
-            nonorthogonal_settings
-        )
-        self.equilibrium.resetNonorthogonalOptions(dict(self.nonorthogonal_options))
+        self.equilibrium.resetNonorthogonalOptions(nonorthogonal_settings)
 
         assert (
             not self.user_options.orthogonal
         ), "redistributePoints would do nothing for an orthogonal grid."
         for region in self.regions.values():
             print("redistributing", region.name)
-            region.equilibriumRegion.setupOptions(force=True)
-            region.distributePointsNonorthogonal()
+            region.distributePointsNonorthogonal(nonorthogonal_settings)
 
     def calculateRZ(self):
         """
@@ -2095,10 +2108,20 @@ class Mesh:
         l.set_draggable(True)
 
     def plotPoints(
-        self, xlow=False, ylow=False, corners=False, markers=None, ax=None, **kwargs
+        self,
+        xlow=False,
+        ylow=False,
+        corners=False,
+        markers=None,
+        ax=None,
+        plot_types="scatter",
+        **kwargs,
     ):
         from matplotlib import pyplot
         from cycler import cycle
+
+        if isinstance(plot_types, str):
+            plot_types = [plot_types]
 
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
@@ -2122,31 +2145,71 @@ class Mesh:
 
         for region in self.regions.values():
             c = next(colors)
-            m = iter(markers)
-            ax.scatter(
-                region.Rxy.centre,
-                region.Zxy.centre,
-                marker=next(m),
-                c=c,
-                label=region.myID,
-                **kwargs,
-            )
-            if xlow:
+
+            if "scatter" in plot_types:
+                m = iter(markers)
                 ax.scatter(
-                    region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
-                )
-            if ylow:
-                ax.scatter(
-                    region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs
-                )
-            if corners:
-                ax.scatter(
-                    region.Rxy.corners,
-                    region.Zxy.corners,
+                    region.Rxy.centre,
+                    region.Zxy.centre,
                     marker=next(m),
                     c=c,
+                    label=region.myID,
                     **kwargs,
                 )
+                if xlow:
+                    ax.scatter(
+                        region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
+                    )
+                if ylow:
+                    ax.scatter(
+                        region.Rxy.ylow, region.Zxy.ylow, marker=next(m), c=c, **kwargs
+                    )
+                if corners:
+                    ax.scatter(
+                        region.Rxy.corners,
+                        region.Zxy.corners,
+                        marker=next(m),
+                        c=c,
+                        **kwargs,
+                    )
+            if "radial" in plot_types:
+                R = numpy.empty([2 * region.nx + 1, region.ny])
+                R[1::2, :] = region.Rxy.centre
+                R[::2, :] = region.Rxy.xlow
+                Z = numpy.empty([2 * region.nx + 1, region.ny])
+                Z[1::2, :] = region.Zxy.centre
+                Z[::2, :] = region.Zxy.xlow
+                lines = ax.plot(R, Z, linestyle="-", c=c,)
+                lines[0].set_label(region.myID)
+                if ylow:
+                    R = numpy.empty([2 * region.nx + 1, region.ny + 1])
+                    R[1::2, :] = region.Rxy.ylow
+                    R[::2, :] = region.Rxy.corners
+                    Z = numpy.empty([2 * region.nx + 1, region.ny + 1])
+                    Z[1::2, :] = region.Zxy.ylow
+                    Z[::2, :] = region.Zxy.corners
+                    ax.plot(
+                        R, Z, linestyle="--", c=c,
+                    )
+            if "poloidal" in plot_types:
+                R = numpy.empty([region.nx, 2 * region.ny + 1])
+                R[:, 1::2] = region.Rxy.centre
+                R[:, ::2] = region.Rxy.ylow
+                Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                Z[:, 1::2] = region.Zxy.centre
+                Z[:, ::2] = region.Zxy.ylow
+                lines = ax.plot(R.T, Z.T, linestyle="-", c=c, label=region.myID)
+                lines[0].set_label(region.myID)
+                if ylow:
+                    R = numpy.empty([region.nx + 1, 2 * region.ny + 1])
+                    R[:, 1::2] = region.Rxy.xlow
+                    R[:, ::2] = region.Rxy.corners
+                    Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                    Z[:, 1::2] = region.Zxy.xlow
+                    Z[:, ::2] = region.Zxy.corners
+                    ax.plot(
+                        R.T, Z.T, linestyle="--", c=c,
+                    )
         l = ax.legend()
         l.set_draggable(True)
 

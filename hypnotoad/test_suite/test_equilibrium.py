@@ -592,10 +592,12 @@ class TestContour:
 
 
 class ThisEquilibrium(Equilibrium):
-    def __init__(self):
-        self.user_options = Equilibrium.user_options_factory.create(
-            {"refine_width": 1.0e-5, "refine_atol": 2.0e-8}
-        )
+    def __init__(self, settings=None):
+        if settings is None:
+            settings = {}
+        self.user_options = Equilibrium.user_options_factory.add(
+            refine_width=1.0e-5, refine_atol=2.0e-8
+        ).create(settings)
 
         super().__init__({})
 
@@ -699,7 +701,7 @@ class TestEquilibrium:
 class TestEquilibriumRegion:
     @pytest.fixture
     def eqReg(self):
-        equilib = ThisEquilibrium()
+        equilib = ThisEquilibrium(settings={"y_boundary_guards": 1})
         equilib.psi = lambda R, Z: R - Z
         n = 11.0
         points = [
@@ -709,8 +711,6 @@ class TestEquilibriumRegion:
             equilibrium=equilib,
             name="",
             nSegments=1,
-            settings={"y_boundary_guards": 1},
-            nonorthogonal_settings={},
             nx=[1],
             ny=5,
             kind="wall.wall",
@@ -882,8 +882,9 @@ class TestEquilibriumRegion:
         n = len(eqReg)
         L = eqReg.totalDistance()
 
-        eqReg.monotonic_d_lower = L
-        eqReg.monotonic_d_upper = L
+        eqReg.resetNonorthogonalOptions(
+            {"nonorthogonal_target_poloidal_spacing_length": L}
+        )
         eqReg.ny_total = n - 1
 
         def sfunc_orthogonal(i):

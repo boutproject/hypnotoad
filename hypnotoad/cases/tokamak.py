@@ -222,7 +222,7 @@ class TokamakEquilibrium(Equilibrium):
         # slightly displaced from the null so code can follow Grad(psi).
         # Number between 0. and 1.
         xpoint_offset=WithMeta(
-            0.5,
+            0.1,
             doc=(
                 "Tolerance for positioning points that should be at X-point, but need "
                 "to be slightly displaced from the null so code can follow Grad(psi)."
@@ -614,7 +614,7 @@ class TokamakEquilibrium(Equilibrium):
         legs = self.findLegs(self.x_points[0])
 
         # Move the first point of each leg slightly away from the X-point
-        diff = 0.1
+        diff = self.user_options.xpoint_offset
         for leg in legs.values():
             leg[0] = diff * leg[1] + (1.0 - diff) * leg[0]
 
@@ -805,7 +805,7 @@ class TokamakEquilibrium(Equilibrium):
         upper_legs = self.findLegs(upper_x_point)
 
         # Move the first point of each leg slightly away from the X-point
-        diff = 0.1
+        diff = self.user_options.xpoint_offset
         for legs in [lower_legs, upper_legs]:
             for leg in legs.values():
                 leg[0] = diff * leg[1] + (1.0 - diff) * leg[0]
@@ -839,15 +839,7 @@ class TokamakEquilibrium(Equilibrium):
             dpsidi_sep *= self.user_options.psi_spacing_separatrix_multiplier
 
         # Number of points in the inter-separatrix region
-        # This is zero for a connected double null, > 0 for disconnected double null
-        # Limit the number so that at least 2 cells are in the SOL regions
-        nx_inter_sep = min(
-            [
-                int(np.rint(abs((upper_psi - lower_psi) / dpsidi_sep))),
-                self.user_options.nx_sol_outer - 2,
-                self.user_options.nx_sol_inner - 2,
-            ]
-        )
+        nx_inter_sep = self.user_options.nx_inter_sep
 
         # Adjust the number of points in upper and lower PF regions,
         # to keep nx constant between regions. This is because some regions
@@ -881,13 +873,13 @@ class TokamakEquilibrium(Equilibrium):
                 "grad_end": dpsidi_sep,
             },
             "inner_sol": {
-                "nx": self.user_options.nx_sol_inner - nx_inter_sep,
+                "nx": self.user_options.nx_sol_inner,
                 "psi_start": self.psi_sep[-1],
                 "psi_end": self.psi_sol_inner,
                 "grad_start": dpsidi_sep,
             },
             "outer_sol": {
-                "nx": self.user_options.nx_sol_outer - nx_inter_sep,
+                "nx": self.user_options.nx_sol_outer,
                 "psi_start": self.psi_sep[-1],
                 "psi_end": self.psi_sol,
                 "grad_start": dpsidi_sep,
@@ -896,6 +888,13 @@ class TokamakEquilibrium(Equilibrium):
 
         if nx_inter_sep == 0:
             print("Generating a connected double null")
+
+            # Only use psi of inner separatrix, not the outer one (if it is slightly
+            # different)
+            segments["upper_pf"]["psi_end"] = self.psi_sep[0]
+            segments["lower_pf"]["psi_end"] = self.psi_sep[0]
+            segments["inner_sol"]["psi_start"] = self.psi_sep[0]
+            segments["outer_sol"]["psi_start"] = self.psi_sep[0]
 
             # Description of each poloidal region
             leg_regions = {
@@ -1338,8 +1337,6 @@ class TokamakEquilibrium(Equilibrium):
                 equilibrium=self,
                 name=name,
                 nSegments=len(region["segments"]),  # The number of radial regions
-                settings=dict(self.user_options),
-                nonorthogonal_settings=dict(self.nonorthogonal_options),
                 nx=[segments[seg_name]["nx"] for seg_name in region["segments"]],
                 ny=region["ny"],
                 ny_total=self.ny_total,

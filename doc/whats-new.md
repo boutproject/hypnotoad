@@ -33,7 +33,11 @@ What's new
 0.1.1 (9th June 2020)
 ---------------------
 
-### New Features
+### New features
+
+- Button allowing grid to be regenerated in the gui after nonorthogonal spacing
+  options are changed (#26)\
+  By [John Omotani](https://github.com/johnomotani)
 
 - For orthogonal grids, save hy as 'hthe'. Allows backward compatibility with
   codes that compute metric coefficients for themselves. hy and hthe
@@ -52,13 +56,17 @@ What's new
 
 - Catch errors in HypnotoadGui.run(), allows changing settings and pressing Run
   button again if there was an error in grid generation (#24)\
-  By [John Omotani](https://github.com/johnomotani)
+  By [John Omotani](https://github.com/johnomotani) and [Peter
+  Hill](https://github.com/ZedThree)
 
 - Plot wall in gui window (#23)\
   By [John Omotani](https://github.com/johnomotani)
 
 
 ### Bug fixes
+
+- More robust generation of non-orthogonal grids for tokamak cases (#26)\
+  By [John Omotani](https://github.com/johnomotani)
 
 - If an empty string is passed to a value in the options table of the GUI,
   resets the option to its default value. Previously this caused a crash (#25)\
@@ -85,7 +93,7 @@ What's new
 0.1.0 (24th April 2020)
 -----------------------
 
-### New Features
+### New features
 
 - Github Action to upload hypnotoad to PyPi on release (#19)\
   By [John Omotani](https://github.com/johnomotani)

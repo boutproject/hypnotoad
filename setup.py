@@ -32,7 +32,7 @@ setuptools.setup(
         "scipy~=1.4",
         "Qt.py~=1.2",
     ],
-    extras_require={"gui-pyside2": ["pyside2~=5.14"], "gui-PyQt5": ["PyQt5~=5.12"],},
+    extras_require={"gui-pyside2": ["pyside2~=5.13"], "gui-PyQt5": ["PyQt5~=5.12"],},
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [

@@ -129,7 +129,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
         self.search_bar_completer = QCompleter(
-            tokamak.TokamakEquilibrium.user_options_factory.defaults.keys()
+            list(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys())
         )
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)

@@ -6,11 +6,19 @@ import matplotlib
 from matplotlib.figure import Figure
 from Qt.QtWidgets import QVBoxLayout
 
-matplotlib.use("Qt5Agg")
-from matplotlib.backends.backend_qt5agg import (  # noqa: E402
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
+try:
+    matplotlib.use("Qt5Agg")
+except ImportError:
+    # Continue for now, so that hypnotoad-gui -h works even on systems without a
+    # display. Useful for testing existence of the command for conda-forge.
+    import warnings
+
+    warnings.warn("Failed to load Qt5Agg backend, plotting widget will fail")
+else:
+    from matplotlib.backends.backend_qt5agg import (  # noqa: E402
+        FigureCanvasQTAgg as FigureCanvas,
+        NavigationToolbar2QT as NavigationToolbar,
+    )
 
 
 class MatplotlibWidget:

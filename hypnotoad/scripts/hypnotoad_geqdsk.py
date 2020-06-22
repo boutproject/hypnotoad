@@ -8,20 +8,23 @@
 #
 #
 
-import sys
 import warnings
 
 
 def main():
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        raise ValueError("Usage is {} geqdsk_file [options.yaml]".format(sys.argv[0]))
+    from argparse import ArgumentParser
 
-    filename = sys.argv[1]
-    if len(sys.argv) == 3:
+    parser = ArgumentParser()
+    parser.add_argument("filename")
+    parser.add_argument("inputfile", nargs="?", default=None)
+    args = parser.parse_args()
+
+    filename = args.filename
+    if args.inputfile is not None:
         # Options yaml file
         import yaml
 
-        with open(sys.argv[2], "r") as inputfile:
+        with open(args.inputfile, "r") as inputfile:
             options = yaml.safe_load(inputfile)
     else:
         options = {}

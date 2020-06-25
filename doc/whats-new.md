@@ -2,6 +2,21 @@ What's new
 ==========
 
 
+0.2.0 (25th June 2020)
+----------------------
+
+### New features
+
+- Button allowing grid to be regenerated in the gui after nonorthogonal spacing
+  options are changed (#26)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### Bug fixes
+
+- More robust generation of non-orthogonal grids for tokamak cases (#26)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.1.4 (21st June 2020)
 ----------------------
 
@@ -35,10 +50,6 @@ What's new
 
 ### New features
 
-- Button allowing grid to be regenerated in the gui after nonorthogonal spacing
-  options are changed (#26)\
-  By [John Omotani](https://github.com/johnomotani)
-
 - For orthogonal grids, save hy as 'hthe'. Allows backward compatibility with
   codes that compute metric coefficients for themselves. hy and hthe
   definitions are the same for orthogonal grids. They differ for non-orthogonal
@@ -64,9 +75,6 @@ What's new
 
 
 ### Bug fixes
-
-- More robust generation of non-orthogonal grids for tokamak cases (#26)\
-  By [John Omotani](https://github.com/johnomotani)
 
 - If an empty string is passed to a value in the options table of the GUI,
   resets the option to its default value. Previously this caused a crash (#25)\

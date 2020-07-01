@@ -21,6 +21,7 @@
 Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
+from copy import deepcopy
 import numbers
 import re
 import warnings
@@ -2293,6 +2294,23 @@ class BoutMesh(Mesh):
     outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
     positioning in the global logically rectangular grid. Regions are allowed to not be
     present (if they would have size 0).
+
+    Poloidal coordinates
+    --------------------
+    BoutMesh writes two poloidal coordinates to the grid file:
+    - `y` increments by `dy` between points and starts from zero at the beginning of the
+      global grid. `y` includes boundary cells and is single-valued (at a given radial
+      position) everywhere on the global grid. `y` has branch cuts adjacent to both
+      X-points in the core, and adjacent to the X-point in the PFRs.
+    - `theta` increments by `dy` between points and goes from 0 to 2pi in the core
+      region. The lower inner divertor leg has negative values. The lower outer divertor
+      leg has values >2pi. The upper inner leg (if it exists) has values increasing
+      continuously from those in the inner SOL (these will overlap values in the outer
+      core region). The outer upper leg (if it exists) has values continuous with those
+      in the outer SOL (these will overlap values in the inner core region).
+    Note: these coordinates are defined/created in BoutMesh because they require a global
+    mesh, which is not required in Mesh where everything is defined only in terms of
+    MeshRegions.
     """
 
     user_options_factory = Mesh.user_options_factory.add(
@@ -2312,8 +2330,7 @@ class BoutMesh(Mesh):
 
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
         self.ny_core = sum(
-            r.ny_noguards for r in self.equilibrium.regions.values()
-            if r.kind == "X.X"
+            r.ny_noguards for r in self.equilibrium.regions.values() if r.kind == "X.X"
         )
 
         self.fields_to_output = []
@@ -2589,6 +2606,45 @@ class BoutMesh(Mesh):
             f.write("ny_inner", ny_inner)
             f.write("jyseps1_2", jyseps1_2)
             f.write("jyseps2_2", jyseps2_2)
+
+            # Create poloidal coordinate (single-valued everywhere, includes y-boundary
+            # cells)
+            y = MultiLocationArray(self.nx, self.ny)
+            y.centre[:, 1:] = numpy.cumsum(self.dy.centre, axis=1)[:, :-1]
+            # Set xlow from x=0 entries of centre because xlow and centre have different
+            # x-sizes, but y is constant in x so only actually need values from a single
+            # x-index.
+            y.xlow = y.centre[0, numpy.newaxis, :]
+            y.ylow[:, :-1] = (
+                y.centre
+                - 0.5*self.dy.centre[:, :]
+            )
+            y.ylow[:, -1] = y.centre[:, -1] + 0.5*self.dy.centre[:, -1]
+            y.attributes["bout_type"] = "Field2D"
+            self.writeArray("y", y, f)
+
+            # Create poloidal coordinate which goes from 0 to 2pi in the core region
+            theta = deepcopy(y)
+            myg = self.user_options.y_boundary_guards
+            for t in [theta.centre, theta.xlow, theta.ylow]:
+                # Make zero of theta half a point before the start of the core region
+                t -= theta.ylow[0, numpy.newaxis, jyseps1_1 + myg + 1, numpy.newaxis]
+                if jyseps2_1 != jyseps1_2:
+                    # Has second divertor, subtract y-increment in upper divertor legs from
+                    # outer regions to make theta continuous in the core
+                    # Set from x=0 entries of centre because xlow and ylow have different
+                    # x-sizes, but y is constant in x so only actually need values from a
+                    # single x-index.
+                    t[:, ny_inner + 2 * myg :] -= (
+                        theta.ylow[
+                            0, numpy.newaxis, jyseps1_2 + 3 * myg + 1, numpy.newaxis
+                        ]
+                        - theta.ylow[
+                            0, numpy.newaxis, jyseps2_1 + myg + 1, numpy.newaxis
+                        ]
+                    )
+            theta.attributes["bout_type"] = "Field2D"
+            self.writeArray("theta", theta, f)
 
             # BOUT++ ParallelTransform that metrics are compatible with
             if self.user_options.shiftedmetric:

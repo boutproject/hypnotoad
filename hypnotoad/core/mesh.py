@@ -2311,6 +2311,10 @@ class BoutMesh(Mesh):
         self.ny = sum(r.ny(0) for r in self.equilibrium.regions.values())
 
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
+        self.ny_core = sum(
+            r.ny_noguards for r in self.equilibrium.regions.values()
+            if r.kind == "X.X"
+        )
 
         self.fields_to_output = []
         self.arrayXDirection_to_output = []
@@ -2358,7 +2362,12 @@ class BoutMesh(Mesh):
                 ] = numpy.index_exp[x_regions[i], y_regions[reg_name]]
 
         # constant spacing in y for now
-        self.dy_scalar = 2.0 * numpy.pi / self.ny_noguards
+        if self.ny_core > 0:
+            # If there is a core region, set dy consistent with 0<=y<2pi in the core
+            self.dy_scalar = 2.0 * numpy.pi / self.ny_core
+        else:
+            # No core region, set dy consistent with 0<=y<2pi in whole domain
+            self.dy_scalar = 2.0 * numpy.pi / self.ny_noguards
 
     def geometry(self):
         # Call geometry() method of base class

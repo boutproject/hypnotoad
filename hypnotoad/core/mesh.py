@@ -2615,11 +2615,8 @@ class BoutMesh(Mesh):
             # x-sizes, but y is constant in x so only actually need values from a single
             # x-index.
             y.xlow = y.centre[0, numpy.newaxis, :]
-            y.ylow[:, :-1] = (
-                y.centre
-                - 0.5*self.dy.centre[:, :]
-            )
-            y.ylow[:, -1] = y.centre[:, -1] + 0.5*self.dy.centre[:, -1]
+            y.ylow[:, :-1] = y.centre - 0.5 * self.dy.centre[:, :]
+            y.ylow[:, -1] = y.centre[:, -1] + 0.5 * self.dy.centre[:, -1]
             y.attributes["bout_type"] = "Field2D"
             self.writeArray("y", y, f)
 
@@ -2630,8 +2627,8 @@ class BoutMesh(Mesh):
                 # Make zero of theta half a point before the start of the core region
                 t -= theta.ylow[0, numpy.newaxis, jyseps1_1 + myg + 1, numpy.newaxis]
                 if jyseps2_1 != jyseps1_2:
-                    # Has second divertor, subtract y-increment in upper divertor legs from
-                    # outer regions to make theta continuous in the core
+                    # Has second divertor, subtract y-increment in upper divertor legs
+                    # from outer regions to make theta continuous in the core
                     # Set from x=0 entries of centre because xlow and ylow have different
                     # x-sizes, but y is constant in x so only actually need values from a
                     # single x-index.

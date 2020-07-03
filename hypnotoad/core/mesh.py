@@ -2294,7 +2294,7 @@ class BoutMesh(Mesh):
 
     Poloidal coordinates
     --------------------
-    BoutMesh writes two poloidal coordinates to the grid file:
+    BoutMesh writes three poloidal coordinates to the grid file:
     - `y` increments by `dy` between points and starts from zero at the beginning of the
       global grid. `y` includes boundary cells and is single-valued (at a given radial
       position) everywhere on the global grid. `y` has branch cuts adjacent to both
@@ -2305,6 +2305,9 @@ class BoutMesh(Mesh):
       continuously from those in the inner SOL (these will overlap values in the outer
       core region). The outer upper leg (if it exists) has values continuous with those
       in the outer SOL (these will overlap values in the inner core region).
+    - `chi` is a straight-field line poloidal coordinate proportional to the toroidal
+      angle (i.e. to zShift). It goes from 0 to 2pi in the core, and is undefined on open
+      field lines.
     Note: these coordinates are defined/created in BoutMesh because they require a global
     mesh, which is not required in Mesh where everything is defined only in terms of
     MeshRegions.
@@ -2641,6 +2644,20 @@ class BoutMesh(Mesh):
                     )
             theta.attributes["bout_type"] = "Field2D"
             self.writeArray("theta", theta, f)
+
+            # Create straight-field-line poloidal coordinate which goes from 0 to 2pi in
+            # the core region and is proportional to zShift
+            chi = 2.0 * numpy.pi * self.zShift / self.ShiftAngle
+            # need to add ylow values separately because ShiftAngle does not have a ylow
+            # member
+            chi.ylow = 2.0 * numpy.pi * self.zShift.ylow / self.ShiftAngle.centre
+            # set to NaN in divertor leg regions where chi is not valid
+            for c in [chi.centre, chi.xlow, chi.ylow]:
+                c[:, : jyseps1_1 + 1] = float("nan")
+                c[:, jyseps2_1 + 1 : jyseps1_2 + 1] = float("nan")
+                c[:, jyseps2_2 + 1 :] = float("nan")
+            chi.attributes["bout_type"] = "Field2D"
+            self.writeArray("chi", chi, f)
 
             # BOUT++ ParallelTransform that metrics are compatible with
             if self.user_options.shiftedmetric:

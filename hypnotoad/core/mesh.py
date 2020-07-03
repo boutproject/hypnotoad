@@ -1716,9 +1716,6 @@ class MeshRegion:
             self.ShiftAngle.xlow = (
                 region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
             ).reshape((-1, 1))
-        else:
-            self.ShiftAngle.centre = float("nan")
-            self.ShiftAngle.xlow = float("nan")
 
     def getNeighbour(self, face):
         if self.connections[face] is None:
@@ -2421,6 +2418,8 @@ class BoutMesh(Mesh):
             # Data taken from the first region in each y-group
             self.arrayXDirection_to_output.append(name)
             f = MultiLocationArray(self.nx, 1)
+            f.centre[...] = float("nan")
+            f.xlow[...] = float("nan")
             self.__dict__[name] = f
             f.attributes = self.y_groups[0][0].__dict__[name].attributes
             for y_group in self.y_groups:
@@ -2433,7 +2432,7 @@ class BoutMesh(Mesh):
                     f.attributes == f_region.attributes
                 ), "attributes of a field must be set consistently in every region"
                 if f_region._centre_array is not None:
-                    f.centre[self.region_indices[region.myID]] = f_region.centre
+                    f.centre[self.region_indices[region.myID][0], :] = f_region.centre
                 if f_region._xlow_array is not None:
                     f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1, :]
                 assert (

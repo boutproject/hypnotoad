@@ -2177,7 +2177,7 @@ class Mesh:
                 Z = numpy.empty([2 * region.nx + 1, region.ny])
                 Z[1::2, :] = region.Zxy.centre
                 Z[::2, :] = region.Zxy.xlow
-                lines = ax.plot(R, Z, linestyle="-", c=c,)
+                lines = ax.plot(R, Z, linestyle="-", c=c)
                 lines[0].set_label(region.myID)
                 if ylow:
                     R = numpy.empty([2 * region.nx + 1, region.ny + 1])
@@ -2186,9 +2186,7 @@ class Mesh:
                     Z = numpy.empty([2 * region.nx + 1, region.ny + 1])
                     Z[1::2, :] = region.Zxy.ylow
                     Z[::2, :] = region.Zxy.corners
-                    ax.plot(
-                        R, Z, linestyle="--", c=c,
-                    )
+                    ax.plot(R, Z, linestyle="--", c=c)
             if "poloidal" in plot_types:
                 R = numpy.empty([region.nx, 2 * region.ny + 1])
                 R[:, 1::2] = region.Rxy.centre
@@ -2205,9 +2203,7 @@ class Mesh:
                     Z = numpy.empty([region.nx, 2 * region.ny + 1])
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
-                    ax.plot(
-                        R.T, Z.T, linestyle="--", c=c,
-                    )
+                    ax.plot(R.T, Z.T, linestyle="--", c=c)
         l = ax.legend()
         l.set_draggable(True)
 

@@ -2295,10 +2295,10 @@ class BoutMesh(Mesh):
     Poloidal coordinates
     --------------------
     BoutMesh writes three poloidal coordinates to the grid file:
-    - `y` increments by `dy` between points and starts from zero at the beginning of the
-      global grid. `y` includes boundary cells and is single-valued (at a given radial
-      position) everywhere on the global grid. `y` has branch cuts adjacent to both
-      X-points in the core, and adjacent to the X-point in the PFRs.
+    - `y-coord` increments by `dy` between points and starts from zero at the beginning
+      of the global grid. `y` includes boundary cells and is single-valued (at a given
+      radial position) everywhere on the global grid. `y` has branch cuts adjacent to
+      both X-points in the core, and adjacent to the X-point in the PFRs.
     - `theta` increments by `dy` between points and goes from 0 to 2pi in the core
       region. The lower inner divertor leg has negative values. The lower outer divertor
       leg has values >2pi. The upper inner leg (if it exists) has values increasing
@@ -2620,7 +2620,7 @@ class BoutMesh(Mesh):
             y.ylow[:, :-1] = y.centre - 0.5 * self.dy.centre[:, :]
             y.ylow[:, -1] = y.centre[:, -1] + 0.5 * self.dy.centre[:, -1]
             y.attributes["bout_type"] = "Field2D"
-            self.writeArray("y", y, f)
+            self.writeArray("y-coord", y, f)
 
             # Create poloidal coordinate which goes from 0 to 2pi in the core region
             theta = deepcopy(y)

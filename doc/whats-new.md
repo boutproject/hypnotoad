@@ -6,7 +6,7 @@ What's new
 ------------------
 
 ### New features
-- ``y`` and ``theta`` poloidal coordinates written out by ``BoutMesh`` (#51,
+- ``y-coord`` and ``theta`` poloidal coordinates written out by ``BoutMesh`` (#51,
   fixes #49)\
   By [John Omotani](https://github.com/johnomotani)
 

@@ -2,6 +2,15 @@ What's new
 ==========
 
 
+0.2.1 (unreleased)
+------------------
+
+### New features
+- ``y-coord`` and ``theta`` poloidal coordinates written out by ``BoutMesh`` (#51,
+  fixes #49)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
 0.2.0 (25th June 2020)
 ----------------------
 

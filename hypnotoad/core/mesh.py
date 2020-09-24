@@ -21,6 +21,7 @@
 Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
+from copy import deepcopy
 import numbers
 import re
 import warnings
@@ -1715,9 +1716,6 @@ class MeshRegion:
             self.ShiftAngle.xlow = (
                 region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
             ).reshape((-1, 1))
-        else:
-            self.ShiftAngle.centre = float("nan")
-            self.ShiftAngle.xlow = float("nan")
 
     def getNeighbour(self, face):
         if self.connections[face] is None:
@@ -2179,7 +2177,7 @@ class Mesh:
                 Z = numpy.empty([2 * region.nx + 1, region.ny])
                 Z[1::2, :] = region.Zxy.centre
                 Z[::2, :] = region.Zxy.xlow
-                lines = ax.plot(R, Z, linestyle="-", c=c,)
+                lines = ax.plot(R, Z, linestyle="-", c=c)
                 lines[0].set_label(region.myID)
                 if ylow:
                     R = numpy.empty([2 * region.nx + 1, region.ny + 1])
@@ -2188,9 +2186,7 @@ class Mesh:
                     Z = numpy.empty([2 * region.nx + 1, region.ny + 1])
                     Z[1::2, :] = region.Zxy.ylow
                     Z[::2, :] = region.Zxy.corners
-                    ax.plot(
-                        R, Z, linestyle="--", c=c,
-                    )
+                    ax.plot(R, Z, linestyle="--", c=c)
             if "poloidal" in plot_types:
                 R = numpy.empty([region.nx, 2 * region.ny + 1])
                 R[:, 1::2] = region.Rxy.centre
@@ -2207,9 +2203,7 @@ class Mesh:
                     Z = numpy.empty([region.nx, 2 * region.ny + 1])
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
-                    ax.plot(
-                        R.T, Z.T, linestyle="--", c=c,
-                    )
+                    ax.plot(R.T, Z.T, linestyle="--", c=c)
         l = ax.legend()
         l.set_draggable(True)
 
@@ -2293,6 +2287,26 @@ class BoutMesh(Mesh):
     outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
     positioning in the global logically rectangular grid. Regions are allowed to not be
     present (if they would have size 0).
+
+    Poloidal coordinates
+    --------------------
+    BoutMesh writes three poloidal coordinates to the grid file:
+    - `y-coord` increments by `dy` between points and starts from zero at the beginning
+      of the global grid. `y` includes boundary cells and is single-valued (at a given
+      radial position) everywhere on the global grid. `y` has branch cuts adjacent to
+      both X-points in the core, and adjacent to the X-point in the PFRs.
+    - `theta` increments by `dy` between points and goes from 0 to 2pi in the core
+      region. The lower inner divertor leg has negative values. The lower outer divertor
+      leg has values >2pi. The upper inner leg (if it exists) has values increasing
+      continuously from those in the inner SOL (these will overlap values in the outer
+      core region). The outer upper leg (if it exists) has values continuous with those
+      in the outer SOL (these will overlap values in the inner core region).
+    - `chi` is a straight-field line poloidal coordinate proportional to the toroidal
+      angle (i.e. to zShift). It goes from 0 to 2pi in the core, and is undefined on open
+      field lines.
+    Note: these coordinates are defined/created in BoutMesh because they require a global
+    mesh, which is not required in Mesh where everything is defined only in terms of
+    MeshRegions.
     """
 
     user_options_factory = Mesh.user_options_factory.add(
@@ -2311,6 +2325,9 @@ class BoutMesh(Mesh):
         self.ny = sum(r.ny(0) for r in self.equilibrium.regions.values())
 
         self.ny_noguards = sum(r.ny_noguards for r in self.equilibrium.regions.values())
+        self.ny_core = sum(
+            r.ny_noguards for r in self.equilibrium.regions.values() if r.kind == "X.X"
+        )
 
         self.fields_to_output = []
         self.arrayXDirection_to_output = []
@@ -2358,7 +2375,12 @@ class BoutMesh(Mesh):
                 ] = numpy.index_exp[x_regions[i], y_regions[reg_name]]
 
         # constant spacing in y for now
-        self.dy_scalar = 2.0 * numpy.pi / self.ny_noguards
+        if self.ny_core > 0:
+            # If there is a core region, set dy consistent with 0<=y<2pi in the core
+            self.dy_scalar = 2.0 * numpy.pi / self.ny_core
+        else:
+            # No core region, set dy consistent with 0<=y<2pi in whole domain
+            self.dy_scalar = 2.0 * numpy.pi / self.ny_noguards
 
     def geometry(self):
         # Call geometry() method of base class
@@ -2395,6 +2417,8 @@ class BoutMesh(Mesh):
             # Data taken from the first region in each y-group
             self.arrayXDirection_to_output.append(name)
             f = MultiLocationArray(self.nx, 1)
+            f.centre[...] = float("nan")
+            f.xlow[...] = float("nan")
             self.__dict__[name] = f
             f.attributes = self.y_groups[0][0].__dict__[name].attributes
             for y_group in self.y_groups:
@@ -2407,7 +2431,7 @@ class BoutMesh(Mesh):
                     f.attributes == f_region.attributes
                 ), "attributes of a field must be set consistently in every region"
                 if f_region._centre_array is not None:
-                    f.centre[self.region_indices[region.myID]] = f_region.centre
+                    f.centre[self.region_indices[region.myID][0], :] = f_region.centre
                 if f_region._xlow_array is not None:
                     f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1, :]
                 assert (
@@ -2580,6 +2604,56 @@ class BoutMesh(Mesh):
             f.write("ny_inner", ny_inner)
             f.write("jyseps1_2", jyseps1_2)
             f.write("jyseps2_2", jyseps2_2)
+
+            # Create poloidal coordinate (single-valued everywhere, includes y-boundary
+            # cells)
+            y = MultiLocationArray(self.nx, self.ny)
+            y.centre[:, 1:] = numpy.cumsum(self.dy.centre, axis=1)[:, :-1]
+            # Set xlow from x=0 entries of centre because xlow and centre have different
+            # x-sizes, but y is constant in x so only actually need values from a single
+            # x-index.
+            y.xlow = y.centre[0, numpy.newaxis, :]
+            y.ylow[:, :-1] = y.centre - 0.5 * self.dy.centre[:, :]
+            y.ylow[:, -1] = y.centre[:, -1] + 0.5 * self.dy.centre[:, -1]
+            y.attributes["bout_type"] = "Field2D"
+            self.writeArray("y-coord", y, f)
+
+            # Create poloidal coordinate which goes from 0 to 2pi in the core region
+            theta = deepcopy(y)
+            myg = self.user_options.y_boundary_guards
+            for t in [theta.centre, theta.xlow, theta.ylow]:
+                # Make zero of theta half a point before the start of the core region
+                t -= theta.ylow[0, numpy.newaxis, jyseps1_1 + myg + 1, numpy.newaxis]
+                if jyseps2_1 != jyseps1_2:
+                    # Has second divertor, subtract y-increment in upper divertor legs
+                    # from outer regions to make theta continuous in the core
+                    # Set from x=0 entries of centre because xlow and ylow have different
+                    # x-sizes, but y is constant in x so only actually need values from a
+                    # single x-index.
+                    t[:, ny_inner + 2 * myg :] -= (
+                        theta.ylow[
+                            0, numpy.newaxis, jyseps1_2 + 3 * myg + 1, numpy.newaxis
+                        ]
+                        - theta.ylow[
+                            0, numpy.newaxis, jyseps2_1 + myg + 1, numpy.newaxis
+                        ]
+                    )
+            theta.attributes["bout_type"] = "Field2D"
+            self.writeArray("theta", theta, f)
+
+            # Create straight-field-line poloidal coordinate which goes from 0 to 2pi in
+            # the core region and is proportional to zShift
+            chi = 2.0 * numpy.pi * self.zShift / self.ShiftAngle
+            # need to add ylow values separately because ShiftAngle does not have a ylow
+            # member
+            chi.ylow = 2.0 * numpy.pi * self.zShift.ylow / self.ShiftAngle.centre
+            # set to NaN in divertor leg regions where chi is not valid
+            for c in [chi.centre, chi.xlow, chi.ylow]:
+                c[:, : jyseps1_1 + 1] = float("nan")
+                c[:, jyseps2_1 + 1 : jyseps1_2 + 1] = float("nan")
+                c[:, jyseps2_2 + 1 :] = float("nan")
+            chi.attributes["bout_type"] = "Field2D"
+            self.writeArray("chi", chi, f)
 
             # BOUT++ ParallelTransform that metrics are compatible with
             if self.user_options.shiftedmetric:

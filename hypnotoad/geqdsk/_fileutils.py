@@ -34,7 +34,7 @@ class ChunkOutput:
         self.extraspaces = extraspaces
 
     def write(self, value):
-        """"
+        """
         Write a value to the output, adding a newline if needed
 
         Distinguishes between:
@@ -79,8 +79,7 @@ class ChunkOutput:
         return self
 
     def __exit__(self, type, value, traceback):
-        """Ensure that the chunk finishes with a new line
-        """
+        """Ensure that the chunk finishes with a new line"""
         if self.counter != 0:
             self.counter = 0
             self.fh.write("\n")

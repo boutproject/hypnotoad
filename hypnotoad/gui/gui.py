@@ -57,18 +57,14 @@ DEFAULT_GUI_OPTIONS = {
 
 
 def _table_item_edit_display(item):
-    """Hide the "(default)" marker on table items in the options form
-
-    """
+    """Hide the "(default)" marker on table items in the options form"""
     default_marker = " (default)"
     if item.text().endswith(default_marker):
         item.setText(item.text()[: -len(default_marker)])
 
 
 class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
-    """A graphical interface for Hypnotoad
-
-    """
+    """A graphical interface for Hypnotoad"""
 
     def __init__(self):
         super().__init__(None)
@@ -139,9 +135,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.update_options_form()
 
     def help_about(self):
-        """About Hypnotoad
-
-        """
+        """About Hypnotoad"""
 
         about_text = __doc__.strip()
         about_text += f"\nVersion : {__version__}"
@@ -151,9 +145,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         about_box.exec_()
 
     def open_preferences(self):
-        """GUI preferences and settings
-
-        """
+        """GUI preferences and settings"""
         preferences_window = Preferences(self)
         preferences_window.exec_()
 
@@ -175,18 +167,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.update_options_form()
 
     def new_options(self):
-        """New set of options
-
-        """
+        """New set of options"""
 
         self.options = DEFAULT_OPTIONS
         self.options_form.setRowCount(0)
         self.update_options_form()
 
     def save_options(self):
-        """Save options to file
-
-        """
+        """Save options to file"""
 
         self.statusbar.showMessage("Saving...", 2000)
 
@@ -218,15 +206,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             yaml.dump(options_to_save, f)
 
     def save_options_as(self):
-        """Save options to file with new filename
-
-        """
+        """Save options to file with new filename"""
 
         if not self.filename:
             self.filename = DEFAULT_OPTIONS_FILENAME
 
         self.filename, _ = QFileDialog.getSaveFileName(
-            self, "Save grid to file", self.filename, filter=YAML_FILTER,
+            self, "Save grid to file", self.filename, filter=YAML_FILTER
         )
 
         if not self.filename:
@@ -302,9 +288,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.connect(self.options_form_changed)
 
     def options_form_changed(self, row, column):
-        """Change the options form from the widget table
-
-        """
+        """Change the options form from the widget table"""
 
         item = self.options_form.item(row, column)
 
@@ -327,9 +311,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.update_options_form()
 
     def search_options_form(self, text):
-        """Search for specific options
-
-        """
+        """Search for specific options"""
 
         for i in range(self.options_form.rowCount()):
             row = self.options_form.item(i, 0)
@@ -338,12 +320,10 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             self.options_form.setRowHidden(i, not matches)
 
     def select_options_file(self):
-        """Choose a Hypnotoad options file to load
-
-        """
+        """Choose a Hypnotoad options file to load"""
 
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open options file", ".", filter=YAML_FILTER,
+            self, "Open options file", ".", filter=YAML_FILTER
         )
 
         if (filename is None) or (filename == ""):
@@ -358,9 +338,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def read_options(self):
-        """Read the options file
-
-        """
+        """Read the options file"""
 
         self.statusbar.showMessage("Reading options", 2000)
         options_filename = self.options_file_line_edit.text()
@@ -373,9 +351,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.update_options_form()
 
     def select_geqdsk_file(self):
-        """Choose a "geqdsk" equilibrium file to open
-
-        """
+        """Choose a "geqdsk" equilibrium file to open"""
 
         filename, _ = QFileDialog.getOpenFileName(self, "Open geqdsk file", ".")
 
@@ -394,9 +370,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.read_geqdsk()
 
     def read_geqdsk(self):
-        """Read the equilibrium file
-
-        """
+        """Read the equilibrium file"""
 
         self.statusbar.showMessage("Reading geqdsk", 2000)
         geqdsk_filename = self.geqdsk_file_line_edit.text()
@@ -434,9 +408,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def run(self):
-        """Run Hypnotoad and generate the grid
-
-        """
+        """Run Hypnotoad and generate the grid"""
 
         if not hasattr(self, "eq"):
             self.statusbar.showMessage("Missing equilibrium file!")
@@ -471,9 +443,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.update_options_form()
 
     def regrid(self):
-        """Regrid a nonorthogonal grid after spacing settings are changed
-
-        """
+        """Regrid a nonorthogonal grid after spacing settings are changed"""
 
         if not hasattr(self, "mesh"):
             self.statusbar.showMessage("Generate grid first!")
@@ -496,9 +466,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_grid(keep_limits=True)
 
     def write_grid(self):
-        """Write generated mesh to file
-
-        """
+        """Write generated mesh to file"""
 
         # Create all the geometrical quantities
         self.mesh.geometry()
@@ -559,8 +527,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
 
 class Preferences(QDialog, Ui_Preferences):
-    """Dialog box for editing Hypnotoad preferences
-    """
+    """Dialog box for editing Hypnotoad preferences"""
 
     def __init__(self, parent):
         super().__init__(parent)

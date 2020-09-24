@@ -538,7 +538,7 @@ class TokamakEquilibrium(Equilibrium):
             return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
 
         self.psi_core = with_default(
-            self.user_options.psi_core, psinorm_to_psi(self.user_options.psinorm_core),
+            self.user_options.psi_core, psinorm_to_psi(self.user_options.psinorm_core)
         )
         self.psi_sol = with_default(
             self.user_options.psi_sol, psinorm_to_psi(self.user_options.psinorm_sol)
@@ -1479,8 +1479,7 @@ class TokamakEquilibrium(Equilibrium):
 
     @handleMultiLocationArray
     def fpolprime(self, psi):
-        """psi-derivative of fpol
-        """
+        """psi-derivative of fpol"""
         return self.fprime_spl(psi * self.f_psi_sign)
 
     @handleMultiLocationArray
@@ -1492,8 +1491,7 @@ class TokamakEquilibrium(Equilibrium):
 
     @property
     def Bt_axis(self):
-        """Calculate toroidal field on axis
-        """
+        """Calculate toroidal field on axis"""
         return self.fpol(self.psi_axis) / self.o_point.R
 
 

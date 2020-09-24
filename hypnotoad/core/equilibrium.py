@@ -1761,7 +1761,7 @@ class EquilibriumRegion(PsiContour):
     )
 
     def __init__(
-        self, *, equilibrium, name, nSegments, nx, ny, kind, ny_total, points, psival,
+        self, *, equilibrium, name, nSegments, nx, ny, kind, ny_total, points, psival
     ):
         self.equilibrium = equilibrium
         self.name = name

@@ -73,15 +73,16 @@ Equilibrium object is created.  Internal options should not need to be set by
 the user, but can be overridden with keyword arguments to the Equilibrium
 constructor.
 
-Hypnotoad can be run either as an executable, which just reads from an input
-file, or interactively from a Python shell. To ensure reproducibility, it is
-suggested to create your final grid non-interactively. The interactive mode is
-intended to make it easier to prototype the grid and find a good set of input
-parameters. Once you have found a configuration you are happy with, you can
-save the current input parameters with
-Equilibrium.saveOptions(filename='hypnotoad\_options.yaml'); this may be
-especially useful if you have changed some options from the Python shell with
-keyword-arguments.
+Hypnotoad can be run either as an executable (``hypnotoad_geqdsk``), which just
+reads from an input file, using the gui (``hypnotoad-gui``) or interactively
+from a Python shell. To ensure reproducibility, it is suggested to create your
+final grid non-interactively. The interactive mode is intended to make it
+easier to prototype the grid and find a good set of input parameters. Once you
+have found a configuration you are happy with, you can save the current input
+parameters using the save dialog in the gui, or with
+``Equilibrium.saveOptions(filename='hypnotoad_options.yaml')`` from the Python
+shell; this may be especially useful if you have changed some options from the
+Python shell with keyword-arguments.
 
 Grid generation can take a while with the default options, which are set for
 high accuracy. When prototyping, it is suggested to temporarily use lower

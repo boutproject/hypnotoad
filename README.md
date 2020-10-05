@@ -50,9 +50,10 @@ they are not ``pip``-installed. Make sure to do an 'editable' install using
 ``-e`` or ``--editable`` option like
 
     $ cd hypnotoad
-    $ pip install -e .
+    $ pip install --user -e .
 
 (you may also need to ``pip``-install ``PySide2`` or ``PyQt5`` to use the GUI).
+If installing in a conda environment you do not need the ``--user`` argument.
 This installs executables which use the code that's currently in the git repo,
 so if you edit or update it you will see the updates. If you install with ``pip
 install .`` (without the ``-e``) then ``pip`` can get confused because it can't

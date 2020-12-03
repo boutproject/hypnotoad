@@ -96,12 +96,12 @@ if __name__ == "__main__":
     from hypnotoad import tokamak
 
     eq = tokamak.TokamakEquilibrium(
-        r1d, z1d, psi2d, [], [], options=options  # psi1d, fpol
+        r1d, z1d, psi2d, [], [], settings=options  # psi1d, fpol
     )
 
-    from hypnotoad.mesh import BoutMesh
+    from hypnotoad.core.mesh import BoutMesh
 
-    mesh = BoutMesh(eq)
+    mesh = BoutMesh(eq, options)
     mesh.geometry()
 
     import matplotlib.pyplot as plt

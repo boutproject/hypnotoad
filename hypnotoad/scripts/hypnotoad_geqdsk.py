@@ -52,7 +52,7 @@ def main():
 
     from ..core.mesh import BoutMesh
 
-    mesh = BoutMesh(eq, settings=options)
+    mesh = BoutMesh(eq, options)
     mesh.calculateRZ()
 
     if options.get("plot_mesh", False):

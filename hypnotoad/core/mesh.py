@@ -1143,16 +1143,16 @@ class MeshRegion:
             )
             self.g12 = MultiLocationArray(self.nx, self.ny).zero()
             self.g13 = -self.I * self.g11
-            self.g23 = -self.dphidy / self.hy ** 2
+            self.g23 = -self.bpsign * self.dphidy / self.hy ** 2
 
             self.J = self.hy / self.Bpxy
 
             self.g_11 = 1.0 / self.g11 + (self.I * self.Rxy) ** 2
             self.g_22 = self.hy ** 2 + (self.Rxy * self.dphidy) ** 2
             self.g_33 = self.Rxy ** 2
-            self.g_12 = self.Rxy ** 2 * self.dphidy * self.I
+            self.g_12 = self.bpsign * self.Rxy ** 2 * self.dphidy * self.I
             self.g_13 = self.Rxy ** 2 * self.I
-            self.g_23 = self.dphidy * self.Rxy ** 2
+            self.g_23 = self.bpsign * self.dphidy * self.Rxy ** 2
         else:
             self.g11 = (self.Rxy * self.Bpxy) ** 2
             self.g22 = 1.0 / (self.hy * self.cosBeta) ** 2

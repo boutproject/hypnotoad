@@ -1668,7 +1668,8 @@ class MeshRegion:
             )
 
             # repeat for field lines with xlow and corner points
-            i_xlow = 0.25 * self.bpsign * numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
+            i_xlow = 0.25 * self.bpsign * numpy.cumsum(
+                region.dphidy.xlow * region.dy.xlow, axis=1)
             i_corners_lower = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.corners[:, :-1] * region.dy.xlow, axis=1
             )

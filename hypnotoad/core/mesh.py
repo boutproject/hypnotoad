@@ -1639,13 +1639,13 @@ class MeshRegion:
         region.zShift = MultiLocationArray(region.nx, region.ny)
         while True:
             # calculate integral for field lines with centre and ylow points
-            i_centre = 0.25 * numpy.cumsum(
+            i_centre = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.centre * region.dy.centre, axis=1
             )
-            i_ylow_lower = 0.25 * numpy.cumsum(
+            i_ylow_lower = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.ylow[:, :-1] * region.dy.centre, axis=1
             )
-            i_ylow_upper = 0.25 * numpy.cumsum(
+            i_ylow_upper = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.ylow[:, 1:] * region.dy.centre, axis=1
             )
 
@@ -1668,11 +1668,11 @@ class MeshRegion:
             )
 
             # repeat for field lines with xlow and corner points
-            i_xlow = 0.25 * numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
-            i_corners_lower = 0.25 * numpy.cumsum(
+            i_xlow = 0.25 * self.bpsign * numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
+            i_corners_lower = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.corners[:, :-1] * region.dy.xlow, axis=1
             )
-            i_corners_upper = 0.25 * numpy.cumsum(
+            i_corners_upper = 0.25 * self.bpsign * numpy.cumsum(
                 region.dphidy.corners[:, 1:] * region.dy.xlow, axis=1
             )
 

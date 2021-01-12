@@ -23,7 +23,7 @@ setuptools.setup(
     ],
     install_requires=[
         "boututils~=0.1.4",
-        "func_timeout~=4.3.5",
+        "func_timeout~=4.3",
         "matplotlib~=3.2",
         "netCDF4~=1.5",
         "numpy~=1.18",

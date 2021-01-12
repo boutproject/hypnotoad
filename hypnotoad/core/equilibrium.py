@@ -59,16 +59,14 @@ def refineTimeoutMessage(self):
     """
     # Try to gather the function name, if available.
     # If it is not, default to an "unknown" string to allow default instantiation
-    if self.timedOutAfter is not None:
-        timedOutAfterStr = "%f" % (self.timedOutAfter,)
-    else:
-        timedOutAfterStr = "Unknown"
+    if self.timedOutAfter is None:
+        self.timedOutAfter = "Unknown"
 
     fine_contour = self.timedOutArgs[0]
     contour = fine_contour.parentContour
 
     return (
-        f"Refining FineContour timed out after {timedOutAfterStr} seconds.\n"
+        f"Refining FineContour timed out after {self.timedOutAfter} seconds.\n"
         f"This probably means the PsiContour was problematic, e.g. too close to a "
         f"coil.\n"
         f"The length of the timeout can be set with the 'refine_timeout' option."

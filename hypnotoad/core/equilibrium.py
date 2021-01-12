@@ -25,6 +25,7 @@ the potential.
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
+import func_timeout
 from optionsfactory import OptionsFactory, WithMeta
 from optionsfactory.checks import (
     NoneType,
@@ -47,6 +48,33 @@ class SolutionError(Exception):
     """
 
     pass
+
+
+# Monkey-patch FunctionTimedOut exception to give a more helpful error message
+def refineTimeoutMessage(self):
+    """
+    getMsg - Generate a message based on parameters to FunctionTimedOut exception
+
+    @return <str> - Message
+    """
+    # Try to gather the function name, if available.
+    # If it is not, default to an "unknown" string to allow default instantiation
+    if self.timedOutAfter is None:
+        self.timedOutAfter = "Unknown"
+
+    fine_contour = self.timedOutArgs[0]
+    contour = fine_contour.parentContour
+
+    return (
+        f"Refining FineContour timed out after {self.timedOutAfter} seconds.\n"
+        f"This probably means the PsiContour was problematic, e.g. too close to a "
+        f"coil.\n"
+        f"The length of the timeout can be set with the 'refine_timeout' option."
+        f"Debugging info: PsiContour was {contour}"
+    )
+
+
+func_timeout.FunctionTimedOut.getMsg = refineTimeoutMessage
 
 
 # tolerance used to try and avoid missed intersections between lines
@@ -376,6 +404,17 @@ class FineContour:
             value_type=int,
             check_all=is_positive,
         ),
+        refine_timeout=WithMeta(
+            10.0,
+            doc=(
+                "Timeout for refining FineContour objects in seconds. If you get "
+                "func_timeout.exceptions.FunctionTimedOut exceptions and you are sure "
+                "there is no problem with the grid, you could try increasing this "
+                "value."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
     )
 
     def __init__(self, parentContour, settings):
@@ -661,26 +700,33 @@ class FineContour:
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
     def refine(self):
-        result = numpy.zeros(self.positions.shape)
+        # Define inner method so we can pass to func_timeout.func_timeout
+        def refine(self):
+            result = numpy.zeros(self.positions.shape)
 
-        p = self.positions[0, :]
-        tangent = self.positions[1, :] - self.positions[0, :]
-        result[0, :] = self.parentContour.refinePoint(
-            Point2D(*p), Point2D(*tangent)
-        ).as_ndarray()
-        for i in range(1, self.positions.shape[0] - 1):
-            p = self.positions[i, :]
-            tangent = self.positions[i + 1, :] - self.positions[i - 1, :]
-            result[i, :] = self.parentContour.refinePoint(
+            p = self.positions[0, :]
+            tangent = self.positions[1, :] - self.positions[0, :]
+            result[0, :] = self.parentContour.refinePoint(
                 Point2D(*p), Point2D(*tangent)
             ).as_ndarray()
-        p = self.positions[-1, :]
-        tangent = self.positions[-1, :] - self.positions[-2, :]
-        result[-1, :] = self.parentContour.refinePoint(
-            Point2D(*p), Point2D(*tangent)
-        ).as_ndarray()
+            for i in range(1, self.positions.shape[0] - 1):
+                p = self.positions[i, :]
+                tangent = self.positions[i + 1, :] - self.positions[i - 1, :]
+                result[i, :] = self.parentContour.refinePoint(
+                    Point2D(*p), Point2D(*tangent)
+                ).as_ndarray()
+            p = self.positions[-1, :]
+            tangent = self.positions[-1, :] - self.positions[-2, :]
+            result[-1, :] = self.parentContour.refinePoint(
+                Point2D(*p), Point2D(*tangent)
+            ).as_ndarray()
 
-        self.positions = result
+            self.positions = result
+
+        # Using func_timeout.func_timeout rather than the @func_timeout.func_set_timeout
+        # decorator on the refine method so that we can use self.user_options to set the
+        # length of the timeout.
+        func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
 
     def reverse(self):
         if self.distance is not None:

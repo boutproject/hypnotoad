@@ -5,6 +5,7 @@ GUI for Hypnotoad using Qt
 
 import ast
 import copy
+import func_timeout
 import os
 import pathlib
 import textwrap
@@ -391,7 +392,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     settings=copy.deepcopy(self.options),
                     nonorthogonal_settings=copy.deepcopy(self.options),
                 )
-        except (ValueError, RuntimeError) as e:
+        except (ValueError, RuntimeError, func_timeout.FunctionTimedOut) as e:
             self._popup_error_message(e)
             return
 
@@ -424,7 +425,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.statusbar.showMessage("Running...")
         try:
             self.mesh = BoutMesh(self.eq, self.options)
-        except (ValueError, SolutionError) as e:
+        except (ValueError, SolutionError, func_timeout.FunctionTimedOut) as e:
             self._popup_error_message(e)
             return
 
@@ -457,7 +458,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         try:
             self.mesh.redistributePoints(self.options)
             self.mesh.calculateRZ()
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError, func_timeout.FunctionTimedOut) as e:
             self._popup_error_message(e)
             return
 
@@ -469,7 +470,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """Write generated mesh to file"""
 
         # Create all the geometrical quantities
-        self.mesh.geometry()
+        try:
+            self.mesh.geometry()
+        except (ValueError, TypeError, func_timeout.FunctionTimedOut) as e:
+            self._popup_error_message(e)
+            return
 
         if not hasattr(self, "mesh"):
             flags = QMessageBox.StandardButton.Ok

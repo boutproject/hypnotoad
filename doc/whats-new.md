@@ -6,8 +6,15 @@ What's new
 ------------------
 
 ### New features
+
 - ``y-coord`` and ``theta`` poloidal coordinates written out by ``BoutMesh`` (#51,
   fixes #49)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### Bug fixes
+
+- Timeout if FineContour.refine() takes too long. Length of timeout set by
+  refine_timeout option (#58)\
   By [John Omotani](https://github.com/johnomotani)
 
 

@@ -102,3 +102,9 @@ accuracy. The following may be a good starting point:
   probably not be in exactly the same place, but the algorithms are intended to
   produce grid spacings that are inversely proportional to the total number of
   points, so the structure should be very similar.
+
+
+Developing
+----------
+
+Developer documentation is [here](doc/developer/developer.md).

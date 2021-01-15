@@ -317,6 +317,7 @@
   <action name="action_Preferences">
    <property name="icon">
     <iconset theme="document-properties"/>
+   </property>
    <property name="text">
     <string>&amp;Preferences...</string>
    </property>

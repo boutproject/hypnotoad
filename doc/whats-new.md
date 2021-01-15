@@ -2,8 +2,17 @@ What's new
 ==========
 
 
-0.2.1 (12th January 2021)
+0.2.2 (unreleased)
 ------------------
+
+### Bug fixes
+
+- Changing settings in File->Preferences caused GUI to crash (#62, fixes #61)\
+  By [John Omotani](https://github.com/johnomotani)
+
+
+0.2.1 (12th January 2021)
+-------------------------
 
 ### New features
 

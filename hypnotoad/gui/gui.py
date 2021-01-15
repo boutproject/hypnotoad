@@ -547,13 +547,13 @@ class Preferences(QDialog, Ui_Preferences):
 
     def accept(self):
 
-        self.parent.gui_options.set(
-            grid_file=self.defaultGridFileNameLineEdit.text(),
-            plot_xlow=self.plotXlowCheckBox.isChecked(),
-            plot_ylow=self.plotYlowCheckBox.isChecked(),
-            plot_corners=self.plotCornersCheckBox.isChecked(),
-            save_full_yaml=self.saveFullYamlCheckBox.isChecked(),
-        )
+        self.parent.gui_options["grid_file"] = self.defaultGridFileNameLineEdit.text()
+        self.parent.gui_options["plot_xlow"] = self.plotXlowCheckBox.isChecked()
+        self.parent.gui_options["plot_ylow"] = self.plotYlowCheckBox.isChecked()
+        self.parent.gui_options["plot_corners"] = self.plotCornersCheckBox.isChecked()
+        self.parent.gui_options[
+            "save_full_yaml"
+        ] = self.saveFullYamlCheckBox.isChecked()
 
         self.parent.plot_grid()
 

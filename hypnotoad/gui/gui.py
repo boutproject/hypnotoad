@@ -193,6 +193,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             options_ = tokamak.TokamakEquilibrium.user_options_factory.create(
                 self.options
             )
+            options_.update(
+                tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                    self.options
+                )
+            )
 
             # This converts any numpy types to native Python using the tolist()
             # method of any numpy objects/types. Note this does return a scalar

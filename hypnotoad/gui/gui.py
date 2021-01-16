@@ -130,7 +130,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             .union(set(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys()))
             .union(
                 set(
-                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults.keys()
+                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults.keys()  # noqa: E501
                 )
             )
         )

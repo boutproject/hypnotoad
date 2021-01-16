@@ -190,8 +190,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         options_to_save = self.options
         if self.gui_options["save_full_yaml"]:
-            options_ = tokamak.TokamakEquilibrium.user_options_factory.create(
-                self.options
+            options_ = BoutMesh.user_options_factory.create(self.options)
+            options_.update(
+                tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
             options_.update(
                 tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
@@ -239,7 +240,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         filtered_options = copy.deepcopy(self.options)
 
-        filtered_defaults = dict(
+        filtered_defaults = dict(BoutMesh.user_options_factory.defaults)
+        filtered_defaults.update(
             tokamak.TokamakEquilibrium.user_options_factory.defaults
         )
         filtered_defaults.update(
@@ -248,8 +250,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         # evaluate filtered_defaults using the values in self.options, so that any
         # expressions get evaluated
+        filtered_default_values = dict(
+            BoutMesh.user_options_factory.create(self.options)
+        )
         try:
-            filtered_default_values = dict(
+            filtered_default_values.update(
                 tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
             if not hasattr(self, "eq"):

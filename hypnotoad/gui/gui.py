@@ -125,9 +125,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
-        self.search_bar_completer = QCompleter(
-            list(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys())
+        option_names = (
+            set(BoutMesh.user_options_factory.defaults.keys())
+            .union(set(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys()))
+            .union(
+                set(
+                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults.keys()
+                )
+            )
         )
+        self.search_bar_completer = QCompleter(option_names)
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
 

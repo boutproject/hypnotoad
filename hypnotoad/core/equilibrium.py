@@ -3426,10 +3426,21 @@ class Equilibrium:
         smooth across boundaries.
         Function is guaranteed to be monotonic.
         """
+        if grad_lower is not None and (upper - lower) * grad_lower < 0:
+            raise ValueError(
+                f"(upper-lower)={(upper-lower)} and grad_lower={grad_lower} have "
+                f"different signs: should both be increasing or both be decreasing."
+            )
+        if grad_upper is not None and (upper - lower) * grad_upper < 0:
+            raise ValueError(
+                f"(upper-lower)={(upper-lower)} and grad_upper={grad_upper} have "
+                f"different signs: should both be increasing or both be decreasing."
+            )
+
         if grad_lower is None and grad_upper is None:
             return lambda i: lower + (upper - lower) * i / n
         elif grad_upper is None:
-            if grad_lower * n < (upper - lower) * (1.0 + 1.0e-8):
+            if numpy.abs(grad_lower * n) < numpy.abs(upper - lower) * (1.0 + 1.0e-8):
                 # If a constant grid spacing with grad_lower would give a smaller change
                 # than (upper-lower) then we need an increasing grid spacing.
                 # Add a small tolerance because when the decreasing spacing case gets
@@ -3472,7 +3483,7 @@ class Equilibrium:
                     numpy.pi
                 ) / 2.0 * erf(i / numpy.sqrt(a))
         elif grad_lower is None:
-            if grad_upper * n < (upper - lower) * (1.0 + 1.0e-8):
+            if numpy.abs(grad_upper * n) < numpy.abs(upper - lower) * (1.0 + 1.0e-8):
                 # If a constant grid spacing with grad_upper would give a smaller change
                 # than (upper-lower) then we need a grid spacing that increases away
                 # from the upper boundary.
@@ -3516,7 +3527,9 @@ class Equilibrium:
                     numpy.pi
                 ) / 2.0 * erf((i - n) / numpy.sqrt(a))
         else:
-            if 0.5 * (grad_lower + grad_upper) * n < (upper - lower) * (1.0 + 1.0e-8):
+            if 0.5 * numpy.abs(grad_lower + grad_upper) * n < numpy.abs(
+                upper - lower
+            ) * (1.0 + 1.0e-8):
                 # If a linearly varying grid spacing between grad_lower and grad_upper
                 # would give a smaller change than (upper-lower) then we need an
                 # increased average grid spacing.

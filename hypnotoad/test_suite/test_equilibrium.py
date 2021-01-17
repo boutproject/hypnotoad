@@ -634,18 +634,20 @@ class TestEquilibrium:
         assert intersect.R == tight_approx(1.0)
         assert intersect.Z == tight_approx(1.0)
 
-    def test_getPolynomialGridFuncGradLowerDecreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_lower", "lower", "upper"], [[0.2, 0.4, 2.0], [-0.2, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradLowerDecreasing(
+        self, eq, grad_lower, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_lower set so that it needs to decrease
         # the average spacing
-        grad_lower = 0.2
-        lower = 0.4
-        upper = 2.0
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower=grad_lower)
         # f(0) = lower
         assert f(0.0) == tight_approx(lower)
         # f(N) = upper
-        assert f(N) == pytest.approx(upper, rel=2.0e-12, abs=1.0e-13)
+        assert f(N) == pytest.approx(upper, rel=8.0e-12, abs=1.0e-13)
         # for i<<1, df/di = grad_lower
         itest = 1.0e-3
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
@@ -654,12 +656,14 @@ class TestEquilibrium:
             0.0, abs=1.0e-5
         )
 
-    def test_getPolynomialGridFuncGradLowerIncreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_lower", "lower", "upper"], [[0.02, 0.4, 2.0], [-0.02, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradLowerIncreasing(
+        self, eq, grad_lower, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_lower set so that it needs to increase
         # the average spacing
-        grad_lower = 0.02
-        lower = 0.4
-        upper = 2.0
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower=grad_lower)
         # f(0) = lower
@@ -674,12 +678,14 @@ class TestEquilibrium:
             0.0, abs=1.0e-5
         )
 
-    def test_getPolynomialGridFuncGradUpperDecreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_upper", "lower", "upper"], [[0.5, 0.4, 2.0], [-0.5, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradUpperDecreasing(
+        self, eq, grad_upper, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_upper set so that it needs to decrease
         # the average spacing
-        grad_upper = 0.5
-        lower = 0.4
-        upper = 2.0
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper=grad_upper)
         # f(0) = lower
@@ -694,12 +700,14 @@ class TestEquilibrium:
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
         ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
 
-    def test_getPolynomialGridFuncGradUpperIncreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_upper", "lower", "upper"], [[0.1, 0.4, 2.0], [-0.1, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradUpperIncreasing(
+        self, eq, grad_upper, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_upper set so that it needs to increase
         # the average spacing
-        grad_upper = 0.1
-        lower = 0.4
-        upper = 2.0
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper=grad_upper)
         # f(0) = lower
@@ -714,13 +722,15 @@ class TestEquilibrium:
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
         ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
 
-    def test_getPolynomialGridFuncGradBothDecreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_lower", "grad_upper", "lower", "upper"],
+        [[0.4, 0.2, 0.4, 2.0], [-0.4, -0.2, 2.0, 0.4]],
+    )
+    def test_getPolynomialGridFuncGradBothDecreasing(
+        self, eq, grad_lower, grad_upper, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
         # needs to decrease the average spacing
-        grad_lower = 0.4
-        grad_upper = 0.2
-        lower = 0.4
-        upper = 2.0
         N = 10.0
         f = eq.getPolynomialGridFunc(
             N, lower, upper, grad_lower=grad_lower, grad_upper=grad_upper
@@ -743,7 +753,13 @@ class TestEquilibrium:
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
         ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
 
-    def test_getPolynomialGridFuncGradBothIncreasing(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_lower", "grad_upper", "lower", "upper"],
+        [[0.2, 0.1, 0.4, 2.0], [-0.2, -0.1, 2.0, 0.4]],
+    )
+    def test_getPolynomialGridFuncGradBothIncreasing(
+        self, eq, grad_lower, grad_upper, lower, upper
+    ):
         # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
         # needs to increase the average spacing
         grad_lower = 0.2

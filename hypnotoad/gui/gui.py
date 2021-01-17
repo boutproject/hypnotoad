@@ -125,9 +125,16 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
         self.search_bar.setToolTip(self.search_options_form.__doc__.strip())
-        self.search_bar_completer = QCompleter(
-            list(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys())
+        option_names = (
+            set(BoutMesh.user_options_factory.defaults.keys())
+            .union(set(tokamak.TokamakEquilibrium.user_options_factory.defaults.keys()))
+            .union(
+                set(
+                    tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults.keys()  # noqa: E501
+                )
+            )
         )
+        self.search_bar_completer = QCompleter(option_names)
         self.search_bar_completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.search_bar.setCompleter(self.search_bar_completer)
 
@@ -190,8 +197,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         options_to_save = self.options
         if self.gui_options["save_full_yaml"]:
-            options_ = tokamak.TokamakEquilibrium.user_options_factory.create(
-                self.options
+            options_ = BoutMesh.user_options_factory.create(self.options)
+            options_.update(
+                tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
+            )
+            options_.update(
+                tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
+                    self.options
+                )
             )
 
             # This converts any numpy types to native Python using the tolist()
@@ -234,7 +247,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         filtered_options = copy.deepcopy(self.options)
 
-        filtered_defaults = dict(
+        filtered_defaults = dict(BoutMesh.user_options_factory.defaults)
+        filtered_defaults.update(
             tokamak.TokamakEquilibrium.user_options_factory.defaults
         )
         filtered_defaults.update(
@@ -243,8 +257,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         # evaluate filtered_defaults using the values in self.options, so that any
         # expressions get evaluated
+        filtered_default_values = dict(
+            BoutMesh.user_options_factory.create(self.options)
+        )
         try:
-            filtered_default_values = dict(
+            filtered_default_values.update(
                 tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
             if not hasattr(self, "eq"):

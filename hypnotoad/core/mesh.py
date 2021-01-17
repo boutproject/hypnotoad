@@ -1264,30 +1264,38 @@ class MeshRegion:
         if not numpy.all(check.centre):
             ploterror("centre")
             raise ValueError(
-                "Geometry: Jacobian at centre should be consistent with 1/sqrt(det(g)) "
-                "calculated from the metric tensor"
+                f"Geometry: Jacobian at centre should be consistent with "
+                f"1/sqrt(det(g)) calculated from the metric tensor. If the plot "
+                f"looks OK, you may want to increase the value of "
+                f"geometry_rtol={self.user_options.geometry_rtol}"
             )
 
         if not numpy.all(check.ylow):
             ploterror("ylow")
             raise ValueError(
-                "Geometry: Jacobian at ylow should be consistent with 1/sqrt(det(g)) "
-                "calculated from the metric tensor"
+                f"Geometry: Jacobian at ylow should be consistent with "
+                f"1/sqrt(det(g)) calculated from the metric tensor. If the plot "
+                f"looks OK, you may want to increase the value of "
+                f"geometry_rtol={self.user_options.geometry_rtol}"
             )
 
         if check._xlow_array is not None:
             if not numpy.all(check.xlow):
                 ploterror("xlow")
                 raise ValueError(
-                    "Geometry: Jacobian at xlow should be consistent with "
-                    "1/sqrt(det(g)) calculated from the metric tensor"
+                    f"Geometry: Jacobian at xlow should be consistent with "
+                    f"1/sqrt(det(g)) calculated from the metric tensor. If the "
+                    f"plot looks OK, you may want to increase the value of "
+                    f"geometry_rtol={self.user_options.geometry_rtol}"
                 )
         if check._corners_array is not None:
             if not numpy.all(check.corners):
                 ploterror("corners")
                 raise ValueError(
-                    "Geometry: Jacobian at corners should be consistent with "
-                    "1/sqrt(det(g)) calculated from the metric tensor"
+                    f"Geometry: Jacobian at corners should be consistent with "
+                    f"1/sqrt(det(g)) calculated from the metric tensor. If the "
+                    f"plot looks OK, you may want to increase the value of "
+                    f"geometry_rtol={self.user_options.geometry_rtol}"
                 )
 
         # curvature terms

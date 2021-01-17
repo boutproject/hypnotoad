@@ -40,6 +40,7 @@ import numpy
 from scipy.optimize import minimize_scalar, brentq
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
+from scipy.special import erf, sici
 
 
 class SolutionError(Exception):
@@ -3405,85 +3406,424 @@ class Equilibrium:
         result[::2] = face_vals
         result[1::2] = 0.5 * (result[:-1:2] + result[2::2])
 
+        # check result is monotonic
+        diffs = result[1:] - result[:-1]
+        if not (numpy.all(diffs > 0.0) or numpy.all(diffs < 0.0)):
+            raise ValueError("1d grid not monotonic")
+
         return result
 
     def getPolynomialGridFunc(
         self, n, lower, upper, *, grad_lower=None, grad_upper=None
     ):
         """
-        A polynomial function with value 'lower' at 0 and 'upper' at n, used to
-        non-uniformly place grid point values in index space.
+        A function with value 'lower' at 0 and 'upper' at n, used to non-uniformly place
+        grid point values in index space.
         Optionally matches the gradient grad_lower at the lower end and grad_upper at the
         upper end.
         If the gradient is specified, the second derivative is set to zero, to ensure
         that the derivative of the grid spacing is zero, and so the grid spacing will be
         smooth across boundaries.
-        Linear if neither gradient given, cubic if one given, quintic if both given.
+        Function is guaranteed to be monotonic.
         """
         if grad_lower is None and grad_upper is None:
             return lambda i: lower + (upper - lower) * i / n
-        elif grad_lower is None:
-            # psi(i) = a*i^3 + b*i^2 + c*i + d
-            # psi(0) = lower = d
-            # psi(n) = upper = a*n^3 + b*n^2 + c*n + d
-            # dpsidi(n) = grad_upper = 3*a*n^2 + 2*b*n + c
-            # d2psidi2(n) = 0 = 6*a*n + 2*b
-            # a = -b/(3*n)
-            # grad_upper = -b*n + 2*b*n + c
-            #            = b*n + c
-            # b = (grad_upper - c)/n
-            # upper = -(grad_upper - c)*n/3 + (grad_upper - c)*n + c*n + d
-            #       = 2*grad_upper*n/3 + c*n/3 + d
-            # c = 3.*(upper - d - 2.*grad_upper*n/3.)/n
-            d = lower
-            c = 3.0 * (upper - d - 2.0 * grad_upper * n / 3.0) / n
-            b = (grad_upper - c) / n
-            a = -b / (3.0 * n)
-            return lambda i: a * i ** 3 + b * i ** 2 + c * i + d
         elif grad_upper is None:
-            # psi(i) = a*i^3 + b*i^2 + c*i + d
-            # psi(0) = lower = d
-            # psi(n) = upper = a*n^3 + b*n^2 + c*n + d
-            # dpsidi(0) = grad_lower = c
-            # d2psidi2(0) = 0 = 2*b
-            d = lower
-            c = grad_lower
-            b = 0.0
-            a = (upper - b * n ** 2 - c * n - d) / n ** 3
-            return lambda i: a * i ** 3 + b * i ** 2 + c * i + d
+            if grad_lower * n < (upper - lower) * (1.0 + 1.0e-8):
+                # If a constant grid spacing with grad_lower would give a smaller change
+                # than (upper-lower) then we need an increasing grid spacing.
+                # Add a small tolerance because when the decreasing spacing case gets
+                # very close to constant, the constraint will be hard to solve, while
+                # the quadratic fit should be a good spacing function for
+                # nearly-constant spacing.
+                # Simple to make this monotonic, just make dpsidi a quadratic with zero
+                # gradient at i=0:
+                # dpsidi = grad_lower + a*i**2
+                # and calculate a from the constraint that integral of dpsidi from 0 to
+                # n is (upper-lower):
+                # grad_lower*n + a*n**3/3 = (upper-lower)
+                a = 3.0 * (upper - lower - grad_lower * n) / n ** 3
+
+                # Integrate dpsidi to get psi, with psi(0)=lower
+                return lambda i: lower + grad_lower * i + a * i ** 3 / 3.0
+            else:
+                # Need decreasing grid spacing, but spacing must always be positive.
+                # Also nice to make grid spacing monotonic. A function that does this is
+                # dpsidi = grad_lower * exp(-i**2/a)
+                # and calculate a from constraint that integral of dpsidi from 0 to n is
+                # (upper-lower)
+                # integral(dpsidi, 0, n) = grad_lower*integral(exp(-i**2/a), 0, n)
+                #                = grad_lower*sqrt(a)*integral(exp(-j**2), 0, n/sqrt(a))
+                #                = grad_lower*sqrt(a)*sqrt(pi)/2*erf(n/sqrt(a))
+                # Solve the constraint numerically for a
+                def constraint(a):
+                    return (
+                        grad_lower
+                        * numpy.sqrt(a)
+                        * numpy.sqrt(numpy.pi)
+                        / 2.0
+                        * erf(n / numpy.sqrt(a))
+                    ) - (upper - lower)
+
+                a = brentq(constraint, 1.0e-15, 1.0e10, xtol=1.0e-15, rtol=1.0e-10)
+
+                # Integrate dpsidi to get psi
+                return lambda i: lower + grad_lower * numpy.sqrt(a) * numpy.sqrt(
+                    numpy.pi
+                ) / 2.0 * erf(i / numpy.sqrt(a))
+        elif grad_lower is None:
+            if grad_upper * n < (upper - lower) * (1.0 + 1.0e-8):
+                # If a constant grid spacing with grad_upper would give a smaller change
+                # than (upper-lower) then we need a grid spacing that increases away
+                # from the upper boundary.
+                # Add a small tolerance because when the decreasing spacing case gets
+                # very close to constant, the constraint will be hard to solve, while
+                # the quadratic fit should be a good spacing function for
+                # nearly-constant spacing.
+                # Simple to make this monotonic, just make dpsidi a quadratic with zero
+                # gradient at i=n:
+                # dpsidi = grad_upper + a*(n-i)**2
+                # and calculate a from the constraint that integral of dpsidi from 0 to
+                # n is (upper-lower):
+                # grad_upper*n + a*n**3/3 = (upper-lower)
+                a = 3.0 * (upper - lower - grad_upper * n) / n ** 3
+
+                # Integrate dpsidi to get psi, with psi(n)=upper
+                return lambda i: upper + grad_upper * (i - n) - a * (n - i) ** 3 / 3.0
+            else:
+                # Need decreasing grid spacing, but spacing must always be positive.
+                # Also nice to make grid spacing monotonic. A function that does this is
+                # dpsidi = grad_upper * exp(-(n-i)**2/a)
+                # and calculate a from constraint that integral of dpsidi from 0 to n is
+                # (upper-lower)
+                # integral(dpsidi, 0, n) = grad_upper*integral(exp(-(n-i)**2/a), 0, n)
+                #                = grad_upper*sqrt(a)*integral(exp(-j**2), 0, n/sqrt(a))
+                #                = grad_upper*sqrt(a)*sqrt(pi)/2*erf(n/sqrt(a))
+                # Solve the constraint numerically for a
+                def constraint(a):
+                    return (
+                        grad_upper
+                        * numpy.sqrt(a)
+                        * numpy.sqrt(numpy.pi)
+                        / 2.0
+                        * erf(n / numpy.sqrt(a))
+                    ) - (upper - lower)
+
+                a = brentq(constraint, 1.0e-15, 1.0e10, xtol=1.0e-15, rtol=1.0e-10)
+
+                # Integrate dpsidi to get psi
+                return lambda i: upper + grad_upper * numpy.sqrt(a) * numpy.sqrt(
+                    numpy.pi
+                ) / 2.0 * erf((i - n) / numpy.sqrt(a))
         else:
-            # psi(i) = a*i^5 + b*i^4 + c*i^3 + d*i^2 + e*i + f
-            # psi(0) = lower = f
-            # dpsidi(0) = grad_lower = e
-            # d2psidi2(0) = 0 = 2*d
-            # psi(n) = upper = a*n^5 + b*n^4 + c*n^3 + e*n + f
-            # dpsidi(n) = grad_upper = 5*a*n^4 + 4*b*n^3 + 3*c*n^2 + e
-            # d2psidi2(n) = 0 = 20*a*n^3 + 12*b*n^2 + 6*c*n
-            # grad_upper = (4-3)*b*n^3 + (3-3/2)*c*n^2 + e
-            #            = b*n^3 + 3*c*n^2/2 + e
-            # upper = (1-3/5)*b*n^4 + (1-3/10)*c*n^3 + e*n + f
-            #       = 2*b*n^4/5 + 7*c*n^3/10 + e*n + f
-            # n*grad_upper - 5*upper/2 = (3/2 - 7/4)*c*n^3 + (1-5/2)*e*n - 5*f/2
-            #                          = -c*n^3/4 - 3*e*n/2 - 5*f/2
-            # c = 4*(5*upper/2 - n*grad_upper - 3*e*n/2 - 5*f/2)/n^3
-            f = lower
-            e = grad_lower
-            d = 0.0
-            c = (
-                4.0
-                * (
-                    5.0 * upper / 2.0
-                    - n * grad_upper
-                    - 3.0 * e * n / 2.0
-                    - 5.0 * f / 2.0
+            if 0.5 * (grad_lower + grad_upper) * n < (upper - lower) * (1.0 + 1.0e-8):
+                # If a linearly varying grid spacing between grad_lower and grad_upper
+                # would give a smaller change than (upper-lower) then we need an
+                # increased average grid spacing.
+                # Add a small tolerance because when the decreasing average spacing case
+                # gets very close to constant spacing, the constraint will be hard to
+                # solve, while this form should be a good spacing function for
+                # nearly-constant spacing.
+                #
+                # Start with a smoothly varying function between grad_lower and
+                # grad_upper, then add a positive function with zero value and gradient
+                # at both ends of the interval. Use the constraint that
+                # integral(dpsidi)=(upper-lower) to fix the coefficient of the second
+                # part. A suitable function is:
+                # dpsidi = 0.5*(grad_lower+grad_upper)
+                #          + 0.5*(grad_lower - grad_upper)*cos(pi*i/n)
+                #          + a*(1-cos(2*pi*i/n))
+                # integral(dpsidi, 0, n) = 0.5*(grad_lower+grad_upper)*n + a*n
+                a = (upper - lower - 0.5 * (grad_lower + grad_upper) * n) / n
+
+                # Calculate psi by integrating dpsidi
+                return lambda i: (
+                    lower
+                    + 0.5 * (grad_lower + grad_upper) * i
+                    + 0.5
+                    * (grad_lower - grad_upper)
+                    * n
+                    / numpy.pi
+                    * numpy.sin(numpy.pi * i / n)
+                    + a * (i - n / (2.0 * numpy.pi) * numpy.sin(2.0 * numpy.pi * i / n))
                 )
-                / n ** 3
-            )
-            b = (grad_upper - 3.0 * c * n ** 2 / 2.0 - e) / n ** 3
-            a = -(6.0 * b * n + 3 * c) / (10.0 * n ** 2)
-            return (
-                lambda i: a * i ** 5 + b * i ** 4 + c * i ** 3 + d * i ** 2 + e * i + f
-            )
+            else:
+                # Need a decreased average spacing, but spacing must always be positive.
+                # Consruct dpsidi as sum of two functions: one is grad_lower at i=0 and
+                # 0 at i=n, with zero gradient at both ends; the other is 0 at i=0 and
+                # grad_upper at i=n, with zero gradient at both ends.
+                # To obey the constraint integral(dpsidi, 0, n)=(upper-lower), we
+                # squash the horizontal coordinates to vary the area under each
+                # function. We could squash each function by a different factor, but
+                # since there is only one constraint that needs to be satisfied, we
+                # arbitrarily choose to squash both by the same factor so that there is
+                # only one coefficient to fit.
+                # The squash coordinate for the first function is
+                # j1 = b1/(i+b2) - b3
+                # The constraints j1(0)=0 and j1(n)=n fix two coefficients, so defining
+                # b=b2
+                # j1 = n + b - (n*b + b**2)/(i + b)
+                # And for the second function (squashed toward the upper boundary
+                # instead of the lower) is
+                # j2 = n - j1(n-i) = -b + (n*b + b**2)/(n - i + b)
+                #
+                # When the average grid spacing does not need to be increased or
+                # decreased, this function matches the one above (with j1(i)=j2(i)=i),
+                # so when we are in this branch, we always need to decrease the area
+                # under dpsidi, so j1 should always be steeper than linear at i=0 and
+                # therefore we should always have b>0, which ensures the new coordinates
+                # do not diverge in the interval 0<=i<=n.
+                #
+                # A suitable function is:
+                # dpsidn = grad_lower/2*(1 + cos(pi*j1(i)/n))
+                #          + grad_upper/2*(1 - cos(pi*j2(i)/n))
+                #
+                # Use constraint to determine b:
+                # Noting dj1/di = b*(n+b)/(i+b)**2 = (j1-n-b)**2/b/(n+b)
+                #        dj2/di = b*(n+b)/(n-i+b)**2 = (j2+b)**2/b/(n+b)
+                # => di/dj1 = b*(n+b)/(j1-n-b)**2
+                #    di/dj2 = b*(n+b)/(j2+b)**2
+                # integral(dpsidn, i=0..n)
+                # = integral(grad_lower/2*(1 + cos(pi*j1(i)/n)), i=0..n)
+                #   + integral(grad_upper/2*(1 - cos(pi*j2(i)/n)), i=0..n)
+                # = integral(grad_lower/2*(1 + cos(pi*j/n)) * b*(n+b)/(j-n-b)**2, j=0..n)
+                #   + integral(grad_upper/2*(1 - cos(pi*j/n)) * b*(n+b)/(j+b)**2, j=0..n)
+                # = grad_lower/2 * integral(b*(n+b)/(j-n-b)**2, j=0..n)
+                #   + grad_lower/2 * integral(cos(pi*j/n) * b*(n+b)/(j-n-b)**2, j=0..n)
+                #   + grad_upper/2 * integral(b*(n+b)/(j+b)**2, j=0..n)
+                #   - grad_upper/2 * integral(cos(pi*j/n) * b*(n+b)/(j+b)**2, j=0..n)
+                # = grad_lower/2 * n
+                #   + grad_lower/2*(-2*b - n
+                #                   + b*(b+n)/n*pi
+                #                     * ( ( CosIntegral(b*pi/n)
+                #                           - CosIntegral((b+n)*pi/n))
+                #                         * sin(b*pi/n)
+                #                         + cos(b*pi/n)
+                #                           *( -SinIntegral(b*pi/n)
+                #                              + SinIntegral((b+n)*pi/n))))
+                #   + grad_upper/2 * n
+                #   - grad_upper/2*b*(b+n)*( 1/b + 1/(b+n)
+                #                            + 1/n * ( pi*( -CosIntegral(b*pi/n)
+                #                                           + CosIntegral(b+n)*pi/n))
+                #                                      * sin(b*pi/n)
+                #                                      + pi*cos(b*pi/n)
+                #                                        * ( SinIntegral(b*pi/n)
+                #                                            - SinIntegral((b+n)*pi/n)))
+                # [Mathematica can be used to evaluate the integrals analytically]
+                def constraint(b):
+                    SinInt_b, CosInt_b = sici(b * numpy.pi / n)
+                    SinInt_b_n, CosInt_b_n = sici((b + n) * numpy.pi / n)
+                    return (
+                        grad_lower / 2.0 * n
+                        + grad_lower
+                        / 2.0
+                        * (
+                            -2.0 * b
+                            - n
+                            + b
+                            * (b + n)
+                            / n
+                            * numpy.pi
+                            * (
+                                (CosInt_b - CosInt_b_n) * numpy.sin(b * numpy.pi / n)
+                                + numpy.cos(b * numpy.pi / n) * (-SinInt_b + SinInt_b_n)
+                            )
+                        )
+                        + grad_upper / 2.0 * n
+                        - grad_upper
+                        / 2.0
+                        * b
+                        * (b + n)
+                        * (
+                            1.0 / b
+                            + 1.0 / (b + n)
+                            + 1.0
+                            / n
+                            * (
+                                numpy.pi
+                                * (-CosInt_b + CosInt_b_n)
+                                * numpy.sin(b * numpy.pi / n)
+                                + numpy.pi
+                                * numpy.cos(b * numpy.pi / n)
+                                * (SinInt_b - SinInt_b_n)
+                            )
+                        )
+                    ) - (upper - lower)
+
+                b = brentq(constraint, 1.0e-15, 1.0e6, xtol=1.0e-15, rtol=1.0e-10)
+
+                def j1(i):
+                    return n + b - b * (n + b) / (i + b)
+
+                def j2(i):
+                    return -b + b * (n + b) / (n - i + b)
+
+                # Noting dj1/di = b*(n+b)/(i+b)**2 = (j1-n-b)**2/b/(n+b)
+                #        dj2/di = b*(n+b)/(n-i+b)**2 = (j2+b)**2/b/(n+b)
+
+                # Integrate to find psi(i)
+                # psi = integral(dpsidi, i=0..i)
+                # = integral(grad_lower/2*(1 + cos(pi*j1(i)/n)), i=0..i)
+                #   + integral(grad_upper/2*(1 - cos(pi*j2(i)/n)), i=0..i)
+                # = integral(grad_lower/2*(1+cos(pi*j/n)) * b*(n+b)/(j-n-b)**2, j=0..j2)
+                #   + integral(grad_upper/2*(1-cos(pi*j/n)) * b*(n+b)/(j+b)**2, j=0..j2)
+                # = grad_lower/2 * integral(b*(n+b)/(j-n-b)**2, j=0..j1)
+                #   + grad_lower/2 * integral(cos(pi*j/n) * b*(n+b)/(j-n-b)**2, j=0..j1)
+                #   + grad_upper/2 * integral(b*(n+b)/(j+b)**2, j=0..j2)
+                #   - grad_upper/2 * integral(cos(pi*j/n) * b*(n+b)/(j+b)**2, j=0..j2)
+                # = grad_lower/2 * b * j1 / (b - j1 + n)
+                #   + grad_lower/2* b/n/(b-j1+n)
+                #     * ( -b*n + j1*n - n**2 + b*n*cos(j1*pi/n)
+                #         +n**2*cos(j1*pi/n)
+                #         -(b+n)*(b-j1+n)*pi*CosIntegral(-(b+n)*pi/n)
+                #          * sin(b*pi/n)
+                #         +(b+n)*(b-j1+n)*pi*CosIntegral(-(b-j1+n)*pi/n)
+                #          * sin(b*pi/n)
+                #         +b**2*pi*cos(b*pi/n)*SinIntegral((b+n)*pi/n)
+                #         -b*j1*pi*cos(b*pi/n)*SinIntegral((b+n)*pi/n)
+                #         +2*b*n*pi*cos(b*pi/n)*SinIntegral((b+n)*pi/n)
+                #         -j1*n*pi*cos(b*pi/n)*SinIntegral((b+n)*pi/n)
+                #         +n**2*pi*cos(b*pi/n)*SinIntegral((b+n)*pi/n)
+                #         -b**2*pi*cos(b*pi/n)*SinIntegral((b-j1+n)*pi/n)
+                #         +b*j1*pi*cos(b*pi/n)*SinIntegral((b-j1+n)*pi/n)
+                #         -2*b*n*pi*cos(b*pi/n)*SinIntegral((b-j1+n)*pi/n)
+                #         +j1*n*pi*cos(b*pi/n)*SinIntegral((b-j1+n)*pi/n)
+                #         -n**2*pi*cos(b*pi/n)*SinIntegral((b-j1+n)*pi/n)
+                #       )
+                #   + grad_upper/2 * j2 * (b + n) / (b + j2)
+                #   - grad_upper/2*( (b+n)/(b+j2)/n*
+                #                    ( b*n + j2*n - b*n*cos(j2*pi/n)
+                #                      -b*(b+j2)*pi*CosIntegral(b*pi/n)*sin(b*pi/n)
+                #                      +b*(b+j2)*pi*CosIntegral((b+j2)*pi/n)*sin(b*pi/n)
+                #                      +b**2*pi*cos(b*pi/n)*SinIntegral(b*pi/n)
+                #                      +b*j2*pi*cos(b*pi/n)*SinIntegral(b*pi/n)
+                #                      -b**2*pi*cos(b*pi/n)*SinIntegral((b+j2)*pi/n)
+                #                      -b*j2*pi*cos(b*pi/n)*SinIntegral((b+j2)*pi/n) )
+                #                   )
+                def psi(i):
+                    SinInt_b, CosInt_b = sici(b * numpy.pi / n)
+                    SinInt_b_n, CosInt_b_n = sici((b + n) * numpy.pi / n)
+                    SinInt_m_b_n, CosInt_m_b_n = sici(-(b + n) * numpy.pi / n)
+                    SinInt_m_j1, CosInt_m_j1 = sici(-(b - j1(i) + n) * numpy.pi / n)
+                    SinInt_j2, CosInt_j2 = sici((b + j2(i)) * numpy.pi / n)
+                    SinInt_j1, CosInt_j1 = sici((b - j1(i) + n) * numpy.pi / n)
+                    return (
+                        lower
+                        + grad_lower / 2 * b * j1(i) / (b - j1(i) + n)
+                        + grad_lower
+                        / 2
+                        * b
+                        / n
+                        / (b - j1(i) + n)
+                        * (
+                            -b * n
+                            + j1(i) * n
+                            - n ** 2
+                            + b * n * numpy.cos(j1(i) * numpy.pi / n)
+                            + n ** 2 * numpy.cos(j1(i) * numpy.pi / n)
+                            - (b + n)
+                            * (b - j1(i) + n)
+                            * numpy.pi
+                            * CosInt_m_b_n
+                            * numpy.sin(b * numpy.pi / n)
+                            + (b + n)
+                            * (b - j1(i) + n)
+                            * numpy.pi
+                            * CosInt_m_j1
+                            * numpy.sin(b * numpy.pi / n)
+                            + b ** 2
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_b_n
+                            - b
+                            * j1(i)
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_b_n
+                            + 2
+                            * b
+                            * n
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_b_n
+                            - j1(i)
+                            * n
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_b_n
+                            + n ** 2
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_b_n
+                            - b ** 2
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_j1
+                            + b
+                            * j1(i)
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_j1
+                            - 2
+                            * b
+                            * n
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_j1
+                            + j1(i)
+                            * n
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_j1
+                            - n ** 2
+                            * numpy.pi
+                            * numpy.cos(b * numpy.pi / n)
+                            * SinInt_j1
+                        )
+                        + grad_upper / 2 * j2(i) * (b + n) / (b + j2(i))
+                        - grad_upper
+                        / 2
+                        * (
+                            (b + n)
+                            / (b + j2(i))
+                            / n
+                            * (
+                                b * n
+                                + j2(i) * n
+                                - b * n * numpy.cos(j2(i) * numpy.pi / n)
+                                - b
+                                * (b + j2(i))
+                                * numpy.pi
+                                * CosInt_b
+                                * numpy.sin(b * numpy.pi / n)
+                                + b
+                                * (b + j2(i))
+                                * numpy.pi
+                                * CosInt_j2
+                                * numpy.sin(b * numpy.pi / n)
+                                + b ** 2
+                                * numpy.pi
+                                * numpy.cos(b * numpy.pi / n)
+                                * SinInt_b
+                                + b
+                                * j2(i)
+                                * numpy.pi
+                                * numpy.cos(b * numpy.pi / n)
+                                * SinInt_b
+                                - b ** 2
+                                * numpy.pi
+                                * numpy.cos(b * numpy.pi / n)
+                                * SinInt_j2
+                                - b
+                                * j2(i)
+                                * numpy.pi
+                                * numpy.cos(b * numpy.pi / n)
+                                * SinInt_j2
+                            )
+                        )
+                    )
+
+                return psi
 
     def plotPotential(
         self,

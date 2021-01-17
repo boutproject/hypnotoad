@@ -634,8 +634,30 @@ class TestEquilibrium:
         assert intersect.R == tight_approx(1.0)
         assert intersect.Z == tight_approx(1.0)
 
-    def test_getPolynomialGridFuncGradLower(self, eq):
+    def test_getPolynomialGridFuncGradLowerDecreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_lower set so that it needs to decrease
+        # the average spacing
         grad_lower = 0.2
+        lower = 0.4
+        upper = 2.0
+        N = 10.0
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower=grad_lower)
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == pytest.approx(upper, rel=2.0e-12, abs=1.0e-13)
+        # for i<<1, df/di = grad_lower
+        itest = 1.0e-3
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+            0.0, abs=1.0e-5
+        )
+
+    def test_getPolynomialGridFuncGradLowerIncreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_lower set so that it needs to increase
+        # the average spacing
+        grad_lower = 0.02
         lower = 0.4
         upper = 2.0
         N = 10.0
@@ -652,7 +674,29 @@ class TestEquilibrium:
             0.0, abs=1.0e-5
         )
 
-    def test_getPolynomialGridFuncGradUpper(self, eq):
+    def test_getPolynomialGridFuncGradUpperDecreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_upper set so that it needs to decrease
+        # the average spacing
+        grad_upper = 0.5
+        lower = 0.4
+        upper = 2.0
+        N = 10.0
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper=grad_upper)
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == tight_approx(upper)
+        # for N-i<<1, df/di = grad_upper
+        itest = 1.0e-4
+        assert (f(N) - f(N - itest)) / itest == pytest.approx(grad_upper, abs=1.0e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (
+            f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
+        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+
+    def test_getPolynomialGridFuncGradUpperIncreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_upper set so that it needs to increase
+        # the average spacing
         grad_upper = 0.1
         lower = 0.4
         upper = 2.0
@@ -670,7 +714,38 @@ class TestEquilibrium:
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
         ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
 
-    def test_getPolynomialGridFuncGradBoth(self, eq):
+    def test_getPolynomialGridFuncGradBothDecreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
+        # needs to decrease the average spacing
+        grad_lower = 0.4
+        grad_upper = 0.2
+        lower = 0.4
+        upper = 2.0
+        N = 10.0
+        f = eq.getPolynomialGridFunc(
+            N, lower, upper, grad_lower=grad_lower, grad_upper=grad_upper
+        )
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == pytest.approx(upper, rel=1.0e-10, abs=1.0e-13)
+        # for i<<1, df/di = grad_lower
+        itest = 1.0e-5
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+            0.0, abs=1.0e-5
+        )
+        # for N-i<<1, df/di = grad_upper
+        assert (f(N) - f(N - itest)) / itest == pytest.approx(grad_upper, abs=1.0e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (
+            f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
+        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+
+    def test_getPolynomialGridFuncGradBothIncreasing(self, eq):
+        # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
+        # needs to increase the average spacing
         grad_lower = 0.2
         grad_upper = 0.1
         lower = 0.4

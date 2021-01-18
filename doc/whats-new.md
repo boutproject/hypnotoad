@@ -5,6 +5,11 @@ What's new
 0.2.2 (unreleased)
 ------------------
 
+### New features
+
+- UUID unique identifier saved into each grid file (#67, closes #66)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### Bug fixes
 
 - BoutMesh options now settable in GUI (#63)

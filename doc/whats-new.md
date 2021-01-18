@@ -14,7 +14,14 @@ What's new
 
 ### Bug fixes
 
+<<<<<<< HEAD
 - BoutMesh options now settable in GUI (#63)\
+=======
+- Failure when target_poloidal_spacing_length set to number (rather than the
+  default None) when y_boundary_guards is non-zero (#64)\
+  By [John Omotani](https://github.com/johnomotani)
+- BoutMesh options now settable in GUI (#63)
+>>>>>>> 752b8d893017c3597df5a8aa80e3231fa448c328
   By [John Omotani](https://github.com/johnomotani)
 - Changing settings in File->Preferences caused GUI to crash (#62, fixes #61)\
   By [John Omotani](https://github.com/johnomotani)

@@ -7,6 +7,8 @@ What's new
 
 ### Bug fixes
 
+- String outputs written as file attributes rather than variables (#69, fixes #68)\
+  By [John Omotani](https://github.com/johnomotani)
 - BoutMesh options now settable in GUI (#63)
   By [John Omotani](https://github.com/johnomotani)
 - Changing settings in File->Preferences caused GUI to crash (#62, fixes #61)\

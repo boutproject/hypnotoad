@@ -959,6 +959,12 @@ class PsiContour:
     def distance(self):
         if self._distance is None:
             self._distance = [self.fine_contour.getDistance(p) for p in self]
+            d = numpy.array(self._distance)
+            if not numpy.all(d[1:] - d[:-1] > 0.0):
+                raise ValueError(
+                    f"Distance not monotonically increasing for this contour. "
+                    f"distance={self._distance}"
+                )
         return self._distance
 
     def __iter__(self):

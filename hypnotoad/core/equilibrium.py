@@ -413,8 +413,8 @@ class FineContour:
                 "there is no problem with the grid, you could try increasing this "
                 "value."
             ),
-            value_type=float,
-            check_all=is_positive,
+            value_type=(float, NoneType),
+            check_all=is_positive_or_None,
         ),
     )
 
@@ -724,10 +724,13 @@ class FineContour:
 
             self.positions = result
 
-        # Using func_timeout.func_timeout rather than the @func_timeout.func_set_timeout
-        # decorator on the refine method so that we can use self.user_options to set the
-        # length of the timeout.
-        func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
+        if self.user_options.refine_timeout is not None:
+            # Using func_timeout.func_timeout rather than the @func_timeout.func_set_timeout
+            # decorator on the refine method so that we can use self.user_options to set the
+            # length of the timeout.
+            func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
+        else:
+            refine(self)
 
     def reverse(self):
         if self.distance is not None:

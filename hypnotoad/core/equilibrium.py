@@ -725,9 +725,9 @@ class FineContour:
             self.positions = result
 
         if self.user_options.refine_timeout is not None:
-            # Using func_timeout.func_timeout rather than the @func_timeout.func_set_timeout
-            # decorator on the refine method so that we can use self.user_options to set the
-            # length of the timeout.
+            # Using func_timeout.func_timeout rather than the
+            # @func_timeout.func_set_timeout decorator on the refine method so that we
+            # can use self.user_options to set the length of the timeout.
             func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
         else:
             refine(self)

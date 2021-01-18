@@ -2520,12 +2520,7 @@ class BoutMesh(Mesh):
             # Save unique ID for grid file
             import uuid
 
-            id_str = str(uuid.uuid1())
-            id_numpy_array = numpy.array(list(id_str), dtype="S1")
-            id_bout_array = BoutArray(
-                id_numpy_array, attributes={"bout_type": "string"}
-            )
-            f.write("grid_id", id_bout_array)
+            f.write_file_attribute("grid_id", str(uuid.uuid1()))
             f.write("nx", self.nx)
             # ny for BOUT++ excludes boundary guard cells
             f.write("ny", self.ny_noguards)

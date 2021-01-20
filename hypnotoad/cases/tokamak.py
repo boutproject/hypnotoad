@@ -1591,7 +1591,8 @@ def read_geqdsk(
     filehandle.seek(0)
     # read file as a single string and store in result
     result.geqdsk_input = filehandle.read()
-    # also save filename
-    result.geqdsk_filename = filehandle.name
+    # also save filename, if it exists
+    if hasattr(filehandle, "name"):
+        result.geqdsk_filename = filehandle.name
 
     return result

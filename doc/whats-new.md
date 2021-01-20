@@ -5,6 +5,13 @@ What's new
 0.2.2 (unreleased)
 ------------------
 
+### Breaking changes
+
+- Changed function used for determining radial positioning of grid points. Function now
+  guaranteed to be monotonic, so is more robust. However this does change the output
+  slightly compared to previous versions (#64)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### Bug fixes
 
 - Failure when target_poloidal_spacing_length set to number (rather than the

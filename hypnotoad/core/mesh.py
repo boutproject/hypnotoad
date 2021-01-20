@@ -1528,7 +1528,30 @@ class MeshRegion:
 
         hy /= self.dy
 
-        assert numpy.all(hy.centre > 0.0), "hy.centre should always be positive"
+        def negative_indices(a):
+            xinds, yinds = numpy.where(a < 0.0)
+            return list(zip(list(xinds), list(yinds)))
+
+        if not numpy.all(hy.centre > 0.0):
+            raise ValueError(
+                f"hy.centre should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.centre)}"
+            )
+        if not numpy.all(hy.xlow > 0.0):
+            raise ValueError(
+                f"hy.xlow should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.xlow)}"
+            )
+        if not numpy.all(hy.ylow > 0.0):
+            raise ValueError(
+                f"hy.ylow should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.ylow)}"
+            )
+        if not numpy.all(hy.corners > 0.0):
+            raise ValueError(
+                f"hy.corners should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.corners)}"
+            )
         assert numpy.all(hy.xlow > 0.0), "hy.xlow should always be positive"
         assert numpy.all(hy.ylow > 0.0), "hy.ylow should always be positive"
         assert numpy.all(hy.corners > 0.0), "hy.corners should always be positive"

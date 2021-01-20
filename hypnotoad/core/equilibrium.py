@@ -2955,14 +2955,44 @@ class EquilibriumRegion(PsiContour):
                     > -self.user_options.sfunc_checktol
                 ), "gradient of non-singular part should be positive at end"
 
-            return (
-                lambda i: a * numpy.sqrt(i / N_norm)
-                - b * numpy.sqrt((N - i) / N_norm)
-                + c
-                + d * i / N_norm
-                + e * (i / N_norm) ** 2
-                + f * (i / N_norm) ** 3
-            )
+            if a == 0.0 and b == 0.0:
+                # No sqrt parts, special case in case extrapolation at either
+                # end is wanted (where sqrt would give NaN)
+                return (
+                    lambda i: c
+                    + d * i / N_norm
+                    + e * (i / N_norm) ** 2
+                    + f * (i / N_norm) ** 3
+                )
+            elif a == 0.0:
+                # Only upper sqrt part, special case in case extrapolation at
+                # either end is wanted (where sqrt would give NaN)
+                return (
+                    lambda i: -b * numpy.sqrt((N - i) / N_norm)
+                    + c
+                    + d * i / N_norm
+                    + e * (i / N_norm) ** 2
+                    + f * (i / N_norm) ** 3
+                )
+            elif b == 0.0:
+                # Only lower sqrt part, special case in case extrapolation at
+                # either end is wanted (where sqrt would give NaN)
+                return (
+                    lambda i: a * numpy.sqrt(i / N_norm)
+                    + c
+                    + d * i / N_norm
+                    + e * (i / N_norm) ** 2
+                    + f * (i / N_norm) ** 3
+                )
+            else:
+                return (
+                    lambda i: a * numpy.sqrt(i / N_norm)
+                    - b * numpy.sqrt((N - i) / N_norm)
+                    + c
+                    + d * i / N_norm
+                    + e * (i / N_norm) ** 2
+                    + f * (i / N_norm) ** 3
+                )
 
 
 class Equilibrium:

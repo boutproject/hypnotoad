@@ -764,6 +764,9 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
         b_upper = 0.01
@@ -778,6 +781,9 @@ class TestEquilibriumRegion:
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
         b_lower = 0.1
@@ -795,8 +801,14 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
+        assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBothLower(self, eqReg):
@@ -818,6 +830,9 @@ class TestEquilibriumRegion:
             2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
             abs=1.0e-5,
         )
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBothUpper(self, eqReg):
         b_upper = 0.01
@@ -832,6 +847,89 @@ class TestEquilibriumRegion:
         assert f(0.0) == tight_approx(0.0)
         # f(N) = L
         assert f(N) == tight_approx(L)
+        # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(
+            L
+            - 2.0 * a_upper * numpy.sqrt((N - itest) / N_norm)
+            - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert numpy.isfinite(f(itest))
+
+    def test_getSqrtPoloidalDistanceFuncALowerBBoth(self, eqReg):
+        b_lower = 0.01
+        a_lower = 0.05
+        b_upper = 0.2
+        L = 2.0
+        L = 2.0
+        N = 10.0
+        N_norm = 1
+        f = eqReg.getSqrtPoloidalDistanceFunc(
+            L,
+            N,
+            N_norm,
+            b_lower=b_lower,
+            a_lower=a_lower,
+            b_upper=b_upper,
+        )
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ 2*a_lower*sqrt(i/N_norm) + b_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(
+            2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
+        # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(
+            L - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can also extrapolate past the end
+        itest = N + 0.01
+        assert f(itest) == pytest.approx(
+            L - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+
+    def test_getSqrtPoloidalDistanceFuncAUpperBBoth(self, eqReg):
+        b_lower = 0.01
+        b_upper = 0.2
+        a_upper = 0.07
+        L = 2.0
+        L = 2.0
+        N = 10.0
+        N_norm = 1
+        f = eqReg.getSqrtPoloidalDistanceFunc(
+            L,
+            N,
+            N_norm,
+            b_lower=b_lower,
+            b_upper=b_upper,
+            a_upper=a_upper,
+        )
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ b_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(
+            b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can also extrapolate past the end
+        itest = -0.01
+        assert f(itest) == pytest.approx(
+            b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
         # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(

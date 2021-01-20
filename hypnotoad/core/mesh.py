@@ -2698,9 +2698,13 @@ class BoutMesh(Mesh):
                 # Field-aligned coordinates
                 f.write_file_attribute("parallel_transform", "identity")
 
-            f.write_file_attribute(
-                "hypnotoad_inputs", self.equilibrium._getOptionsAsString()
-            )
+            # Save hypnotoad_inputs as a variable rather than an attribute because they
+            # are long and attributes are printed by 'ncdump -h' or by ncdump when
+            # looking at a different variable, which would be inconvenient. It is not
+            # likely that we need to load the hypnotoad inputs in BOUT++, so no reason
+            # to save as an attribute.
+            f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
+
             f.write_file_attribute("hypnotoad_version", self.version)
             if self.git_hash is not None:
                 f.write_file_attribute("hypnotoad_git_hash", self.git_hash)

@@ -14,6 +14,9 @@ What's new
 
 ### New features
 
+- Command line argument for hypnotoad_geqdsk to call pdb.set_trace() to make it
+  easier to debug exceptions with pdb (#72)\
+  By [John Omotani](https://github.com/johnomotani)
 - When grid file is created from a geqdsk input, save the filename, and the
   contents of the geqdsk file to the grid file (#71, closes #70)\
   By [John Omotani](https://github.com/johnomotani)

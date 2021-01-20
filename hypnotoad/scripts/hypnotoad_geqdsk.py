@@ -17,6 +17,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("filename")
     parser.add_argument("inputfile", nargs="?", default=None)
+    parser.add_argument("--pdb", action="store_true", default=False)
     args = parser.parse_args()
 
     filename = args.filename
@@ -30,6 +31,11 @@ def main():
         options = {}
 
     from ..cases import tokamak
+
+    if args.pdb:
+        import pdb
+
+        pdb.set_trace()
 
     with open(filename, "rt") as fh:
         eq = tokamak.read_geqdsk(fh, settings=options, nonorthogonal_settings=options)

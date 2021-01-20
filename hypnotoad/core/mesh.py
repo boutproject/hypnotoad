@@ -2540,6 +2540,10 @@ class BoutMesh(Mesh):
         from boututils.datafile import DataFile
 
         with DataFile(filename, create=True, format="NETCDF4") as f:
+            # Save unique ID for grid file
+            import uuid
+
+            f.write_file_attribute("grid_id", str(uuid.uuid1()))
             f.write("nx", self.nx)
             # ny for BOUT++ excludes boundary guard cells
             f.write("ny", self.ny_noguards)

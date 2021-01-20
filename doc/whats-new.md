@@ -12,6 +12,11 @@ What's new
   slightly compared to previous versions (#64)\
   By [John Omotani](https://github.com/johnomotani)
 
+### New features
+
+- UUID unique identifier saved into each grid file (#67, closes #66)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### Bug fixes
 
 - String outputs written as file attributes rather than variables (#69, fixes #68)\

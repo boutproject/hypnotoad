@@ -2709,6 +2709,24 @@ class BoutMesh(Mesh):
                     self.git_diff if self.git_diff is not None else "",
                 )
 
+            if hasattr(self.equilibrium, "geqdsk_filename"):
+                # If grid was created from a geqdsk file, save the file name
+                f.write_file_attribute(
+                    "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
+                )
+            if hasattr(self.equilibrium, "geqdsk_input"):
+                # If grid was created from a geqdsk file, save the file contents
+                #
+                # Write as string variable and not attribute because the string will be
+                # long and attributes are printed by 'ncdump -h' or by ncdump when
+                # looking at a different variable, which would be inconvenient. It is
+                # not likely that we need to load the geqdsk file contents in BOUT++, so
+                # no reason to save as an attribute.
+                f.write(
+                    "hypnotoad_input_geqdsk_file_contents",
+                    self.equilibrium.geqdsk_input,
+                )
+
     def plot2D(self, f, title=None):
         from matplotlib import pyplot
 

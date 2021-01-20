@@ -1572,7 +1572,7 @@ def read_geqdsk(
         # fpol constant in SOL
         fpol = np.concatenate([fpol, np.full(psiSOL.shape, fpol[-1])])
 
-    return TokamakEquilibrium(
+    result = TokamakEquilibrium(
         R1D,
         Z1D,
         psi2D,
@@ -1584,3 +1584,14 @@ def read_geqdsk(
         settings=settings,
         nonorthogonal_settings=nonorthogonal_settings,
     )
+
+    # Store geqdsk input as a string in the TokamakEquilibrium object so we can save it
+    # in BoutMesh.writeGridFile
+    # reset to beginning of file
+    filehandle.seek(0)
+    # read file as a single string and store in result
+    result.geqdsk_input = filehandle.read()
+    # also save filename
+    result.geqdsk_filename = filehandle.name
+
+    return result

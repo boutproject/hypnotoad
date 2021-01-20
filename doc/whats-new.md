@@ -14,6 +14,9 @@ What's new
 
 ### New features
 
+- When grid file is created from a geqdsk input, save the filename, and the
+  contents of the geqdsk file to the grid file (#71, closes #70)\
+  By [John Omotani](https://github.com/johnomotani)
 - UUID unique identifier saved into each grid file (#67, closes #66)\
   By [John Omotani](https://github.com/johnomotani)
 

@@ -22,7 +22,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "boututils~=0.1.4",
+        "boututils~=0.1.7",
         "func_timeout~=4.3",
         "matplotlib~=3.2",
         "netCDF4~=1.5",

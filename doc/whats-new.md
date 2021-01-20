@@ -14,6 +14,8 @@ What's new
 
 ### Bug fixes
 
+- String outputs written as file attributes rather than variables (#69, fixes #68)\
+  By [John Omotani](https://github.com/johnomotani)
 - Failure when target_poloidal_spacing_length set to number (rather than the
   default None) when y_boundary_guards is non-zero (#64)\
   By [John Omotani](https://github.com/johnomotani)

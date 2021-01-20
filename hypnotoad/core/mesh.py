@@ -2689,16 +2689,18 @@ class BoutMesh(Mesh):
             # BOUT++ ParallelTransform that metrics are compatible with
             if self.user_options.shiftedmetric:
                 # Toroidal coordinates with shifts to calculate parallel derivatives
-                f.write("parallel_transform", "shiftedmetric")
+                f.write_file_attribute("parallel_transform", "shiftedmetric")
             else:
                 # Field-aligned coordinates
-                f.write("parallel_transform", "identity")
+                f.write_file_attribute("parallel_transform", "identity")
 
-            f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
-            f.write("hypnotoad_version", self.version)
+            f.write_file_attribute(
+                "hypnotoad_inputs", self.equilibrium._getOptionsAsString()
+            )
+            f.write_file_attribute("hypnotoad_version", self.version)
             if self.git_hash is not None:
-                f.write("hypnotoad_git_hash", self.git_hash)
-                f.write(
+                f.write_file_attribute("hypnotoad_git_hash", self.git_hash)
+                f.write_file_attribute(
                     "hypnotoad_git_diff",
                     self.git_diff if self.git_diff is not None else "",
                 )

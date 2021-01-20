@@ -487,6 +487,8 @@ class TestContour:
         c.startInd = 2
         c.endInd = len(c) - 2
         n = c.endInd - c.startInd + 1
+        c.extend_lower = 2
+        c.extend_upper = 2
 
         f = c.contourSfunc()
 
@@ -501,13 +503,15 @@ class TestContour:
         c1 = testcontour.c
         c1.startInd = 2
         c1.endInd = len(c1) - 2
-        n = c1.endInd - c1.startInd
+        n1 = c1.endInd - c1.startInd
+        c1.extend_lower = 2
+        c1.extend_upper = 2
+        npoints1 = len(c1)
 
-        npoints = len(c1)
         r = testcontour.r
         R0 = testcontour.R0
         Z0 = testcontour.Z0
-        theta = numpy.linspace(0.0, 1.5 * numpy.pi, npoints)
+        theta = numpy.linspace(0.0, 1.5 * numpy.pi, 37)
 
         R = R0 + r * numpy.cos(theta)
         Z = Z0 + r * numpy.sin(theta)
@@ -520,6 +524,10 @@ class TestContour:
         )
         c2.startInd = 2
         c2.endInd = len(c2) - 1
+        n2 = c2.endInd - c2.startInd
+        c2.extend_lower = 2
+        c2.extend_upper = 1
+        npoints2 = len(c2)
 
         c_list = [c1, c2]
         sfunc_list = []
@@ -534,11 +542,11 @@ class TestContour:
             sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
         # notice we check that the first test *fails*
-        assert not sfunc_list[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert not sfunc_list[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
         sfunc_list2 = []
@@ -552,11 +560,11 @@ class TestContour:
         for c in c_list:
             sfunc_list2.append(shift_sfunc(c))
 
-        assert sfunc_list2[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert sfunc_list2[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list2[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list2[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
     def test_interpSSperp(self, testcontour):
@@ -634,10 +642,36 @@ class TestEquilibrium:
         assert intersect.R == tight_approx(1.0)
         assert intersect.Z == tight_approx(1.0)
 
-    def test_getPolynomialGridFuncGradLower(self, eq):
-        grad_lower = 0.2
-        lower = 0.4
-        upper = 2.0
+    @pytest.mark.parametrize(
+        ["grad_lower", "lower", "upper"], [[0.2, 0.4, 2.0], [-0.2, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradLowerDecreasing(
+        self, eq, grad_lower, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_lower set so that it needs to decrease
+        # the average spacing
+        N = 10.0
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower=grad_lower)
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == pytest.approx(upper, rel=8.0e-12, abs=1.0e-13)
+        # for i<<1, df/di = grad_lower
+        itest = 1.0e-3
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+            0.0, abs=1.0e-5
+        )
+
+    @pytest.mark.parametrize(
+        ["grad_lower", "lower", "upper"], [[0.02, 0.4, 2.0], [-0.02, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradLowerIncreasing(
+        self, eq, grad_lower, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_lower set so that it needs to increase
+        # the average spacing
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_lower=grad_lower)
         # f(0) = lower
@@ -652,10 +686,36 @@ class TestEquilibrium:
             0.0, abs=1.0e-5
         )
 
-    def test_getPolynomialGridFuncGradUpper(self, eq):
-        grad_upper = 0.1
-        lower = 0.4
-        upper = 2.0
+    @pytest.mark.parametrize(
+        ["grad_upper", "lower", "upper"], [[0.5, 0.4, 2.0], [-0.5, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradUpperDecreasing(
+        self, eq, grad_upper, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_upper set so that it needs to decrease
+        # the average spacing
+        N = 10.0
+        f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper=grad_upper)
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == tight_approx(upper)
+        # for N-i<<1, df/di = grad_upper
+        itest = 1.0e-4
+        assert (f(N) - f(N - itest)) / itest == pytest.approx(grad_upper, abs=1.0e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (
+            f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
+        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+
+    @pytest.mark.parametrize(
+        ["grad_upper", "lower", "upper"], [[0.1, 0.4, 2.0], [-0.1, 2.0, 0.4]]
+    )
+    def test_getPolynomialGridFuncGradUpperIncreasing(
+        self, eq, grad_upper, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_upper set so that it needs to increase
+        # the average spacing
         N = 10.0
         f = eq.getPolynomialGridFunc(N, lower, upper, grad_upper=grad_upper)
         # f(0) = lower
@@ -670,7 +730,46 @@ class TestEquilibrium:
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
         ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
 
-    def test_getPolynomialGridFuncGradBoth(self, eq):
+    @pytest.mark.parametrize(
+        ["grad_lower", "grad_upper", "lower", "upper"],
+        [[0.4, 0.2, 0.4, 2.0], [-0.4, -0.2, 2.0, 0.4]],
+    )
+    def test_getPolynomialGridFuncGradBothDecreasing(
+        self, eq, grad_lower, grad_upper, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
+        # needs to decrease the average spacing
+        N = 10.0
+        f = eq.getPolynomialGridFunc(
+            N, lower, upper, grad_lower=grad_lower, grad_upper=grad_upper
+        )
+        # f(0) = lower
+        assert f(0.0) == tight_approx(lower)
+        # f(N) = upper
+        assert f(N) == pytest.approx(upper, rel=1.0e-10, abs=1.0e-13)
+        # for i<<1, df/di = grad_lower
+        itest = 1.0e-5
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
+        # for i<<1, d2f/di2 = 0
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+            0.0, abs=1.0e-5
+        )
+        # for N-i<<1, df/di = grad_upper
+        assert (f(N) - f(N - itest)) / itest == pytest.approx(grad_upper, abs=1.0e-5)
+        # for N-i<<1, d2f/di2 = 0
+        assert (
+            f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
+        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+
+    @pytest.mark.parametrize(
+        ["grad_lower", "grad_upper", "lower", "upper"],
+        [[0.2, 0.1, 0.4, 2.0], [-0.2, -0.1, 2.0, 0.4]],
+    )
+    def test_getPolynomialGridFuncGradBothIncreasing(
+        self, eq, grad_lower, grad_upper, lower, upper
+    ):
+        # Test getPolynomialGridFunc() with grad_lower and grad_upper set so that it
+        # needs to increase the average spacing
         grad_lower = 0.2
         grad_upper = 0.1
         lower = 0.4
@@ -764,6 +863,9 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
         b_upper = 0.01
@@ -778,6 +880,9 @@ class TestEquilibriumRegion:
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
         b_lower = 0.1
@@ -795,8 +900,14 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
+        assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBothLower(self, eqReg):
@@ -818,6 +929,9 @@ class TestEquilibriumRegion:
             2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
             abs=1.0e-5,
         )
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
+        assert numpy.isfinite(f(itest))
 
     def test_getSqrtPoloidalDistanceFuncBothUpper(self, eqReg):
         b_upper = 0.01
@@ -832,6 +946,89 @@ class TestEquilibriumRegion:
         assert f(0.0) == tight_approx(0.0)
         # f(N) = L
         assert f(N) == tight_approx(L)
+        # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(
+            L
+            - 2.0 * a_upper * numpy.sqrt((N - itest) / N_norm)
+            - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert numpy.isfinite(f(itest))
+
+    def test_getSqrtPoloidalDistanceFuncALowerBBoth(self, eqReg):
+        b_lower = 0.01
+        a_lower = 0.05
+        b_upper = 0.2
+        L = 2.0
+        L = 2.0
+        N = 10.0
+        N_norm = 1
+        f = eqReg.getSqrtPoloidalDistanceFunc(
+            L,
+            N,
+            N_norm,
+            b_lower=b_lower,
+            a_lower=a_lower,
+            b_upper=b_upper,
+        )
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ 2*a_lower*sqrt(i/N_norm) + b_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(
+            2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
+        # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(
+            L - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can also extrapolate past the end
+        itest = N + 0.01
+        assert f(itest) == pytest.approx(
+            L - b_upper * (N - itest) / N_norm,
+            abs=1.0e-5,
+        )
+
+    def test_getSqrtPoloidalDistanceFuncAUpperBBoth(self, eqReg):
+        b_lower = 0.01
+        b_upper = 0.2
+        a_upper = 0.07
+        L = 2.0
+        L = 2.0
+        N = 10.0
+        N_norm = 1
+        f = eqReg.getSqrtPoloidalDistanceFunc(
+            L,
+            N,
+            N_norm,
+            b_lower=b_lower,
+            b_upper=b_upper,
+            a_upper=a_upper,
+        )
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ b_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(
+            b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
+        # Check we can also extrapolate past the end
+        itest = -0.01
+        assert f(itest) == pytest.approx(
+            b_lower * itest / N_norm,
+            abs=1.0e-5,
+        )
         # for (N-i)<<1, f ~ L - 2*a_upper*sqrt((N-i)/N_norm) - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(
@@ -1014,6 +1211,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 
@@ -1057,6 +1256,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 

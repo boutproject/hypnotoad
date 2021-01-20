@@ -5,9 +5,19 @@ What's new
 0.2.2 (unreleased)
 ------------------
 
+### Breaking changes
+
+- Changed function used for determining radial positioning of grid points. Function now
+  guaranteed to be monotonic, so is more robust. However this does change the output
+  slightly compared to previous versions (#64)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### Bug fixes
 
 - String outputs written as file attributes rather than variables (#69, fixes #68)\
+  By [John Omotani](https://github.com/johnomotani)
+- Failure when target_poloidal_spacing_length set to number (rather than the
+  default None) when y_boundary_guards is non-zero (#64)\
   By [John Omotani](https://github.com/johnomotani)
 - BoutMesh options now settable in GUI (#63)
   By [John Omotani](https://github.com/johnomotani)

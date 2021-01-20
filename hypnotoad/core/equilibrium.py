@@ -2853,7 +2853,7 @@ class EquilibriumRegion(PsiContour):
                     b / 2.0 / numpy.sqrt(N / N_norm) + d
                 )
                 A = (b / 2.0 / numpy.sqrt(N / N_norm) + d) / B
-                return A * numpy.exp(B * i / N_norm)
+                return A * (numpy.exp(B * i / N_norm) - 1.0)
 
             return lambda i: numpy.piecewise(
                 i,
@@ -3025,8 +3025,8 @@ class EquilibriumRegion(PsiContour):
                     # s(iN) = A*(1 - exp(B*(N/N_norm - iN)) + C
                     # s(N/N_norm) = L = C
                     # ds/diN(N/N_norm) = b_upper = A*B
-                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e = -A*B**2
-                    B = -(a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / b_upper
+                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e + 6*f*N/N_norm = -A*B**2
+                    B = -(a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e + 6.0 * f * N/N_norm) / b_upper
                     A = b_upper / B
                     return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
 

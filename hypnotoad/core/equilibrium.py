@@ -408,7 +408,10 @@ class FineContour:
         refine_timeout=WithMeta(
             10.0,
             doc=(
-                "Timeout for refining FineContour objects in seconds. If you get "
+                "Timeout for refining FineContour objects in seconds. Set to None to "
+                "disable the timeout; can be useful for debugging as exceptions may "
+                "get lost due to a separate thread being used to run the refine() "
+                "method with a timeout. If you get "
                 "func_timeout.exceptions.FunctionTimedOut exceptions and you are sure "
                 "there is no problem with the grid, you could try increasing this "
                 "value."

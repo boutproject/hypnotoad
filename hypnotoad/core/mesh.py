@@ -1528,7 +1528,30 @@ class MeshRegion:
 
         hy /= self.dy
 
-        assert numpy.all(hy.centre > 0.0), "hy.centre should always be positive"
+        def negative_indices(a):
+            xinds, yinds = numpy.where(a < 0.0)
+            return list(zip(list(xinds), list(yinds)))
+
+        if not numpy.all(hy.centre > 0.0):
+            raise ValueError(
+                f"hy.centre should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.centre)}"
+            )
+        if not numpy.all(hy.xlow > 0.0):
+            raise ValueError(
+                f"hy.xlow should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.xlow)}"
+            )
+        if not numpy.all(hy.ylow > 0.0):
+            raise ValueError(
+                f"hy.ylow should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.ylow)}"
+            )
+        if not numpy.all(hy.corners > 0.0):
+            raise ValueError(
+                f"hy.corners should always be positive. Negative values found in "
+                f"region '{self.name}' at (x,y) indices {negative_indices(hy.corners)}"
+            )
         assert numpy.all(hy.xlow > 0.0), "hy.xlow should always be positive"
         assert numpy.all(hy.ylow > 0.0), "hy.ylow should always be positive"
         assert numpy.all(hy.corners > 0.0), "hy.corners should always be positive"
@@ -2670,16 +2693,18 @@ class BoutMesh(Mesh):
             # BOUT++ ParallelTransform that metrics are compatible with
             if self.user_options.shiftedmetric:
                 # Toroidal coordinates with shifts to calculate parallel derivatives
-                f.write("parallel_transform", "shiftedmetric")
+                f.write_file_attribute("parallel_transform", "shiftedmetric")
             else:
                 # Field-aligned coordinates
-                f.write("parallel_transform", "identity")
+                f.write_file_attribute("parallel_transform", "identity")
 
-            f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
-            f.write("hypnotoad_version", self.version)
+            f.write_file_attribute(
+                "hypnotoad_inputs", self.equilibrium._getOptionsAsString()
+            )
+            f.write_file_attribute("hypnotoad_version", self.version)
             if self.git_hash is not None:
-                f.write("hypnotoad_git_hash", self.git_hash)
-                f.write(
+                f.write_file_attribute("hypnotoad_git_hash", self.git_hash)
+                f.write_file_attribute(
                     "hypnotoad_git_diff",
                     self.git_diff if self.git_diff is not None else "",
                 )

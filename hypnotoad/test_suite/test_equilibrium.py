@@ -487,6 +487,8 @@ class TestContour:
         c.startInd = 2
         c.endInd = len(c) - 2
         n = c.endInd - c.startInd + 1
+        c.extend_lower = 2
+        c.extend_upper = 2
 
         f = c.contourSfunc()
 
@@ -501,13 +503,15 @@ class TestContour:
         c1 = testcontour.c
         c1.startInd = 2
         c1.endInd = len(c1) - 2
-        n = c1.endInd - c1.startInd
+        n1 = c1.endInd - c1.startInd
+        c1.extend_lower = 2
+        c1.extend_upper = 2
+        npoints1 = len(c1)
 
-        npoints = len(c1)
         r = testcontour.r
         R0 = testcontour.R0
         Z0 = testcontour.Z0
-        theta = numpy.linspace(0.0, 1.5 * numpy.pi, npoints)
+        theta = numpy.linspace(0.0, 1.5 * numpy.pi, 37)
 
         R = R0 + r * numpy.cos(theta)
         Z = Z0 + r * numpy.sin(theta)
@@ -520,6 +524,10 @@ class TestContour:
         )
         c2.startInd = 2
         c2.endInd = len(c2) - 1
+        n2 = c2.endInd - c2.startInd
+        c2.extend_lower = 2
+        c2.extend_upper = 1
+        npoints2 = len(c2)
 
         c_list = [c1, c2]
         sfunc_list = []
@@ -534,11 +542,11 @@ class TestContour:
             sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
         # notice we check that the first test *fails*
-        assert not sfunc_list[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert not sfunc_list[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
         sfunc_list2 = []
@@ -552,11 +560,11 @@ class TestContour:
         for c in c_list:
             sfunc_list2.append(shift_sfunc(c))
 
-        assert sfunc_list2[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert sfunc_list2[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list2[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list2[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
     def test_interpSSperp(self, testcontour):
@@ -1105,6 +1113,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 
@@ -1148,6 +1158,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 

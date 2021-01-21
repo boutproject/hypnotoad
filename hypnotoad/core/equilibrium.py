@@ -2898,12 +2898,12 @@ class EquilibriumRegion(PsiContour):
                 # Matches value, gradient and curvature at i=N, but is monotonic
                 # s(iN) = A*(1 - exp(B*(N/N_norm-iN)) + C
                 # s(N/N_norm) = L = C
-                # ds/diN(N/N_norm) = a/2/sqrt(N/N_norm) + d + e*N/N_norm = A*B
-                # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e = -A*B**2
-                B = -(a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
-                    a / 2.0 / numpy.sqrt(N / N_norm) + d + e * N / N_norm
+                # ds/diN(N/N_norm) = a/2/sqrt(N/N_norm) + d + 2*e*N/N_norm = A*B
+                # d2s/d2iN(N/N_norm) = -a/4/(N/N_norm)**1.5 + 2*e = -A*B**2
+                B = -(-a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
+                    a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm
                 )
-                A = (a / 2.0 / numpy.sqrt(N / N_norm) + d + e * N / N_norm) / B
+                A = (a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm) / B
                 return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
 
             return lambda i: numpy.piecewise(
@@ -3025,8 +3025,16 @@ class EquilibriumRegion(PsiContour):
                     # s(iN) = A*(1 - exp(B*(N/N_norm - iN)) + C
                     # s(N/N_norm) = L = C
                     # ds/diN(N/N_norm) = b_upper = A*B
-                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e + 6*f*N/N_norm = -A*B**2
-                    B = -(a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e + 6.0 * f * N/N_norm) / b_upper
+                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e + 6*f*N/N_norm
+                    #                    = -A*B**2
+                    B = (
+                        -(
+                            a / 4.0 / (N / N_norm) ** 1.5
+                            + 2.0 * e
+                            + 6.0 * f * N / N_norm
+                        )
+                        / b_upper
+                    )
                     A = b_upper / B
                     return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
 

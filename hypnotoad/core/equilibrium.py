@@ -1676,12 +1676,9 @@ class EquilibriumRegion(PsiContour):
         ),
         xpoint_poloidal_spacing_length=WithMeta(
             lambda options: 5.0e-2 if options.orthogonal else 4.0,
-            doc=(
-                "Spacing at the X-point end of a region (used for orthogonal grids). "
-                "Use None to not constrain the spacing."
-            ),
-            value_type=[float, int, NoneType],
-            check_all=is_positive_or_None,
+            doc=("Spacing at the X-point end of a region (used for orthogonal grids)."),
+            value_type=[float, int],
+            check_all=is_positive,
         ),
         target_all_poloidal_spacing_length=WithMeta(
             lambda options: None if options.orthogonal else 1.0,

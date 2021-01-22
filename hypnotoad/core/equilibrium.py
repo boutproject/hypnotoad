@@ -745,7 +745,7 @@ class FineContour:
         self.startInd = n - 1 - self.endInd
         self.endInd = n - 1 - old_start
 
-    def interpSSperp(self, vec, kind="cubic"):
+    def interpSSperp(self, vec, kind="linear"):
         """
         Returns:
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
@@ -753,6 +753,13 @@ class FineContour:
            's_perp' is modified to be a monotonically increasing function along the
            contour.
         2. the total perpendicular distance between startInd and endInd of the contour.
+
+        Note: "linear" interpolation is more robust here, because the fix we use for
+        making sperp monotonic can make it non-smooth, so quadratic or cubic
+        interpolation may over-shoot. Accuracy can be increased by increasing
+        finecontour_Nfine. Also this function is only used to place the grid points in
+        the first place, so high accuracy is less important than in the interpolations
+        that get for example poloidal distance along the contour.
         """
 
         # vec_perp is a vector in the direction of either increasing or decreasing sperp

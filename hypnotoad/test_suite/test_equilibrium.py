@@ -850,6 +850,21 @@ class TestEquilibriumRegion:
         # f(i) = i/N*L
         assert f(3.0) == tight_approx(0.6)
 
+        # test gradients at upper and lower bounds
+        dfdi = L / N
+        # i=0, interior
+        itest = 1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=0, extropolating
+        itest = -1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=N, interior
+        itest = N - 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+        # i=N, extrapolating
+        itest = N + 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+
     def test_getSqrtPoloidalDistanceFuncBLower(self, eqReg):
         b_lower = 0.01
         L = 2.0
@@ -863,9 +878,24 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
-        # Check we can extrapolate at upper end
-        itest = N + 0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at upper bound
+        ##############################
+        # Copied from `b_upper is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = c + d*iN + e*iN**2
+        # df/diN(N/N_norm) = d + 2*e*N/N_norm
+        # c = 0
+        d = b_lower
+        e = (L - d * N / N_norm) / (N / N_norm) ** 2
+        dfdi = (d + 2 * e * N / N_norm) / N_norm
+
+        # test in interior
+        delta = 1.0e-4
+        itest = N - delta
+        assert (f(N) - f(itest)) / delta == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = N + delta
+        assert (f(itest) - f(N)) / delta == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
         b_upper = 0.01
@@ -880,9 +910,23 @@ class TestEquilibriumRegion:
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
-        # Check we can extrapolate at lower end
-        itest = -0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at lower bound
+        ##############################
+        # Copied from `b_lower is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = c + d*iN + e*iN**2
+        # df/diN(0) = d
+        # c = 0
+        e = (b_upper * N / N_norm - L) / (N / N_norm) ** 2
+        d = b_upper - 2 * e * N / N_norm
+        dfdi = d / N_norm
+
+        # test in interior
+        itest = 1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = -1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
         b_lower = 0.1
@@ -929,9 +973,25 @@ class TestEquilibriumRegion:
             2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
             abs=1.0e-5,
         )
-        # Check we can extrapolate at upper end
-        itest = N + 0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at upper bound
+        ##############################
+        # Copied from `b_upper is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = a*sqrt(iN) + c + d*iN + e*iN**2
+        # dfdiN(N/N_norm) = a/2/sqrt(N/N_norm) + d + 2*e*N/N_norm
+        # c = 0
+        a = 2.0 * a_lower
+        d = b_lower
+        e = (L - a * numpy.sqrt(N / N_norm) - d * N / N_norm) / (N / N_norm) ** 2
+        dfdi = (a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm) / N_norm
+
+        # test in interior
+        delta = 1.0e-4
+        itest = N - delta
+        assert (f(N) - f(itest)) / delta == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = N + delta
+        assert (f(itest) - f(N)) / delta == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBothUpper(self, eqReg):
         b_upper = 0.01
@@ -954,9 +1014,24 @@ class TestEquilibriumRegion:
             - b_upper * (N - itest) / N_norm,
             abs=1.0e-5,
         )
-        # Check we can extrapolate at lower end
-        itest = -0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at lower bound
+        ##############################
+        # Copied from `b_lower is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*iN**2
+        # df/diN(0) = b/2/sqrt(N/N_norm) + d
+        b = 2.0 * a_upper
+        c = b * numpy.sqrt(N / N_norm)
+        e = (c + b_upper * N / N_norm - L) / (N / N_norm) ** 2
+        d = b_upper - 2 * e * N / N_norm
+        dfdi = (b / 2.0 / numpy.sqrt(N / N_norm) + d) / N_norm
+
+        # test in interior
+        itest = 1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = -1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncALowerBBoth(self, eqReg):
         b_lower = 0.01

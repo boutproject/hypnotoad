@@ -14,6 +14,10 @@ What's new
 
 ### New features
 
+- EquilibriumRegion.getSqrtPoloidalDistanceFunc() upgraded to ensure that when
+  it extrapolates the distance function is always monotonic. This is used when
+  y_boundary_guards is greater than 0 (#73)\
+  By [John Omotani](https://github.com/johnomotani)
 - Command line argument for hypnotoad_geqdsk to call pdb.set_trace() to make it
   easier to debug exceptions with pdb (#72)\
   By [John Omotani](https://github.com/johnomotani)

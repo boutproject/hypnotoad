@@ -2843,11 +2843,30 @@ class EquilibriumRegion(PsiContour):
                 d + 2.0 * e * N / N_norm >= 0.0
             ), "gradient of polynomial part should be positive at end"
 
-            return (
-                lambda i: -b * numpy.sqrt((N - i) / N_norm)
-                + c
-                + d * i / N_norm
-                + e * (i / N_norm) ** 2
+            def lower_extrap(i):
+                # Matches value, gradient and curvature at i=0, but is monotonic
+                # s(iN) = A*(exp(B*iN) - 1) + C
+                # s(0) = 0 = C
+                # ds/diN(0) = b/2/sqrt(N/N_norm) + d = A*B
+                # d2s/d2iN(0) = b/4/(N/N_norm)**1.5 + 2*e = A*B**2
+                B = (b / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
+                    b / 2.0 / numpy.sqrt(N / N_norm) + d
+                )
+                A = (b / 2.0 / numpy.sqrt(N / N_norm) + d) / B
+                return A * (numpy.exp(B * i / N_norm) - 1.0)
+
+            return lambda i: numpy.piecewise(
+                i,
+                [i < 0.0],
+                [
+                    lower_extrap,
+                    (
+                        lambda ii: -b * numpy.sqrt((N - ii) / N_norm)
+                        + c
+                        + d * ii / N_norm
+                        + e * (ii / N_norm) ** 2
+                    ),
+                ],
             )
         elif b_upper is None:
             if a_lower is None:
@@ -2875,10 +2894,29 @@ class EquilibriumRegion(PsiContour):
                 a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm > 0.0
             ), "gradient at end should be positive"
 
-            return (
-                lambda i: a * numpy.sqrt(i / N_norm)
-                + d * i / N_norm
-                + e * (i / N_norm) ** 2
+            def upper_extrap(i):
+                # Matches value, gradient and curvature at i=N, but is monotonic
+                # s(iN) = A*(1 - exp(B*(N/N_norm-iN)) + C
+                # s(N/N_norm) = L = C
+                # ds/diN(N/N_norm) = a/2/sqrt(N/N_norm) + d + 2*e*N/N_norm = A*B
+                # d2s/d2iN(N/N_norm) = -a/4/(N/N_norm)**1.5 + 2*e = -A*B**2
+                B = -(-a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
+                    a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm
+                )
+                A = (a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm) / B
+                return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
+
+            return lambda i: numpy.piecewise(
+                i,
+                [i > N],
+                [
+                    upper_extrap,
+                    lambda ii: (
+                        a * numpy.sqrt(ii / N_norm)
+                        + d * ii / N_norm
+                        + e * (ii / N_norm) ** 2
+                    ),
+                ],
             )
         else:
             if a_lower is None:
@@ -2968,34 +3006,88 @@ class EquilibriumRegion(PsiContour):
                     > -self.user_options.sfunc_checktol
                 ), "gradient of non-singular part should be positive at end"
 
+            if a == 0.0:
+
+                def lower_extrap(i):
+                    # Matches value, gradient and curvature at i=0, but is monotonic
+                    # s(iN) = A*(exp(B*iN) - 1) + C
+                    # s(0) = 0 = C
+                    # ds/diN(0) = b_lower = A*B
+                    # d2s/d2iN(0) = b/4/(N/N_norm)**1.5 + 2*e = A*B**2
+                    B = (b / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / b_lower
+                    A = b_lower / B
+                    return A * (numpy.exp(B * i / N_norm) - 1.0)
+
+            if b == 0.0:
+
+                def upper_extrap(i):
+                    # Matches value, gradient and curvature at i=N, but is monotonic
+                    # s(iN) = A*(1 - exp(B*(N/N_norm - iN)) + C
+                    # s(N/N_norm) = L = C
+                    # ds/diN(N/N_norm) = b_upper = A*B
+                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e + 6*f*N/N_norm
+                    #                    = -A*B**2
+                    B = (
+                        -(
+                            a / 4.0 / (N / N_norm) ** 1.5
+                            + 2.0 * e
+                            + 6.0 * f * N / N_norm
+                        )
+                        / b_upper
+                    )
+                    A = b_upper / B
+                    return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
+
             if a == 0.0 and b == 0.0:
                 # No sqrt parts, special case in case extrapolation at either
                 # end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i < 0.0, i > N],
+                    [
+                        lower_extrap,
+                        upper_extrap,
+                        lambda ii: (
+                            c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             elif a == 0.0:
                 # Only upper sqrt part, special case in case extrapolation at
-                # either end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: -b * numpy.sqrt((N - i) / N_norm)
-                    + c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                # lower end is wanted (where sqrt would give NaN)
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i < 0.0],
+                    [
+                        lower_extrap,
+                        lambda ii: (
+                            -b * numpy.sqrt((N - ii) / N_norm)
+                            + c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             elif b == 0.0:
                 # Only lower sqrt part, special case in case extrapolation at
-                # either end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: a * numpy.sqrt(i / N_norm)
-                    + c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                # upper end is wanted (where sqrt would give NaN)
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i > N],
+                    [
+                        upper_extrap,
+                        lambda ii: (
+                            a * numpy.sqrt(ii / N_norm)
+                            + c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             else:
                 return (

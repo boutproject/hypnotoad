@@ -1155,14 +1155,14 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.resetNonorthogonalOptions(
-            {"nonorthogonal_target_poloidal_spacing_length": L}
+            {"nonorthogonal_target_all_poloidal_spacing_length": L}
         )
         eqReg.ny_total = n - 1
+        eqReg.name = "inner"
 
         def sfunc_orthogonal(i):
             return i / (n - 1.0) * L
 
-        print("check stuff", eqReg.nonorthogonal_options)
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.0) == tight_approx(0.0)
@@ -1174,11 +1174,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1200,11 +1201,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "inner_upper"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1226,11 +1228,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer_upper"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1256,13 +1259,14 @@ class TestEquilibriumRegion:
         n = len(eqReg)
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": 0.1,
-            "nonorthogonal_target_poloidal_spacing_range": 0.3,
+            "nonorthogonal_target_all_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.3,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
         eqReg.sin_angle_at_start = 1.0
         eqReg.sin_angle_at_end = 1.0
+        eqReg.name = "inner_lower"
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -1303,11 +1307,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": 0.1,
-            "nonorthogonal_target_poloidal_spacing_range": 0.2,
+            "nonorthogonal_target_all_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.2,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer_lower"
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 

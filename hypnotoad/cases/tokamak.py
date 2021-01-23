@@ -40,6 +40,16 @@ class TokamakEquilibrium(Equilibrium):
 
     # Tokamak-specific options and default values
     user_options_factory = Equilibrium.user_options_factory.add(
+        psi_interpolation_method=WithMeta(
+            "spline",
+            doc=(
+                "Method to use for interpolating psi from the eqdsk file. Possible "
+                "values are: 'spline' for scipy.interpolate.RectBivariateSpline;"
+                "'dct' for a discrete cosine transform."
+            ),
+            value_type=str,
+            check_all=lambda val: val in ["spline", "dct"],
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -242,7 +252,6 @@ class TokamakEquilibrium(Equilibrium):
         pressure=None,
         wall=None,
         psi_axis=None,
-        dct=False,
         make_regions=True,
         settings=None,
         nonorthogonal_settings=None,
@@ -284,7 +293,13 @@ class TokamakEquilibrium(Equilibrium):
                options (self.nonorthogonal_options)
 
         """
-        if dct:
+        # Take the default settings, then the options keyword, then
+        # any additional keyword arguments
+        self.user_options = self.user_options_factory.create(settings)
+
+        if self.user_options.psi_interpolation_method == "spline":
+            self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
+        elif self.user_options.psi_interpolation_method == "dct":
             # Create an interpolation
             # This sets the functions
             #   self.psi
@@ -295,9 +310,13 @@ class TokamakEquilibrium(Equilibrium):
             #   self.d2psidR2
             #   self.d2psidZ2
             #   self.d2psidRdZ
-            self.magneticFunctionsFromGrid(R1D, Z1D, psi2D)
+            self.magneticFunctionsFromGrid(R1D, Z1D, psi2D.T)
+            self.psi_func = self._psi
         else:
-            self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
+            raise ValueError(
+                "Unrecognised '{self.user_options.psi_interpolation_method}' value "
+                "for psi_interpolation_method"
+            )
 
         self.f_psi_sign = 1.0
         if len(fpol1D) > 0:
@@ -371,10 +390,6 @@ class TokamakEquilibrium(Equilibrium):
                 ::-1
             ]  # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r, z) for r, z in wall]
-
-        # Take the default settings, then the options keyword, then
-        # any additional keyword arguments
-        self.user_options = self.user_options_factory.create(settings)
 
         self.equilibOptions = {}
 
@@ -1445,31 +1460,46 @@ class TokamakEquilibrium(Equilibrium):
     @handleMultiLocationArray
     def psi(self, R, Z):
         "Return the poloidal flux at the given (R,Z) location"
-        return self.psi_func(R, Z, grid=False)
+        if self.user_options.psi_interpolation_method == "dct":
+            return self.psi_func(R, Z)
+        else:
+            return self.psi_func(R, Z, grid=False)
 
     @handleMultiLocationArray
     def f_R(self, R, Z):
         """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
+        if self.user_options.psi_interpolation_method == "dct":
+            return self._f_R(R, Z)
+        else:
+            dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+            dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+            return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
 
     @handleMultiLocationArray
     def f_Z(self, R, Z):
         """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
+        if self.user_options.psi_interpolation_method == "dct":
+            return self._f_Z(R, Z)
+        else:
+            dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+            dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+            return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
 
     @handleMultiLocationArray
     def Bp_R(self, R, Z):
         """returns the R component of the poloidal magnetic field."""
-        return self.psi_func(R, Z, dy=1, grid=False) / R
+        if self.user_options.psi_interpolation_method == "dct":
+            return self._Bp_R(R, Z)
+        else:
+            return self.psi_func(R, Z, dy=1, grid=False) / R
 
     @handleMultiLocationArray
     def Bp_Z(self, R, Z):
         """returns the Z component of the poloidal magnetic field."""
-        return -self.psi_func(R, Z, dx=1, grid=False) / R
+        if self.user_options.psi_interpolation_method == "dct":
+            return self._Bp_Z(R, Z)
+        else:
+            return -self.psi_func(R, Z, dx=1, grid=False) / R
 
     @handleMultiLocationArray
     def fpol(self, psi):

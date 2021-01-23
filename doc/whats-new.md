@@ -14,6 +14,9 @@ What's new
 
 ### New features
 
+- Enable DCT interpolation scheme in TokamakEquilibrum, can be selected with new option
+  psi_interpolation_method (#77)\
+  By [John Omotani](https://github.com/johnomotani)
 - EquilibriumRegion.getSqrtPoloidalDistanceFunc() upgraded to ensure that when
   it extrapolates the distance function is always monotonic. This is used when
   y_boundary_guards is greater than 0 (#73)\

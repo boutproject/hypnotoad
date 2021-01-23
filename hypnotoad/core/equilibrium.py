@@ -3232,17 +3232,42 @@ class Equilibrium:
 
         self._dct = DCT_2D(R, Z, psiRZ)
 
-        self.psi = lambda R, Z: self._dct(R, Z)
+        self._psi = lambda R, Z: self._dct(R, Z)
         modGradpsiSquared = (
             lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
         )
-        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
-        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
-        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
-        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
-        self.d2psidR2 = self._dct.d2dR2
-        self.d2psidZ2 = self._dct.d2dZ2
-        self.d2psidRdZ = self._dct.d2dRdZ
+        self._f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
+        self._f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
+        self._Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
+        self._Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
+        self._d2psidR2 = self._dct.d2dR2
+        self._d2psidZ2 = self._dct.d2dZ2
+        self._d2psidRdZ = self._dct.d2dRdZ
+
+    # Define self.psi(), etc. so we can override in TokamakEquilibrium
+    def psi(self, *args):
+        return self._psi(*args)
+
+    def f_R(self, *args):
+        return self._f_R(*args)
+
+    def f_Z(self, *args):
+        return self._f_Z(*args)
+
+    def Bp_R(self, *args):
+        return self._Bp_R(*args)
+
+    def Bp_Z(self, *args):
+        return self._Bp_Z(*args)
+
+    def d2psidR2(self, *args):
+        return self._d2psidR2(*args)
+
+    def d2psidZ2(self, *args):
+        return self._d2psidZ2(*args)
+
+    def d2psidRdZ(self, *args):
+        return self._d2psidRdZ(*args)
 
     def findMinimum_1d(self, pos1, pos2, atol=1.0e-14):
         def coords(s):

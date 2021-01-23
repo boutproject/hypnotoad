@@ -106,6 +106,19 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
             self._corners_array = numpy.zeros([self.nx + 1, self.ny + 1])
         self._corners_array[...] = value
 
+    def copy(self):
+        new_multilocationarray = MultiLocationArray(self.nx, self.ny)
+        if self.centre is not None:
+            new_multilocationarray.centre = self.centre.copy()
+        if self.xlow is not None:
+            new_multilocationarray.xlow = self.xlow.copy()
+        if self.ylow is not None:
+            new_multilocationarray.ylow = self.ylow.copy()
+        if self.corners is not None:
+            new_multilocationarray.corners = self.corners.copy()
+
+        return new_multilocationarray
+
     # The following __array_ufunc__ implementation allows the MultiLocationArray class to
     # be handled by Numpy functions, and add, subtract, etc. like an ndarray.
     # The implementation is mostly copied from the example in

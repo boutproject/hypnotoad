@@ -48,7 +48,7 @@ class TokamakEquilibrium(Equilibrium):
                 "'dct' for a discrete cosine transform."
             ),
             value_type=str,
-            check_all=lambda val: val in ["spline", "dct"],
+            allowed=["spline", "dct"],
         ),
         nx_core=WithMeta(
             5,

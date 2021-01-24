@@ -1454,38 +1454,38 @@ class MeshRegion:
             # A^z = A.Grad(z)
             # dpsi/dR = -R*Bp_Z
             # dpsi/dZ = R*Bp_R
-            def curl_bOverBx(R, Z):
+            def curl_bOverB_x(R, Z):
                 return curl_bOverB_R(R, Z) * (-R * BZ(R, Z)) + curl_bOverB_Z(R, Z) * (
                     R * BR(R, Z)
                 )
 
-            self.curl_bOverBx = curl_bOverBx(self.Rxy, self.Zxy)
+            self.curl_bOverB_x = curl_bOverB_x(self.Rxy, self.Zxy)
 
             # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
             #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)/(Bp*hy*cosBeta)
             #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
-            curl_bOverBy = (
+            curl_bOverB_y = (
                 curl_bOverB_R(self.Rxy, self.Zxy)
                 * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
                 + curl_bOverB_Z(self.Rxy, self.Zxy)
                 * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
             ) / (self.Bpxy * self.hy)
-            self.curl_bOverBy = curl_bOverBy
+            self.curl_bOverB_y = curl_bOverB_y
 
             # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
-            self.curl_bOverBz = (
+            self.curl_bOverB_z = (
                 curl_bOverB_zeta(self.Rxy, self.Zxy) / self.Rxy
-                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryBy
-                - self.I * self.curl_bOverBx
+                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryB_y
+                - self.I * self.curl_bOverB_x
             )
 
             # bxcv is calculated this way for backward compatibility with Hypnotoad.
             # bxcv stands for 'b x kappa' where kappa is the field-line curvature, which
             # is not exactly equivalent to the result here, but this is how Hypnotoad
             # passed 'curvature' calculated as curl(b/B)
-            self.bxcvx = self.Bxy / 2.0 * self.curl_bOverBx
-            self.bxcvy = self.Bxy / 2.0 * self.curl_bOverBy
-            self.bxcvz = self.Bxy / 2.0 * self.curl_bOverBz
+            self.bxcvx = self.Bxy / 2.0 * self.curl_bOverB_x
+            self.bxcvy = self.Bxy / 2.0 * self.curl_bOverB_y
+            self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
         elif self.user_options.curvature_type == "bxkappa":
             raise ValueError("bxkappa form of curvature not implemented yet")
             self.bxcvx = float("nan")

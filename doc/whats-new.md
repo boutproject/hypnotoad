@@ -21,6 +21,9 @@ What's new
 
 ### New features
 
+- Check for unrecognised options in input files and raise an error if any are found
+  (#76)\
+  By [John Omotani](https://github.com/johnomotani)
 - Extra settings added so spacings can be controlled separately at each target (#74)\
   By [John Omotani](https://github.com/johnomotani)
 - EquilibriumRegion.getSqrtPoloidalDistanceFunc() upgraded to ensure that when

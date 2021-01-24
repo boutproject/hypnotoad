@@ -361,9 +361,29 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.statusbar.showMessage("Reading options", 2000)
         options_filename = self.options_file_line_edit.text()
 
+        # Save the existing options in case there is an error loading the options file
+        original_options = self.options
+
         if options_filename:
             with open(options_filename, "r") as f:
                 self.options = yaml.safe_load(f)
+
+        possible_options = (
+            [opt for opt in tokamak.TokamakEquilibrium.user_options_factory.defaults]
+            + [
+                opt
+                for opt in tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults  # noqa: E501
+            ]
+            + [opt for opt in BoutMesh.user_options_factory.defaults]
+        )
+        unused_options = [opt for opt in self.options if opt not in possible_options]
+        if unused_options != []:
+            short_filename = pathlib.Path(options_filename).parts[-1]
+            self._popup_error_message(
+                f"Error: There were options in the input file that are not used: "
+                f"{unused_options}. Cannot load {short_filename}."
+            )
+            self.options = original_options
 
         self.options_form.setRowCount(0)
         self.update_options_form()

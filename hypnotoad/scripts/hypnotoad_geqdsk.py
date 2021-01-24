@@ -31,6 +31,21 @@ def main():
         options = {}
 
     from ..cases import tokamak
+    from ..core.mesh import BoutMesh
+
+    possible_options = (
+        [opt for opt in tokamak.TokamakEquilibrium.user_options_factory.defaults]
+        + [
+            opt
+            for opt in tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
+        ]
+        + [opt for opt in BoutMesh.user_options_factory.defaults]
+    )
+    unused_options = [opt for opt in options if opt not in possible_options]
+    if unused_options != []:
+        raise ValueError(
+            f"There were options in the input file that are not used: {unused_options}"
+        )
 
     if args.pdb:
         import pdb
@@ -55,8 +70,6 @@ def main():
             warnings.warn(str(err))
 
     # Create the mesh
-
-    from ..core.mesh import BoutMesh
 
     mesh = BoutMesh(eq, options)
     mesh.calculateRZ()

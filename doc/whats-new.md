@@ -21,6 +21,8 @@ What's new
 
 ### New features
 
+- Smoothing copied from IDL hypnotoad for components of curvature vector (#79)\
+  By [John Omotani](https://github.com/johnomotani)
 - Check for unrecognised options in input files and raise an error if any are found
   (#76)\
   By [John Omotani](https://github.com/johnomotani)

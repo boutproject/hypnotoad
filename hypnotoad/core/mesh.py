@@ -29,6 +29,7 @@ import warnings
 import numpy
 from optionsfactory import OptionsFactory, WithMeta
 from optionsfactory.checks import (
+    NoneType,
     is_non_negative,
     is_positive,
 )
@@ -105,6 +106,19 @@ class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
         if self._corners_array is None:
             self._corners_array = numpy.zeros([self.nx + 1, self.ny + 1])
         self._corners_array[...] = value
+
+    def copy(self):
+        new_multilocationarray = MultiLocationArray(self.nx, self.ny)
+        if self.centre is not None:
+            new_multilocationarray.centre = self.centre.copy()
+        if self.xlow is not None:
+            new_multilocationarray.xlow = self.xlow.copy()
+        if self.ylow is not None:
+            new_multilocationarray.ylow = self.ylow.copy()
+        if self.corners is not None:
+            new_multilocationarray.corners = self.corners.copy()
+
+        return new_multilocationarray
 
     # The following __array_ufunc__ implementation allows the MultiLocationArray class to
     # be handled by Numpy functions, and add, subtract, etc. like an ndarray.
@@ -272,6 +286,16 @@ class MeshRegion:
             doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
             allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
+        ),
+        curvature_smoothing=WithMeta(
+            None,
+            doc=(
+                "Smoothing for components of bxcv output: None - no smoothing; "
+                "'smoothnl' - non-linear smoothing using the algorithm from IDL "
+                "hypnotoad."
+            ),
+            value_type=[str, NoneType],
+            allowed=[None, "smoothnl"],
         ),
         follow_perpendicular_rtol=WithMeta(
             2.0e-8,
@@ -1430,38 +1454,38 @@ class MeshRegion:
             # A^z = A.Grad(z)
             # dpsi/dR = -R*Bp_Z
             # dpsi/dZ = R*Bp_R
-            def curl_bOverBx(R, Z):
+            def curl_bOverB_x(R, Z):
                 return curl_bOverB_R(R, Z) * (-R * BZ(R, Z)) + curl_bOverB_Z(R, Z) * (
                     R * BR(R, Z)
                 )
 
-            self.curl_bOverBx = curl_bOverBx(self.Rxy, self.Zxy)
+            self.curl_bOverB_x = curl_bOverB_x(self.Rxy, self.Zxy)
 
             # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
             #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)/(Bp*hy*cosBeta)
             #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
-            curl_bOverBy = (
+            curl_bOverB_y = (
                 curl_bOverB_R(self.Rxy, self.Zxy)
                 * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
                 + curl_bOverB_Z(self.Rxy, self.Zxy)
                 * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
             ) / (self.Bpxy * self.hy)
-            self.curl_bOverBy = curl_bOverBy
+            self.curl_bOverB_y = curl_bOverB_y
 
             # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
-            self.curl_bOverBz = (
+            self.curl_bOverB_z = (
                 curl_bOverB_zeta(self.Rxy, self.Zxy) / self.Rxy
-                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryBy
-                - self.I * self.curl_bOverBx
+                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryB_y
+                - self.I * self.curl_bOverB_x
             )
 
             # bxcv is calculated this way for backward compatibility with Hypnotoad.
             # bxcv stands for 'b x kappa' where kappa is the field-line curvature, which
             # is not exactly equivalent to the result here, but this is how Hypnotoad
             # passed 'curvature' calculated as curl(b/B)
-            self.bxcvx = self.Bxy / 2.0 * self.curl_bOverBx
-            self.bxcvy = self.Bxy / 2.0 * self.curl_bOverBy
-            self.bxcvz = self.Bxy / 2.0 * self.curl_bOverBz
+            self.bxcvx = self.Bxy / 2.0 * self.curl_bOverB_x
+            self.bxcvy = self.Bxy / 2.0 * self.curl_bOverB_y
+            self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
         elif self.user_options.curvature_type == "bxkappa":
             raise ValueError("bxkappa form of curvature not implemented yet")
             self.bxcvx = float("nan")
@@ -1917,6 +1941,416 @@ class MeshRegion:
 
         return result
 
+    def smoothnl_inner1(self, varname):
+        f = getattr(self, varname)
+        if self.connections["inner"] is not None:
+            f_inner = getattr(self.getNeighbour("inner"), varname)
+        else:
+            f_inner = None
+        if self.connections["outer"] is not None:
+            f_outer = getattr(self.getNeighbour("outer"), varname)
+        else:
+            f_outer = None
+        if self.connections["lower"] is not None:
+            f_lower = getattr(self.getNeighbour("lower"), varname)
+        else:
+            f_lower = None
+        if self.connections["upper"] is not None:
+            f_upper = getattr(self.getNeighbour("upper"), varname)
+        else:
+            f_upper = None
+
+        mxn = MultiLocationArray(self.nx, self.ny)
+        myn = MultiLocationArray(self.nx, self.ny)
+
+        if f.centre is not None:
+            dxm = numpy.zeros(f.centre.shape)
+            dxp = numpy.zeros(f.centre.shape)
+            dym = numpy.zeros(f.centre.shape)
+            dyp = numpy.zeros(f.centre.shape)
+
+            dxm[1:-1, :] = f.centre[1:-1, :] - f.centre[:-2, :]
+            dxp[1:-1, :] = f.centre[2:, :] - f.centre[1:-1, :]
+
+            if f_inner is not None:
+                dxm[0, :] = f.centre[0, :] - f_inner.centre[-1, :]
+            if f_outer is not None:
+                dxm[-1, :] = f_outer.centre[0, :] - f.centre[-1, :]
+
+            dym[:, 1:-1] = f.centre[:, 1:-1] - f.centre[:, :-2]
+            dyp[:, 1:-1] = f.centre[:, 2:] - f.centre[:, 1:-1]
+
+            if f_lower is not None:
+                dym[:, 0] = f.centre[:, 0] - f_lower.centre[:, -1]
+            if f_upper is not None:
+                dym[:, -1] = f_upper.centre[:, 0] - f.centre[:, -1]
+
+            mxn.centre = 0.5 * (abs(dxm) + abs(dxp))
+            myn.centre = 0.5 * (abs(dym) + abs(dyp))
+
+        # Note indexing of staggered fields from neighbouring regions - staggered points
+        # overlap at the boundaries.
+        # Don't set outer or upper boundary points so we can sum the results without
+        # duplicates
+
+        if f.xlow is not None:
+            dxm = numpy.zeros(f.xlow.shape)
+            dxp = numpy.zeros(f.xlow.shape)
+            dym = numpy.zeros(f.xlow.shape)
+            dyp = numpy.zeros(f.xlow.shape)
+
+            dxm[1:-2, :] = f.xlow[1:-2, :] - f.xlow[:-3, :]
+            dxp[1:-2, :] = f.xlow[2:-1, :] - f.xlow[1:-2, :]
+
+            if f_inner is not None:
+                dxm[0, :] = f.xlow[0, :] - f_inner.xlow[-2, :]
+            if f_outer is not None:
+                dxm[-2, :] = f_outer.xlow[0, :] - f.xlow[-2, :]
+
+            dym[:, 1:-1] = f.xlow[:, 1:-1] - f.xlow[:, :-2]
+            dyp[:, 1:-1] = f.xlow[:, 2:] - f.xlow[:, 1:-1]
+
+            if f_lower is not None:
+                dym[:, 0] = f.xlow[:, 0] - f_lower.xlow[:, -1]
+            if f_upper is not None:
+                dym[:, -1] = f_upper.xlow[:, 0] - f.xlow[:, -1]
+
+            mxn.xlow = 0.5 * (abs(dxm) + abs(dxp))
+            myn.xlow = 0.5 * (abs(dym) + abs(dyp))
+
+        if f.ylow is not None:
+            dxm = numpy.zeros(f.ylow.shape)
+            dxp = numpy.zeros(f.ylow.shape)
+            dym = numpy.zeros(f.ylow.shape)
+            dyp = numpy.zeros(f.ylow.shape)
+
+            dxm[1:-1, :] = f.ylow[1:-1, :] - f.ylow[:-2, :]
+            dxp[1:-1, :] = f.ylow[2:, :] - f.ylow[1:-1, :]
+
+            if f_inner is not None:
+                dxm[0, :] = f.ylow[0, :] - f_inner.ylow[-1, :]
+            if f_outer is not None:
+                dxm[-1, :] = f_outer.ylow[0, :] - f.ylow[-1, :]
+
+            dym[:, 1:-2] = f.ylow[:, 1:-2] - f.ylow[:, :-3]
+            dyp[:, 1:-2] = f.ylow[:, 2:-1] - f.ylow[:, 1:-2]
+
+            if f_lower is not None:
+                dym[:, 0] = f.ylow[:, 0] - f_lower.ylow[:, -2]
+            if f_upper is not None:
+                dym[:, -2] = f_upper.ylow[:, 0] - f.ylow[:, -2]
+
+            mxn.ylow = 0.5 * (abs(dxm) + abs(dxp))
+            myn.ylow = 0.5 * (abs(dym) + abs(dyp))
+
+        if f.corners is not None:
+            dxm = numpy.zeros(f.corners.shape)
+            dxp = numpy.zeros(f.corners.shape)
+            dym = numpy.zeros(f.corners.shape)
+            dyp = numpy.zeros(f.corners.shape)
+
+            dxm[1:-2, :-1] = f.corners[1:-2, :-1] - f.corners[:-3, :-1]
+            dxp[1:-2, :-1] = f.corners[2:-1, :-1] - f.corners[1:-2, :-1]
+
+            if f_inner is not None:
+                dxm[0, :-1] = f.corners[0, :-1] - f_inner.corners[-2, :-1]
+            if f_outer is not None:
+                dxm[-2, :-1] = f_outer.corners[0, :-1] - f.corners[-2, :-1]
+
+            dym[:-1, 1:-2] = f.corners[:-1, 1:-2] - f.corners[:-1, :-3]
+            dyp[:-1, 1:-2] = f.corners[:-1, 2:-1] - f.corners[:-1, 1:-2]
+
+            if f_lower is not None:
+                dym[:-1, 0] = f.corners[:-1, 0] - f_lower.corners[:-1, -2]
+            if f_upper is not None:
+                dym[:-1, -2] = f_upper.corners[:-1, 0] - f.corners[:-1, -2]
+
+            mxn.corners = 0.5 * (abs(dxm) + abs(dxp))
+            myn.corners = 0.5 * (abs(dym) + abs(dyp))
+
+        return mxn, myn
+
+    def smoothnl_inner2(self, varname, markx, marky):
+        tmp = getattr(self, varname).copy()
+        if self.connections["inner"] is not None:
+            tmp_inner = getattr(self.getNeighbour("inner"), varname).copy()
+        else:
+            tmp_inner = None
+        if self.connections["outer"] is not None:
+            tmp_outer = getattr(self.getNeighbour("outer"), varname).copy()
+        else:
+            tmp_outer = None
+        if self.connections["lower"] is not None:
+            tmp_lower = getattr(self.getNeighbour("lower"), varname).copy()
+        else:
+            tmp_lower = None
+        if self.connections["upper"] is not None:
+            tmp_upper = getattr(self.getNeighbour("upper"), varname).copy()
+        else:
+            tmp_upper = None
+
+        # Smooth the smoothing mask
+        def smooth_mask(mark):
+            result = MultiLocationArray(self.nx, self.ny)
+            if mark.centre is not None:
+                result.centre = 0.1 * (
+                    mark.centre[1:-1, 1:-1]
+                    + mark.centre[0:-2, 1:-1]
+                    + mark.centre[2:, 1:-1]
+                    + mark.centre[1:-1, :-2]
+                    + mark.centre[1:-1, 2:]
+                )
+            if mark.xlow is not None:
+                result.xlow = 0.1 * (
+                    mark.xlow[1:-1, 1:-1]
+                    + mark.xlow[0:-2, 1:-1]
+                    + mark.xlow[2:, 1:-1]
+                    + mark.xlow[1:-1, :-2]
+                    + mark.xlow[1:-1, 2:]
+                )
+            if mark.ylow is not None:
+                result.ylow = 0.1 * (
+                    mark.ylow[1:-1, 1:-1]
+                    + mark.ylow[0:-2, 1:-1]
+                    + mark.ylow[2:, 1:-1]
+                    + mark.ylow[1:-1, :-2]
+                    + mark.ylow[1:-1, 2:]
+                )
+            if mark.corners is not None:
+                result.corners = 0.1 * (
+                    mark.corners[1:-1, 1:-1]
+                    + mark.corners[0:-2, 1:-1]
+                    + mark.corners[2:, 1:-1]
+                    + mark.corners[1:-1, :-2]
+                    + mark.corners[1:-1, 2:]
+                )
+
+            return result
+
+        mx = smooth_mask(markx)
+        my = smooth_mask(marky)
+
+        if tmp.centre is not None:
+            tmp.centre[1:-1, 1:-1] = (
+                (1.0 - mx.centre[1:-1, 1:-1] - my.centre[1:-1, 1:-1])
+                * tmp.centre[1:-1, 1:-1]
+                + mx.centre[1:-1, 1:-1]
+                * 0.5
+                * (tmp.centre[:-2, 1:-1] + tmp.centre[2:, 1:-1])
+                + my.centre[1:-1, 1:-1]
+                * 0.5
+                * (tmp.centre[1:-1, :-2] + tmp.centre[1:-1, 2:])
+            )
+            if tmp_inner is not None:
+                tmp.centre[0, 1:-1] = (
+                    (1.0 - mx.centre[0, 1:-1] - my.centre[0, 1:-1])
+                    * tmp.centre[0, 1:-1]
+                    + mx.centre[0, 1:-1]
+                    * 0.5
+                    * (tmp_inner.centre[-1, 1:-1] + tmp.centre[1, 1:-1])
+                    + my.centre[0, 1:-1]
+                    * 0.5
+                    * (tmp.centre[0, :-2] + tmp.centre[0, 2:])
+                )
+            else:
+                tmp.centre[1, 1:-1] = tmp.centre[1, 1:-1]
+            if tmp_outer is not None:
+                tmp.centre[-1, 1:-1] = (
+                    (1.0 - mx.centre[-1, 1:-1] - my.centre[-1, 1:-1])
+                    * tmp.centre[-1, 1:-1]
+                    + mx.centre[-1, 1:-1]
+                    * 0.5
+                    * (tmp.centre[-2, 1:-1] + tmp_outer.centre[0, 1:-1])
+                    + my.centre[-1, 1:-1]
+                    * 0.5
+                    * (tmp.centre[-1, :-2] + tmp.centre[-1, 2:])
+                )
+            else:
+                tmp.centre[-1, 1:-1] = tmp.centre[-2, 1:-1]
+            if tmp_lower is not None:
+                tmp.centre[1:-1, 0] = (
+                    (1.0 - mx.centre[1:-1, 0] - my.centre[1:-1, 0])
+                    * tmp.centre[1:-1, 0]
+                    + mx.centre[1:-1, 0]
+                    * 0.5
+                    * (tmp.centre[:-2, 0] + tmp.centre[2:, 0])
+                    + my.centre[1:-1, 0]
+                    * 0.5
+                    * (tmp_lower.centre[1:-1, -1] + tmp.centre[1:-1, 1])
+                )
+            if tmp_upper is not None:
+                tmp.centre[1:-1, -1] = (
+                    (1.0 - mx.centre[1:-1, -1] - my.centre[1:-1, -1])
+                    * tmp.centre[1:-1, -1]
+                    + mx.centre[1:-1, -1]
+                    * 0.5
+                    * (tmp.centre[:-2, -1] + tmp.centre[2:, -1])
+                    + my.centre[1:-1, -1]
+                    * 0.5
+                    * (tmp.centre[1:-1, -2] + tmp_upper.centre[1:-1, 0])
+                )
+        # Note indexing of staggered fields from neighbouring regions - staggered points
+        # overlap at the boundaries.
+
+        if tmp.xlow is not None:
+            tmp.xlow[1:-1, 1:-1] = (
+                (1.0 - mx.xlow[1:-1, 1:-1] - my.xlow[1:-1, 1:-1]) * tmp.xlow[1:-1, 1:-1]
+                + mx.xlow[1:-1, 1:-1] * 0.5 * (tmp.xlow[:-2, 1:-1] + tmp.xlow[2:, 1:-1])
+                + my.xlow[1:-1, 1:-1] * 0.5 * (tmp.xlow[1:-1, :-2] + tmp.xlow[1:-1, 2:])
+            )
+            if tmp_inner is not None:
+                tmp.xlow[0, 1:-1] = (
+                    (1.0 - mx.xlow[0, 1:-1] - my.xlow[0, 1:-1]) * tmp.xlow[0, 1:-1]
+                    + mx.xlow[0, 1:-1]
+                    * 0.5
+                    * (tmp_inner.xlow[-2, 1:-1] + tmp.xlow[1, 1:-1])
+                    + my.xlow[0, 1:-1] * 0.5 * (tmp.xlow[0, :-2] + tmp.xlow[0, 2:])
+                )
+            else:
+                tmp.xlow[0, 1:-1] = tmp.xlow[1, 1:-1]
+            if tmp_outer is not None:
+                tmp.xlow[-1, 1:-1] = (
+                    (1.0 - mx.xlow[-1, 1:-1] - my.xlow[-1, 1:-1]) * tmp.xlow[-1, 1:-1]
+                    + mx.xlow[-1, 1:-1]
+                    * 0.5
+                    * (tmp.xlow[-2, 1:-1] + tmp_outer.xlow[1, 1:-1])
+                    + my.xlow[-1, 1:-1] * 0.5 * (tmp.xlow[-1, :-2] + tmp.xlow[-1, 2:])
+                )
+            else:
+                tmp.xlow[-1, 1:-1] = tmp.xlow[-2, 1:-1]
+            if tmp_lower is not None:
+                tmp.xlow[1:-1, 0] = (
+                    (1.0 - mx.xlow[1:-1, 0] - my.xlow[1:-1, 0]) * tmp.xlow[1:-1, 0]
+                    + mx.xlow[1:-1, 0] * 0.5 * (tmp.xlow[:-2, 0] + tmp.xlow[2:, 0])
+                    + my.xlow[1:-1, 0]
+                    * 0.5
+                    * (tmp_lower.xlow[1:-1, -1] + tmp.xlow[1:-1, 1])
+                )
+            if tmp_upper is not None:
+                tmp.xlow[1:-1, -1] = (
+                    (1.0 - mx.xlow[1:-1, -1] - my.xlow[1:-1, -1]) * tmp.xlow[1:-1, -1]
+                    + mx.xlow[1:-1, -1] * 0.5 * (tmp.xlow[:-2, -1] + tmp.xlow[2:, -1])
+                    + my.xlow[1:-1, -1]
+                    * 0.5
+                    * (tmp.xlow[1:-1, -2] + tmp_upper.xlow[1:-1, 0])
+                )
+        if tmp.ylow is not None:
+            tmp.ylow[1:-1, 1:-1] = (
+                (1.0 - mx.ylow[1:-1, 1:-1] - my.ylow[1:-1, 1:-1]) * tmp.ylow[1:-1, 1:-1]
+                + mx.ylow[1:-1, 1:-1] * 0.5 * (tmp.ylow[:-2, 1:-1] + tmp.ylow[2:, 1:-1])
+                + my.ylow[1:-1, 1:-1] * 0.5 * (tmp.ylow[1:-1, :-2] + tmp.ylow[1:-1, 2:])
+            )
+            if tmp_inner is not None:
+                tmp.ylow[0, 1:-1] = (
+                    (1.0 - mx.ylow[0, 1:-1] - my.ylow[0, 1:-1]) * tmp.ylow[0, 1:-1]
+                    + mx.ylow[0, 1:-1]
+                    * 0.5
+                    * (tmp_inner.ylow[-1, 1:-1] + tmp.ylow[1, 1:-1])
+                    + my.ylow[0, 1:-1] * 0.5 * (tmp.ylow[0, :-2] + tmp.ylow[0, 2:])
+                )
+            else:
+                tmp.ylow[0, 1:-1] = tmp.ylow[1, 1:-1]
+            if tmp_outer is not None:
+                tmp.ylow[-1, 1:-1] = (
+                    (1.0 - mx.ylow[-1, 1:-1] - my.ylow[-1, 1:-1]) * tmp.ylow[-1, 1:-1]
+                    + mx.ylow[-1, 1:-1]
+                    * 0.5
+                    * (tmp.ylow[-2, 1:-1] + tmp_outer.ylow[0, 1:-1])
+                    + my.ylow[-1, 1:-1] * 0.5 * (tmp.ylow[-1, :-2] + tmp.ylow[-1, 2:])
+                )
+            else:
+                tmp.ylow[-1, 1:-1] = tmp.ylow[-2, 1:-1]
+            if tmp_lower is not None:
+                tmp.ylow[1:-1, 0] = (
+                    (1.0 - mx.ylow[1:-1, 0] - my.ylow[1:-1, 0]) * tmp.ylow[1:-1, 0]
+                    + mx.ylow[1:-1, 0] * 0.5 * (tmp.ylow[:-2, 0] + tmp.ylow[2:, 0])
+                    + my.ylow[1:-1, 0]
+                    * 0.5
+                    * (tmp_lower.ylow[1:-1, -2] + tmp.ylow[1:-1, 1])
+                )
+            if tmp_upper is not None:
+                tmp.ylow[1:-1, -1] = (
+                    (1.0 - mx.ylow[1:-1, -1] - my.ylow[1:-1, -1]) * tmp.ylow[1:-1, -1]
+                    + mx.ylow[1:-1, -1] * 0.5 * (tmp.ylow[:-2, -1] + tmp.ylow[2:, -1])
+                    + my.ylow[1:-1, -1]
+                    * 0.5
+                    * (tmp.ylow[1:-1, -2] + tmp_upper.ylow[1:-1, 1])
+                )
+        if tmp.corners is not None:
+            tmp.corners[1:-1, 1:-1] = (
+                (1.0 - mx.corners[1:-1, 1:-1] - my.corners[1:-1, 1:-1])
+                * tmp.corners[1:-1, 1:-1]
+                + mx.corners[1:-1, 1:-1]
+                * 0.5
+                * (tmp.corners[:-2, 1:-1] + tmp.corners[2:, 1:-1])
+                + my.corners[1:-1, 1:-1]
+                * 0.5
+                * (tmp.corners[1:-1, :-2] + tmp.corners[1:-1, 2:])
+            )
+            if tmp_inner is not None:
+                tmp.corners[0, 1:-1] = (
+                    (1.0 - mx.corners[0, 1:-1] - my.corners[0, 1:-1])
+                    * tmp.corners[0, 1:-1]
+                    + mx.corners[0, 1:-1]
+                    * 0.5
+                    * (tmp_inner.corners[-2, 1:-1] + tmp.corners[1, 1:-1])
+                    + my.corners[0, 1:-1]
+                    * 0.5
+                    * (tmp.corners[0, :-2] + tmp.corners[0, 2:])
+                )
+            else:
+                tmp.corners[0, 1:-1] = tmp.corners[1, 1:-1]
+            if tmp_outer is not None:
+                tmp.corners[-1, 1:-1] = (
+                    (1.0 - mx.corners[-1, 1:-1] - my.corners[-1, 1:-1])
+                    * tmp.corners[-1, 1:-1]
+                    + mx.corners[-1, 1:-1]
+                    * 0.5
+                    * (tmp.corners[-2, 1:-1] + tmp_outer.corners[1, 1:-1])
+                    + my.corners[-1, 1:-1]
+                    * 0.5
+                    * (tmp.corners[-1, :-2] + tmp.corners[-1, 2:])
+                )
+            else:
+                tmp.corners[-1, 1:-1] = tmp.corners[-2, 1:-1]
+            if tmp_lower is not None:
+                tmp.corners[1:-1, 0] = (
+                    (1.0 - mx.corners[1:-1, 0] - my.corners[1:-1, 0])
+                    * tmp.corners[1:-1, 0]
+                    + mx.corners[1:-1, 0]
+                    * 0.5
+                    * (tmp.corners[:-2, 0] + tmp.corners[2:, 0])
+                    + my.corners[1:-1, 0]
+                    * 0.5
+                    * (tmp_lower.corners[1:-1, -2] + tmp.corners[1:-1, 1])
+                )
+            if tmp_upper is not None:
+                tmp.corners[1:-1, -1] = (
+                    (1.0 - mx.corners[1:-1, -1] - my.corners[1:-1, -1])
+                    * tmp.corners[1:-1, -1]
+                    + mx.corners[1:-1, -1]
+                    * 0.5
+                    * (tmp.corners[:-2, -1] + tmp.corners[2:, -1])
+                    + my.corners[1:-1, -1]
+                    * 0.5
+                    * (tmp.corners[1:-1, -2] + tmp_upper.corners[1:-1, 1])
+                )
+
+        diff = abs(tmp - getattr(self, varname))
+        changes = []
+        if diff.centre is not None:
+            changes.append(numpy.max(diff.centre))
+        if diff.xlow is not None:
+            changes.append(numpy.max(diff.xlow))
+        if diff.ylow is not None:
+            changes.append(numpy.max(diff.ylow))
+        if diff.corners is not None:
+            changes.append(numpy.max(diff.corners))
+        change = max(changes)
+
+        return tmp, change
+        setattr(self, varname, tmp)
+
 
 class Mesh:
     """
@@ -2104,6 +2538,258 @@ class Mesh:
         for region in self.regions.values():
             print(region.name, end="\r")
             region.calcMetric()
+
+        if self.user_options.curvature_smoothing == "smoothnl":
+            # Nonlinear smoothing. Tries to smooth only regions with large changes in
+            # gradient.
+            # Smooth {bxcvx,bxcvy,bxcvz} and {curl_bOverB_x,curl_bOverB_y,curl_bOverB_z}
+            # separately (not consistently with each other).
+            if not self.user_options.shiftedmetric:
+                # If shiftedmetric==False, would need to follow IDL hypnotoad and:
+                #  - calculate bz = bxcvz + I*bxcvx
+                #  - smooth bxcvx, bxcvy, and bz
+                #  - set bxcvz = bz - I * bxcvx
+                # and similarly for curl_bOverB_z
+                raise ValueError(
+                    "shiftedmetric==False not handled in "
+                    "curvature_smoothing=='smoothnl'. Non-zero I requires bxcvx and "
+                    "bxcvz to be smoothed consistently"
+                )
+            self.smoothnl("bxcvx")
+            self.smoothnl("bxcvy")
+            self.smoothnl("bxcvz")
+            self.smoothnl("curl_bOverB_x")
+            self.smoothnl("curl_bOverB_y")
+            self.smoothnl("curl_bOverB_z")
+
+    def smoothnl(self, varname):
+        """
+        Smoothing algorithm copied from IDL hypnotoad
+        https://github.com/boutproject/BOUT-dev/blob/v4.3.2/tools/tokamak_grids/gridgen/smooth_nl.pro  # noqa: E501
+        """
+        npoints_centre = sum(region.nx * region.ny for region in self.regions.values())
+        npoints_xlow = sum(
+            (region.nx + (1 if region.connections["outer"] is None else 0)) * region.ny
+            for region in self.regions.values()
+        )
+        npoints_ylow = sum(
+            region.nx * (region.ny + (1 if region.connections["upper"] is None else 0))
+            for region in self.regions.values()
+        )
+        npoints_corners = sum(
+            (region.nx + (1 if region.connections["outer"] is None else 0))
+            * (region.ny + (1 if region.connections["upper"] is None else 0))
+            for region in self.regions.values()
+        )
+
+        region0 = list(self.regions.values())[0]
+        mxn = {}
+        myn = {}
+        # markx and marky include guard cells, to avoid needing to add them as members
+        # to MeshRegion objects (if they did not have guard cells, we would need to be
+        # able to get them from self.getNeighbour("inner"), etc. in
+        # MeshRegion.smoothnl_inner2()).
+        markx = {
+            region_name: MultiLocationArray(region.nx + 2, region.ny + 2)
+            for region_name, region in self.regions.items()
+        }
+        marky = {
+            region_name: MultiLocationArray(region.nx + 2, region.ny + 2)
+            for region_name, region in self.regions.items()
+        }
+        for i in range(50):
+            for region_name, region in self.regions.items():
+                mxn[region_name], myn[region_name] = region.smoothnl_inner1(varname)
+
+            if getattr(region0, varname).centre is not None:
+                mean_mxn = sum(x.centre.sum() for x in mxn.values()) / npoints_centre
+                mean_myn = sum(x.centre.sum() for x in myn.values()) / npoints_centre
+                for region_name, region in self.regions.items():
+                    this_markx = 0.5 * mxn[region_name].centre / mean_mxn
+                    this_markx = numpy.where(this_markx < 1.0, this_markx, 1.0)
+                    markx[region_name].centre[1:-1, 1:-1] = this_markx
+
+                    this_marky = 0.5 * myn[region_name].centre / mean_myn
+                    this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
+                    marky[region_name].centre[1:-1, 1:-1] = this_marky
+
+                    if region.connections["inner"] is not None:
+                        markx[region.connections["inner"]].centre[
+                            -1, 1:-1
+                        ] = this_markx[0, :]
+                        marky[region.connections["inner"]].centre[
+                            -1, 1:-1
+                        ] = this_marky[0, :]
+                    if region.connections["outer"] is not None:
+                        markx[region.connections["outer"]].centre[0, 1:-1] = this_markx[
+                            -1, :
+                        ]
+                        marky[region.connections["outer"]].centre[0, 1:-1] = this_marky[
+                            -1, :
+                        ]
+                    if region.connections["lower"] is not None:
+                        markx[region.connections["lower"]].centre[
+                            1:-1, -1
+                        ] = this_markx[:, 0]
+                        marky[region.connections["lower"]].centre[
+                            1:-1, -1
+                        ] = this_marky[:, 0]
+                    if region.connections["upper"] is not None:
+                        markx[region.connections["upper"]].centre[1:-1, 0] = this_markx[
+                            :, -1
+                        ]
+                        marky[region.connections["upper"]].centre[1:-1, 0] = this_marky[
+                            :, -1
+                        ]
+                    if numpy.any(markx[region_name].centre[1:-1, 1:-1] > 1.0):
+                        raise ValueError(f"{markx[region_name].centre[1:-1, 1:-1]}")
+                    if numpy.any(markx[region_name].centre[1:-1, -1] > 1.0):
+                        raise ValueError(f"{markx[region_name].centre[1:-1, -1]}")
+
+            if getattr(region0, varname).xlow is not None:
+                mean_mxn = sum(x.xlow.sum() for x in mxn.values()) / npoints_xlow
+                mean_myn = sum(x.xlow.sum() for x in myn.values()) / npoints_xlow
+                for region_name, region in self.regions.items():
+                    this_markx = 0.5 * mxn[region_name].xlow / mean_mxn
+                    this_markx = numpy.where(this_markx < 1.0, this_markx, 1.0)
+                    markx[region_name].xlow[1:-1, 1:-1] = this_markx
+
+                    this_marky = 0.5 * myn[region_name].xlow / mean_myn
+                    this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
+                    marky[region_name].xlow[1:-1, 1:-1] = this_marky
+
+                    if region.connections["inner"] is not None:
+                        markx[region.connections["inner"]].xlow[-1, 1:-1] = this_markx[
+                            0, :
+                        ]
+                        marky[region.connections["inner"]].xlow[-1, 1:-1] = this_marky[
+                            0, :
+                        ]
+                    if region.connections["outer"] is not None:
+                        markx[region.connections["outer"]].xlow[0, 1:-1] = this_markx[
+                            -1, :
+                        ]
+                        marky[region.connections["outer"]].xlow[0, 1:-1] = this_marky[
+                            -1, :
+                        ]
+                    if region.connections["lower"] is not None:
+                        markx[region.connections["lower"]].xlow[1:-1, -1] = this_markx[
+                            :, 0
+                        ]
+                        marky[region.connections["lower"]].xlow[1:-1, -1] = this_marky[
+                            :, 0
+                        ]
+                    if region.connections["upper"] is not None:
+                        markx[region.connections["upper"]].xlow[1:-1, 0] = this_markx[
+                            :, -1
+                        ]
+                        marky[region.connections["upper"]].xlow[1:-1, 0] = this_marky[
+                            :, -1
+                        ]
+
+            if getattr(region0, varname).ylow is not None:
+                mean_mxn = sum(x.ylow.sum() for x in mxn.values()) / npoints_ylow
+                mean_myn = sum(x.ylow.sum() for x in myn.values()) / npoints_ylow
+                for region_name, region in self.regions.items():
+                    this_markx = 0.5 * mxn[region_name].ylow / mean_mxn
+                    this_markx = numpy.where(this_markx < 1.0, this_markx, 1.0)
+                    markx[region_name].ylow[1:-1, 1:-1] = this_markx
+
+                    this_marky = 0.5 * myn[region_name].ylow / mean_myn
+                    this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
+                    marky[region_name].ylow[1:-1, 1:-1] = this_marky
+
+                    if region.connections["inner"] is not None:
+                        markx[region.connections["inner"]].ylow[-1, 1:-1] = this_markx[
+                            0, :
+                        ]
+                        marky[region.connections["inner"]].ylow[-1, 1:-1] = this_marky[
+                            0, :
+                        ]
+                    if region.connections["outer"] is not None:
+                        markx[region.connections["outer"]].ylow[0, 1:-1] = this_markx[
+                            -1, :
+                        ]
+                        marky[region.connections["outer"]].ylow[0, 1:-1] = this_marky[
+                            -1, :
+                        ]
+                    if region.connections["lower"] is not None:
+                        markx[region.connections["lower"]].ylow[1:-1, -1] = this_markx[
+                            :, 0
+                        ]
+                        marky[region.connections["lower"]].ylow[1:-1, -1] = this_marky[
+                            :, 0
+                        ]
+                    if region.connections["upper"] is not None:
+                        markx[region.connections["upper"]].ylow[1:-1, 0] = this_markx[
+                            :, -1
+                        ]
+                        marky[region.connections["upper"]].ylow[1:-1, 0] = this_marky[
+                            :, -1
+                        ]
+
+            if getattr(region0, varname).corners is not None:
+                mean_mxn = sum(x.corners.sum() for x in mxn.values()) / npoints_corners
+                mean_myn = sum(x.corners.sum() for x in myn.values()) / npoints_corners
+                for region_name, region in self.regions.items():
+                    this_markx = 0.5 * mxn[region_name].corners / mean_mxn
+                    this_markx = numpy.where(this_markx < 1.0, this_markx, 1.0)
+                    markx[region_name].corners[1:-1, 1:-1] = this_markx
+
+                    this_marky = 0.5 * myn[region_name].corners / mean_myn
+                    this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
+                    marky[region_name].corners[1:-1, 1:-1] = this_marky
+
+                    if region.connections["inner"] is not None:
+                        markx[region.connections["inner"]].corners[
+                            -1, 1:-1
+                        ] = this_markx[0, :]
+                        marky[region.connections["inner"]].corners[
+                            -1, 1:-1
+                        ] = this_marky[0, :]
+                    if region.connections["outer"] is not None:
+                        markx[region.connections["outer"]].corners[
+                            0, 1:-1
+                        ] = this_markx[-1, :]
+                        marky[region.connections["outer"]].corners[
+                            0, 1:-1
+                        ] = this_marky[-1, :]
+                    if region.connections["lower"] is not None:
+                        markx[region.connections["lower"]].corners[
+                            1:-1, -1
+                        ] = this_markx[:, 0]
+                        marky[region.connections["lower"]].corners[
+                            1:-1, -1
+                        ] = this_marky[:, 0]
+                    if region.connections["upper"] is not None:
+                        markx[region.connections["upper"]].corners[
+                            1:-1, 0
+                        ] = this_markx[:, -1]
+                        marky[region.connections["upper"]].corners[
+                            1:-1, 0
+                        ] = this_marky[:, -1]
+
+            changes = []
+            tmp = {}
+            for region_name, region in self.regions.items():
+                this_tmp, change = region.smoothnl_inner2(
+                    varname, markx[region_name], marky[region_name]
+                )
+                changes.append(change)
+                tmp[region_name] = this_tmp
+
+            change = max(changes)
+
+            # Need to update the variables after calculating all tmp values because the
+            # variable values from neighbouring regions are used in
+            # region.smoothnl_inner2()
+            for region_name, region in self.regions.items():
+                setattr(region, varname, tmp[region_name])
+
+            print(f"Smoothing {varname} {i}: change={change}")
+
+            if change < 1.0e-3:
+                break
 
     def plotGridLines(self, **kwargs):
         from matplotlib import pyplot

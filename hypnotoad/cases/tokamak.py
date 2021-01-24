@@ -218,6 +218,17 @@ class TokamakEquilibrium(Equilibrium):
             ),
             value_type=[float, int, NoneType],
         ),
+        start_at_upper_outer=WithMeta(
+            False,
+            doc=(
+                "Start gridding double-null at upper-outer divertor instead of "
+                "lower-inner. Warning: this option was added to enable backward "
+                "compatibility with restart files from simulations in "
+                "upper-disconnected-double-null configuration using grid files from "
+                "the IDL hypnotoad; it is not well tested and not recommended to use."
+            ),
+            value_type=bool,
+        ),
         # Tolerance for positioning points that should be at X-point, but need to be
         # slightly displaced from the null so code can follow Grad(psi).
         # Number between 0. and 1.
@@ -1390,18 +1401,31 @@ class TokamakEquilibrium(Equilibrium):
         # BoutMesh generator can use jyseps indices to introduce branch cuts
 
         if "inner_lower_divertor" in region_objects:
-            ordering = [
-                "inner_lower_divertor",
-                # For single null; in double null this will be ignored
-                "core",
-                # For double null; in single null these will be ignored
-                "inner_core",
-                "inner_upper_divertor",
-                "outer_upper_divertor",
-                "outer_core",
-                #
-                "outer_lower_divertor",
-            ]
+            if not self.user_options.start_at_upper_outer:
+                ordering = [
+                    "inner_lower_divertor",
+                    # For single null; in double null this will be ignored
+                    "core",
+                    # For double null; in single null these will be ignored
+                    "inner_core",
+                    "inner_upper_divertor",
+                    "outer_upper_divertor",
+                    "outer_core",
+                    #
+                    "outer_lower_divertor",
+                ]
+            else:
+                # Special case intended for backward compatibility with simulations
+                # using upper-disconnected-double-null IDL-hypnotoad grid files
+                ordering = [
+                    "outer_upper_divertor",
+                    "outer_core",
+                    "outer_lower_divertor",
+                    "inner_lower_divertor",
+                    "core",
+                    "inner_core",
+                    "inner_upper_divertor",
+                ]
         else:
             # Upper single null special case
             ordering = ["outer_upper_divertor", "core", "inner_upper_divertor"]

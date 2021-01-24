@@ -11,10 +11,22 @@ What's new
   guaranteed to be monotonic, so is more robust. However this does change the output
   slightly compared to previous versions (#64)\
   By [John Omotani](https://github.com/johnomotani)
+- Rename target_poloidal_spacing_length, nonorthogonal_target_poloidal_spacing_length,
+  nonorthogonal_target_poloidal_spacing_range,
+  nonorthogonal_target_poloidal_spacing_range_inner,
+  nonorthogonal_target_poloidal_spacing_range_outer renamed to *_target_all_*, because
+  extra settings were added to modify each of these parameters individually for each
+  target (#75)\
+  By [John Omotani](https://github.com/johnomotani)
 
 ### New features
 
 - Smoothing copied from IDL hypnotoad for components of curvature vector (#79)\
+  By [John Omotani](https://github.com/johnomotani)
+- Check for unrecognised options in input files and raise an error if any are found
+  (#76)\
+  By [John Omotani](https://github.com/johnomotani)
+- Extra settings added so spacings can be controlled separately at each target (#74)\
   By [John Omotani](https://github.com/johnomotani)
 - EquilibriumRegion.getSqrtPoloidalDistanceFunc() upgraded to ensure that when
   it extrapolates the distance function is always monotonic. This is used when

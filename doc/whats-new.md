@@ -21,6 +21,8 @@ What's new
 
 ### New features
 
+- Option to start grid at upper-outer divertor instead of lower-inner (#80)\
+  By [John Omotani](https://github.com/johnomotani)
 - Smoothing copied from IDL hypnotoad for components of curvature vector (#79)\
   By [John Omotani](https://github.com/johnomotani)
 - Check for unrecognised options in input files and raise an error if any are found

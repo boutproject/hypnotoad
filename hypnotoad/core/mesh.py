@@ -336,7 +336,7 @@ class MeshRegion:
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
-        print("creating region", myID, "-", self.name)
+        print("creating region", myID, "-", self.name, flush=True)
 
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
@@ -487,7 +487,11 @@ class MeshRegion:
             # to calculate perp_d
             self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle ** 2)
 
-        print(f"Following perpendicular: 1/{len(self.equilibriumRegion)}", end="\r")
+        print(
+            f"Following perpendicular: 1/{len(self.equilibriumRegion)}",
+            end="\r",
+            flush=True,
+        )
 
         perp_points = followPerpendicular(
             self.meshParent.equilibrium.f_R,
@@ -514,6 +518,7 @@ class MeshRegion:
             print(
                 f"Following perpendicular: {i + 2}/{len(self.equilibriumRegion)}",
                 end="\r",
+                flush=True,
             )
 
             perp_points = followPerpendicular(
@@ -572,6 +577,7 @@ class MeshRegion:
             print(
                 f"finding wall intersections: {i_contour + 1}/{len(self.contours)}",
                 end="\r",
+                flush=True,
             )
 
             # point where contour intersects the lower wall
@@ -730,6 +736,7 @@ class MeshRegion:
             print(
                 f"distributing points on contour: {i_contour + 1}/{len(self.contours)}",
                 end="\r",
+                flush=True,
             )
 
             contour_is_separatrix = (
@@ -1509,7 +1516,7 @@ class MeshRegion:
         # contours have accurately calculated distances
         # calculate distances between j+/-0.5
         for i in range(self.nx):
-            print(f"{self.name} calcHy {i} / {2 * self.nx + 1}", end="\r")
+            print(f"{self.name} calcHy {i} / {2 * self.nx + 1}", end="\r", flush=True)
             d = numpy.array(self.contours[2 * i + 1].distance)
             hy.centre[i, :] = d[2::2] - d[:-2:2]
             hy.ylow[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
@@ -1529,7 +1536,11 @@ class MeshRegion:
                 hy.ylow[i, -1] = 2.0 * (d[-1] - d[-2])
 
         for i in range(self.nx + 1):
-            print(f"{self.name} calcHy {i + self.nx} / {2 * self.nx + 1}", end="\r")
+            print(
+                f"{self.name} calcHy {i + self.nx} / {2 * self.nx + 1}",
+                end="\r",
+                flush=True,
+            )
             d = numpy.array(self.contours[2 * i].distance)
             hy.xlow[i, :] = d[2::2] - d[:-2:2]
             hy.corners[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
@@ -2503,14 +2514,14 @@ class Mesh:
             not self.user_options.orthogonal
         ), "redistributePoints would do nothing for an orthogonal grid."
         for region in self.regions.values():
-            print("redistributing", region.name)
+            print("redistributing", region.name, flush=True)
             region.distributePointsNonorthogonal(nonorthogonal_settings)
 
     def calculateRZ(self):
         """
         Create arrays with R and Z values of all points in the grid
         """
-        print("Get RZ values")
+        print("Get RZ values", flush=True)
         for region in self.regions.values():
             region.fillRZ()
         for region in self.regions.values():
@@ -2525,20 +2536,20 @@ class Mesh:
                 # R and Z arrays need calculating
                 self.calculateRZ()
                 break
-        print("Calculate geometry")
+        print("Calculate geometry", flush=True)
         for region in self.regions.values():
-            print("1", region.name, end="\r")
+            print("1", region.name, end="\r", flush=True)
             region.geometry1()
         for region in self.regions.values():
-            print("2", region.name, end="\r")
+            print("2", region.name, end="\r", flush=True)
             region.geometry2()
-        print("Calculate zShift")
+        print("Calculate zShift", flush=True)
         for region in self.regions.values():
-            print(region.name, end="\r")
+            print(region.name, end="\r", flush=True)
             region.calcZShift()
-        print("Calculate Metric")
+        print("Calculate Metric", flush=True)
         for region in self.regions.values():
-            print(region.name, end="\r")
+            print(region.name, end="\r", flush=True)
             region.calcMetric()
 
         if self.user_options.curvature_smoothing == "smoothnl":
@@ -2788,7 +2799,7 @@ class Mesh:
             for region_name, region in self.regions.items():
                 setattr(region, varname, tmp[region_name])
 
-            print(f"Smoothing {varname} {i}: change={change}")
+            print(f"Smoothing {varname} {i}: change={change}", flush=True)
 
             if change < 1.0e-3:
                 break

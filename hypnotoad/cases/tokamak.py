@@ -395,7 +395,7 @@ class TokamakEquilibrium(Equilibrium):
         super().__init__(nonorthogonal_settings)
 
         # Print the table of options
-        print(self.user_options.as_table())
+        print(self.user_options.as_table(), flush=True)
 
         if make_regions:
             # Create self.regions
@@ -682,7 +682,7 @@ class TokamakEquilibrium(Equilibrium):
         }
 
         if self.x_points[0].Z < self.o_point.Z:
-            print("Generating a lower single null")
+            print("Generating a lower single null", flush=True)
 
             segments["lower_pf"] = {
                 "nx": self.user_options.nx_pf,
@@ -726,7 +726,7 @@ class TokamakEquilibrium(Equilibrium):
                 ("core", 0, "core", 0),  # Core -> core
             ]
         else:
-            print("Upper Single Null")
+            print("Upper Single Null", flush=True)
 
             # The mesh is still arranged clockwise, meaning that y indexing starts
             # at the outer upper divertor, and ends at the inner upper divertor.
@@ -901,7 +901,7 @@ class TokamakEquilibrium(Equilibrium):
         }
 
         if nx_inter_sep == 0:
-            print("Generating a connected double null")
+            print("Generating a connected double null", flush=True)
 
             # Only use psi of inner separatrix, not the outer one (if it is slightly
             # different)
@@ -990,7 +990,7 @@ class TokamakEquilibrium(Equilibrium):
             )
 
         else:
-            print("Generating a disconnected double null")
+            print("Generating a disconnected double null", flush=True)
 
             # Disconnected double null -> Additional radial segment
             segments["near_sol"] = {
@@ -1002,7 +1002,7 @@ class TokamakEquilibrium(Equilibrium):
             }
 
             if self.x_points[0] == lower_x_point:
-                print("Lower double null")
+                print("Lower double null", flush=True)
 
                 inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
@@ -1058,7 +1058,7 @@ class TokamakEquilibrium(Equilibrium):
                 segments["upper_pf"]["nx"] -= nx_inter_sep
 
             else:
-                print("Upper double null")
+                print("Upper double null", flush=True)
                 inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
 

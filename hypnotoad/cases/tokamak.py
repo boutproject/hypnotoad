@@ -224,8 +224,11 @@ class TokamakEquilibrium(Equilibrium):
         xpoint_offset=WithMeta(
             0.1,
             doc=(
-                "Tolerance for positioning points that should be at X-point, but need "
-                "to be slightly displaced from the null so code can follow Grad(psi)."
+                "Tolerance for placing intial positions for tracing perpendiculars "
+                "that should start exactly at an X-point, but initial positions to be "
+                "slightly displaced from the null so code can follow Grad(psi).  This "
+                "is a numerical fudge factor that may need to be increased for "
+                "low-resolution input equilibria."
             ),
             value_type=float,
             check_all=[is_positive, lambda x: x < 1.0],

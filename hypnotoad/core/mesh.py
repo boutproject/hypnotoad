@@ -1509,6 +1509,7 @@ class MeshRegion:
         # contours have accurately calculated distances
         # calculate distances between j+/-0.5
         for i in range(self.nx):
+            print(f"{self.name} calcHy {i} / {2 * self.nx + 1}", end="\r")
             d = numpy.array(self.contours[2 * i + 1].distance)
             hy.centre[i, :] = d[2::2] - d[:-2:2]
             hy.ylow[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
@@ -1528,6 +1529,7 @@ class MeshRegion:
                 hy.ylow[i, -1] = 2.0 * (d[-1] - d[-2])
 
         for i in range(self.nx + 1):
+            print(f"{self.name} calcHy {i + self.nx} / {2 * self.nx + 1}", end="\r")
             d = numpy.array(self.contours[2 * i].distance)
             hy.xlow[i, :] = d[2::2] - d[:-2:2]
             hy.corners[i, 1:-1] = d[3:-1:2] - d[1:-3:2]

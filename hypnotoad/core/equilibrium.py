@@ -645,7 +645,7 @@ class FineContour:
             count += 1
 
             if self.user_options.finecontour_diagnose:
-                print("iteration", count, "  ds_error", ds_error)
+                print("iteration", count, "  ds_error", ds_error, flush=True)
 
                 Rpoints = self.positions[:, 0]
                 Zpoints = self.positions[:, 1]

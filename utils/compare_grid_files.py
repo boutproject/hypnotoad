@@ -133,6 +133,10 @@ def trim_yboundaries(ds):
 
 def plot_arrays(ds1, ds2, variables, *, atol, poloidal_plot, show_all):
 
+    # Need to drop 'dimension coordinates' as xarray arithmetic operations by default
+    # work on the intersection of two DataArrays, as determined by the dimension
+    # coordinates, but the coordinates are not necessarily the same between the two grid
+    # files.
     if poloidal_plot:
         ds1 = ds1.drop(("x", "theta_coord"))
         ds2 = ds2.drop(("x", "theta_coord"))
@@ -141,6 +145,8 @@ def plot_arrays(ds1, ds2, variables, *, atol, poloidal_plot, show_all):
         ds2 = ds2.drop(("x", "y"))
 
     if not ds1.metadata["y_boundary_guards"] == ds2.metadata["y_boundary_guards"]:
+        # If number of y-boundary cells is not the same in both grid files, then trim
+        # off all y-boundary cells before calculating differences
         ds1_trimmed = trim_yboundaries(ds1)
         ds2_trimmed = trim_yboundaries(ds2)
     else:
@@ -150,6 +156,8 @@ def plot_arrays(ds1, ds2, variables, *, atol, poloidal_plot, show_all):
 
     for v in variables:
         if poloidal_plot:
+            # Poloidal plots are (usually) higher than they are wide, so put all plots
+            # side-by-side
             fig, axes = plt.subplots(1, 4)
         else:
             fig, axes = plt.subplots(2, 2)
@@ -226,6 +234,10 @@ def plot_arrays(ds1, ds2, variables, *, atol, poloidal_plot, show_all):
         fig.suptitle(v)
         if len(da1.shape) > 1:
             if poloidal_plot:
+                # Attributes are not necessarily propagated through xarray arithemetic
+                # operations (anyway they may not be consistent between ds1_trimmed and
+                # ds2_trimmed), so make sure absolute_difference and relative_difference
+                # both have metadata and regions.
                 absolute_difference.attrs["metadata"] = da1_trimmed.metadata
                 absolute_difference.attrs["regions"] = da1_trimmed.regions
                 absolute_difference = absolute_difference.assign_coords(
@@ -273,23 +285,46 @@ if __name__ == "__main__":
     from sys import exit
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("ds1")
-    parser.add_argument("ds2")
-    parser.add_argument("--ignore-ylow", action="store_true", default=False)
-    parser.add_argument("--atol", type=float, default=1.0e-8)
-    parser.add_argument("--poloidal-plot", action="store_true", default=False)
-    parser.add_argument("--show-all", action="store_true", default=False)
+    parser.add_argument("gridfile1", help="first grid file")
+    parser.add_argument("gridfile2", help="second grid file")
+    parser.add_argument(
+        "--ignore-ylow",
+        action="store_true",
+        default=False,
+        help="skip checking variables on the staggered 'ylow' grid",
+    )
+    parser.add_argument(
+        "--atol",
+        type=float,
+        default=1.0e-8,
+        help=(
+            "tolerance used to ensure relative_difference does not diverge if a "
+            "variable goes to zero"
+        ),
+    )
+    parser.add_argument(
+        "--poloidal-plot",
+        action="store_true",
+        default=False,
+        help="plot 2d variables in R-Z coordinates instead of in grid indices",
+    )
+    parser.add_argument(
+        "--show-all",
+        action="store_true",
+        default=False,
+        help="show all plots at once - if not given plots are shown one at a time",
+    )
     args = parser.parse_args()
 
     ds1 = open_boutdataset(
-        args.ds1, keep_xboundaries=True, keep_yboundaries=True, info=False
+        args.gridfile1, keep_xboundaries=True, keep_yboundaries=True, info=False
     ).load()
-    ds1.attrs["name"] = args.ds1
+    ds1.attrs["name"] = args.gridfile1
 
     ds2 = open_boutdataset(
-        args.ds2, keep_xboundaries=True, keep_yboundaries=True, info=False
+        args.gridfile2, keep_xboundaries=True, keep_yboundaries=True, info=False
     ).load()
-    ds2.attrs["name"] = args.ds2
+    ds2.attrs["name"] = args.gridfile2
 
     if args.poloidal_plot:
         from xbout.geometries import apply_geometry

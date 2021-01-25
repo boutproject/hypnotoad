@@ -2,7 +2,7 @@ What's new
 ==========
 
 
-0.2.2 (unreleased)
+0.3.0 (25th January 2021)
 ------------------
 
 ### Breaking changes

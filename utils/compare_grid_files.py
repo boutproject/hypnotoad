@@ -40,12 +40,12 @@ def check_missing_variables(ds1, ds2, *, ignore_ylow=False):
     only_on_1 = []
     only_on_2 = []
     for v in variables:
+        if ignore_ylow and "ylow" in v:
+            continue
         if v not in ds1:
-            if not (ignore_ylow and "ylow" in v):
-                only_on_2.append(v)
+            only_on_2.append(v)
         elif v not in ds2:
-            if not (ignore_ylow and "ylow" in v):
-                only_on_1.append(v)
+            only_on_1.append(v)
         else:
             common_variables.append(v)
 
@@ -53,12 +53,12 @@ def check_missing_variables(ds1, ds2, *, ignore_ylow=False):
 
     common_scalar_variables = []
     for v in scalar_variables:
+        if ignore_ylow and "ylow" in v:
+            continue
         if v not in ds1.metadata:
-            if not (ignore_ylow and "ylow" in v):
-                only_on_2.append(v)
+            only_on_2.append(v)
         elif v not in ds2.metadata:
-            if not (ignore_ylow and "ylow" in v):
-                only_on_1.append(v)
+            only_on_1.append(v)
         else:
             common_scalar_variables.append(v)
 

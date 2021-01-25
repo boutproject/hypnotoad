@@ -21,6 +21,10 @@ What's new
 
 ### New features
 
+- Python script to compare two grid files. Script uses xBOUT. Added to utils/
+  subdirectory of repo, and not installed with hypnotoad package (to avoid adding
+  dependency on xBOUT) (#83)\
+  By [John Omotani](https://github.com/johnomotani)
 - Option to start grid at upper-outer divertor instead of lower-inner (#80)\
   By [John Omotani](https://github.com/johnomotani)
 - Smoothing copied from IDL hypnotoad for components of curvature vector (#79)\

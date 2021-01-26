@@ -963,6 +963,8 @@ class PsiContour:
     def fine_contour(self):
         if self._fine_contour is None:
             self._fine_contour = FineContour(self, dict(self.user_options))
+            # Ensure that the fine contour is long enough
+            self.checkFineContourExtend()
         return self._fine_contour
 
     @property

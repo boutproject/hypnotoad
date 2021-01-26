@@ -598,6 +598,39 @@ class TestContour:
                 testcontour.Z0 + r * numpy.sin(theta), abs=1.0e-4
             )
 
+    def test_finecontour_extent_lower(self, testcontour):
+        contour = testcontour.c
+
+        contour_initial = contour[0]
+        del contour.points[0]
+        contour.endInd = contour.endInd - 1
+
+        # This will create contour._fine_contour and check that contour.distance
+        # is monotonic at this point
+        contour.distance
+
+        contour.prepend(contour_initial)
+
+        # Check that after modifying contour, contour._fine_contour still extends far
+        # enough to give a monotonic contour.distance
+        contour.distance
+
+    def test_finecontour_extent_upper(self, testcontour):
+        contour = testcontour.c
+
+        contour_final = contour[-1]
+        del contour.points[-1]
+        contour.endInd = contour.endInd - 1
+
+        # This will create contour._fine_contour and check that contour.distance
+        # is monotonic at this point
+        contour.distance
+
+        contour.append(contour_final)
+        # Check that after modifying contour, contour._fine_contour still extends far
+        # enough to give a monotonic contour.distance
+        contour.distance
+
 
 class ThisEquilibrium(Equilibrium):
     def __init__(self, settings=None):

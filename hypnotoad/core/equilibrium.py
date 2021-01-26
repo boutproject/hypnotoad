@@ -372,7 +372,9 @@ def closest_approach(point, a, b):
 
     point, a, and b are all 2-element arrays
 
-    Algorithm from: https://monkeyproofsolutions.nl/wordpress/how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
+    Algorithm from:
+    https://monkeyproofsolutions.nl/wordpress/
+       how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
     """
     point = numpy.asarray(point)
     a = numpy.asarray(a)

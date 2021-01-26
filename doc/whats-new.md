@@ -2,8 +2,17 @@ What's new
 ==========
 
 
-0.3.0 (25th January 2021)
+0.3.1 (unreleased)
 ------------------
+
+### Bug fixes
+
+- Ensure FineContours always extend to the end of their parent PsiContour (#86, fixes
+  #84)\
+  By [Ben Dudson](https://github.com/bendudson)
+
+0.3.0 (25th January 2021)
+-------------------------
 
 ### Breaking changes
 

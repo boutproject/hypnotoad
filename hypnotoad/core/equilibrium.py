@@ -366,6 +366,39 @@ def find_intersections(l1array, l2start, l2end):
         return None
 
 
+def closest_approach(point, a, b):
+    """Shortest distance between point and the line segment
+    between a and b.
+
+    point, a, and b are all 2-element arrays
+
+    Algorithm from: https://monkeyproofsolutions.nl/wordpress/how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
+    """
+    point = numpy.asarray(point)
+    a = numpy.asarray(a)
+    b = numpy.asarray(b)
+
+    def dot(u, v):
+        """dot product of u and v, 2-element arrays"""
+        return numpy.sum(u * v)
+
+    def norm(v):
+        """Scalar norm of 2-element array v"""
+        return numpy.sqrt(dot(v, v))
+
+    m = b - a
+    t0 = dot(m, point - a) / dot(m, m)
+
+    if t0 < 0.0:
+        return norm(point - a)
+    if t0 > 1.0:
+        return norm(point - b)
+
+    # CPA intersects the segment
+    intersect = a + t0 * m
+    return norm(point - intersect)
+
+
 class FineContour:
     """
     Used to give a high-resolution representation of a contour.
@@ -822,7 +855,9 @@ class FineContour:
             i2 = i1 - 1
         elif i1 - 1 < 0:
             i2 = 1
-        elif distance_from_points[i1 + 1] < distance_from_points[i1 - 1]:
+        elif closest_approach(
+            p, self.positions[i1], self.positions[i1 + 1]
+        ) < closest_approach(p, self.positions[i1], self.positions[i1 - 1]):
             i2 = i1 + 1
         else:
             i2 = i1 - 1

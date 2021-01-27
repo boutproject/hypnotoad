@@ -5,6 +5,12 @@ What's new
 0.3.1 (unreleased)
 ------------------
 
+### New features
+
+- More robust calculation of distances in FineCountour.getDistance(), using
+  closest approach to line segments. Can be important for grids with sharp angles (#87)\
+  By [Ben Dudson](https://github.com/bendudson)
+
 ### Bug fixes
 
 - Ensure FineContours always extend to the end of their parent PsiContour (#86, fixes

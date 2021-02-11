@@ -23,6 +23,7 @@ from copy import deepcopy
 from hypnotoad.core.equilibrium import (
     calc_distance,
     find_intersections,
+    closest_approach,
     Equilibrium,
     EquilibriumRegion,
     FineContour,
@@ -334,6 +335,31 @@ def test_find_intersectionZZNone4():
     l2start = Point2D(0.1, 2.0)
     intersect = find_intersections(l1, l2start, l2end)
     assert intersect is None
+
+
+def test_closest_approach_on_line():
+    cpa = closest_approach([0.5, 0.5], [0.0, 0.0], [1.0, 1.0])
+    assert numpy.isclose(cpa, 0.0)
+
+
+def test_closest_approach_out_left():
+    cpa = closest_approach([1.0, 0.0], [2.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 1.0)
+
+
+def test_closest_approach_out_right():
+    cpa = closest_approach([3.5, 0.0], [2.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 0.5)
+
+
+def test_closest_approach_above():
+    cpa = closest_approach([2.0, 0.3], [1.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 0.3)
+
+
+def test_closest_approach_right():
+    cpa = closest_approach([1.5, 0.2], [1.0, 0.0], [1.0, 2.0])
+    assert numpy.isclose(cpa, 0.5)
 
 
 class TestContour:

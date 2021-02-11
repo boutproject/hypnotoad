@@ -40,6 +40,19 @@ class TokamakEquilibrium(Equilibrium):
 
     # Tokamak-specific options and default values
     user_options_factory = Equilibrium.user_options_factory.add(
+        reverse_current=WithMeta(
+            False,
+            doc="Reverse the sign of the poloidal field",
+            value_type=bool,
+        ),
+        extrapolate_profiles=WithMeta(
+            False,
+            doc=(
+                "Use an exponential decay for the pressure outside the separatrix"
+                ", based on the value and gradient at the plasma edge"
+            ),
+            value_type=bool,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -298,6 +311,46 @@ class TokamakEquilibrium(Equilibrium):
                options (self.nonorthogonal_options)
 
         """
+
+        self.user_options = self.user_options_factory.create(settings)
+
+        if self.user_options.reverse_current:
+            warnings.warn("Reversing the sign of the poloidal field")
+            psi2D *= -1.0
+            psi1D *= -1.0
+
+        if self.user_options.extrapolate_profiles:
+            # Extend the array to outer-most psi on grid
+            if pressure is not None:
+                dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
+
+            psi_increasing = psi1D[-1] > psi1D[0]
+            if psi_increasing:
+                psi_outer = max(
+                    self.user_options.psi_sol, self.user_options.psi_sol_inner
+                )
+            else:
+                psi_outer = min(
+                    self.user_options.psi_sol, self.user_options.psi_sol_inner
+                )
+            if (psi_increasing and psi_outer > psi1D[-1]) or (
+                not psi_increasing and psi_outer < psi1D[-1]
+            ):
+                # if psi_outer is not beyond the last point of psi1D, no need to extend
+                # Exclude first point since duplicates last point in core
+                psiSOL = np.linspace(psi1D[-1], psi_outer, 50)[1:]
+                psi1D = np.concatenate([psi1D, psiSOL])
+
+                # fpol constant in SOL
+                fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
+
+            if pressure is not None:
+                # Use an exponential decay for the pressure, based on
+                # the value and gradient at the plasma edge
+                p0 = pressure[-1]
+                # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
+                pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
+
         if dct:
             # Create an interpolation
             # This sets the functions
@@ -385,10 +438,6 @@ class TokamakEquilibrium(Equilibrium):
                 ::-1
             ]  # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r, z) for r, z in wall]
-
-        # Take the default settings, then the options keyword, then
-        # any additional keyword arguments
-        self.user_options = self.user_options_factory.create(settings)
 
         self.equilibOptions = {}
 
@@ -1568,11 +1617,6 @@ def read_geqdsk(
 
     psi2D = data["psi"]
 
-    if settings.get("reverse_current", False):
-        warnings.warn("Reversing the sign of the poloidal field")
-        psi2D *= -1.0
-        psi1D *= -1.0
-
     # Get the wall
     if "rlim" in data and "zlim" in data:
         wall = list(zip(data["rlim"], data["zlim"]))
@@ -1581,23 +1625,6 @@ def read_geqdsk(
 
     pressure = data["pres"]
     fpol = data["fpol"]
-
-    if settings.get("extrapolate_profiles", False):
-        # Use an exponential decay for the pressure, based on
-        # the value and gradient at the plasma edge
-        dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
-        p0 = pressure[-1]
-        # Extend the array out to normalised psi of 1.2
-        # Exclude first point since duplicates last point in core
-        psiSOL = np.linspace(0.0, 0.2 * (psi1D[-1] - psi1D[0]), 50)[1:]
-
-        psi1D = np.concatenate([psi1D, psiSOL])
-
-        # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
-        pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
-
-        # fpol constant in SOL
-        fpol = np.concatenate([fpol, np.full(psiSOL.shape, fpol[-1])])
 
     result = TokamakEquilibrium(
         R1D,

@@ -331,7 +331,7 @@ class TokamakEquilibrium(Equilibrium):
                 psi_outer = min(self.user_options.psi_sol, self.user_options.psi_sol_inner)
             if (
                 (psi_increasing and psi_outer > psi1D[-1])
-                or (not psi_increasing and psi_outer < psi1D[-1]
+                or (not psi_increasing and psi_outer < psi1D[-1])
             ):
                 # if psi_outer is not beyond the last point of psi1D, no need to extend
                 # Exclude first point since duplicates last point in core

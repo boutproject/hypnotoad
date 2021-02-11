@@ -684,7 +684,7 @@ class MeshRegion:
                             linewidth=3,
                         )
 
-                        wall = self.meshParent.equilibrium.plotWall(color="k")
+                        self.meshParent.equilibrium.plotWall(color="k")
 
                         plt.show()
                         raise RuntimeError(

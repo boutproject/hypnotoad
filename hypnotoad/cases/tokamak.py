@@ -335,7 +335,7 @@ class TokamakEquilibrium(Equilibrium):
             ):
                 # if psi_outer is not beyond the last point of psi1D, no need to extend
                 # Exclude first point since duplicates last point in core
-                psiSOL = np.linspace(psi1D[-1], psi_outer), 50)[1:]
+                psiSOL = np.linspace(psi1D[-1], psi_outer, 50)[1:]
                 psi1D = np.concatenate([psi1D, psiSOL])
 
                 # fpol constant in SOL

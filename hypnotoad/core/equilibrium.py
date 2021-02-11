@@ -978,14 +978,9 @@ class PsiContour:
 
                 import matplotlib.pyplot as plt
 
-                plt.plot([p.R for p in self], [p.Z for p in self], "-o", color="k")
+                self.plot(linestyle="-o", color="k")
 
-                plt.plot(
-                    self.fine_contour.positions[:, 0],
-                    self.fine_contour.positions[:, 1],
-                    "-x",
-                    color="r",
-                )
+                self.fine_contour.plot(linestyle="-x", color="r")
 
                 plt.show()
 

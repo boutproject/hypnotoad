@@ -626,9 +626,7 @@ class MeshRegion:
 
                         import matplotlib.pyplot as plt
 
-                        plt.plot(
-                            [p.R for p in contour], [p.Z for p in contour], color="b"
-                        )
+                        contour.plot(color="b")
 
                         plt.plot(
                             [contour[0].R, contour[1].R],
@@ -637,8 +635,7 @@ class MeshRegion:
                             linewidth=3,
                         )
 
-                        wall = self.meshParent.equilibrium.wall
-                        plt.plot([p.R for p in wall], [p.Z for p in wall], color="k")
+                        wall = self.meshParent.equilibrium.plotWall()
 
                         plt.show()
                         raise RuntimeError(
@@ -687,8 +684,7 @@ class MeshRegion:
                             linewidth=3,
                         )
 
-                        wall = self.meshParent.equilibrium.wall
-                        plt.plot([p.R for p in wall], [p.Z for p in wall], color="k")
+                        wall = self.meshParent.equilibrium.plotWall(color="k")
 
                         plt.show()
                         raise RuntimeError(

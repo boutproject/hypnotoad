@@ -621,9 +621,26 @@ class MeshRegion:
                         contour[1], contour[0]
                     )
                     count += 1
-                    assert (
-                        count < max_extend
-                    ), "extended contour too far without finding wall"
+                    if count >= max_extend:
+                        print("Contour intersection failed")
+
+                        import matplotlib.pyplot as plt
+
+                        contour.plot(color="b")
+
+                        plt.plot(
+                            [contour[0].R, contour[1].R],
+                            [contour[0].Z, contour[1].Z],
+                            color="r",
+                            linewidth=3,
+                        )
+
+                        self.meshParent.equilibrium.plotWall()
+
+                        plt.show()
+                        raise RuntimeError(
+                            "extended contour too far without finding wall"
+                        )
 
             if upper_wall:
                 if lower_wall:
@@ -651,9 +668,28 @@ class MeshRegion:
                         contour[-2], contour[-1]
                     )
                     count += 1
-                    assert (
-                        count < max_extend
-                    ), "extended contour too far without finding wall"
+                    if count >= max_extend:
+                        print("Contour intersection failed")
+
+                        import matplotlib.pyplot as plt
+
+                        plt.plot(
+                            [p.R for p in contour], [p.Z for p in contour], color="b"
+                        )
+
+                        plt.plot(
+                            [contour[-2].R, contour[-1].R],
+                            [contour[-2].Z, contour[-1].Z],
+                            color="r",
+                            linewidth=3,
+                        )
+
+                        self.meshParent.equilibrium.plotWall(color="k")
+
+                        plt.show()
+                        raise RuntimeError(
+                            "extended contour too far without finding wall"
+                        )
 
             # now add points on the wall(s) to the contour
             if lower_wall:

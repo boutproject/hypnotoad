@@ -1010,6 +1010,17 @@ class PsiContour:
             self._distance = [self.fine_contour.getDistance(p) for p in self]
             d = numpy.array(self._distance)
             if not numpy.all(d[1:] - d[:-1] > 0.0):
+                print(self._distance)
+                print(self)
+
+                import matplotlib.pyplot as plt
+
+                self.plot(linestyle="-o", color="k")
+
+                self.fine_contour.plot(linestyle="-x", color="r")
+
+                plt.show()
+
                 raise ValueError(
                     f"Distance not monotonically increasing for this contour. "
                     f"distance={self._distance}"
@@ -2739,6 +2750,13 @@ class EquilibriumRegion(PsiContour):
                         weight_lower * sfixed_lower + weight_upper * sfixed_upper
                     ) / (weight_lower + weight_upper)
 
+                    if numpy.any(weight_lower + weight_upper < 1e-200):
+                        print(weight_lower + weight_upper)
+                        raise RuntimeError(
+                            "Weight too small. Suggest increasing poloidal 'range' "
+                            "settings"
+                        )
+
                 return (
                     weight_lower * sfixed_lower
                     + weight_upper * sfixed_upper
@@ -3824,11 +3842,28 @@ class Equilibrium:
             assert intersects.shape[0] < 3, "too many intersections with wall"
             if intersects.shape[0] > 1:
                 second_intersect = Point2D(*intersects[1, :])
-                assert (
+                if not (
                     numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance
                     and numpy.abs(intersect.Z - second_intersect.Z)
                     < intersect_tolerance
-                ), "Multiple intersections with wall found"
+                ):
+
+                    print("Multiple intersections with the wall")
+
+                    import matplotlib.pyplot as plt
+
+                    plt.plot(
+                        [p.R for p in closed_wall],
+                        [p.Z for p in closed_wall],
+                        color="k",
+                    )
+
+                    plt.plot([p1.R, p2.R], [p1.Z, p2.Z], color="r", linewidth=3)
+
+                    plt.plot(intersects[:, 0], intersects[:, 1], "bo")
+                    plt.show()
+
+                    raise RuntimeError("Multiple intersections with wall found")
         else:
             intersect = None
 

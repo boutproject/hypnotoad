@@ -2716,7 +2716,8 @@ class EquilibriumRegion(PsiContour):
                     if numpy.any(weight_lower + weight_upper < 1e-200):
                         print(weight_lower + weight_upper)
                         raise RuntimeError(
-                            "Weight too small. Suggest increasing poloidal spacings"
+                            "Weight too small. Suggest increasing poloidal 'range' "
+                            "settings"
                         )
 
                 return (

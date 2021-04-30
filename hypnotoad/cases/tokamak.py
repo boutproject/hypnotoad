@@ -40,6 +40,19 @@ class TokamakEquilibrium(Equilibrium):
 
     # Tokamak-specific options and default values
     user_options_factory = Equilibrium.user_options_factory.add(
+        reverse_current=WithMeta(
+            False,
+            doc="Reverse the sign of the poloidal field",
+            value_type=bool,
+        ),
+        extrapolate_profiles=WithMeta(
+            False,
+            doc=(
+                "Use an exponential decay for the pressure outside the separatrix"
+                ", based on the value and gradient at the plasma edge"
+            ),
+            value_type=bool,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -218,14 +231,28 @@ class TokamakEquilibrium(Equilibrium):
             ),
             value_type=[float, int, NoneType],
         ),
+        start_at_upper_outer=WithMeta(
+            False,
+            doc=(
+                "Start gridding double-null at upper-outer divertor instead of "
+                "lower-inner. Warning: this option was added to enable backward "
+                "compatibility with restart files from simulations in "
+                "upper-disconnected-double-null configuration using grid files from "
+                "the IDL hypnotoad; it is not well tested and not recommended to use."
+            ),
+            value_type=bool,
+        ),
         # Tolerance for positioning points that should be at X-point, but need to be
         # slightly displaced from the null so code can follow Grad(psi).
         # Number between 0. and 1.
         xpoint_offset=WithMeta(
             0.1,
             doc=(
-                "Tolerance for positioning points that should be at X-point, but need "
-                "to be slightly displaced from the null so code can follow Grad(psi)."
+                "Tolerance for placing intial positions for tracing perpendiculars "
+                "that should start exactly at an X-point, but initial positions to be "
+                "slightly displaced from the null so code can follow Grad(psi).  This "
+                "is a numerical fudge factor that may need to be increased for "
+                "low-resolution input equilibria."
             ),
             value_type=float,
             check_all=[is_positive, lambda x: x < 1.0],
@@ -284,6 +311,46 @@ class TokamakEquilibrium(Equilibrium):
                options (self.nonorthogonal_options)
 
         """
+
+        self.user_options = self.user_options_factory.create(settings)
+
+        if self.user_options.reverse_current:
+            warnings.warn("Reversing the sign of the poloidal field")
+            psi2D *= -1.0
+            psi1D *= -1.0
+
+        if self.user_options.extrapolate_profiles:
+            # Extend the array to outer-most psi on grid
+            if pressure is not None:
+                dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
+
+            psi_increasing = psi1D[-1] > psi1D[0]
+            if psi_increasing:
+                psi_outer = max(
+                    self.user_options.psi_sol, self.user_options.psi_sol_inner
+                )
+            else:
+                psi_outer = min(
+                    self.user_options.psi_sol, self.user_options.psi_sol_inner
+                )
+            if (psi_increasing and psi_outer > psi1D[-1]) or (
+                not psi_increasing and psi_outer < psi1D[-1]
+            ):
+                # if psi_outer is not beyond the last point of psi1D, no need to extend
+                # Exclude first point since duplicates last point in core
+                psiSOL = np.linspace(psi1D[-1], psi_outer, 50)[1:]
+                psi1D = np.concatenate([psi1D, psiSOL])
+
+                # fpol constant in SOL
+                fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
+
+            if pressure is not None:
+                # Use an exponential decay for the pressure, based on
+                # the value and gradient at the plasma edge
+                p0 = pressure[-1]
+                # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
+                pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
+
         if dct:
             # Create an interpolation
             # This sets the functions
@@ -372,16 +439,12 @@ class TokamakEquilibrium(Equilibrium):
             ]  # Reverse, without modifying input list (which .reverse() would)
         self.wall = [Point2D(r, z) for r, z in wall]
 
-        # Take the default settings, then the options keyword, then
-        # any additional keyword arguments
-        self.user_options = self.user_options_factory.create(settings)
-
         self.equilibOptions = {}
 
         super().__init__(nonorthogonal_settings)
 
         # Print the table of options
-        print(self.user_options.as_table())
+        print(self.user_options.as_table(), flush=True)
 
         if make_regions:
             # Create self.regions
@@ -668,7 +731,7 @@ class TokamakEquilibrium(Equilibrium):
         }
 
         if self.x_points[0].Z < self.o_point.Z:
-            print("Generating a lower single null")
+            print("Generating a lower single null", flush=True)
 
             segments["lower_pf"] = {
                 "nx": self.user_options.nx_pf,
@@ -712,7 +775,7 @@ class TokamakEquilibrium(Equilibrium):
                 ("core", 0, "core", 0),  # Core -> core
             ]
         else:
-            print("Upper Single Null")
+            print("Upper Single Null", flush=True)
 
             # The mesh is still arranged clockwise, meaning that y indexing starts
             # at the outer upper divertor, and ends at the inner upper divertor.
@@ -887,7 +950,7 @@ class TokamakEquilibrium(Equilibrium):
         }
 
         if nx_inter_sep == 0:
-            print("Generating a connected double null")
+            print("Generating a connected double null", flush=True)
 
             # Only use psi of inner separatrix, not the outer one (if it is slightly
             # different)
@@ -976,7 +1039,7 @@ class TokamakEquilibrium(Equilibrium):
             )
 
         else:
-            print("Generating a disconnected double null")
+            print("Generating a disconnected double null", flush=True)
 
             # Disconnected double null -> Additional radial segment
             segments["near_sol"] = {
@@ -988,7 +1051,7 @@ class TokamakEquilibrium(Equilibrium):
             }
 
             if self.x_points[0] == lower_x_point:
-                print("Lower double null")
+                print("Lower double null", flush=True)
 
                 inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
@@ -1044,7 +1107,7 @@ class TokamakEquilibrium(Equilibrium):
                 segments["upper_pf"]["nx"] -= nx_inter_sep
 
             else:
-                print("Upper double null")
+                print("Upper double null", flush=True)
                 inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
 
@@ -1387,18 +1450,31 @@ class TokamakEquilibrium(Equilibrium):
         # BoutMesh generator can use jyseps indices to introduce branch cuts
 
         if "inner_lower_divertor" in region_objects:
-            ordering = [
-                "inner_lower_divertor",
-                # For single null; in double null this will be ignored
-                "core",
-                # For double null; in single null these will be ignored
-                "inner_core",
-                "inner_upper_divertor",
-                "outer_upper_divertor",
-                "outer_core",
-                #
-                "outer_lower_divertor",
-            ]
+            if not self.user_options.start_at_upper_outer:
+                ordering = [
+                    "inner_lower_divertor",
+                    # For single null; in double null this will be ignored
+                    "core",
+                    # For double null; in single null these will be ignored
+                    "inner_core",
+                    "inner_upper_divertor",
+                    "outer_upper_divertor",
+                    "outer_core",
+                    #
+                    "outer_lower_divertor",
+                ]
+            else:
+                # Special case intended for backward compatibility with simulations
+                # using upper-disconnected-double-null IDL-hypnotoad grid files
+                ordering = [
+                    "outer_upper_divertor",
+                    "outer_core",
+                    "outer_lower_divertor",
+                    "inner_lower_divertor",
+                    "core",
+                    "inner_core",
+                    "inner_upper_divertor",
+                ]
         else:
             # Upper single null special case
             ordering = ["outer_upper_divertor", "core", "inner_upper_divertor"]
@@ -1541,11 +1617,6 @@ def read_geqdsk(
 
     psi2D = data["psi"]
 
-    if settings.get("reverse_current", False):
-        warnings.warn("Reversing the sign of the poloidal field")
-        psi2D *= -1.0
-        psi1D *= -1.0
-
     # Get the wall
     if "rlim" in data and "zlim" in data:
         wall = list(zip(data["rlim"], data["zlim"]))
@@ -1555,24 +1626,7 @@ def read_geqdsk(
     pressure = data["pres"]
     fpol = data["fpol"]
 
-    if settings.get("extrapolate_profiles", False):
-        # Use an exponential decay for the pressure, based on
-        # the value and gradient at the plasma edge
-        dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
-        p0 = pressure[-1]
-        # Extend the array out to normalised psi of 1.2
-        # Exclude first point since duplicates last point in core
-        psiSOL = np.linspace(0.0, 0.2 * (psi1D[-1] - psi1D[0]), 50)[1:]
-
-        psi1D = np.concatenate([psi1D, psiSOL])
-
-        # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
-        pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
-
-        # fpol constant in SOL
-        fpol = np.concatenate([fpol, np.full(psiSOL.shape, fpol[-1])])
-
-    return TokamakEquilibrium(
+    result = TokamakEquilibrium(
         R1D,
         Z1D,
         psi2D,
@@ -1584,3 +1638,15 @@ def read_geqdsk(
         settings=settings,
         nonorthogonal_settings=nonorthogonal_settings,
     )
+
+    # Store geqdsk input as a string in the TokamakEquilibrium object so we can save it
+    # in BoutMesh.writeGridFile
+    # reset to beginning of file
+    filehandle.seek(0)
+    # read file as a single string and store in result
+    result.geqdsk_input = filehandle.read()
+    # also save filename, if it exists
+    if hasattr(filehandle, "name"):
+        result.geqdsk_filename = filehandle.name
+
+    return result

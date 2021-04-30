@@ -366,6 +366,41 @@ def find_intersections(l1array, l2start, l2end):
         return None
 
 
+def closest_approach(point, a, b):
+    """Shortest distance between point and the line segment
+    between a and b.
+
+    point, a, and b are all 2-element arrays
+
+    Algorithm from:
+    https://monkeyproofsolutions.nl/wordpress/
+       how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
+    """
+    point = numpy.asarray(point)
+    a = numpy.asarray(a)
+    b = numpy.asarray(b)
+
+    def dot(u, v):
+        """dot product of u and v, 2-element arrays"""
+        return numpy.sum(u * v)
+
+    def norm(v):
+        """Scalar norm of 2-element array v"""
+        return numpy.sqrt(dot(v, v))
+
+    m = b - a
+    t0 = dot(m, point - a) / dot(m, m)
+
+    if t0 < 0.0:
+        return norm(point - a)
+    if t0 > 1.0:
+        return norm(point - b)
+
+    # CPA intersects the segment
+    intersect = a + t0 * m
+    return norm(point - intersect)
+
+
 class FineContour:
     """
     Used to give a high-resolution representation of a contour.
@@ -408,7 +443,10 @@ class FineContour:
         refine_timeout=WithMeta(
             10.0,
             doc=(
-                "Timeout for refining FineContour objects in seconds. If you get "
+                "Timeout for refining FineContour objects in seconds. Set to None to "
+                "disable the timeout; can be useful for debugging as exceptions may "
+                "get lost due to a separate thread being used to run the refine() "
+                "method with a timeout. If you get "
                 "func_timeout.exceptions.FunctionTimedOut exceptions and you are sure "
                 "there is no problem with the grid, you could try increasing this "
                 "value."
@@ -642,7 +680,7 @@ class FineContour:
             count += 1
 
             if self.user_options.finecontour_diagnose:
-                print("iteration", count, "  ds_error", ds_error)
+                print("iteration", count, "  ds_error", ds_error, flush=True)
 
                 Rpoints = self.positions[:, 0]
                 Zpoints = self.positions[:, 1]
@@ -725,9 +763,9 @@ class FineContour:
             self.positions = result
 
         if self.user_options.refine_timeout is not None:
-            # Using func_timeout.func_timeout rather than the @func_timeout.func_set_timeout
-            # decorator on the refine method so that we can use self.user_options to set the
-            # length of the timeout.
+            # Using func_timeout.func_timeout rather than the
+            # @func_timeout.func_set_timeout decorator on the refine method so that we
+            # can use self.user_options to set the length of the timeout.
             func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
         else:
             refine(self)
@@ -742,7 +780,7 @@ class FineContour:
         self.startInd = n - 1 - self.endInd
         self.endInd = n - 1 - old_start
 
-    def interpSSperp(self, vec, kind="cubic"):
+    def interpSSperp(self, vec, kind="linear"):
         """
         Returns:
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
@@ -750,6 +788,13 @@ class FineContour:
            's_perp' is modified to be a monotonically increasing function along the
            contour.
         2. the total perpendicular distance between startInd and endInd of the contour.
+
+        Note: "linear" interpolation is more robust here, because the fix we use for
+        making sperp monotonic can make it non-smooth, so quadratic or cubic
+        interpolation may over-shoot. Accuracy can be increased by increasing
+        finecontour_Nfine. Also this function is only used to place the grid points in
+        the first place, so high accuracy is less important than in the interpolations
+        that get for example poloidal distance along the contour.
         """
 
         # vec_perp is a vector in the direction of either increasing or decreasing sperp
@@ -812,7 +857,9 @@ class FineContour:
             i2 = i1 - 1
         elif i1 - 1 < 0:
             i2 = 1
-        elif distance_from_points[i1 + 1] < distance_from_points[i1 - 1]:
+        elif closest_approach(
+            p, self.positions[i1], self.positions[i1 + 1]
+        ) < closest_approach(p, self.positions[i1], self.positions[i1 - 1]):
             i2 = i1 + 1
         else:
             i2 = i1 - 1
@@ -953,6 +1000,8 @@ class PsiContour:
     def fine_contour(self):
         if self._fine_contour is None:
             self._fine_contour = FineContour(self, dict(self.user_options))
+            # Ensure that the fine contour is long enough
+            self.checkFineContourExtend()
         return self._fine_contour
 
     @property
@@ -961,6 +1010,17 @@ class PsiContour:
             self._distance = [self.fine_contour.getDistance(p) for p in self]
             d = numpy.array(self._distance)
             if not numpy.all(d[1:] - d[:-1] > 0.0):
+                print(self._distance)
+                print(self)
+
+                import matplotlib.pyplot as plt
+
+                self.plot(linestyle="-o", color="k")
+
+                self.fine_contour.plot(linestyle="-x", color="r")
+
+                plt.show()
+
                 raise ValueError(
                     f"Distance not monotonically increasing for this contour. "
                     f"distance={self._distance}"
@@ -1673,18 +1733,57 @@ class EquilibriumRegion(PsiContour):
         ),
         xpoint_poloidal_spacing_length=WithMeta(
             lambda options: 5.0e-2 if options.orthogonal else 4.0,
+            doc=("Spacing at the X-point end of a region (used for orthogonal grids)."),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        target_all_poloidal_spacing_length=WithMeta(
+            lambda options: None if options.orthogonal else 1.0,
             doc=(
-                "Spacing at the X-point end of a region (used for orthogonal grids). "
+                "Spacing at the wall end of a region (used for orthogonal grids)"
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, int, NoneType],
             check_all=is_positive_or_None,
         ),
-        target_poloidal_spacing_length=WithMeta(
-            lambda options: None if options.orthogonal else 1.0,
+        target_inner_lower_poloidal_spacing_length=WithMeta(
+            lambda options: options.target_all_poloidal_spacing_length,
             doc=(
-                "Spacing at the wall end of a region (used for orthogonal grids)"
-                "Use None to not constrain the spacing."
+                "Spacing at the wall end of the inner, lower divertor leg region (used "
+                "for orthogonal grids). Use None to not constrain the spacing."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_positive_or_None,
+        ),
+        target_inner_upper_poloidal_spacing_length=WithMeta(
+            lambda options: options.target_all_poloidal_spacing_length,
+            doc=(
+                "Spacing at the wall end of the inner, upper divertor leg region (used "
+                "for orthogonal grids). Use None to not constrain the spacing. Note an "
+                "upper single null equilibrium will not use this setting, but rather "
+                "target_inner_lower_poloidal_spacing_length, for reasons of "
+                "implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_positive_or_None,
+        ),
+        target_outer_upper_poloidal_spacing_length=WithMeta(
+            lambda options: options.target_all_poloidal_spacing_length,
+            doc=(
+                "Spacing at the wall end of the outer, upper lower divertor leg region "
+                "(used for orthogonal grids). Use None to not constrain the spacing. "
+                "Note an upper single null equilibrium will not use this setting, but "
+                "rather target_outer_lower_poloidal_spacing_length, for reasons of "
+                "implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_positive_or_None,
+        ),
+        target_outer_lower_poloidal_spacing_length=WithMeta(
+            lambda options: options.target_all_poloidal_spacing_length,
+            doc=(
+                "Spacing at the wall end of the outer, lower divertor leg region (used "
+                "for orthogonal grids). Use None to not constrain the spacing."
             ),
             value_type=[float, int, NoneType],
             check_all=is_positive_or_None,
@@ -1756,7 +1855,7 @@ class EquilibriumRegion(PsiContour):
             value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
-        nonorthogonal_target_poloidal_spacing_length=WithMeta(
+        nonorthogonal_target_all_poloidal_spacing_length=WithMeta(
             # Default should be set (using user_options) when Equilibrim object is
             # created
             1.0,
@@ -1767,8 +1866,9 @@ class EquilibriumRegion(PsiContour):
             value_type=[float, int],
             check_all=is_positive,
         ),
-        nonorthogonal_target_poloidal_spacing_range=WithMeta(
-            lambda options: 0.5 * options.nonorthogonal_target_poloidal_spacing_length,
+        nonorthogonal_target_all_poloidal_spacing_range=WithMeta(
+            lambda options: 0.5
+            * options.nonorthogonal_target_all_poloidal_spacing_length,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"
@@ -1776,20 +1876,210 @@ class EquilibriumRegion(PsiContour):
             value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
-        nonorthogonal_target_poloidal_spacing_range_inner=WithMeta(
-            lambda options: 2.0 * options.nonorthogonal_target_poloidal_spacing_range,
+        nonorthogonal_target_all_poloidal_spacing_range_inner=WithMeta(
+            lambda options: 2.0
+            * options.nonorthogonal_target_all_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
-                "target. This range is used at 'inner' radial boundaries (core and PFR)"
+                "target. This range is used at 'inner' radial boundaries (PFR)"
             ),
             value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
         ),
-        nonorthogonal_target_poloidal_spacing_range_outer=WithMeta(
-            lambda options: 2.0 * options.nonorthogonal_target_poloidal_spacing_range,
+        nonorthogonal_target_all_poloidal_spacing_range_outer=WithMeta(
+            lambda options: 2.0
+            * options.nonorthogonal_target_all_poloidal_spacing_range,
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'outer' radial boundaries (SOL)"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_lower_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_length,
+            doc=(
+                "Poloidal spacing of grid points near the inner, lower target (for "
+                "nonorthogonal grids)."
+            ),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        nonorthogonal_target_inner_lower_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, lower target. This range is used at the radial location of "
+                "separatrices"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_lower_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_inner,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, lower target. This range is used at 'inner' radial boundaries "
+                "(PFR)"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_lower_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_outer,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, lower target. This range is used at 'outer' radial boundaries "
+                "(SOL)"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_upper_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_length,
+            doc=(
+                "Poloidal spacing of grid points near the inner, upper target (for "
+                "nonorthogonal grids). Note an upper single null equilibrium will not "
+                "use this setting, but rather "
+                "nonorthogonal_target_inner_lower_poloidal_spacing_length, for reasons "
+                "of implementation convenience."
+            ),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        nonorthogonal_target_inner_upper_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, upper target. This range is used at the radial location of "
+                "separatrices. Note an upper single null equilibrium will not "
+                "use this setting, but rather "
+                "nonorthogonal_target_inner_lower_poloidal_spacing_range, for reasons "
+                "of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_upper_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_inner,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, upper target. This range is used at 'inner' radial boundaries "
+                "(PFR). Note an upper single null equilibrium will not use this "
+                "setting, but rather "
+                "nonorthogonal_target_inner_lower_poloidal_spacing_range_inner, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_inner_upper_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_outer,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "inner, upper target. This range is used at 'outer' radial boundaries "
+                "(SOL). Note an upper single null equilibrium will not use this "
+                "setting, but rather "
+                "nonorthogonal_target_inner_lower_poloidal_spacing_range_outer, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_upper_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_length,
+            doc=(
+                "Poloidal spacing of grid points near the outer, upper target (for "
+                "nonorthogonal grids). Note an upper single null equilibrium will not "
+                "use this setting, but rather "
+                "nonorthogonal_target_outer_lower_poloidal_spacing_length, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        nonorthogonal_target_outer_upper_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, upper target. This range is used at the radial location of "
+                "separatrices. Note an upper single null equilibrium will not use this "
+                "setting, but rather "
+                "nonorthogonal_target_outer_lower_poloidal_spacing_range, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_upper_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_inner,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, upper target. This range is used at 'inner' radial boundaries "
+                "(PFR). Note an upper single null equilibrium will not use this "
+                "setting, but rather "
+                "nonorthogonal_target_outer_lower_poloidal_spacing_range_inner, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_upper_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_outer,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, upper target. This range is used at 'outer' radial boundaries "
+                "(SOL). Note an upper single null equilibrium will not use this "
+                "setting, but rather "
+                "nonorthogonal_target_outer_lower_poloidal_spacing_range_outer, for "
+                "reasons of implementation convenience."
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_lower_poloidal_spacing_length=WithMeta(
+            # Default should be set (using user_options) when Equilibrim object is
+            # created
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_length,
+            doc=(
+                "Poloidal spacing of grid points near the outer, lower target (for "
+                "nonorthogonal grids)"
+            ),
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        nonorthogonal_target_outer_lower_poloidal_spacing_range=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range,
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, lower target. This range is used at the radial location of "
+                "separatrices"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_lower_poloidal_spacing_range_inner=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_inner,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, lower target. This range is used at 'inner' radial boundaries "
+                "(PFR)"
+            ),
+            value_type=[float, int, NoneType],
+            check_all=is_non_negative_or_None,
+        ),
+        nonorthogonal_target_outer_lower_poloidal_spacing_range_outer=WithMeta(
+            lambda options: options.nonorthogonal_target_all_poloidal_spacing_range_outer,  # noqa: E501
+            doc=(
+                "Poloidal range over which to use perpendicular spacing near the "
+                "outer, lower target. This range is used at 'outer' radial boundaries "
+                "(SOL)"
             ),
             value_type=[float, int, NoneType],
             check_all=is_non_negative_or_None,
@@ -1896,25 +2186,58 @@ class EquilibriumRegion(PsiContour):
             nonorthogonal_settings
         )
 
+    def getTargetParameter(self, spacing):
+        parts = spacing.split("target")
+        prefix = parts[0] + "target_"
+        suffix = parts[1]
+
+        if "nonorthogonal" in prefix:
+            options = self.nonorthogonal_options
+        else:
+            options = self.user_options
+
+        if "inner" in self.name:
+            # Is an inner divertor leg
+            if "upper" in self.name:
+                # Is an inner, upper divertor leg
+                return getattr(options, prefix + "inner_upper" + suffix)
+            else:
+                # Is an inner, lower divertor leg of a double null, or the inner leg of
+                # a single null (which is usually a lower leg)
+                return getattr(options, prefix + "inner_lower" + suffix)
+        elif "outer" in self.name:
+            # Is an outer divertor leg
+            if "upper" in self.name:
+                # Is an outer, upper divertor leg
+                return getattr(options, prefix + "outer_upper" + suffix)
+            else:
+                # Is an outer, lower divertor leg of a double null, or the outer leg of
+                # a single null (which is usually a lower leg)
+                return getattr(options, prefix + "outer_lower" + suffix)
+        else:
+            raise ValueError(
+                f"Expected one of 'inner' and 'outer' in the name, got {self.name}"
+            )
+
     def getSpacings(self):
         # Set spacings depending on options.kind
         if self.kind.split(".")[0] == "wall":
             sqrt_a_lower = None
-            sqrt_b_lower = self.user_options.target_poloidal_spacing_length
-            nonorthogonal_orthogonal_d_lower = (
-                self.user_options.target_poloidal_spacing_length
+            sqrt_b_lower = self.getTargetParameter("target_poloidal_spacing_length")
+            nonorthogonal_orthogonal_d_lower = self.getTargetParameter(
+                "target_poloidal_spacing_length"
             )
-            monotonic_d_lower = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
+            monotonic_d_lower = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_length"
             )
-            nonorthogonal_range_lower = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
+            nonorthogonal_range_lower = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
             )
-            nonorthogonal_range_lower_inner = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
+            nonorthogonal_range_lower_inner = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range_inner"
             )
-            nonorthogonal_range_lower_outer = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
+            nonorthogonal_range_lower_outer = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range_outer"
             )
         elif self.kind.split(".")[0] == "X":
             sqrt_a_lower = self.user_options.xpoint_poloidal_spacing_length
@@ -1938,21 +2261,21 @@ class EquilibriumRegion(PsiContour):
             raise ValueError(f"Unrecognized value before '.' in " f"kind={self.kind}")
         if self.kind.split(".")[1] == "wall":
             sqrt_a_upper = None
-            sqrt_b_upper = self.user_options.target_poloidal_spacing_length
-            nonorthogonal_orthogonal_d_upper = (
-                self.user_options.target_poloidal_spacing_length
+            sqrt_b_upper = self.getTargetParameter("target_poloidal_spacing_length")
+            nonorthogonal_orthogonal_d_upper = self.getTargetParameter(
+                "target_poloidal_spacing_length"
             )
-            monotonic_d_upper = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_length
+            monotonic_d_upper = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_length"
             )
-            nonorthogonal_range_upper = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range
+            nonorthogonal_range_upper = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
             )
-            nonorthogonal_range_upper_inner = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_inner  # noqa: E501
+            nonorthogonal_range_upper_inner = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range_inner"
             )
-            nonorthogonal_range_upper_outer = (
-                self.nonorthogonal_options.nonorthogonal_target_poloidal_spacing_range_outer  # noqa: E501
+            nonorthogonal_range_upper_outer = self.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range_outer"
             )
         elif self.kind.split(".")[1] == "X":
             sqrt_a_upper = self.user_options.xpoint_poloidal_spacing_length
@@ -2119,7 +2442,7 @@ class EquilibriumRegion(PsiContour):
             raise ValueError(
                 f"In region {self.name} combined spacing function is decreasing at "
                 f"indices {decreasing} on contour of length {len(self)}. It may help to "
-                f"increase/decrease {prefix}target_poloidal_spacing_length or "
+                f"increase/decrease {prefix}target_all_poloidal_spacing_length or "
                 f"{prefix}xpoint_poloidal_spacing_length."
             )
 
@@ -2426,6 +2749,13 @@ class EquilibriumRegion(PsiContour):
                     sorth = (
                         weight_lower * sfixed_lower + weight_upper * sfixed_upper
                     ) / (weight_lower + weight_upper)
+
+                    if numpy.any(weight_lower + weight_upper < 1e-200):
+                        print(weight_lower + weight_upper)
+                        raise RuntimeError(
+                            "Weight too small. Suggest increasing poloidal 'range' "
+                            "settings"
+                        )
 
                 return (
                     weight_lower * sfixed_lower
@@ -2840,11 +3170,30 @@ class EquilibriumRegion(PsiContour):
                 d + 2.0 * e * N / N_norm >= 0.0
             ), "gradient of polynomial part should be positive at end"
 
-            return (
-                lambda i: -b * numpy.sqrt((N - i) / N_norm)
-                + c
-                + d * i / N_norm
-                + e * (i / N_norm) ** 2
+            def lower_extrap(i):
+                # Matches value, gradient and curvature at i=0, but is monotonic
+                # s(iN) = A*(exp(B*iN) - 1) + C
+                # s(0) = 0 = C
+                # ds/diN(0) = b/2/sqrt(N/N_norm) + d = A*B
+                # d2s/d2iN(0) = b/4/(N/N_norm)**1.5 + 2*e = A*B**2
+                B = (b / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
+                    b / 2.0 / numpy.sqrt(N / N_norm) + d
+                )
+                A = (b / 2.0 / numpy.sqrt(N / N_norm) + d) / B
+                return A * (numpy.exp(B * i / N_norm) - 1.0)
+
+            return lambda i: numpy.piecewise(
+                i,
+                [i < 0.0],
+                [
+                    lower_extrap,
+                    (
+                        lambda ii: -b * numpy.sqrt((N - ii) / N_norm)
+                        + c
+                        + d * ii / N_norm
+                        + e * (ii / N_norm) ** 2
+                    ),
+                ],
             )
         elif b_upper is None:
             if a_lower is None:
@@ -2872,10 +3221,29 @@ class EquilibriumRegion(PsiContour):
                 a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm > 0.0
             ), "gradient at end should be positive"
 
-            return (
-                lambda i: a * numpy.sqrt(i / N_norm)
-                + d * i / N_norm
-                + e * (i / N_norm) ** 2
+            def upper_extrap(i):
+                # Matches value, gradient and curvature at i=N, but is monotonic
+                # s(iN) = A*(1 - exp(B*(N/N_norm-iN)) + C
+                # s(N/N_norm) = L = C
+                # ds/diN(N/N_norm) = a/2/sqrt(N/N_norm) + d + 2*e*N/N_norm = A*B
+                # d2s/d2iN(N/N_norm) = -a/4/(N/N_norm)**1.5 + 2*e = -A*B**2
+                B = -(-a / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / (
+                    a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm
+                )
+                A = (a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm) / B
+                return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
+
+            return lambda i: numpy.piecewise(
+                i,
+                [i > N],
+                [
+                    upper_extrap,
+                    lambda ii: (
+                        a * numpy.sqrt(ii / N_norm)
+                        + d * ii / N_norm
+                        + e * (ii / N_norm) ** 2
+                    ),
+                ],
             )
         else:
             if a_lower is None:
@@ -2965,34 +3333,88 @@ class EquilibriumRegion(PsiContour):
                     > -self.user_options.sfunc_checktol
                 ), "gradient of non-singular part should be positive at end"
 
+            if a == 0.0:
+
+                def lower_extrap(i):
+                    # Matches value, gradient and curvature at i=0, but is monotonic
+                    # s(iN) = A*(exp(B*iN) - 1) + C
+                    # s(0) = 0 = C
+                    # ds/diN(0) = b_lower = A*B
+                    # d2s/d2iN(0) = b/4/(N/N_norm)**1.5 + 2*e = A*B**2
+                    B = (b / 4.0 / (N / N_norm) ** 1.5 + 2.0 * e) / b_lower
+                    A = b_lower / B
+                    return A * (numpy.exp(B * i / N_norm) - 1.0)
+
+            if b == 0.0:
+
+                def upper_extrap(i):
+                    # Matches value, gradient and curvature at i=N, but is monotonic
+                    # s(iN) = A*(1 - exp(B*(N/N_norm - iN)) + C
+                    # s(N/N_norm) = L = C
+                    # ds/diN(N/N_norm) = b_upper = A*B
+                    # d2s/d2iN(N/N_norm) = a/4/(N/N_norm)**1.5 + 2*e + 6*f*N/N_norm
+                    #                    = -A*B**2
+                    B = (
+                        -(
+                            a / 4.0 / (N / N_norm) ** 1.5
+                            + 2.0 * e
+                            + 6.0 * f * N / N_norm
+                        )
+                        / b_upper
+                    )
+                    A = b_upper / B
+                    return A * (1.0 - numpy.exp(B * (N / N_norm - i / N_norm))) + length
+
             if a == 0.0 and b == 0.0:
                 # No sqrt parts, special case in case extrapolation at either
                 # end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i < 0.0, i > N],
+                    [
+                        lower_extrap,
+                        upper_extrap,
+                        lambda ii: (
+                            c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             elif a == 0.0:
                 # Only upper sqrt part, special case in case extrapolation at
-                # either end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: -b * numpy.sqrt((N - i) / N_norm)
-                    + c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                # lower end is wanted (where sqrt would give NaN)
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i < 0.0],
+                    [
+                        lower_extrap,
+                        lambda ii: (
+                            -b * numpy.sqrt((N - ii) / N_norm)
+                            + c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             elif b == 0.0:
                 # Only lower sqrt part, special case in case extrapolation at
-                # either end is wanted (where sqrt would give NaN)
-                return (
-                    lambda i: a * numpy.sqrt(i / N_norm)
-                    + c
-                    + d * i / N_norm
-                    + e * (i / N_norm) ** 2
-                    + f * (i / N_norm) ** 3
+                # upper end is wanted (where sqrt would give NaN)
+                return lambda i: numpy.piecewise(
+                    i,
+                    [i > N],
+                    [
+                        upper_extrap,
+                        lambda ii: (
+                            a * numpy.sqrt(ii / N_norm)
+                            + c
+                            + d * ii / N_norm
+                            + e * (ii / N_norm) ** 2
+                            + f * (ii / N_norm) ** 3
+                        ),
+                    ],
                 )
             else:
                 return (
@@ -3087,9 +3509,9 @@ class Equilibrium:
             nonorthogonal_xpoint_poloidal_spacing_length=(
                 0.25 * self.user_options.xpoint_poloidal_spacing_length
             ),
-            nonorthogonal_target_poloidal_spacing_length=(
-                self.user_options.target_poloidal_spacing_length
-                if self.user_options.target_poloidal_spacing_length is not None
+            nonorthogonal_target_all_poloidal_spacing_length=(
+                self.user_options.target_all_poloidal_spacing_length
+                if self.user_options.target_all_poloidal_spacing_length is not None
                 else 1.0
             ),
         )
@@ -3420,11 +3842,28 @@ class Equilibrium:
             assert intersects.shape[0] < 3, "too many intersections with wall"
             if intersects.shape[0] > 1:
                 second_intersect = Point2D(*intersects[1, :])
-                assert (
+                if not (
                     numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance
                     and numpy.abs(intersect.Z - second_intersect.Z)
                     < intersect_tolerance
-                ), "Multiple intersections with wall found"
+                ):
+
+                    print("Multiple intersections with the wall")
+
+                    import matplotlib.pyplot as plt
+
+                    plt.plot(
+                        [p.R for p in closed_wall],
+                        [p.Z for p in closed_wall],
+                        color="k",
+                    )
+
+                    plt.plot([p1.R, p2.R], [p1.Z, p2.Z], color="r", linewidth=3)
+
+                    plt.plot(intersects[:, 0], intersects[:, 1], "bo")
+                    plt.show()
+
+                    raise RuntimeError("Multiple intersections with wall found")
         else:
             intersect = None
 

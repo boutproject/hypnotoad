@@ -17,6 +17,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("filename")
     parser.add_argument("inputfile", nargs="?", default=None)
+    parser.add_argument("--pdb", action="store_true", default=False)
     args = parser.parse_args()
 
     filename = args.filename
@@ -30,6 +31,26 @@ def main():
         options = {}
 
     from ..cases import tokamak
+    from ..core.mesh import BoutMesh
+
+    possible_options = (
+        [opt for opt in tokamak.TokamakEquilibrium.user_options_factory.defaults]
+        + [
+            opt
+            for opt in tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
+        ]
+        + [opt for opt in BoutMesh.user_options_factory.defaults]
+    )
+    unused_options = [opt for opt in options if opt not in possible_options]
+    if unused_options != []:
+        raise ValueError(
+            f"There were options in the input file that are not used: {unused_options}"
+        )
+
+    if args.pdb:
+        import pdb
+
+        pdb.set_trace()
 
     with open(filename, "rt") as fh:
         eq = tokamak.read_geqdsk(fh, settings=options, nonorthogonal_settings=options)
@@ -49,8 +70,6 @@ def main():
             warnings.warn(str(err))
 
     # Create the mesh
-
-    from ..core.mesh import BoutMesh
 
     mesh = BoutMesh(eq, options)
     mesh.calculateRZ()

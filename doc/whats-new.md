@@ -2,8 +2,23 @@ What's new
 ==========
 
 
-0.2.2 (unreleased)
-------------------
+0.3.1 (11th February 2021)
+--------------------------
+
+### New features
+
+- More robust calculation of distances in FineCountour.getDistance(), using
+  closest approach to line segments. Can be important for grids with sharp angles (#87)\
+  By [Ben Dudson](https://github.com/bendudson)
+
+### Bug fixes
+
+- Ensure FineContours always extend to the end of their parent PsiContour (#86, fixes
+  #84)\
+  By [Ben Dudson](https://github.com/bendudson)
+
+0.3.0 (25th January 2021)
+-------------------------
 
 ### Breaking changes
 
@@ -11,17 +26,60 @@ What's new
   guaranteed to be monotonic, so is more robust. However this does change the output
   slightly compared to previous versions (#64)\
   By [John Omotani](https://github.com/johnomotani)
+- Rename target_poloidal_spacing_length, nonorthogonal_target_poloidal_spacing_length,
+  nonorthogonal_target_poloidal_spacing_range,
+  nonorthogonal_target_poloidal_spacing_range_inner,
+  nonorthogonal_target_poloidal_spacing_range_outer renamed to *_target_all_*, because
+  extra settings were added to modify each of these parameters individually for each
+  target (#75)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### New features
+
+- Python script to compare two grid files. Script uses xBOUT. Added to utils/
+  subdirectory of repo, and not installed with hypnotoad package (to avoid adding
+  dependency on xBOUT) (#83)\
+  By [John Omotani](https://github.com/johnomotani)
+- Option to start grid at upper-outer divertor instead of lower-inner (#80)\
+  By [John Omotani](https://github.com/johnomotani)
+- Smoothing copied from IDL hypnotoad for components of curvature vector (#79)\
+  By [John Omotani](https://github.com/johnomotani)
+- Check for unrecognised options in input files and raise an error if any are found
+  (#76)\
+  By [John Omotani](https://github.com/johnomotani)
+- Extra settings added so spacings can be controlled separately at each target (#74)\
+  By [John Omotani](https://github.com/johnomotani)
+- EquilibriumRegion.getSqrtPoloidalDistanceFunc() upgraded to ensure that when
+  it extrapolates the distance function is always monotonic. This is used when
+  y_boundary_guards is greater than 0 (#73)\
+  By [John Omotani](https://github.com/johnomotani)
+- Command line argument for hypnotoad_geqdsk to call pdb.set_trace() to make it
+  easier to debug exceptions with pdb (#72)\
+  By [John Omotani](https://github.com/johnomotani)
+- When grid file is created from a geqdsk input, save the filename, and the
+  contents of the geqdsk file to the grid file (#71, closes #70)\
+  By [John Omotani](https://github.com/johnomotani)
+- UUID unique identifier saved into each grid file (#67, closes #66)\
+  By [John Omotani](https://github.com/johnomotani)
 
 ### Bug fixes
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - BoutMesh options now settable in GUI (#63)\
 =======
+=======
+- String outputs written as file attributes rather than variables (#69, fixes #68)\
+  By [John Omotani](https://github.com/johnomotani)
+>>>>>>> 4d4f76a5244e535e826108dc35791ae84f29145a
 - Failure when target_poloidal_spacing_length set to number (rather than the
   default None) when y_boundary_guards is non-zero (#64)\
   By [John Omotani](https://github.com/johnomotani)
 - BoutMesh options now settable in GUI (#63)
+<<<<<<< HEAD
 >>>>>>> 752b8d893017c3597df5a8aa80e3231fa448c328
+=======
+>>>>>>> 4d4f76a5244e535e826108dc35791ae84f29145a
   By [John Omotani](https://github.com/johnomotani)
 - Changing settings in File->Preferences caused GUI to crash (#62, fixes #61)\
   By [John Omotani](https://github.com/johnomotani)

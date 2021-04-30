@@ -23,6 +23,7 @@ from copy import deepcopy
 from hypnotoad.core.equilibrium import (
     calc_distance,
     find_intersections,
+    closest_approach,
     Equilibrium,
     EquilibriumRegion,
     FineContour,
@@ -336,6 +337,31 @@ def test_find_intersectionZZNone4():
     assert intersect is None
 
 
+def test_closest_approach_on_line():
+    cpa = closest_approach([0.5, 0.5], [0.0, 0.0], [1.0, 1.0])
+    assert numpy.isclose(cpa, 0.0)
+
+
+def test_closest_approach_out_left():
+    cpa = closest_approach([1.0, 0.0], [2.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 1.0)
+
+
+def test_closest_approach_out_right():
+    cpa = closest_approach([3.5, 0.0], [2.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 0.5)
+
+
+def test_closest_approach_above():
+    cpa = closest_approach([2.0, 0.3], [1.0, 0.0], [3.0, 0.0])
+    assert numpy.isclose(cpa, 0.3)
+
+
+def test_closest_approach_right():
+    cpa = closest_approach([1.5, 0.2], [1.0, 0.0], [1.0, 2.0])
+    assert numpy.isclose(cpa, 0.5)
+
+
 class TestContour:
     @pytest.fixture
     def testcontour(self):
@@ -487,6 +513,8 @@ class TestContour:
         c.startInd = 2
         c.endInd = len(c) - 2
         n = c.endInd - c.startInd + 1
+        c.extend_lower = 2
+        c.extend_upper = 2
 
         f = c.contourSfunc()
 
@@ -501,13 +529,15 @@ class TestContour:
         c1 = testcontour.c
         c1.startInd = 2
         c1.endInd = len(c1) - 2
-        n = c1.endInd - c1.startInd
+        n1 = c1.endInd - c1.startInd
+        c1.extend_lower = 2
+        c1.extend_upper = 2
+        npoints1 = len(c1)
 
-        npoints = len(c1)
         r = testcontour.r
         R0 = testcontour.R0
         Z0 = testcontour.Z0
-        theta = numpy.linspace(0.0, 1.5 * numpy.pi, npoints)
+        theta = numpy.linspace(0.0, 1.5 * numpy.pi, 37)
 
         R = R0 + r * numpy.cos(theta)
         Z = Z0 + r * numpy.sin(theta)
@@ -520,6 +550,10 @@ class TestContour:
         )
         c2.startInd = 2
         c2.endInd = len(c2) - 1
+        n2 = c2.endInd - c2.startInd
+        c2.extend_lower = 2
+        c2.extend_upper = 1
+        npoints2 = len(c2)
 
         c_list = [c1, c2]
         sfunc_list = []
@@ -534,11 +568,11 @@ class TestContour:
             sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
         # notice we check that the first test *fails*
-        assert not sfunc_list[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert not sfunc_list[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
         sfunc_list2 = []
@@ -552,11 +586,11 @@ class TestContour:
         for c in c_list:
             sfunc_list2.append(shift_sfunc(c))
 
-        assert sfunc_list2[0](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
+        assert sfunc_list2[0](float(n1)) == pytest.approx(
+            n1 / (npoints1 - 1.0) * numpy.pi * r - 3.0, abs=1.0e-6
         )
-        assert sfunc_list2[1](float(n)) == pytest.approx(
-            n / (npoints - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
+        assert sfunc_list2[1](float(n2)) == pytest.approx(
+            n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
     def test_interpSSperp(self, testcontour):
@@ -589,6 +623,39 @@ class TestContour:
             assert p.Z == pytest.approx(
                 testcontour.Z0 + r * numpy.sin(theta), abs=1.0e-4
             )
+
+    def test_finecontour_extent_lower(self, testcontour):
+        contour = testcontour.c
+
+        contour_initial = contour[0]
+        del contour.points[0]
+        contour.endInd = contour.endInd - 1
+
+        # This will create contour._fine_contour and check that contour.distance
+        # is monotonic at this point
+        contour.distance
+
+        contour.prepend(contour_initial)
+
+        # Check that after modifying contour, contour._fine_contour still extends far
+        # enough to give a monotonic contour.distance
+        contour.distance
+
+    def test_finecontour_extent_upper(self, testcontour):
+        contour = testcontour.c
+
+        contour_final = contour[-1]
+        del contour.points[-1]
+        contour.endInd = contour.endInd - 1
+
+        # This will create contour._fine_contour and check that contour.distance
+        # is monotonic at this point
+        contour.distance
+
+        contour.append(contour_final)
+        # Check that after modifying contour, contour._fine_contour still extends far
+        # enough to give a monotonic contour.distance
+        contour.distance
 
 
 class ThisEquilibrium(Equilibrium):
@@ -842,6 +909,21 @@ class TestEquilibriumRegion:
         # f(i) = i/N*L
         assert f(3.0) == tight_approx(0.6)
 
+        # test gradients at upper and lower bounds
+        dfdi = L / N
+        # i=0, interior
+        itest = 1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=0, extropolating
+        itest = -1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=N, interior
+        itest = N - 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+        # i=N, extrapolating
+        itest = N + 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+
     def test_getSqrtPoloidalDistanceFuncBLower(self, eqReg):
         b_lower = 0.01
         L = 2.0
@@ -855,9 +937,24 @@ class TestEquilibriumRegion:
         # for i<<1, f ~ b_lower*i/N_norm
         itest = 0.01
         assert f(itest) == pytest.approx(b_lower * itest / N_norm, abs=1.0e-5)
-        # Check we can extrapolate at upper end
-        itest = N + 0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at upper bound
+        ##############################
+        # Copied from `b_upper is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = c + d*iN + e*iN**2
+        # df/diN(N/N_norm) = d + 2*e*N/N_norm
+        # c = 0
+        d = b_lower
+        e = (L - d * N / N_norm) / (N / N_norm) ** 2
+        dfdi = (d + 2 * e * N / N_norm) / N_norm
+
+        # test in interior
+        delta = 1.0e-4
+        itest = N - delta
+        assert (f(N) - f(itest)) / delta == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = N + delta
+        assert (f(itest) - f(N)) / delta == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBUpper(self, eqReg):
         b_upper = 0.01
@@ -872,9 +969,23 @@ class TestEquilibriumRegion:
         # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
         itest = N - 0.01
         assert f(itest) == pytest.approx(L - b_upper * (N - itest) / N_norm, abs=1.0e-5)
-        # Check we can extrapolate at lower end
-        itest = -0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at lower bound
+        ##############################
+        # Copied from `b_lower is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = c + d*iN + e*iN**2
+        # df/diN(0) = d
+        # c = 0
+        e = (b_upper * N / N_norm - L) / (N / N_norm) ** 2
+        d = b_upper - 2 * e * N / N_norm
+        dfdi = d / N_norm
+
+        # test in interior
+        itest = 1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = -1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBBoth(self, eqReg):
         b_lower = 0.1
@@ -921,9 +1032,25 @@ class TestEquilibriumRegion:
             2.0 * a_lower * numpy.sqrt(itest / N_norm) + b_lower * itest / N_norm,
             abs=1.0e-5,
         )
-        # Check we can extrapolate at upper end
-        itest = N + 0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at upper bound
+        ##############################
+        # Copied from `b_upper is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = a*sqrt(iN) + c + d*iN + e*iN**2
+        # dfdiN(N/N_norm) = a/2/sqrt(N/N_norm) + d + 2*e*N/N_norm
+        # c = 0
+        a = 2.0 * a_lower
+        d = b_lower
+        e = (L - a * numpy.sqrt(N / N_norm) - d * N / N_norm) / (N / N_norm) ** 2
+        dfdi = (a / 2.0 / numpy.sqrt(N / N_norm) + d + 2.0 * e * N / N_norm) / N_norm
+
+        # test in interior
+        delta = 1.0e-4
+        itest = N - delta
+        assert (f(N) - f(itest)) / delta == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = N + delta
+        assert (f(itest) - f(N)) / delta == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncBothUpper(self, eqReg):
         b_upper = 0.01
@@ -946,9 +1073,24 @@ class TestEquilibriumRegion:
             - b_upper * (N - itest) / N_norm,
             abs=1.0e-5,
         )
-        # Check we can extrapolate at lower end
-        itest = -0.01
-        assert numpy.isfinite(f(itest))
+
+        # test gradient at lower bound
+        ##############################
+        # Copied from `b_lower is None` case of getSqrtPoloidalDistanceFunc():
+        # f(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*iN**2
+        # df/diN(0) = b/2/sqrt(N/N_norm) + d
+        b = 2.0 * a_upper
+        c = b * numpy.sqrt(N / N_norm)
+        e = (c + b_upper * N / N_norm - L) / (N / N_norm) ** 2
+        d = b_upper - 2 * e * N / N_norm
+        dfdi = (b / 2.0 / numpy.sqrt(N / N_norm) + d) / N_norm
+
+        # test in interior
+        itest = 1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
+        # test extrapolating
+        itest = -1.0e-4
+        assert (f(itest) - f(0.0)) / itest == pytest.approx(dfdi, abs=1.0e-5)
 
     def test_getSqrtPoloidalDistanceFuncALowerBBoth(self, eqReg):
         b_lower = 0.01
@@ -1072,14 +1214,14 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         eqReg.resetNonorthogonalOptions(
-            {"nonorthogonal_target_poloidal_spacing_length": L}
+            {"nonorthogonal_target_all_poloidal_spacing_length": L}
         )
         eqReg.ny_total = n - 1
+        eqReg.name = "inner"
 
         def sfunc_orthogonal(i):
             return i / (n - 1.0) * L
 
-        print("check stuff", eqReg.nonorthogonal_options)
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.0) == tight_approx(0.0)
@@ -1091,11 +1233,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1117,11 +1260,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "inner_upper"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1143,11 +1287,12 @@ class TestEquilibriumRegion:
         L = eqReg.totalDistance()
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": L * 40.0 / (n - 1),
-            "nonorthogonal_target_poloidal_spacing_range": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.1,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer_upper"
 
         def sfunc_orthogonal(i):
             return numpy.piecewise(
@@ -1173,13 +1318,14 @@ class TestEquilibriumRegion:
         n = len(eqReg)
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": 0.1,
-            "nonorthogonal_target_poloidal_spacing_range": 0.3,
+            "nonorthogonal_target_all_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.3,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
         eqReg.sin_angle_at_start = 1.0
         eqReg.sin_angle_at_end = 1.0
+        eqReg.name = "inner_lower"
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -1203,6 +1349,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 
@@ -1218,11 +1366,12 @@ class TestEquilibriumRegion:
         n = len(eqReg)
 
         new_settings = {
-            "nonorthogonal_target_poloidal_spacing_length": 0.1,
-            "nonorthogonal_target_poloidal_spacing_range": 0.2,
+            "nonorthogonal_target_all_poloidal_spacing_length": 0.1,
+            "nonorthogonal_target_all_poloidal_spacing_range": 0.2,
         }
         eqReg.resetNonorthogonalOptions(new_settings)
         eqReg.ny_total = 40
+        eqReg.name = "outer_lower"
 
         sfunc_orthogonal_original = eqReg.contourSfunc()
 
@@ -1246,6 +1395,8 @@ class TestEquilibriumRegion:
         )
 
         eqReg.startInd = intersect_index
+        eqReg.extend_lower = intersect_index
+        eqReg.extend_upper = 1
 
         d = eqReg.totalDistance()
 

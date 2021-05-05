@@ -40,8 +40,15 @@ from scipy.integrate import solve_ivp
 from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
 
-from .equilibrium import calc_distance, Equilibrium, EquilibriumRegion, Point2D
+from .equilibrium import (
+    calc_distance,
+    Equilibrium,
+    EquilibriumRegion,
+    Point2D,
+    PsiContour,
+)
 from ..utils.utils import module_versions_formatted
+from ..utils.parallel_map import ParallelMap
 from ..__version__ import get_versions
 
 
@@ -344,7 +351,14 @@ class MeshRegion:
     )
 
     def __init__(
-        self, meshParent, myID, equilibriumRegion, connections, radialIndex, settings
+        self,
+        meshParent,
+        myID,
+        equilibriumRegion,
+        connections,
+        radialIndex,
+        settings,
+        parallel_map,
     ):
 
         self.user_options = self.user_options_factory.create(settings)
@@ -391,6 +405,9 @@ class MeshRegion:
 
         # Absolute tolerance for checking if two points are the same
         self.atol = 1.0e-7
+
+        # Create ParallelMap object for parallelising loops
+        self.parallel_map = parallel_map
 
         # get points in this region
         self.contours = []
@@ -500,57 +517,53 @@ class MeshRegion:
             # to calculate perp_d
             self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle ** 2)
 
-        print(
-            f"Following perpendicular: 1/{len(self.equilibriumRegion)}",
-            end="\r",
-            flush=True,
-        )
+        def follow_perp(args, *, psi, f_R, f_Z, rtol, atol):
+            i, p = args
 
-        perp_points = followPerpendicular(
-            self.meshParent.equilibrium.f_R,
-            self.meshParent.equilibrium.f_Z,
-            self.equilibriumRegion[0],
-            self.equilibriumRegion.psi(*self.equilibriumRegion[0]),
-            temp_psi_vals,
+            print(
+                f"Following perpendicular: {i + 1}",
+                end="\r",
+                flush=True,
+            )
+
+            return followPerpendicular(
+                f_R,
+                f_Z,
+                p,
+                psi(*p),
+                temp_psi_vals,
+                rtol=rtol,
+                atol=atol,
+            )
+
+        perp_points_list = self.parallel_map(
+            follow_perp,
+            enumerate(self.equilibriumRegion),
+            psi=self.equilibriumRegion.equilibrium.psi,
+            f_R=self.equilibriumRegion.equilibrium.f_R,
+            f_Z=self.equilibriumRegion.equilibrium.f_Z,
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
         )
-
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            # region is inside separatrix, so points were found from last to first
-            perp_points.reverse()
+            for perp_points in perp_points_list:
+                perp_points.reverse()
 
-        for i, point in enumerate(perp_points):
+        for i, point in enumerate(perp_points_list[0]):
             self.contours.append(
                 self.equilibriumRegion.newContourFromSelf(
                     points=[point], psival=self.psi_vals[i]
                 )
             )
             self.contours[i].global_xind = self.globalXInd(i)
-        for i, p in enumerate(self.equilibriumRegion[1:]):
-            print(
-                f"Following perpendicular: {i + 2}/{len(self.equilibriumRegion)}",
-                end="\r",
-                flush=True,
-            )
-
-            perp_points = followPerpendicular(
-                self.meshParent.equilibrium.f_R,
-                self.meshParent.equilibrium.f_Z,
-                p,
-                self.equilibriumRegion.psi(*p),
-                temp_psi_vals,
-                rtol=self.user_options.follow_perpendicular_rtol,
-                atol=self.user_options.follow_perpendicular_atol,
-            )
-            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-                perp_points.reverse()
-            for j, point in enumerate(perp_points):
-                self.contours[j].append(point)
+        for perp_points in perp_points_list[1:]:
+            for i, point in enumerate(perp_points):
+                self.contours[i].append(point)
 
         # refine the contours to make sure they are at exactly the right psi-value
-        for contour in self.contours:
-            contour.refine(width=self.user_options.refine_width)
+        self.contours = self.parallel_map(
+            PsiContour.refine, self.contours, width=self.user_options.refine_width
+        )
 
         if not self.user_options.orthogonal:
             self.addPointAtWallToContours()
@@ -566,29 +579,20 @@ class MeshRegion:
         # should the contour intersect a wall at the upper end?
         upper_wall = self.connections["upper"] is None
 
-        # sfunc_orthogonal functions created after contour has been extended past wall
-        # (if necessary) but before adding the wall point to the contour (as adding this
-        # point makes the spacing of points on the contour not-smooth) and adjusted for
-        # the change in distance after redefining startInd to be at the wall
-        self.sfunc_orthogonal_list = []
-
-        # find wall intersections
-        def correct_sfunc_orthogonal(contour, sfunc_orthogonal_original):
-            distance_at_original_start = contour.distance[contour.startInd]
-
-            distance_at_wall = contour.distance[lower_intersect_index]
-
-            # correct sfunc_orthogonal for the distance between the point at the lower
-            # wall and the original start-point
-            return (
-                lambda i: sfunc_orthogonal_original(i)
-                + distance_at_original_start
-                - distance_at_wall
-            )
-
-        for i_contour, contour in enumerate(self.contours):
+        def find_intersection(
+            args,
+            *,
+            equilibrium,
+            lower_wall,
+            upper_wall,
+            max_extend,
+            atol,
+            refine_width,
+            wall_point_exclude_radius,
+        ):
+            i_contour, contour = args
             print(
-                f"finding wall intersections: {i_contour + 1}/{len(self.contours)}",
+                f"finding wall intersections: {i_contour + 1}",
                 end="\r",
                 flush=True,
             )
@@ -617,10 +621,8 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, 0, -1):
-                    coarse_lower_intersect = (
-                        self.meshParent.equilibrium.wallIntersection(
-                            contour[i], contour[i - 1]
-                        )
+                    coarse_lower_intersect = equilibrium.wallIntersection(
+                        contour[i], contour[i - 1]
                     )
                     if coarse_lower_intersect is not None:
                         lower_intersect_index = i - 1
@@ -632,10 +634,8 @@ class MeshRegion:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_lower=1, ds_lower=ds_extend)
-                    coarse_lower_intersect = (
-                        self.meshParent.equilibrium.wallIntersection(
-                            contour[1], contour[0]
-                        )
+                    coarse_lower_intersect = equilibrium.wallIntersection(
+                        contour[1], contour[0]
                     )
                     count += 1
                     if count >= max_extend:
@@ -652,7 +652,7 @@ class MeshRegion:
                             linewidth=3,
                         )
 
-                        self.meshParent.equilibrium.plotWall()
+                        equilibrium.plotWall()
 
                         plt.show()
                         raise RuntimeError(
@@ -666,19 +666,19 @@ class MeshRegion:
                 i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
                 # Intersection should be between i_fine-1 and i_fine, but check
                 # intervals on either side if necessary
-                lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                lower_intersect = equilibrium.wallIntersection(
                     Point2D(*contour.fine_contour.positions[i_fine - 1]),
                     Point2D(*contour.fine_contour.positions[i_fine]),
                 )
                 if lower_intersect is None:
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                    lower_intersect = equilibrium.wallIntersection(
                         Point2D(*contour.fine_contour.positions[i_fine - 2]),
                         Point2D(*contour.fine_contour.positions[i_fine - 1]),
                     )
                     if lower_intersect is not None:
                         i_fine = i_fine - 1
                 if lower_intersect is None:
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                    lower_intersect = equilibrium.wallIntersection(
                         Point2D(*contour.fine_contour.positions[i_fine]),
                         Point2D(*contour.fine_contour.positions[i_fine + 1]),
                     )
@@ -709,10 +709,8 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, len(contour) - 1):
-                    coarse_upper_intersect = (
-                        self.meshParent.equilibrium.wallIntersection(
-                            contour[i], contour[i + 1]
-                        )
+                    coarse_upper_intersect = equilibrium.wallIntersection(
+                        contour[i], contour[i + 1]
                     )
                     if coarse_upper_intersect is not None:
                         upper_intersect_index = i
@@ -724,10 +722,8 @@ class MeshRegion:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
-                    coarse_upper_intersect = (
-                        self.meshParent.equilibrium.wallIntersection(
-                            contour[-2], contour[-1]
-                        )
+                    coarse_upper_intersect = equilibrium.wallIntersection(
+                        contour[-2], contour[-1]
                     )
                     count += 1
                     if count >= max_extend:
@@ -746,7 +742,7 @@ class MeshRegion:
                             linewidth=3,
                         )
 
-                        self.meshParent.equilibrium.plotWall(color="k")
+                        equilibrium.plotWall(color="k")
 
                         plt.show()
                         raise RuntimeError(
@@ -760,19 +756,19 @@ class MeshRegion:
                 i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
                 # Intersection should be between i_fine-1 and i_fine, but check
                 # intervals on either side if necessary
-                upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                upper_intersect = equilibrium.wallIntersection(
                     Point2D(*contour.fine_contour.positions[i_fine - 1]),
                     Point2D(*contour.fine_contour.positions[i_fine]),
                 )
                 if upper_intersect is None:
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                    upper_intersect = equilibrium.wallIntersection(
                         Point2D(*contour.fine_contour.positions[i_fine - 2]),
                         Point2D(*contour.fine_contour.positions[i_fine - 1]),
                     )
                     if upper_intersect is not None:
                         i_fine = i_fine - 1
                 if upper_intersect is None:
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                    upper_intersect = equilibrium.wallIntersection(
                         Point2D(*contour.fine_contour.positions[i_fine]),
                         Point2D(*contour.fine_contour.positions[i_fine + 1]),
                     )
@@ -811,12 +807,12 @@ class MeshRegion:
                 # we remove one.
                 if (
                     calc_distance(contour[lower_intersect_index], lower_intersect)
-                    < self.user_options.wall_point_exclude_radius
+                    < wall_point_exclude_radius
                 ):
                     contour.replace(lower_intersect_index, lower_intersect)
                 elif (
                     calc_distance(contour[lower_intersect_index + 1], lower_intersect)
-                    < self.user_options.wall_point_exclude_radius
+                    < wall_point_exclude_radius
                 ):
                     lower_intersect_index = lower_intersect_index + 1
                     contour.replace(lower_intersect_index, lower_intersect)
@@ -827,6 +823,20 @@ class MeshRegion:
                     if upper_wall:
                         # need to correct for point already added at lower wall
                         upper_intersect_index += 1
+
+                # find wall intersections
+                def correct_sfunc_orthogonal(contour, sfunc_orthogonal_original):
+                    distance_at_original_start = contour.distance[contour.startInd]
+
+                    distance_at_wall = contour.distance[lower_intersect_index]
+
+                    # correct sfunc_orthogonal for the distance between the point at the
+                    # lower wall and the original start-point
+                    return (
+                        lambda i: sfunc_orthogonal_original(i)
+                        + distance_at_original_start
+                        - distance_at_wall
+                    )
 
                 # contour.contourSfunc() would put the points at the positions along the
                 # contour where the grid would be orthogonal
@@ -852,12 +862,12 @@ class MeshRegion:
                 # we remove one.
                 if (
                     calc_distance(contour[upper_intersect_index], upper_intersect)
-                    < self.user_options.wall_point_exclude_radius
+                    < wall_point_exclude_radius
                 ):
                     contour.replace(upper_intersect_index, upper_intersect)
                 elif (
                     calc_distance(contour[upper_intersect_index + 1], upper_intersect)
-                    < self.user_options.wall_point_exclude_radius
+                    < wall_point_exclude_radius
                 ):
                     upper_intersect_index = upper_intersect_index + 1
                     contour.replace(upper_intersect_index, upper_intersect)
@@ -872,134 +882,168 @@ class MeshRegion:
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
 
-            self.sfunc_orthogonal_list.append(sfunc_orthogonal)
-
-            contour.refine(width=self.user_options.refine_width)
+            contour.refine(width=refine_width)
             contour.checkFineContourExtend()
+
+            return contour, sfunc_orthogonal
+
+        map_result = self.parallel_map(
+            find_intersection,
+            enumerate(self.contours),
+            equilibrium=self.meshParent.equilibrium,
+            lower_wall=lower_wall,
+            upper_wall=upper_wall,
+            max_extend=max_extend,
+            atol=self.atol,
+            refine_width=self.user_options.refine_width,
+            wall_point_exclude_radius=self.user_options.wall_point_exclude_radius,
+        )
+        self.contours = [x[0] for x in map_result]
+
+        # sfunc_orthogonal functions created after contour has been extended past wall
+        # (if necessary) but before adding the wall point to the contour (as adding this
+        # point makes the spacing of points on the contour not-smooth) and adjusted for
+        # the change in distance after redefining startInd to be at the wall
+        self.sfunc_orthogonal_list = [x[1] for x in map_result]
 
     def distributePointsNonorthogonal(self, nonorthogonal_settings=None):
         if nonorthogonal_settings is not None:
             self.equilibriumRegion.resetNonorthogonalOptions(nonorthogonal_settings)
 
+        def surface_vec(i_contour, contour, lower):
+            psi_sep = self.meshParent.equilibrium.psi_sep[0]
+            contour_is_separatrix = (
+                numpy.abs((contour.psival - psi_sep) / psi_sep) < 1.0e-9
+            )
+
+            if contour_is_separatrix:
+                if lower:
+                    if self.equilibriumRegion.wallSurfaceAtStart is not None:
+                        return self.equilibriumRegion.wallSurfaceAtStart
+                    else:
+                        # Use poloidal spacing on a separatrix contour
+                        return None
+                else:
+                    if self.equilibriumRegion.wallSurfaceAtEnd is not None:
+                        return self.equilibriumRegion.wallSurfaceAtEnd
+                    else:
+                        # Use poloidal spacing on a separatrix contour
+                        return None
+
+            if i_contour == 0:
+                c_in = self.contours[0]
+            else:
+                c_in = self.contours[i_contour - 1]
+            if i_contour == len(self.contours) - 1:
+                c_out = self.contours[i_contour]
+            else:
+                c_out = self.contours[i_contour + 1]
+            if lower:
+                p_in = c_in[c_in.startInd]
+                p_out = c_out[c_out.startInd]
+            else:
+                p_in = c_in[c_in.endInd]
+                p_out = c_out[c_out.endInd]
+            return [p_out.R - p_in.R, p_out.Z - p_in.Z]
+
+        surface_vecs_lower = [
+            surface_vec(i, c, True) for i, c in enumerate(self.contours)
+        ]
+        surface_vecs_upper = [
+            surface_vec(i, c, False) for i, c in enumerate(self.contours)
+        ]
+
         # regrid the contours (which all know where the wall is)
-        for i_contour, contour in enumerate(self.contours):
+        def regrid_contours(
+            args,
+            *,
+            equilibriumRegion,
+            wallSurfaceAtStart,
+            wallSurfaceAtEnd,
+            ny_noguards,
+            refine_width,
+        ):
+            (
+                i_contour,
+                contour,
+                surface_vec_lower,
+                surface_vec_upper,
+                sfunc_orthogonal,
+            ) = args
             print(
-                f"distributing points on contour: {i_contour + 1}/{len(self.contours)}",
+                f"distributing points on contour: {i_contour + 1}",
                 end="\r",
                 flush=True,
             )
 
-            contour_is_separatrix = (
-                numpy.abs(
-                    (contour.psival - self.meshParent.equilibrium.psi_sep[0])
-                    / self.meshParent.equilibrium.psi_sep[0]
-                )
-                < 1.0e-9
-            )
-
-            def surface_vec(lower):
-                if contour_is_separatrix:
-                    if lower:
-                        if self.equilibriumRegion.wallSurfaceAtStart is not None:
-                            return self.equilibriumRegion.wallSurfaceAtStart
-                        else:
-                            # Use poloidal spacing on a separatrix contour
-                            return None
-                    else:
-                        if self.equilibriumRegion.wallSurfaceAtEnd is not None:
-                            return self.equilibriumRegion.wallSurfaceAtEnd
-                        else:
-                            # Use poloidal spacing on a separatrix contour
-                            return None
-
-                if i_contour == 0:
-                    c_in = self.contours[0]
-                else:
-                    # contours are being changed, but start and end points are fixed so
-                    # it is OK to use contours[i_contour-1] anyway
-                    c_in = self.contours[i_contour - 1]
-                if i_contour == len(self.contours) - 1:
-                    c_out = self.contours[i_contour]
-                else:
-                    c_out = self.contours[i_contour + 1]
-                if lower:
-                    p_in = c_in[c_in.startInd]
-                    p_out = c_out[c_out.startInd]
-                else:
-                    p_in = c_in[c_in.endInd]
-                    p_out = c_out[c_out.endInd]
-                return [p_out.R - p_in.R, p_out.Z - p_in.Z]
-
             if (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "orthogonal"
             ):
                 warnings.warn(
                     "'orthogonal' option is not currently compatible with "
                     "extending grid past targets"
                 )
-                sfunc = self.sfunc_orthogonal_list[i_contour]
+                sfunc = sfunc_orthogonal
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_poloidal"
             ):
                 # this sfunc gives a fixed poloidal spacing at beginning and end of
                 # contours
-                sfunc = self.equilibriumRegion.getSfuncFixedSpacing(
-                    2 * self.ny_noguards + 1,
+                sfunc = equilibriumRegion.getSfuncFixedSpacing(
+                    2 * ny_noguards + 1,
                     contour.totalDistance(),
                     method="monotonic",
                 )
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "poloidal_orthogonal_combined"
             ):
-                sfunc = self.equilibriumRegion.combineSfuncs(
-                    contour, self.sfunc_orthogonal_list[i_contour]
-                )
+                sfunc = equilibriumRegion.combineSfuncs(contour, sfunc_orthogonal)
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_lower"
             ):
-                sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
-                    2 * self.ny_noguards + 1, contour, surface_vec(True), True
+                sfunc = equilibriumRegion.getSfuncFixedPerpSpacing(
+                    2 * ny_noguards + 1, contour, surface_vec_lower, True
                 )
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "fixed_perp_upper"
             ):
-                sfunc = self.equilibriumRegion.getSfuncFixedPerpSpacing(
-                    2 * self.ny_noguards + 1, contour, surface_vec(False), False
+                sfunc = equilibriumRegion.getSfuncFixedPerpSpacing(
+                    2 * ny_noguards + 1, contour, surface_vec_upper, False
                 )
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "perp_orthogonal_combined"
             ):
-                sfunc = self.equilibriumRegion.combineSfuncs(
+                sfunc = equilibriumRegion.combineSfuncs(
                     contour,
-                    self.sfunc_orthogonal_list[i_contour],
-                    surface_vec(True),
-                    surface_vec(False),
+                    sfunc_orthogonal,
+                    surface_vec_lower,
+                    surface_vec_upper,
                 )
             elif (
-                self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
+                equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method
                 == "combined"
             ):
-                if self.equilibriumRegion.wallSurfaceAtStart is not None:
+                if wallSurfaceAtStart is not None:
                     # use poloidal spacing near a wall
                     surface_vec_lower = None
                 else:
                     # use perp spacing
-                    surface_vec_lower = surface_vec(True)
-                if self.equilibriumRegion.wallSurfaceAtEnd is not None:
+                    surface_vec_lower = surface_vec_lower
+                if equilibriumRegion.wallSurfaceAtEnd is not None:
                     # use poloidal spacing near a wall
                     surface_vec_upper = None
                 else:
                     # use perp spacing
-                    surface_vec_upper = surface_vec(False)
-                sfunc = self.equilibriumRegion.combineSfuncs(
+                    surface_vec_upper = surface_vec_upper
+                sfunc = equilibriumRegion.combineSfuncs(
                     contour,
-                    self.sfunc_orthogonal_list[i_contour],
+                    sfunc_orthogonal,
                     surface_vec_lower,
                     surface_vec_upper,
                 )
@@ -1007,18 +1051,36 @@ class MeshRegion:
                 raise ValueError(
                     "Unrecognized option '"
                     + str(
-                        self.equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method  # noqa: E501
+                        equilibriumRegion.nonorthogonal_options.nonorthogonal_spacing_method  # noqa: E501
                     )
                     + "' for nonorthogonal poloidal spacing function"
                 )
 
             contour.regrid(
-                2 * self.ny_noguards + 1,
+                2 * ny_noguards + 1,
                 sfunc=sfunc,
-                width=self.user_options.refine_width,
-                extend_lower=self.equilibriumRegion.extend_lower,
-                extend_upper=self.equilibriumRegion.extend_upper,
+                width=refine_width,
+                extend_lower=equilibriumRegion.extend_lower,
+                extend_upper=equilibriumRegion.extend_upper,
             )
+
+            return contour
+
+        self.contours = self.parallel_map(
+            regrid_contours,
+            zip(
+                range(len(self.contours)),
+                self.contours,
+                surface_vecs_lower,
+                surface_vecs_upper,
+                self.sfunc_orthogonal_list,
+            ),
+            equilibriumRegion=self.equilibriumRegion,
+            wallSurfaceAtStart=self.equilibriumRegion.wallSurfaceAtStart,
+            wallSurfaceAtEnd=self.equilibriumRegion.wallSurfaceAtEnd,
+            ny_noguards=self.ny_noguards,
+            refine_width=self.user_options.refine_width,
+        )
 
     def globalXInd(self, i):
         """
@@ -1132,6 +1194,21 @@ class MeshRegion:
         """
         Calculate geometrical quantities for this region
         """
+        if self.user_options.orthogonal:
+            # Distances already calculated in non-orthogonal case
+            def _calc_contour_distance(args):
+                i, c = args
+                print(
+                    f"Calculating contour distances: {i + 1}",
+                    end="\r",
+                    flush=True,
+                )
+                c.distance
+                return c
+
+            self.contours = self.parallel_map(
+                _calc_contour_distance, enumerate(self.contours)
+            )
 
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
@@ -2528,6 +2605,20 @@ class Mesh:
         Equilibrium.user_options_factory,
         # Include settings for member MeshRegion objects
         MeshRegion.user_options_factory,
+        number_of_processors=WithMeta(
+            1,
+            doc=(
+                "Number of processors to use for parallelisable loops. Note overhead "
+                "of the parallelisation is fairly high (probably due to cost of "
+                "pickling psi interpolation function, etc.), so increasing the number "
+                "of processors above 1 is only useful for relatively large grids, or "
+                "large values of finecontour_Nfine. This option may even slow things "
+                "down on desktop/laptop computers which can boost clock-speed for "
+                "single-core operation."
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
     )
 
     def __init__(self, equilibrium, settings):
@@ -2595,9 +2686,11 @@ class Mesh:
                 else:
                     self.connections[region_id][key] = None
 
-        self.makeRegions()
+        parallel_map = ParallelMap(self.user_options.number_of_processors)
 
-    def makeRegions(self):
+        self.makeRegions(parallel_map)
+
+    def makeRegions(self, parallel_map):
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
@@ -2611,6 +2704,7 @@ class Mesh:
                     self.connections[region_id],
                     i,
                     self.user_options,
+                    parallel_map,
                 )
 
         # create groups that connect in x

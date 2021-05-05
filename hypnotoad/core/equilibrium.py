@@ -839,6 +839,8 @@ class FineContour:
         else:
             refine(self, skip_endpoints=skip_endpoints)
 
+        return self
+
     def reverse(self):
         if self.distance is not None:
             self.distance = self.distance[-1] - self.distance[::-1]
@@ -848,6 +850,8 @@ class FineContour:
         n = self.positions.shape[0]
         self.startInd = n - 1 - self.endInd
         self.endInd = n - 1 - old_start
+
+        return self
 
     def interpSSperp(self, vec, kind="linear"):
         """
@@ -1226,10 +1230,14 @@ class PsiContour:
         if self._fine_contour is not None:
             self._fine_contour.reverse()
 
+        return self
+
     def refine(self, *args, **kwargs):
         new = self.getRefined(*args, **kwargs)
         self.points = new.points
         self._distance = new._distance
+
+        return self
 
     def refinePointNewton(self, p, tangent, width, atol):
         """Use Newton iteration to refine point.

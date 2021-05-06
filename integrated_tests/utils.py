@@ -127,3 +127,5 @@ def run_case(name, inputfile, expectedfile, *, rtol, atol, diagnose, add_noise=N
     actual.close()
 
     print(name, "case passed!", flush=True)
+
+    return actual

@@ -3,7 +3,6 @@
 import numpy as np
 import os
 from sys import argv, exit
-from time import sleep
 from xarray import open_dataset
 import xarray.testing as xrt
 
@@ -89,12 +88,11 @@ def check_errors(ds1, ds2):
                     abs(diff).max().values,
                     pos["x"],
                     pos["y"],
-                    flush=True,
-                )
+                ),
+                flush=True,
             )
         except np.core._exceptions.UFuncTypeError:
             pass
-
 
 argv.append("../grid_files/test_connected-double-null.eqdsk")
 argv.append(None)
@@ -134,5 +132,6 @@ def run_case(name, inputfile, expectedfile):
 
 
 run_case("orthogonal", "test_orthogonal.yml", "expected_orthogonal.grd.nc")
+run_case("nonorthogonal", "test_nonorthogonal.yml", "expected_nonorthogonal.grd.nc")
 
 exit(0)

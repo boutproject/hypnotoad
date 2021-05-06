@@ -31,6 +31,33 @@ jobs:
         pytest
 
 
+  integrated-tests:
+
+    runs-on: ubuntu-latest
+    if: always()
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        lfs: true
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Integrated tests
+      run: |
+        pip install pytest xarray
+        cd integrated_tests/connected_doublenull
+        ./runtest.py
+
+
   flake8:
 
     runs-on: ubuntu-latest

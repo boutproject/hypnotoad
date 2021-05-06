@@ -2515,9 +2515,9 @@ class Mesh:
 
         # create groups that connect in y
         self.y_groups = []
-        region_set = set(self.regions.values())
-        while region_set:
-            for region in region_set:
+        region_list = list(self.regions.values())
+        while region_list:
+            for i, region in enumerate(region_list):
                 if region.connections["lower"] is None:
                     break
                 # note, if no region with connections['lower']=None is found, then some
@@ -2530,11 +2530,12 @@ class Mesh:
                 ), "region should not have been added to any yGroup before"
                 region.yGroupIndex = len(group)
                 group.append(region)
-                region_set.remove(region)
+                region_list.pop(i)
                 region = region.getNeighbour("upper")
                 if region is None or group.count(region) > 0:
                     # reached boundary or have all regions in a periodic group
                     break
+                i = region_list.index(region)
             self.y_groups.append(group)
 
     def redistributePoints(self, nonorthogonal_settings):

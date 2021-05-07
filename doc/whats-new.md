@@ -5,6 +5,12 @@ What's new
 0.3.2 (unreleased)
 ------------------
 
+### New features
+
+- When exceptions are caught by the GUI, print the traceback as well as the
+  exception message (#95)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### Bug fixes
 
 - Diagnostic plots produced when some errors occur had invalid linestyles - use

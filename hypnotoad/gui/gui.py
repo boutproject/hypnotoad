@@ -9,6 +9,7 @@ import func_timeout
 import os
 import pathlib
 import textwrap
+import traceback
 import yaml
 
 from Qt.QtWidgets import (
@@ -566,7 +567,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
     def _popup_error_message(self, error):
         error_message = QErrorMessage()
-        error_message.showMessage(str(error))
+        error_message.showMessage(str(error) + "<br><br>" + traceback.format_exc())
         error_message.exec_()
 
 

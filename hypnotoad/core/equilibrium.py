@@ -1031,8 +1031,9 @@ class PsiContour:
             self._distance = [self.fine_contour.getDistance(p) for p in self]
             d = numpy.array(self._distance)
             if not numpy.all(d[1:] - d[:-1] > 0.0):
-                print(self._distance)
-                print(self)
+                print("\nPsiContour distance", self._distance)
+                print("\nFineContour distance", self.fine_contour.distance)
+                print("\nPsiContour points", self)
 
                 import matplotlib.pyplot as plt
 

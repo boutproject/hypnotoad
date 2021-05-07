@@ -9,6 +9,7 @@ import func_timeout
 import os
 import pathlib
 import textwrap
+import traceback
 import yaml
 
 from Qt.QtWidgets import (
@@ -556,7 +557,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             # no mesh, but do have equilibrium, so plot separatrices
             for region in self.eq.regions.values():
                 self.plot_widget.axes.plot(
-                    [p.R for p in region.points], [p.Z for p in region.points], "-o"
+                    [p.R for p in region.points],
+                    [p.Z for p in region.points],
+                    marker="o",
                 )
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
 
@@ -564,7 +567,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
     def _popup_error_message(self, error):
         error_message = QErrorMessage()
-        error_message.showMessage(str(error))
+        error_message.showMessage(str(error) + "<br><br>" + traceback.format_exc())
         error_message.exec_()
 
 

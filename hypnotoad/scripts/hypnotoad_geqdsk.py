@@ -62,7 +62,9 @@ def main():
             eq.plotPotential(ncontours=40)
             for region in eq.regions.values():
                 plt.plot(
-                    [p.R for p in region.points], [p.Z for p in region.points], "-o"
+                    [p.R for p in region.points],
+                    [p.Z for p in region.points],
+                    marker="o",
                 )
             print("Close window to continue...")
             plt.show()

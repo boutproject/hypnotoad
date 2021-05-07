@@ -1015,9 +1015,9 @@ class PsiContour:
 
                 import matplotlib.pyplot as plt
 
-                self.plot(linestyle="-o", color="k")
+                self.plot(marker="o", color="k")
 
-                self.fine_contour.plot(linestyle="-x", color="r")
+                self.fine_contour.plot(marker="x", color="r")
 
                 plt.show()
 

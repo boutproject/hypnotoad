@@ -556,7 +556,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             # no mesh, but do have equilibrium, so plot separatrices
             for region in self.eq.regions.values():
                 self.plot_widget.axes.plot(
-                    [p.R for p in region.points], [p.Z for p in region.points], "-o"
+                    [p.R for p in region.points],
+                    [p.Z for p in region.points],
+                    marker="o",
                 )
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
 

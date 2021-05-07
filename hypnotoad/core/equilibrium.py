@@ -431,6 +431,19 @@ class FineContour:
             ),
             value_type=bool,
         ),
+        finecontour_extend_prefactor=WithMeta(
+            2.0,
+            doc=(
+                "Prefactor to increase estimate for number of points to extend "
+                "FineContour when y_boundary_guards>0. May be useful to decrease in "
+                "case of FineContour creation failures if the target end is very close "
+                "to a region with problematic psi (e.g. coils, centre column). If the "
+                "value is too small, may result in extrapolation using FineContour "
+                "points which is likely to be poorly constrained."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
         finecontour_maxits=WithMeta(
             200,
             doc=(
@@ -471,11 +484,19 @@ class FineContour:
 
         # Extend further than will be needed in the final contour, because extrapolation
         # past the end of the fine contour is very bad.
-        self.extend_lower_fine = (
-            2 * (self.parentContour.extend_lower * Nfine) // n_input
+        self.extend_lower_fine = int(
+            round(
+                self.user_options.finecontour_extend_prefactor
+                * (self.parentContour.extend_lower * Nfine)
+                / n_input
+            )
         )
-        self.extend_upper_fine = (
-            2 * (self.parentContour.extend_upper * Nfine) // n_input
+        self.extend_upper_fine = int(
+            round(
+                self.user_options.finecontour_extend_prefactor
+                * (self.parentContour.extend_upper * Nfine)
+                / n_input
+            )
         )
 
         self.indices_fine = numpy.linspace(

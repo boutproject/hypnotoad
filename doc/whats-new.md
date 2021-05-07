@@ -13,6 +13,9 @@ What's new
 
 ### Bug fixes
 
+- Setting to adjust extension of FineContours past targets, may help to avoid crashes on
+  problematic equilibria (#96)\
+  By [John Omotani](https://github.com/johnomotani)
 - Diagnostic plots produced when some errors occur had invalid linestyles - use
   markers instead (#95, fixes #94)\
   By [John Omotani](https://github.com/johnomotani)

@@ -604,21 +604,25 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, 0, -1):
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[i], contour[i - 1]
+                    coarse_lower_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[i], contour[i - 1]
+                        )
                     )
-                    if lower_intersect is not None:
+                    if coarse_lower_intersect is not None:
                         lower_intersect_index = i - 1
                         break
 
                 count = 0
                 ds_extend = contour.distance[1] - contour.distance[0]
-                while lower_intersect is None:
+                while coarse_lower_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_lower=1, ds_lower=ds_extend)
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[1], contour[0]
+                    coarse_lower_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[1], contour[0]
+                        )
                     )
                     count += 1
                     if count >= max_extend:
@@ -641,6 +645,47 @@ class MeshRegion:
                         raise RuntimeError(
                             "extended contour too far without finding wall"
                         )
+                # refine lower_intersect by finding the intersection from FineContour
+                # points
+                #
+                # first find nearest FineContour points
+                d = contour.fine_contour.getDistance(coarse_lower_intersect)
+                i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
+                # Intersection should be between i_fine-1 and i_fine, but check
+                # intervals on either side if necessary
+                lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                    Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    Point2D(*contour.fine_contour.positions[i_fine]),
+                )
+                if lower_intersect is None:
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine - 2]),
+                        Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    )
+                    if lower_intersect is not None:
+                        i_fine = i_fine - 1
+                if lower_intersect is None:
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine]),
+                        Point2D(*contour.fine_contour.positions[i_fine + 1]),
+                    )
+                    if lower_intersect is not None:
+                        i_fine = i_fine + 1
+                if lower_intersect is None:
+                    raise ValueError(
+                        "Did not find lower_intersect from fine_contour, even though "
+                        "intersection was found on contour."
+                    )
+                # Further refine, to ensure wall point is at correct psi
+                lower_intersect = contour.refinePoint(
+                    lower_intersect,
+                    Point2D(
+                        *(
+                            contour.fine_contour.positions[i_fine]
+                            - contour.fine_contour.positions[i_fine - 1]
+                        )
+                    ),
+                )
 
             if upper_wall:
                 if lower_wall:
@@ -651,21 +696,25 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, len(contour) - 1):
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[i], contour[i + 1]
+                    coarse_upper_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            Point2D(*contour[i]), Point2D(*contour[i + 1])
+                        )
                     )
-                    if upper_intersect is not None:
+                    if coarse_upper_intersect is not None:
                         upper_intersect_index = i
                         break
 
                 count = 0
                 ds_extend = contour.distance[-1] - contour.distance[-2]
-                while upper_intersect is None:
+                while coarse_upper_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[-2], contour[-1]
+                    coarse_upper_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            Point2D(*contour[-2]), Point2D(*contour[-1])
+                        )
                     )
                     count += 1
                     if count >= max_extend:
@@ -690,6 +739,47 @@ class MeshRegion:
                         raise RuntimeError(
                             "extended contour too far without finding wall"
                         )
+                # refine upper_intersect by finding the intersection from FineContour
+                # points
+                #
+                # first find nearest FineContour points
+                d = contour.fine_contour.getDistance(coarse_upper_intersect)
+                i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
+                # Intersection should be between i_fine-1 and i_fine, but check
+                # intervals on either side if necessary
+                upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                    Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    Point2D(*contour.fine_contour.positions[i_fine]),
+                )
+                if upper_intersect is None:
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine - 2]),
+                        Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    )
+                    if upper_intersect is not None:
+                        i_fine = i_fine - 1
+                if upper_intersect is None:
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine]),
+                        Point2D(*contour.fine_contour.positions[i_fine + 1]),
+                    )
+                    if upper_intersect is not None:
+                        i_fine = i_fine + 1
+                if upper_intersect is None:
+                    raise ValueError(
+                        "Did not find upper_intersect from fine_contour, even though "
+                        "intersection was found on contour."
+                    )
+                # Further refine, to ensure wall point is at correct psi
+                upper_intersect = contour.refinePoint(
+                    upper_intersect,
+                    Point2D(
+                        *(
+                            contour.fine_contour.positions[i_fine]
+                            - contour.fine_contour.positions[i_fine - 1]
+                        )
+                    ),
+                )
 
             # now add points on the wall(s) to the contour
             if lower_wall:

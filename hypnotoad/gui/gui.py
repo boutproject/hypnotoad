@@ -510,7 +510,12 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         # Create all the geometrical quantities
         try:
             self.mesh.geometry()
-        except (ValueError, TypeError, func_timeout.FunctionTimedOut) as e:
+        except (
+            ValueError,
+            TypeError,
+            func_timeout.FunctionTimedOut,
+            SolutionError,
+        ) as e:
             self._popup_error_message(e)
             return
 

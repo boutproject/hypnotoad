@@ -659,12 +659,15 @@ class TestContour:
 
 
 class ThisEquilibrium(Equilibrium):
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, wall=None):
         if settings is None:
             settings = {}
         self.user_options = Equilibrium.user_options_factory.add(
             refine_width=1.0e-5, refine_atol=2.0e-8
         ).create(settings)
+
+        if wall is not None:
+            self.wall = wall
 
         super().__init__({})
 
@@ -672,13 +675,13 @@ class ThisEquilibrium(Equilibrium):
 class TestEquilibrium:
     @pytest.fixture
     def eq(self):
-        eq = ThisEquilibrium()
-        eq.wall = [
+        wall = [
             Point2D(-1.0, -1.0),
             Point2D(1.0, -1.0),
             Point2D(1.0, 1.0),
             Point2D(-1.0, 1.0),
         ]
+        eq = ThisEquilibrium(wall=wall)
         return eq
 
     def test_make1dGrid(self, eq):

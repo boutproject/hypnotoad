@@ -3542,6 +3542,12 @@ class Equilibrium:
             nonorthogonal_settings
         )
 
+        if hasattr(self, "wall"):
+            # Create numpy array with closed set of points for wall, avoids repeating this
+            # operation
+            closed_wall = self.wall + [self.wall[0]]
+            self.closed_wallarray = numpy.array([(p.R, p.Z) for p in closed_wall])
+
     def resetNonorthogonalOptions(self, nonorthogonal_settings):
         self.nonorthogonal_options = self.nonorthogonal_options_factory.create(
             nonorthogonal_settings
@@ -3793,13 +3799,8 @@ class Equilibrium:
         except AttributeError:
             # wall interpolation functions not created yet
 
-            wall = deepcopy(self.wall)
-
-            # make closed contour
-            wall.append(wall[0])
-
-            R = [p.R for p in wall]
-            Z = [p.Z for p in wall]
+            R = self.closed_wall_array[:, 0]
+            Z = self.closed_wall_array[:, 1]
 
             wallfraction = numpy.linspace(0.0, 1.0, len(wall))
 
@@ -3856,9 +3857,7 @@ class Equilibrium:
         """
         Find the intersection, if any, between the wall and the line between p1 and p2
         """
-        closed_wall = self.wall + [self.wall[0]]
-        wallarray = numpy.array([(p.R, p.Z) for p in closed_wall])
-        intersects = find_intersections(wallarray, p1, p2)
+        intersects = find_intersections(self.closed_wallarray, p1, p2)
         if intersects is not None:
             intersect = Point2D(*intersects[0, :])
             assert intersects.shape[0] < 3, "too many intersections with wall"

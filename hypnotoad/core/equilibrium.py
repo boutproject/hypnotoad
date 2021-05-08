@@ -654,7 +654,8 @@ class FineContour:
             pyplot.contour(
                 R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis])
             )
-            pyplot.plot(Rpoints, Zpoints, marker="x")
+            self.parentContour.plot(color="g", marker="o")
+            pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
             pyplot.xlabel("R")
             pyplot.ylabel("Z")
 
@@ -732,7 +733,8 @@ class FineContour:
                     Z,
                     self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
                 )
-                pyplot.plot(Rpoints, Zpoints, marker="x")
+                self.parentContour.plot(color="k", marker="o")
+                pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
                 pyplot.xlabel("R")
                 pyplot.ylabel("Z")
 

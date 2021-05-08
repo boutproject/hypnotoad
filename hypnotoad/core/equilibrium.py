@@ -431,6 +431,17 @@ class FineContour:
             ),
             value_type=bool,
         ),
+        finecontour_overdamping_factor=WithMeta(
+            0.8,
+            doc=(
+                "Damping factor 0<f<=1 used to stabilise iterations in "
+                "FineContour.equaliseSpacing. Values towards 0 are most stable but "
+                "make the smallest updates. Values towards 1 are less stable but "
+                "potentially faster."
+            ),
+            value_type=float,
+            check_all=lambda x: x > 0.0 and x <= 1.0,
+        ),
         finecontour_extend_prefactor=WithMeta(
             2.0,
             doc=(
@@ -701,9 +712,19 @@ class FineContour:
             )
 
             # Update positions except for startInd and endInd
-            new_positions[self.startInd] = self.positions[self.startInd]
-            new_positions[self.endInd] = self.positions[self.endInd]
-            self.positions = new_positions
+            original_start = self.positions[self.startInd]
+            original_end = self.positions[self.endInd]
+
+            # Combine old values and new values to stabilise iteration
+            if count < 8:
+                r = 1.0
+            else:
+                r = self.user_options.finecontour_overdamping_factor
+            self.positions = r * new_positions + (1.0 - r) * self.positions
+
+            # Re-set start and end positions again to avoid rounding errors
+            self.positions[self.startInd] = original_start
+            self.positions[self.endInd] = original_end
 
             self.refine(skip_endpoints=True)
 

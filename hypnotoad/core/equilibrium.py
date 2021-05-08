@@ -660,6 +660,8 @@ class FineContour:
             pyplot.legend()
             pyplot.show()
 
+        # Adjust positions of points to equalise spacing. Leave points at startInd and
+        # endInd unchanged - makes iteration more stable.
         count = 1
         while ds_error > self.user_options.finecontour_atol:
 
@@ -684,11 +686,16 @@ class FineContour:
 
             # 2d array with size {N,2} giving the (R,Z)-positions of points on the
             # contour
-            self.positions = numpy.array(
+            new_positions = numpy.array(
                 tuple(interpFunc(s).as_ndarray() for s in sfine)
             )
 
-            self.refine()
+            # Update positions except for startInd and endInd
+            new_positions[self.startInd] = self.positions[self.startInd]
+            new_positions[self.endInd] = self.positions[self.endInd]
+            self.positions = new_positions
+
+            self.refine(skip_endpoints=True)
 
             self.calcDistance()
 
@@ -759,9 +766,9 @@ class FineContour:
         )
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
-    def refine(self):
+    def refine(self, *, skip_endpoints=False):
         # Define inner method so we can pass to func_timeout.func_timeout
-        def refine(self):
+        def refine(self, *, skip_endpoints=False):
             result = numpy.zeros(self.positions.shape)
 
             p = self.positions[0, :]
@@ -781,15 +788,24 @@ class FineContour:
                 Point2D(*p), Point2D(*tangent)
             ).as_ndarray()
 
+            if skip_endpoints:
+                result[self.startInd] = self.positions[self.startInd]
+                result[self.endInd] = self.positions[self.endInd]
+
             self.positions = result
 
         if self.user_options.refine_timeout is not None:
             # Using func_timeout.func_timeout rather than the
             # @func_timeout.func_set_timeout decorator on the refine method so that we
             # can use self.user_options to set the length of the timeout.
-            func_timeout.func_timeout(self.user_options.refine_timeout, refine, [self])
+            func_timeout.func_timeout(
+                self.user_options.refine_timeout,
+                refine,
+                [self],
+                kwargs={"skip_endpoints": skip_endpoints},
+            )
         else:
-            refine(self)
+            refine(self, skip_endpoints=skip_endpoints)
 
     def reverse(self):
         if self.distance is not None:

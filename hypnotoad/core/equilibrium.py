@@ -779,7 +779,7 @@ class FineContour:
         deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
         self.distance[1:] = numpy.cumsum(numpy.sqrt(numpy.sum(deltaSquared, axis=1)))
 
-    def interpFunction(self, *, kind="cubic"):
+    def interpFunction(self, *, kind="linear"):
         distance = self.distance - self.distance[self.startInd]
 
         interpR = interp1d(

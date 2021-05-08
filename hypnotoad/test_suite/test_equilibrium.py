@@ -459,7 +459,7 @@ class TestContour:
         pend = f(numpy.pi * testcontour.r)
         assert pstart.R == pytest.approx(testcontour.R0 + testcontour.r, abs=1.0e-9)
         assert pstart.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
-        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-9)
+        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-8)
         assert pend.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
 
     def test_getRegridded(self, testcontour):
@@ -497,15 +497,15 @@ class TestContour:
 
         # test the extend_lower
         assert [*new[0]] == pytest.approx(
-            [orig[1].R, 2.0 * testcontour.Z0 - orig[1].Z], abs=1.0e-10
+            [orig[1].R, 2.0 * testcontour.Z0 - orig[1].Z], abs=1.0e-7
         )
 
         # test the extend_upper
         assert [*new[-2]] == pytest.approx(
-            [orig[-2].R, 2.0 * testcontour.Z0 - orig[-2].Z], abs=1.0e-10
+            [orig[-2].R, 2.0 * testcontour.Z0 - orig[-2].Z], abs=1.0e-9
         )
         assert [*new[-1]] == pytest.approx(
-            [orig[-3].R, 2.0 * testcontour.Z0 - orig[-3].Z], abs=1.0e-10
+            [orig[-3].R, 2.0 * testcontour.Z0 - orig[-3].Z], abs=1.0e-7
         )
 
     def test_contourSfunc(self, testcontour):

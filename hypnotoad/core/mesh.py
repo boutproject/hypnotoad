@@ -811,6 +811,9 @@ class MeshRegion:
                     # otherwise insert a new point
                     lower_intersect_index += 1
                     contour.insert(lower_intersect_index, lower_intersect)
+                    if upper_wall:
+                        # need to correct for point already added at lower wall
+                        upper_intersect_index += 1
 
                 # contour.contourSfunc() would put the points at the positions along the
                 # contour where the grid would be orthogonal
@@ -824,9 +827,6 @@ class MeshRegion:
                 contour.startInd = lower_intersect_index
 
             if upper_wall:
-                if lower_wall:
-                    # need to correct for point already added at lower wall
-                    upper_intersect_index += 1
 
                 # this sfunc would put the points at the positions along the contour
                 # where the grid would be orthogonal

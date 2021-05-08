@@ -526,6 +526,15 @@ class FineContour:
         self.startInd = self.extend_lower_fine
         self.endInd = Nfine - 1 + self.extend_lower_fine
 
+        # Make startInd and endInd positions exactly the same as the parentContour
+        # positions
+        self.positions[self.startInd] = self.parentContour[
+            self.parentContour.startInd
+        ].as_ndarray()
+        self.positions[self.endInd] = self.parentContour[
+            self.parentContour.endInd
+        ].as_ndarray()
+
         self.equaliseSpacing()
 
     def extend(self, *, extend_lower=0, extend_upper=0):
@@ -616,7 +625,7 @@ class FineContour:
         distance between them.
         """
 
-        self.refine()
+        self.refine(skip_endpoints=True)
 
         self.calcDistance(reallocate=reallocate)
 

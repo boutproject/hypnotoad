@@ -790,18 +790,23 @@ class MeshRegion:
                 # where the grid would be orthogonal
                 sfunc_orthogonal_original = contour.contourSfunc()
 
-                # now make lower_intersect_index the index where the point at the wall is
-                # check whether one of the points is already on the wall
+                # now make lower_intersect_index the index where the point at the wall
+                # is.
+                # check whether one of the points is close to the wall point and remove
+                # if it is - use a pretty loose checek because points apart from the
+                # wall point are about to be redistributed anyway, so does not matter if
+                # we remove one.
                 if (
                     calc_distance(contour[lower_intersect_index], lower_intersect)
-                    < self.atol
+                    < 1.0e-3
                 ):
-                    pass
+                    contour.replace(lower_intersect_index, lower_intersect)
                 elif (
                     calc_distance(contour[lower_intersect_index + 1], lower_intersect)
-                    < self.atol
+                    < 1.0e-3
                 ):
                     lower_intersect_index = lower_intersect_index + 1
+                    contour.replace(lower_intersect_index, lower_intersect)
                 else:
                     # otherwise insert a new point
                     lower_intersect_index += 1
@@ -828,17 +833,21 @@ class MeshRegion:
                 sfunc_orthogonal = contour.contourSfunc()
 
                 # now make upper_intersect_index the index where the point at the wall is
-                # check whether one of the points is already on the wall
+                # check whether one of the points is close to the wall point and remove
+                # if it is - use a pretty loose checek because points apart from the
+                # wall point are about to be redistributed anyway, so does not matter if
+                # we remove one.
                 if (
                     calc_distance(contour[upper_intersect_index], upper_intersect)
                     < self.atol
                 ):
-                    pass
+                    contour.replace(upper_intersect_index, upper_intersect)
                 elif (
                     calc_distance(contour[upper_intersect_index + 1], upper_intersect)
                     < self.atol
                 ):
                     upper_intersect_index = upper_intersect_index + 1
+                    contour.replace(upper_intersect_index, upper_intersect)
                 else:
                     # otherwise insert a new point
                     contour.insert(upper_intersect_index + 1, upper_intersect)

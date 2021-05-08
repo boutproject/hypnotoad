@@ -2793,8 +2793,9 @@ class EquilibriumRegion(PsiContour):
                     ) / (weight_lower + weight_upper)
 
                     if numpy.any(weight_lower + weight_upper < 1e-200):
+                        print("radial index", ix)
                         print(weight_lower + weight_upper)
-                        raise RuntimeError(
+                        raise ValueError(
                             "Weight too small. Suggest increasing poloidal 'range' "
                             "settings"
                         )

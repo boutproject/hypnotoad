@@ -1103,6 +1103,10 @@ class PsiContour:
         self._distance = None
         self.points.insert(0, point)
 
+    def replace(self, index, point):
+        self._distance = None
+        self.points[index] = point
+
     def insert(self, index, point):
         self._distance = None
 

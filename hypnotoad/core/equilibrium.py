@@ -1669,9 +1669,7 @@ class PsiContour:
         # re-use the extended fine_contour for new_contour
         new_contour._fine_contour = self.fine_contour
 
-        # new_contour was interpolated from a high-resolution contour, so should not need
-        # a large width for refinement - use width/100. instead of 'width'
-        new_contour.refine(width=width / 100.0, atol=atol, skip_endpoints=True)
+        new_contour.refine(width=width, atol=atol, skip_endpoints=True)
 
         # Pass already converged fine_contour to new_contour
         new_contour._fine_contour = self.fine_contour

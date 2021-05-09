@@ -1427,7 +1427,7 @@ class PsiContour:
         # the last method in the methods list can be set to "none"
         raise SolutionError(f"refinePoint failed to converge with methods: {methods}")
 
-    def getRefined(self, **kwargs):
+    def getRefined(self, skip_endpoints=False, **kwargs):
         newpoints = []
         newpoints.append(
             self.refinePoint(self.points[0], self.points[1] - self.points[0], **kwargs)
@@ -1442,6 +1442,10 @@ class PsiContour:
                 self.points[-1], self.points[-1] - self.points[-2], **kwargs
             )
         )
+
+        if skip_endpoints:
+            newpoints[self.startInd] = self[self.startInd]
+            newpoints[self.endInd] = self[self.endInd]
 
         return self.newContourFromSelf(points=newpoints)
 
@@ -1652,15 +1656,22 @@ class PsiContour:
             return interp_unadjusted(s - sbegin)
 
         new_contour = self.newContourFromSelf(points=[interp(x) for x in s])
+
         new_contour.startInd = self.extend_lower
         new_contour.endInd = len(new_contour) - 1 - self.extend_upper
+
+        # start and end points should not change
+        new_contour.replace(new_contour.startInd, self[self.startInd])
+        new_contour.replace(new_contour.endInd, self[self.endInd])
+
         new_contour._distance = None
+
         # re-use the extended fine_contour for new_contour
         new_contour._fine_contour = self.fine_contour
 
         # new_contour was interpolated from a high-resolution contour, so should not need
         # a large width for refinement - use width/100. instead of 'width'
-        new_contour.refine(width=width / 100.0, atol=atol)
+        new_contour.refine(width=width / 100.0, atol=atol, skip_endpoints=True)
 
         # Pass already converged fine_contour to new_contour
         new_contour._fine_contour = self.fine_contour

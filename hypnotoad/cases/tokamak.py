@@ -53,6 +53,24 @@ class TokamakEquilibrium(Equilibrium):
             ),
             value_type=bool,
         ),
+        leg_refine_atol=WithMeta(
+            1.0e-5,
+            doc=(
+                "Tolerance used when iteratively refining the position of start points "
+                "of legs around an X-point."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
+        leg_refine_maxits=WithMeta(
+            1000,
+            doc=(
+                "Maximum number of iterations for iterative refinement of start points "
+                "of legs around an X-point."
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -514,7 +532,7 @@ class TokamakEquilibrium(Equilibrium):
             psi1 = psivals[ind]  # s = 0
 
             count = 0
-            while s2 - s1 > self.user_options.xpoint_refine_atol:
+            while s2 - s1 > self.user_options.leg_refine_atol:
                 smid = 0.5 * (s1 + s2)
                 psi_mid = self.psi(r0 + smid * dr, z0 + smid * dz)
 
@@ -525,12 +543,12 @@ class TokamakEquilibrium(Equilibrium):
                     psi1 = psi_mid
                     s1 = smid
                 count += 1
-                if count > self.user_options.xpoint_refine_maxits:
+                if count > self.user_options.leg_refine_maxits:
                     raise ValueError(
                         f"Failed to find leg start position. Error {s2 - s1} is "
                         f"greater than tolerance "
-                        f"{self.user_options.xpoint_refine_atol} after "
-                        f"{self.user_options.xpoint_refine_maxits} iterations."
+                        f"{self.user_options.leg_refine_atol} after "
+                        f"{self.user_options.leg_refine_maxits} iterations."
                     )
             smid = 0.5 * (s1 + s2)
             r = r0 + smid * dr

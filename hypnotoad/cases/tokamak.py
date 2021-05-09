@@ -585,7 +585,7 @@ class TokamakEquilibrium(Equilibrium):
                     (0.0, step),
                     pos,
                     rtol=0.0,
-                    atol=self.user_options.refine_atol,
+                    atol=0.01 * self.user_options.refine_atol,
                 )
                 newpos = (solve_result.y[0][1], solve_result.y[1][1])
 

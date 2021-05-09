@@ -257,6 +257,24 @@ class TokamakEquilibrium(Equilibrium):
             value_type=float,
             check_all=[is_positive, lambda x: x < 1.0],
         ),
+        xpoint_refine_atol=WithMeta(
+            1.0e-6,
+            doc=(
+                "Tolerance used when iteratively refining the position of an X-point "
+                "that has been identified."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
+        xpoint_refine_maxits=WithMeta(
+            1000,
+            doc=(
+                "Maximum number of iterations for iterative refinement of the position "
+                "of an X-point that has been identified."
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
     )
 
     def __init__(
@@ -396,7 +414,13 @@ class TokamakEquilibrium(Equilibrium):
 
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing="ij")
-        opoints, xpoints = critical.find_critical(R2D, Z2D, psi2D)
+        opoints, xpoints = critical.find_critical(
+            R2D,
+            Z2D,
+            psi2D,
+            self.user_options.xpoint_refine_atol,
+            self.user_options.xpoint_refine_maxits,
+        )
         if len(opoints) == 0:
             warnings.warn("No O-points found in TokamakEquilibrium input")
         else:
@@ -489,7 +513,8 @@ class TokamakEquilibrium(Equilibrium):
             s2 = 1.0
             psi1 = psivals[ind]  # s = 0
 
-            while s2 - s1 > 1e-5:
+            count = 0
+            while s2 - s1 > self.user_options.xpoint_refine_atol:
                 smid = 0.5 * (s1 + s2)
                 psi_mid = self.psi(r0 + smid * dr, z0 + smid * dz)
 
@@ -499,6 +524,14 @@ class TokamakEquilibrium(Equilibrium):
                 else:
                     psi1 = psi_mid
                     s1 = smid
+                count += 1
+                if count > self.user_options.xpoint_refine_maxits:
+                    raise ValueError(
+                        f"Failed to find leg start position. Error {s2 - s1} is "
+                        f"greater than tolerance "
+                        f"{self.user_options.xpoint_refine_atol} after "
+                        f"{self.user_options.xpoint_refine_maxits} iterations."
+                    )
             smid = 0.5 * (s1 + s2)
             r = r0 + smid * dr
             z = z0 + smid * dz

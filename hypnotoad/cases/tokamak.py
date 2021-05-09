@@ -580,7 +580,13 @@ class TokamakEquilibrium(Equilibrium):
             pos = leg  # Starting position
             while True:
                 # Integrate a distance "step" along the leg
-                solve_result = solve_ivp(dpos_dl, (0.0, step), pos)
+                solve_result = solve_ivp(
+                    dpos_dl,
+                    (0.0, step),
+                    pos,
+                    rtol=0.0,
+                    atol=self.user_options.refine_atol,
+                )
                 newpos = (solve_result.y[0][1], solve_result.y[1][1])
 
                 # Check if we have crossed the boundary

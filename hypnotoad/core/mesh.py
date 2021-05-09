@@ -24,6 +24,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 from copy import deepcopy
 import numbers
 import re
+import sys
 import warnings
 
 import numpy
@@ -39,6 +40,7 @@ from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
 
 from .equilibrium import calc_distance, Equilibrium, EquilibriumRegion, Point2D
+from ..utils.utils import module_versions_formatted
 from ..__version__ import get_versions
 
 
@@ -3565,6 +3567,10 @@ class BoutMesh(Mesh):
                     "hypnotoad_input_geqdsk_file_contents",
                     self.equilibrium.geqdsk_input,
                 )
+
+            # save Python and module versions to enable reproducibility
+            f.write("Python_version", sys.version)
+            f.write("module_versions", module_versions_formatted())
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

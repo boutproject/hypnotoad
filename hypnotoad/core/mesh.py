@@ -3438,7 +3438,19 @@ class BoutMesh(Mesh):
             # looking at a different variable, which would be inconvenient. It is not
             # likely that we need to load the hypnotoad inputs in BOUT++, so no reason
             # to save as an attribute.
-            f.write("hypnotoad_inputs", self.equilibrium._getOptionsAsString())
+            #
+            # Some options may be duplicated because of saving both equilibrium
+            # and mesh options, but no other way to make sure to get everything
+            # from subclasses (i.e. TokamakEquilibrium)
+            inputs_string = (
+                "Equilibrium options:\n"
+                + self.equilibrium.user_options.as_table()
+                + "\nNonorthogonal equilibrium options:\n"
+                + self.equilibrium.nonorthogonal_options.as_table()
+                + "\nMesh options:\n"
+                + self.user_options.as_table()
+            )
+            f.write("hypnotoad_inputs", inputs_string)
 
             f.write_file_attribute("hypnotoad_version", self.version)
             if self.git_hash is not None:

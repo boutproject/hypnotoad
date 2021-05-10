@@ -13,6 +13,9 @@ What's new
 
 ### Bug fixes
 
+- Save all options to grid files. Previously only Equilibrium options were
+  saved. Now also Mesh and nonorthogonal options (#98)\
+  By [John Omotani](https://github.com/johnomotani)
 - Setting to adjust extension of FineContours past targets, may help to avoid crashes on
   problematic equilibria (#96)\
   By [John Omotani](https://github.com/johnomotani)

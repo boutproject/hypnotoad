@@ -496,6 +496,8 @@ class TokamakEquilibrium(Equilibrium):
 
         # Print the table of options
         print(self.user_options.as_table(), flush=True)
+        if not self.user_options.orthogonal:
+            print(self.nonorthogonal_options.as_table(), flush=True)
 
         if make_regions:
             # Create self.regions

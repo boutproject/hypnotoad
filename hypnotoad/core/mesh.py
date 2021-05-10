@@ -2644,6 +2644,9 @@ class Mesh:
                     f"Re-create or re-load the equilibrium with the current settings."
                 )
 
+        # Print the table of options
+        print(self.user_options.as_table(), flush=True)
+
         versions = get_versions()
         self.version = versions["version"]
         self.git_hash = versions["full-revisionid"]

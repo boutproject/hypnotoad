@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sys
 
-diagnose = True
+diagnose = False
 
 rtol = 1.0e-9
 atol = 5.0e-10

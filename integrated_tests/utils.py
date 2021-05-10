@@ -14,6 +14,7 @@ expected_different_attrs = [
 ]
 expected_different_vars = [
     "hypnotoad_inputs",
+    "hypnotoad_inputs_yaml",
     "Python_version",
     "module_versions",
 ]
@@ -97,8 +98,14 @@ def run_case(name, inputfile, expectedfile, *, rtol, atol, diagnose, add_noise=N
 
     hyp_geqdsk(add_noise=add_noise)
 
-    expected = open_dataset(expectedfile).load().drop(expected_different_vars)
-    actual = open_dataset("bout.grd.nc").load().drop(expected_different_vars)
+    expected = (
+        open_dataset(expectedfile).load().drop(expected_different_vars, errors="ignore")
+    )
+    actual = (
+        open_dataset("bout.grd.nc")
+        .load()
+        .drop(expected_different_vars, errors="ignore")
+    )
 
     if diagnose:
         check_errors(expected, actual, rtol=rtol, atol=atol)

@@ -1,18 +1,10 @@
-#!/usr/bin/env python3
-
 import numpy as np
 import os
-from pathlib import Path
-from sys import argv, exit
+from sys import argv
 from xarray import open_dataset
 import xarray.testing as xrt
 
 from hypnotoad.scripts.hypnotoad_geqdsk import main as hyp_geqdsk
-
-diagnose = True
-
-rtol = 1.0e-9
-atol = 5.0e-10
 
 expected_different_attrs = [
     "grid_id",
@@ -26,11 +18,7 @@ expected_different_vars = [
 ]
 
 
-# make sure we are in the test directory
-os.chdir(Path(__file__).parent)
-
-
-def check_errors(ds1, ds2):
+def check_errors(ds1, ds2, *, rtol, atol):
     print("\nError check 1")
     print(
         "{0:>20}{1:>23}{2:>23}{3:>5}{4:>5}".format(
@@ -100,24 +88,19 @@ def check_errors(ds1, ds2):
             pass
 
 
-while len(argv) < 3:
-    argv.append(None)
-argv[1] = "../grid_files/test_connected-double-null.eqdsk"
-
-
-def run_case(name, inputfile, expectedfile):
+def run_case(name, inputfile, expectedfile, *, rtol, atol, diagnose, add_noise=None):
     argv[2] = inputfile
 
     if os.path.isfile("bout.grd.nc"):
         os.remove("bout.grd.nc")
 
-    hyp_geqdsk(add_noise=246)
+    hyp_geqdsk(add_noise=add_noise)
 
     expected = open_dataset(expectedfile).load().drop(expected_different_vars)
     actual = open_dataset("bout.grd.nc").load().drop(expected_different_vars)
 
     if diagnose:
-        check_errors(expected, actual)
+        check_errors(expected, actual, rtol=rtol, atol=atol)
 
     xrt.assert_allclose(expected, actual, rtol=rtol, atol=atol)
 
@@ -136,17 +119,3 @@ def run_case(name, inputfile, expectedfile):
     actual.close()
 
     print(name, "case passed!", flush=True)
-
-
-run_case(
-    "orthogonal",
-    "../connected_doublenull/test_orthogonal.yml",
-    "../connected_doublenull/expected_orthogonal.grd.nc",
-)
-run_case(
-    "nonorthogonal",
-    "../connected_doublenull/test_nonorthogonal.yml",
-    "../connected_doublenull/expected_nonorthogonal.grd.nc",
-)
-
-exit(0)

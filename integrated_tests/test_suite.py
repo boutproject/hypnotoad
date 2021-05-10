@@ -14,8 +14,10 @@ test_dirs = [d for d in test_dirs if "grid_files" not in d]
 results = []
 
 for d in test_dirs:
+    name = str(Path(d).name)
+    print("\nrunning", name, "...\n", flush=True)
     retcode, _ = shell(d + "/runtest.py")
-    results.append((str(Path(d).name), retcode))
+    results.append((name, retcode))
 
 for r in results:
     if r[1] == 0:

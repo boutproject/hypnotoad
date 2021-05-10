@@ -13,6 +13,7 @@ expected_different_attrs = [
     "hypnotoad_git_diff",
 ]
 expected_different_vars = [
+    "hypnotoad_inputs",
     "Python_version",
     "module_versions",
 ]

@@ -71,6 +71,15 @@ class TokamakEquilibrium(Equilibrium):
             value_type=int,
             check_all=is_positive,
         ),
+        leg_trace_atol=WithMeta(
+            lambda options: 0.01 * options.refine_atol,
+            doc=(
+                "Tolerance used when calling scipy.integrate.solve_ivp to follow the "
+                "divertor legs. Default is 0.01*refine_atol."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -585,7 +594,7 @@ class TokamakEquilibrium(Equilibrium):
                     (0.0, step),
                     pos,
                     rtol=0.0,
-                    atol=0.01 * self.user_options.refine_atol,
+                    atol=self.user_options.leg_trace_atol,
                 )
                 newpos = (solve_result.y[0][1], solve_result.y[1][1])
 

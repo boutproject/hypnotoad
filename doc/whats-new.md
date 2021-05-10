@@ -7,6 +7,9 @@ What's new
 
 ### New features
 
+- Options are saved as a YAML string in "hypnotoad_inputs_yaml" to make them
+  easier to read in code later. (#98)\
+  By [John Omotani](https://github.com/johnomotani)
 - When exceptions are caught by the GUI, print the traceback as well as the
   exception message (#95)\
   By [John Omotani](https://github.com/johnomotani)

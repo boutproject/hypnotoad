@@ -25,6 +25,7 @@ from copy import deepcopy
 import numbers
 import re
 import warnings
+import yaml
 
 import numpy
 from optionsfactory import OptionsFactory, WithMeta
@@ -3451,6 +3452,10 @@ class BoutMesh(Mesh):
                 + self.user_options.as_table()
             )
             f.write("hypnotoad_inputs", inputs_string)
+            options_dict = dict(self.equilibrium.user_options)
+            options_dict.update(self.equilibrium.nonorthogonal_options)
+            options_dict.update(self.user_options)
+            f.write("hypnotoad_inputs_yaml", yaml.dump(options_dict))
 
             f.write_file_attribute("hypnotoad_version", self.version)
             if self.git_hash is not None:

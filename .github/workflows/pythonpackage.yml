@@ -56,8 +56,8 @@ jobs:
     - name: Integrated tests
       run: |
         pip install pytest xarray
-        cd integrated_tests/connected_doublenull
-        ./runtest.py
+        cd integrated_tests/
+        ./test_suite.py
 
 
   flake8:

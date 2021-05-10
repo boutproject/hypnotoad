@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+from pathlib import Path
 from sys import argv, exit
 from xarray import open_dataset
 import xarray.testing as xrt
@@ -23,6 +24,10 @@ expected_different_vars = [
     "Python_version",
     "module_versions",
 ]
+
+
+# make sure we are in the test directory
+os.chdir(Path(__file__).parent)
 
 
 def check_errors(ds1, ds2):
@@ -94,8 +99,10 @@ def check_errors(ds1, ds2):
         except np.core._exceptions.UFuncTypeError:
             pass
 
-argv.append("../grid_files/test_connected-double-null.eqdsk")
-argv.append(None)
+
+while len(argv) < 3:
+    argv.append(None)
+argv[1] = "../grid_files/test_connected-double-null.eqdsk"
 
 
 def run_case(name, inputfile, expectedfile):

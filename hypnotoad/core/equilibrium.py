@@ -3605,8 +3605,8 @@ class Equilibrium:
         )
 
         if hasattr(self, "wall"):
-            # Create numpy array with closed set of points for wall, avoids repeating this
-            # operation
+            # Create numpy array with closed set of points for wall, avoids repeating
+            # this operation
             closed_wall = self.wall + [self.wall[0]]
             self.closed_wallarray = numpy.array([(p.R, p.Z) for p in closed_wall])
 
@@ -3864,7 +3864,7 @@ class Equilibrium:
             R = self.closed_wall_array[:, 0]
             Z = self.closed_wall_array[:, 1]
 
-            wallfraction = numpy.linspace(0.0, 1.0, len(wall))
+            wallfraction = numpy.linspace(0.0, 1.0, len(self.wall))
 
             self.wallRInterp = interp1d(
                 wallfraction, R, kind="linear", assume_sorted=True
@@ -3936,8 +3936,8 @@ class Equilibrium:
                     import matplotlib.pyplot as plt
 
                     plt.plot(
-                        [p.R for p in closed_wall],
-                        [p.Z for p in closed_wall],
+                        [p.R for p in self.closed_wall],
+                        [p.Z for p in self.closed_wall],
                         color="k",
                     )
 

@@ -1,4 +1,4 @@
-Integrated test for orthogonal grid case.
+Integrated test for nonorthogonal grid case.
 
 To run the test, execute `./runtest.py`.
 

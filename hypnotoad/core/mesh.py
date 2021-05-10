@@ -3493,6 +3493,3 @@ class BoutMesh(Mesh):
                 "Some variable has not been defined yet: have you called "
                 "Mesh.geometry()?"
             )
-
-    def saveOptions(self, filename="hypnotoad_options.yaml"):
-        self.equilibrium.saveOptions(filename)

@@ -4403,23 +4403,3 @@ class Equilibrium:
             R = [p.R for p in region]
             Z = [p.Z for p in region]
             pyplot.scatter(R, Z, marker="x", label=region.name)
-
-    def _getOptionsAsString(self):
-        import yaml
-
-        result = ""
-        result += yaml.dump(self.user_options)
-
-        mesh_options_dict = {"Mesh": {}}
-        m = mesh_options_dict["Mesh"]
-        for key, val in self.user_options.items():
-            if val is not None:
-                m[key] = str(val)
-
-        result += yaml.dump(mesh_options_dict)
-
-        return result
-
-    def saveOptions(self, filename="hypnotoad_options.yaml"):
-        with open(filename, "x") as f:
-            f.write(self._getOptionsAsString())

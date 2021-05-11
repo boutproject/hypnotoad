@@ -376,9 +376,8 @@ class MeshRegion:
 
         # psi values for radial grid
         self.psi_vals = numpy.array(self.equilibriumRegion.psi_vals[radialIndex])
-        assert (
-            len(self.psi_vals) == 2 * self.nx + 1
-        ), "should be a psi value for each radial point"
+        if len(self.psi_vals) != 2 * self.nx + 1:
+            raise ValueError("should be a psi value for each radial point")
 
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
@@ -1738,9 +1737,12 @@ class MeshRegion:
                 f"hy.corners should always be positive. Negative values found in "
                 f"region '{self.name}' at (x,y) indices {negative_indices(hy.corners)}"
             )
-        assert numpy.all(hy.xlow > 0.0), "hy.xlow should always be positive"
-        assert numpy.all(hy.ylow > 0.0), "hy.ylow should always be positive"
-        assert numpy.all(hy.corners > 0.0), "hy.corners should always be positive"
+        if not numpy.all(hy.xlow > 0.0):
+            raise ValueError("hy.xlow should always be positive")
+        if not numpy.all(hy.ylow > 0.0):
+            raise ValueError("hy.ylow should always be positive")
+        if not numpy.all(hy.corners > 0.0):
+            raise ValueError("hy.corners should always be positive")
 
         return hy
 
@@ -2648,7 +2650,7 @@ class Mesh:
             next_region = first_region
             while True:
                 if not next_region.yGroupIndex is None:
-                     raise ValueError(
+                    raise ValueError(
                         "region should not have been added to any yGroup before"
                     )
                 next_region.yGroupIndex = len(group)
@@ -2674,9 +2676,10 @@ class Mesh:
 
         self.equilibrium.resetNonorthogonalOptions(nonorthogonal_settings)
 
-        assert (
-            not self.user_options.orthogonal
-        ), "redistributePoints would do nothing for an orthogonal grid."
+        if self.user_options.orthogonal:
+            raise ValueError(
+                "redistributePoints would do nothing for an orthogonal grid."
+            )
         for region in self.regions.values():
             print("redistributing", region.name, flush=True)
             region.distributePointsNonorthogonal(nonorthogonal_settings)
@@ -3228,12 +3231,11 @@ class BoutMesh(Mesh):
 
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
-        assert all(
-            [r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]
-        ), (
-            "all regions should have same set of x-grid sizes to be compatible with a "
-            "global, logically-rectangular grid"
-        )
+        if not all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]):
+            raise ValueError(
+                "all regions should have same set of x-grid sizes to be compatible "
+                "with a global, logically-rectangular grid"
+            )
         x_sizes = [0] + list(eq_region0.nx)
 
         # Note: x_startinds includes the end: self.x_startinds[-1] = nx
@@ -3249,11 +3251,12 @@ class BoutMesh(Mesh):
             # all segments must have the same ny, i.e. same number of y-boundary guard
             # cells
             this_ny = region.ny(0)
-            assert all(region.ny(i) == this_ny for i in range(region.nSegments)), (
-                "all radial segments in an equilibrium-region must have the same ny "
-                "(i.e.  same number of boundary guard cells) to be compatible with a "
-                "global, logically-rectangular grid"
-            )
+            if not all(region.ny(i) == this_ny for i in range(region.nSegments)):
+                raise ValueError(
+                    "all radial segments in an equilibrium-region must have the same "
+                    "ny (i.e.  same number of boundary guard cells) to be compatible "
+                    "with a global, logically-rectangular grid"
+                )
 
             y_total_new = y_total + this_ny
             self.y_regions_noguards.append(region.ny_noguards)
@@ -3289,9 +3292,10 @@ class BoutMesh(Mesh):
             for region in self.regions.values():
                 f_region = region.__dict__[name]
 
-                assert (
-                    f.attributes == f_region.attributes
-                ), "attributes of a field must be set consistently in every region"
+                if f.attributes != f_region.attributes:
+                    raise ValueError(
+                        "attributes of a field must be set consistently in every region"
+                    )
                 if f_region._centre_array is not None:
                     f.centre[self.region_indices[region.myID]] = f_region.centre
                 if f_region._xlow_array is not None:
@@ -3321,19 +3325,18 @@ class BoutMesh(Mesh):
 
                 f_region = region.__dict__[name]
 
-                assert (
-                    f.attributes == f_region.attributes
-                ), "attributes of a field must be set consistently in every region"
+                if f.attributes != f_region.attributes:
+                    raise ValueError(
+                        "attributes of a field must be set consistently in every region"
+                    )
                 if f_region._centre_array is not None:
                     f.centre[self.region_indices[region.myID][0], :] = f_region.centre
                 if f_region._xlow_array is not None:
                     f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1, :]
-                assert (
-                    f_region._ylow_array is None
-                ), "Cannot have an x-direction array at ylow"
-                assert (
-                    f_region._corners_array is None
-                ), "Cannot have an x-direction array at corners"
+                if f_region._ylow_array is not None:
+                    raise ValueError("Cannot have an x-direction array at ylow")
+                if f_region._corners_array is not None:
+                    raise ValueError("Cannot have an x-direction array at corners")
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "ArrayX"

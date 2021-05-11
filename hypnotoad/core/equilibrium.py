@@ -1401,11 +1401,12 @@ class PsiContour:
 
         if width is None:
             width = self.user_options.refine_width
+            if width is None:
+                raise ValueError("failed to set width from options")
         if atol is None:
             atol = self.user_options.refine_atol
-
-        assert width is not None
-        assert atol is not None
+            if atol is None:
+                raise ValueError("failed to set atol from options")
 
         if methods is None:
             methods = self.user_options.refine_methods
@@ -2916,10 +2917,11 @@ class EquilibriumRegion(PsiContour):
                 return (weight_upper) * sfixed_upper + (1.0 - weight_upper) * sorth
 
         else:
-            assert sfunc_orthogonal is not None, (
-                "Without range_lower or range_upper, cannot use with "
-                "sfunc_orthogonal=None"
-            )
+            if sfunc_orthogonal is None:
+                raise ValueError(
+                    "Without range_lower or range_upper, cannot use with "
+                    "sfunc_orthogonal=None"
+                )
 
             def new_sfunc(i):
                 return sfunc_orthogonal(i)
@@ -3144,11 +3146,16 @@ class EquilibriumRegion(PsiContour):
             r2 = r2(l1)
 
             # coefficients should all be positive
-            assert l1 > 0.0
-            assert l2 > 0.0
-            assert l3 > 0.0
-            assert r2 > 0.0
-            assert r3 > 0.0
+            if l1 <= 0.0:
+                raise ValueError(f"l1 ({l1}) is not positive")
+            if l2 <= 0.0:
+                raise ValueError(f"l2 ({l2}) is not positive")
+            if l3 <= 0.0:
+                raise ValueError(f"l3 ({l3}) is not positive")
+            if r2 <= 0.0:
+                raise ValueError(f"r2 ({r2}) is not positive")
+            if r3 <= 0.0:
+                raise ValueError(f"r3 ({r3}) is not positive")
 
             # sN(iN) = int(diN sprime)
             #        = int(diN l1/(iN + l2) - l3 + l1/(r2 + N/N_norm - iN) - r3
@@ -3219,12 +3226,15 @@ class EquilibriumRegion(PsiContour):
         specified explicitly
         """
         if b_lower is None and b_upper is None:
-            assert a_lower is None, "cannot set a_lower unless b_lower is set"
-            assert a_upper is None, "cannot set a_upper unless b_upper is set"
+            if a_lower is not None:
+                raise ValueError("cannot set a_lower unless b_lower is set")
+            if a_upper is not None:
+                raise ValueError("cannot set a_upper unless b_upper is set")
             # always monotonic
             return lambda i: i * length / N
         elif b_lower is None:
-            assert a_lower is None, "cannot set a_lower unless b_lower is set"
+            if a_lower is not None:
+                raise ValueError("cannot set a_lower unless b_lower is set")
             if a_upper is None:
                 a_upper = 0.0
             # s(iN) = -b*sqrt(N/N_norm-iN) + c + d*iN + e*(iN)^2
@@ -3245,14 +3255,15 @@ class EquilibriumRegion(PsiContour):
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert (
-                b / (2.0 * numpy.sqrt(N / N_norm)) + d > 0.0
-            ), "gradient at start should be positive"
+            if b / (2.0 * numpy.sqrt(N / N_norm)) + d <= 0.0:
+                raise ValueError("gradient at start should be positive")
             # upper boundary:
-            assert b >= 0.0, "sqrt part of function should be positive at end"
-            assert (
-                d + 2.0 * e * N / N_norm >= 0.0
-            ), "gradient of polynomial part should be positive at end"
+            if b < 0.0:
+                raise ValueError("sqrt part of function should be positive at end")
+            if d + 2.0 * e * N / N_norm < 0.0:
+                raise ValueError(
+                    "gradient of polynomial part should be positive at end"
+                )
 
             def lower_extrap(i):
                 # Matches value, gradient and curvature at i=0, but is monotonic
@@ -3282,7 +3293,8 @@ class EquilibriumRegion(PsiContour):
         elif b_upper is None:
             if a_lower is None:
                 a_lower = 0.0
-            assert a_upper is None
+            if a_upper is not None:
+                raise ValueError("Cannot set a_upper when b_upper is not set")
             # s(iN) = a*sqrt(iN) + c + d*iN + e*iN^2
             # s(0) = 0 = c
             # ds/di(0) = a/(2*sqrt(iN))+d ~ a_lower/sqrt(iN)+b_lower
@@ -3298,12 +3310,15 @@ class EquilibriumRegion(PsiContour):
             # check function is monotonic: gradients at beginning and end should both be
             # positive.
             # lower boundary:
-            assert a >= 0.0, "sqrt part of function should be positive at start"
-            assert d >= 0.0, "gradient of polynomial part should be positive at start"
+            if a < 0.0:
+                raise ValueError("sqrt part of function should be positive at start")
+            if d < 0.0:
+                raise ValueError(
+                    "gradient of polynomial part should be positive at start"
+                )
             # upper boundary:
-            assert (
-                a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm > 0.0
-            ), "gradient at end should be positive"
+            if a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm <= 0.0:
+                raise ValueError("gradient at end should be positive")
 
             def upper_extrap(i):
                 # Matches value, gradient and curvature at i=N, but is monotonic
@@ -3380,42 +3395,54 @@ class EquilibriumRegion(PsiContour):
             # positive. Only check the boundaries here, should really add a check that
             # gradient does not reverse in the middle somewhere...
             # lower boundary:
-            assert a >= 0.0, "sqrt part of function should be positive at start"
+            if a < 0.0:
+                raise ValueError("sqrt part of function should be positive at start")
             if a_lower == 0.0:
                 # Gradient must be strictly positive as there is no positive a_lower
                 # piece
-                assert (
-                    b / (2.0 * numpy.sqrt(N / N_norm)) + d > 0.0
-                ), "gradient of non-singular part should be positive at start"
+                if b / (2.0 * numpy.sqrt(N / N_norm)) + d <= 0.0:
+                    raise ValueError(
+                        "gradient of non-singular part should be positive at start"
+                    )
             else:
                 # Might be 0., so allow tolerance for small negative values due to
                 # rounding errors
-                assert (
+                if (
                     b / (2.0 * numpy.sqrt(N / N_norm)) + d
-                    > -self.user_options.sfunc_checktol
-                ), "gradient of non-singular part should be positive at start"
+                    <= -self.user_options.sfunc_checktol
+                ):
+                    raise ValueError(
+                        "gradient of non-singular part should be positive at start"
+                    )
             # upper boundary:
-            assert b >= 0.0, "sqrt part of function should be positive at end"
+            if b < 0.0:
+                raise ValueError("sqrt part of function should be positive at end")
             if a_upper == 0.0:
                 # Gradient must be strictly positive as there is no positive a_upper
                 # piece
-                assert (
+                if (
                     a / (2.0 * numpy.sqrt(N / N_norm))
                     + d
                     + 2.0 * e * N / N_norm
                     + 3.0 * f * (N / N_norm) ** 2
-                    > 0.0
-                ), "gradient of non-singular part should be positive at end"
+                    <= 0.0
+                ):
+                    raise ValueError(
+                        "gradient of non-singular part should be positive at end"
+                    )
             else:
                 # Might be 0., so allow tolerance for small negative values due to
                 # rounding errors
-                assert (
+                if (
                     a / (2.0 * numpy.sqrt(N / N_norm))
                     + d
                     + 2.0 * e * N / N_norm
                     + 3.0 * f * (N / N_norm) ** 2
-                    > -self.user_options.sfunc_checktol
-                ), "gradient of non-singular part should be positive at end"
+                    <= -self.user_options.sfunc_checktol
+                ):
+                    raise ValueError(
+                        "gradient of non-singular part should be positive at end"
+                    )
 
             if a == 0.0:
 
@@ -3623,23 +3650,25 @@ class Equilibrium:
         the lower edge of a certain segment of upperRegion.
         """
         # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
-        assert type(self.regions) == OrderedDict, "self.regions should be OrderedDict"
+        if not isinstance(self.regions, OrderedDict):
+            raise ValueError("self.regions should be OrderedDict")
 
         lRegion = self.regions[lowerRegion]
         uRegion = self.regions[upperRegion]
 
-        assert (
-            lRegion.connections[lowerSegment]["upper"] is None
-        ), "lRegion.connections['upper'] should not have been set already"
-        assert (
-            uRegion.connections[upperSegment]["lower"] is None
-        ), "uRegion.connections['lower'] should not have been set already"
+        if lRegion.connections[lowerSegment]["upper"] is not None:
+            raise ValueError(
+                "lRegion.connections['upper'] should not have been set already"
+            )
+        if uRegion.connections[upperSegment]["lower"] is not None:
+            raise ValueError(
+                "uRegion.connections['lower'] should not have been set already"
+            )
 
         # Check nx of both segments is the same - otherwise the connection must be
         # between some wrong regions
-        assert (
-            lRegion.nx[lowerSegment] == uRegion.nx[upperSegment]
-        ), "nx should match across connection"
+        if lRegion.nx[lowerSegment] != uRegion.nx[upperSegment]:
+            raise ValueError("nx should match across connection")
 
         lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]["lower"] = (lowerRegion, lowerSegment)
@@ -3744,15 +3773,18 @@ class Equilibrium:
         posRight, minRight = self.findExtremum_1d(p3, p4)
         posBottom, minBottom = self.findExtremum_1d(p4, p1)
 
-        assert (
-            minTop == minBottom
-        ), "if minumum is found at top, should also be found at bottom"
-        assert (
-            minLeft == minRight
-        ), "if minumum is found at left, should also be found at right"
-        assert (
-            minTop != minLeft
-        ), "if minimum is found at top, maximum should be found at left"
+        if minTop != minBottom:
+            raise ValueError(
+                "if minumum is found at top, should also be found at bottom"
+            )
+        if minLeft != minRight:
+            raise ValueError(
+                "if minumum is found at left, should also be found at right"
+            )
+        if minTop == minLeft:
+            raise ValueError(
+                "if minimum is found at top, maximum should be found at left"
+            )
 
         if minTop:
             vertSearch = self.findMaximum_1d
@@ -3922,8 +3954,9 @@ class Equilibrium:
         intersects = find_intersections(self.closed_wallarray, p1, p2)
         if intersects is not None:
             intersect = Point2D(*intersects[0, :])
-            assert intersects.shape[0] < 3, "too many intersections with wall"
-            if intersects.shape[0] > 1:
+            if intersects.shape[0] > 2:
+                raise ValueError("too many intersections with wall")
+            elif intersects.shape[0] > 1:
                 second_intersect = Point2D(*intersects[1, :])
                 if not (
                     numpy.abs(intersect.R - second_intersect.R) < intersect_tolerance

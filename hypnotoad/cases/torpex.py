@@ -176,17 +176,19 @@ class TORPEXMagneticField(Equilibrium):
                 # plane (outward in major radius at the top of the torus, inward at the
                 # bottom).  This corresponds to plasma current in the anti-clockwise
                 # toroidal direction looking from above, so current should be positive
-                assert Ip >= 0.0, (
-                    "direction of plasma current should be anti-clockwise to be "
-                    "consistent with sign of grad(psi)"
-                )
+                if Ip < 0.0:
+                    raise ValueError(
+                        "direction of plasma current should be anti-clockwise to be "
+                        "consistent with sign of grad(psi)"
+                    )
             else:
                 # psi decreases outward radially, so current should be in the opposite
                 # direction
-                assert Ip <= 0.0, (
-                    "direction of plasma current should be clockwise to be consistent "
-                    "with sign of grad(psi)"
-                )
+                if Ip > 0.0:
+                    raise ValueError(
+                        "direction of plasma current should be clockwise to be consistent "
+                        "with sign of grad(psi)"
+                    )
             # index of a point close to the magnetic axis
             i_axis = numpy.searchsorted(R, R_axis)
             j_axis = numpy.searchsorted(Z, Z_axis)
@@ -256,8 +258,16 @@ class TORPEXMagneticField(Equilibrium):
             Bt = eqfile["Bphi"][0, 0]
             RindMid = Bt.shape[1] // 2
             ZindMid = Bt.shape[0] // 2
-            assert eqfile["R"][0, 0][ZindMid, RindMid] == 1.0
-            assert eqfile["Z"][0, 0][ZindMid, RindMid] == 0.0
+            if eqfile["R"][0, 0][ZindMid, RindMid] != 1.0:
+                raise ValueError(
+                    f"R at centre should be 1.0, got "
+                    f"{eqfile['R'][0, 0][ZindMid, RindMid]}"
+                )
+            if eqfile["Z"][0, 0][ZindMid, RindMid] != 0.0:
+                raise ValueError(
+                    f"Z at centre should be 0.0, got "
+                    f"{eqfile['Z'][0, 0][ZindMid, RindMid]}"
+                )
             self.Bt_axis = Bt[ZindMid, RindMid]
         else:
             raise ValueError("Failed to initialise psi function from inputs")
@@ -460,7 +470,10 @@ class TORPEXMagneticField(Equilibrium):
         For TORPEX, follow 4 legs away from the x-point, starting with a rough guess and
         then refining to the separatrix value of A_toroidal.
         """
-        assert len(self.x_points) == 1, "should be one X-point for TORPEX configuration"
+        if len(self.x_points) != 1:
+            raise ValueError(
+                f"should be one X-point for TORPEX configuration, got {self.x_points}"
+            )
         xpoint = self.x_points[0]
 
         boundary = self.findRoots_1d(

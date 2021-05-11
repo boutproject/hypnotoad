@@ -522,7 +522,8 @@ class TokamakEquilibrium(Equilibrium):
         inds = np.nonzero((psivals[1:] - psi_sep) * (psivals[:-1] - psi_sep) < 0.0)[0]
 
         # Currently only handle standard X-points (no snowflakes)
-        assert len(inds) == 2
+        if len(inds) != 2:
+            raise ValueError("Found more than 2 divertor legs")
 
         # Divide-and-conquer to get a points on the leg
         # This goes into a list leg_points = [(r,z),..]
@@ -653,7 +654,8 @@ class TokamakEquilibrium(Equilibrium):
         - self.regions         OrderedDict of EquilibriumRegion objects
 
         """
-        assert self.psi_axis is not None
+        if self.psi_axis is None:
+            raise ValueError("psi_axis has not been set")
 
         # psi values
         def psinorm_to_psi(psinorm):
@@ -701,7 +703,8 @@ class TokamakEquilibrium(Equilibrium):
         )
 
         # Check that there are only one or two left
-        assert 0 < len(self.x_points) <= 2
+        if not (0 < len(self.x_points) <= 2):
+            raise ValueError(f"Found unsupported number of X-points: {self.x_points}")
 
         if len(self.x_points) == 1:
             # Generate the specifications for a lower or upper single null
@@ -736,7 +739,11 @@ class TokamakEquilibrium(Equilibrium):
                         psi_vals    1D array of poloidal flux values. Length 2*nx+1
         connections    List of connections between regions
         """
-        assert len(self.x_points) == 1
+        if len(self.x_points) != 1:
+            raise ValueError(
+                f"Single-null case must have 1 X-point, got {self.x_points}"
+            )
+
         # Single null. Could be lower or upper
 
         # Find lines along the legs from X-point to target
@@ -912,7 +919,10 @@ class TokamakEquilibrium(Equilibrium):
         connections    List of connections between regions
         """
 
-        assert len(self.x_points) == 2
+        if len(self.x_points) != 2:
+            raise ValueError(
+                f"Double-null case must have 2 X-points, got {self.x_points}"
+            )
 
         if self.x_points[0].Z < self.o_point.Z:
             # Lower double null
@@ -926,8 +936,16 @@ class TokamakEquilibrium(Equilibrium):
         lower_psi = self.psi_sep[lower_xpt_ind]
         upper_psi = self.psi_sep[upper_xpt_ind]
 
-        assert np.isclose(lower_psi, self.psi(*lower_x_point))
-        assert np.isclose(upper_psi, self.psi(*upper_x_point))
+        if not np.isclose(lower_psi, self.psi(*lower_x_point)):
+            raise ValueError(
+                f"psi-value for lower separatrix {lower_psi} does not match value at "
+                "lower X-point {self.psi(*lower_x_point)}"
+            )
+        if not np.isclose(upper_psi, self.psi(*upper_x_point)):
+            raise ValueError(
+                f"psi-value for upper separatrix {upper_psi} does not match value at "
+                "upper X-point {self.psi(*upper_x_point)}"
+            )
 
         # Find lines along the legs from X-point to target
         lower_legs = self.findLegs(lower_x_point)
@@ -1502,7 +1520,8 @@ class TokamakEquilibrium(Equilibrium):
                     # Determine if poloidal flux is increasing or decreasing with radius
                     sign = np.sign(self.psi_sep[0] - self.psi_axis)
 
-                    assert region["psi"] is not None
+                    if region["psi"] is None:
+                        raise ValueError("No psi values in region")
                     leg_psi = region["psi"]
                     eqreg.pressure = lambda psi: self.pressure(
                         leg_psi + sign * abs(psi - leg_psi)
@@ -1561,10 +1580,11 @@ class TokamakEquilibrium(Equilibrium):
         def handler(self, *args):
             if isinstance(args[0], MultiLocationArray):
                 for arg in args[1:]:
-                    assert isinstance(arg, MultiLocationArray), (
-                        "if first arg is a MultiLocationArray, then others must be as "
-                        "well"
-                    )
+                    if not isinstance(arg, MultiLocationArray):
+                        raise ValueError(
+                            "if first arg is a MultiLocationArray, then others must be "
+                            "as well"
+                        )
                 result = MultiLocationArray(args[0].nx, args[0].ny)
 
                 if all(arg.centre is not None for arg in args):

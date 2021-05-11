@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import sys
 
+from integrated_tests.utils import run_case
+
 diagnose = False
 
 rtol = 1.0e-9
@@ -11,9 +13,6 @@ atol = 5.0e-10
 
 # make sure we are in the test directory
 os.chdir(Path(__file__).parent)
-
-sys.path.insert(0, "..")
-from utils import run_case  # noqa: E402
 
 while len(sys.argv) < 3:
     sys.argv.append(None)

@@ -186,8 +186,8 @@ class TORPEXMagneticField(Equilibrium):
                 # direction
                 if Ip > 0.0:
                     raise ValueError(
-                        "direction of plasma current should be clockwise to be consistent "
-                        "with sign of grad(psi)"
+                        "direction of plasma current should be clockwise to be "
+                        "consistent with sign of grad(psi)"
                     )
             # index of a point close to the magnetic axis
             i_axis = numpy.searchsorted(R, R_axis)

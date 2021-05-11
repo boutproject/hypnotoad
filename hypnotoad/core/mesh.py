@@ -2649,7 +2649,7 @@ class Mesh:
             group = []
             next_region = first_region
             while True:
-                if not next_region.yGroupIndex is None:
+                if next_region.yGroupIndex is not None:
                     raise ValueError(
                         "region should not have been added to any yGroup before"
                     )

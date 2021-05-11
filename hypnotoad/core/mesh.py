@@ -2629,26 +2629,40 @@ class Mesh:
         # create groups that connect in y
         self.y_groups = []
         region_list = list(self.regions.values())
+
+        # Once 'region_list' is empty, all regions have been added to some group
         while region_list:
-            for i, region in enumerate(region_list):
-                if region.connections["lower"] is None:
+            for i, first_region in enumerate(region_list):
+                if first_region.connections["lower"] is None:
+                    # Found a region with a lower boundary - start stepping through
+                    # y-connections from here
                     break
                 # note, if no region with connections['lower']=None is found, then some
-                # arbitrary region will be 'region' after this loop. This is OK, as this
-                # region must be part of a periodic group, which we will handle.
+                # arbitrary region will be 'first_region' after this loop. This is OK,
+                # as this region must be part of a periodic group, which we will handle.
+
+            # Find all the regions connected in the y-direction to 'first_region' and
+            # add them to 'group'. Remove them from 'region_list' since each region can
+            # only be in one group.
             group = []
+            next_region = first_region
             while True:
-                assert (
-                    region.yGroupIndex is None
-                ), "region should not have been added to any yGroup before"
-                region.yGroupIndex = len(group)
-                group.append(region)
+                if not next_region.yGroupIndex is None:
+                     raise ValueError(
+                        "region should not have been added to any yGroup before"
+                    )
+                next_region.yGroupIndex = len(group)
+                group.append(next_region)
                 region_list.pop(i)
-                region = region.getNeighbour("upper")
-                if region is None or group.count(region) > 0:
+
+                next_region = next_region.getNeighbour("upper")
+                if next_region is None or group.count(next_region) > 0:
                     # reached boundary or have all regions in a periodic group
                     break
-                i = region_list.index(region)
+                # index of 'next_region' in 'region_list', so we can remove
+                # 'next_region' after adding to 'group' in the next step of the loop
+                i = region_list.index(next_region)
+
             self.y_groups.append(group)
 
     def redistributePoints(self, nonorthogonal_settings):

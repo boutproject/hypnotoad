@@ -711,7 +711,7 @@ class MeshRegion:
                 for i in range(starti, len(contour) - 1):
                     coarse_upper_intersect = (
                         self.meshParent.equilibrium.wallIntersection(
-                            Point2D(*contour[i]), Point2D(*contour[i + 1])
+                            contour[i], contour[i + 1]
                         )
                     )
                     if coarse_upper_intersect is not None:
@@ -726,7 +726,7 @@ class MeshRegion:
                     contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
                     coarse_upper_intersect = (
                         self.meshParent.equilibrium.wallIntersection(
-                            Point2D(*contour[-2]), Point2D(*contour[-1])
+                            contour[-2], contour[-1]
                         )
                     )
                     count += 1

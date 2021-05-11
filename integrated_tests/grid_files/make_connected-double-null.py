@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-from CerfonFreidbergSymmetric import CerfonFreidbergSymmetric
-import geqdsk
+from CerfonFreidbergGeometry import CerfonFreidbergSymmetric, geqdsk
 
-eq = CerfonFreidbergSymmetric()
+eq = CerfonFreidbergSymmetric.CerfonFreidbergSymmetric()
 
 eq.initByName("NSTX")
 

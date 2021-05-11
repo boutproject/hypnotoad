@@ -330,6 +330,17 @@ class MeshRegion:
             ),
             value_type=bool,
         ),
+        wall_point_exclude_radius=WithMeta(
+            1.0e-3,
+            doc=(
+                "When adding the wall point to a contour, this is the radius within "
+                "which existing contour points are removed as too close to the wall "
+                "point (points being too close might lead to bad interpolation). "
+                "This parameter should not usually need to be changed."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
     )
 
     def __init__(
@@ -801,12 +812,12 @@ class MeshRegion:
                 # we remove one.
                 if (
                     calc_distance(contour[lower_intersect_index], lower_intersect)
-                    < 1.0e-3
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     contour.replace(lower_intersect_index, lower_intersect)
                 elif (
                     calc_distance(contour[lower_intersect_index + 1], lower_intersect)
-                    < 1.0e-3
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     lower_intersect_index = lower_intersect_index + 1
                     contour.replace(lower_intersect_index, lower_intersect)
@@ -842,12 +853,12 @@ class MeshRegion:
                 # we remove one.
                 if (
                     calc_distance(contour[upper_intersect_index], upper_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     contour.replace(upper_intersect_index, upper_intersect)
                 elif (
                     calc_distance(contour[upper_intersect_index + 1], upper_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     upper_intersect_index = upper_intersect_index + 1
                     contour.replace(upper_intersect_index, upper_intersect)

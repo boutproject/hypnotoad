@@ -459,7 +459,7 @@ class TestContour:
         pend = f(numpy.pi * testcontour.r)
         assert pstart.R == pytest.approx(testcontour.R0 + testcontour.r, abs=1.0e-9)
         assert pstart.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
-        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-9)
+        assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-8)
         assert pend.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
 
     def test_getRegridded(self, testcontour):
@@ -497,15 +497,15 @@ class TestContour:
 
         # test the extend_lower
         assert [*new[0]] == pytest.approx(
-            [orig[1].R, 2.0 * testcontour.Z0 - orig[1].Z], abs=1.0e-10
+            [orig[1].R, 2.0 * testcontour.Z0 - orig[1].Z], abs=1.0e-7
         )
 
         # test the extend_upper
         assert [*new[-2]] == pytest.approx(
-            [orig[-2].R, 2.0 * testcontour.Z0 - orig[-2].Z], abs=1.0e-10
+            [orig[-2].R, 2.0 * testcontour.Z0 - orig[-2].Z], abs=1.0e-9
         )
         assert [*new[-1]] == pytest.approx(
-            [orig[-3].R, 2.0 * testcontour.Z0 - orig[-3].Z], abs=1.0e-10
+            [orig[-3].R, 2.0 * testcontour.Z0 - orig[-3].Z], abs=1.0e-7
         )
 
     def test_contourSfunc(self, testcontour):
@@ -659,12 +659,15 @@ class TestContour:
 
 
 class ThisEquilibrium(Equilibrium):
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, wall=None):
         if settings is None:
             settings = {}
         self.user_options = Equilibrium.user_options_factory.add(
             refine_width=1.0e-5, refine_atol=2.0e-8
         ).create(settings)
+
+        if wall is not None:
+            self.wall = wall
 
         super().__init__({})
 
@@ -672,13 +675,13 @@ class ThisEquilibrium(Equilibrium):
 class TestEquilibrium:
     @pytest.fixture
     def eq(self):
-        eq = ThisEquilibrium()
-        eq.wall = [
+        wall = [
             Point2D(-1.0, -1.0),
             Point2D(1.0, -1.0),
             Point2D(1.0, 1.0),
             Point2D(-1.0, 1.0),
         ]
+        eq = ThisEquilibrium(wall=wall)
         return eq
 
     def test_make1dGrid(self, eq):

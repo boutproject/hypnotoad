@@ -11,7 +11,18 @@
 import warnings
 
 
-def main():
+def main(*, add_noise=None):
+    """
+    Read a g-file and (optional) input file, and write a grid file
+
+    Parameters
+    ----------
+    add_noise : int, optional
+        Only intended for use in tests. If an int is passed, used as the seed for a
+        random number generator adding small amounts of noise to the EquilibriumRegion
+        points before generating the grid.
+    """
+
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
@@ -54,6 +65,20 @@ def main():
 
     with open(filename, "rt") as fh:
         eq = tokamak.read_geqdsk(fh, settings=options, nonorthogonal_settings=options)
+
+    if add_noise is not None:
+        # Add machine-precision level noise for testing robustness of grid generation
+        import numpy as np
+        from ..core.equilibrium import Point2D
+
+        rng = np.random.default_rng(add_noise)
+        for region in eq.regions.values():
+            region.points = [
+                Point2D(
+                    p.R + rng.normal(scale=1.0e-16), p.Z + rng.normal(scale=5.0e-17)
+                )
+                for p in region.points
+            ]
 
     if options.get("plot_regions", False):
         try:

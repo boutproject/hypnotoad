@@ -9,7 +9,8 @@ tests_dir = str(Path(__file__).parent)
 test_dirs = list(glob(tests_dir + "/*/"))
 
 # no test in grid_files directory
-test_dirs = [d for d in test_dirs if "grid_files" not in d]
+skip_dirs = ["grid_files", "__pycache__"]
+test_dirs = [d for d in test_dirs if not any(x in d for x in skip_dirs)]
 
 results = []
 

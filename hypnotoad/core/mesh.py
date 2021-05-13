@@ -24,6 +24,7 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 from copy import deepcopy
 import numbers
 import re
+import sys
 import warnings
 import yaml
 
@@ -40,6 +41,7 @@ from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
 
 from .equilibrium import calc_distance, Equilibrium, EquilibriumRegion, Point2D
+from ..utils.utils import module_versions_formatted
 from ..__version__ import get_versions
 
 
@@ -328,6 +330,17 @@ class MeshRegion:
             ),
             value_type=bool,
         ),
+        wall_point_exclude_radius=WithMeta(
+            1.0e-3,
+            doc=(
+                "When adding the wall point to a contour, this is the radius within "
+                "which existing contour points are removed as too close to the wall "
+                "point (points being too close might lead to bad interpolation). "
+                "This parameter should not usually need to be changed."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
     )
 
     def __init__(
@@ -363,9 +376,8 @@ class MeshRegion:
 
         # psi values for radial grid
         self.psi_vals = numpy.array(self.equilibriumRegion.psi_vals[radialIndex])
-        assert (
-            len(self.psi_vals) == 2 * self.nx + 1
-        ), "should be a psi value for each radial point"
+        if len(self.psi_vals) != 2 * self.nx + 1:
+            raise ValueError("should be a psi value for each radial point")
 
         # Dictionary that specifies whether a boundary is connected to another region or
         # is an actual boundary
@@ -605,21 +617,25 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, 0, -1):
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[i], contour[i - 1]
+                    coarse_lower_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[i], contour[i - 1]
+                        )
                     )
-                    if lower_intersect is not None:
+                    if coarse_lower_intersect is not None:
                         lower_intersect_index = i - 1
                         break
 
                 count = 0
                 ds_extend = contour.distance[1] - contour.distance[0]
-                while lower_intersect is None:
+                while coarse_lower_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_lower=1, ds_lower=ds_extend)
-                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[1], contour[0]
+                    coarse_lower_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[1], contour[0]
+                        )
                     )
                     count += 1
                     if count >= max_extend:
@@ -642,6 +658,47 @@ class MeshRegion:
                         raise RuntimeError(
                             "extended contour too far without finding wall"
                         )
+                # refine lower_intersect by finding the intersection from FineContour
+                # points
+                #
+                # first find nearest FineContour points
+                d = contour.fine_contour.getDistance(coarse_lower_intersect)
+                i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
+                # Intersection should be between i_fine-1 and i_fine, but check
+                # intervals on either side if necessary
+                lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                    Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    Point2D(*contour.fine_contour.positions[i_fine]),
+                )
+                if lower_intersect is None:
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine - 2]),
+                        Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    )
+                    if lower_intersect is not None:
+                        i_fine = i_fine - 1
+                if lower_intersect is None:
+                    lower_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine]),
+                        Point2D(*contour.fine_contour.positions[i_fine + 1]),
+                    )
+                    if lower_intersect is not None:
+                        i_fine = i_fine + 1
+                if lower_intersect is None:
+                    raise ValueError(
+                        "Did not find lower_intersect from fine_contour, even though "
+                        "intersection was found on contour."
+                    )
+                # Further refine, to ensure wall point is at correct psi
+                lower_intersect = contour.refinePoint(
+                    lower_intersect,
+                    Point2D(
+                        *(
+                            contour.fine_contour.positions[i_fine]
+                            - contour.fine_contour.positions[i_fine - 1]
+                        )
+                    ),
+                )
 
             if upper_wall:
                 if lower_wall:
@@ -652,21 +709,25 @@ class MeshRegion:
                 # find whether one of the segments of the contour already intersects the
                 # wall
                 for i in range(starti, len(contour) - 1):
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[i], contour[i + 1]
+                    coarse_upper_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[i], contour[i + 1]
+                        )
                     )
-                    if upper_intersect is not None:
+                    if coarse_upper_intersect is not None:
                         upper_intersect_index = i
                         break
 
                 count = 0
                 ds_extend = contour.distance[-1] - contour.distance[-2]
-                while upper_intersect is None:
+                while coarse_upper_intersect is None:
                     # contour has not yet intersected with wall, so make it longer and
                     # try again
                     contour.temporaryExtend(extend_upper=1, ds_upper=ds_extend)
-                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
-                        contour[-2], contour[-1]
+                    coarse_upper_intersect = (
+                        self.meshParent.equilibrium.wallIntersection(
+                            contour[-2], contour[-1]
+                        )
                     )
                     count += 1
                     if count >= max_extend:
@@ -691,6 +752,47 @@ class MeshRegion:
                         raise RuntimeError(
                             "extended contour too far without finding wall"
                         )
+                # refine upper_intersect by finding the intersection from FineContour
+                # points
+                #
+                # first find nearest FineContour points
+                d = contour.fine_contour.getDistance(coarse_upper_intersect)
+                i_fine = numpy.searchsorted(contour.fine_contour.distance, d)
+                # Intersection should be between i_fine-1 and i_fine, but check
+                # intervals on either side if necessary
+                upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                    Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    Point2D(*contour.fine_contour.positions[i_fine]),
+                )
+                if upper_intersect is None:
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine - 2]),
+                        Point2D(*contour.fine_contour.positions[i_fine - 1]),
+                    )
+                    if upper_intersect is not None:
+                        i_fine = i_fine - 1
+                if upper_intersect is None:
+                    upper_intersect = self.meshParent.equilibrium.wallIntersection(
+                        Point2D(*contour.fine_contour.positions[i_fine]),
+                        Point2D(*contour.fine_contour.positions[i_fine + 1]),
+                    )
+                    if upper_intersect is not None:
+                        i_fine = i_fine + 1
+                if upper_intersect is None:
+                    raise ValueError(
+                        "Did not find upper_intersect from fine_contour, even though "
+                        "intersection was found on contour."
+                    )
+                # Further refine, to ensure wall point is at correct psi
+                upper_intersect = contour.refinePoint(
+                    upper_intersect,
+                    Point2D(
+                        *(
+                            contour.fine_contour.positions[i_fine]
+                            - contour.fine_contour.positions[i_fine - 1]
+                        )
+                    ),
+                )
 
             # now add points on the wall(s) to the contour
             if lower_wall:
@@ -701,22 +803,30 @@ class MeshRegion:
                 # where the grid would be orthogonal
                 sfunc_orthogonal_original = contour.contourSfunc()
 
-                # now make lower_intersect_index the index where the point at the wall is
-                # check whether one of the points is already on the wall
+                # now make lower_intersect_index the index where the point at the wall
+                # is.
+                # check whether one of the points is close to the wall point and remove
+                # if it is - use a pretty loose checek because points apart from the
+                # wall point are about to be redistributed anyway, so does not matter if
+                # we remove one.
                 if (
                     calc_distance(contour[lower_intersect_index], lower_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
-                    pass
+                    contour.replace(lower_intersect_index, lower_intersect)
                 elif (
                     calc_distance(contour[lower_intersect_index + 1], lower_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     lower_intersect_index = lower_intersect_index + 1
+                    contour.replace(lower_intersect_index, lower_intersect)
                 else:
                     # otherwise insert a new point
                     lower_intersect_index += 1
                     contour.insert(lower_intersect_index, lower_intersect)
+                    if upper_wall:
+                        # need to correct for point already added at lower wall
+                        upper_intersect_index += 1
 
                 # contour.contourSfunc() would put the points at the positions along the
                 # contour where the grid would be orthogonal
@@ -730,30 +840,33 @@ class MeshRegion:
                 contour.startInd = lower_intersect_index
 
             if upper_wall:
-                if lower_wall:
-                    # need to correct for point already added at lower wall
-                    upper_intersect_index += 1
 
                 # this sfunc would put the points at the positions along the contour
                 # where the grid would be orthogonal
                 sfunc_orthogonal = contour.contourSfunc()
 
                 # now make upper_intersect_index the index where the point at the wall is
-                # check whether one of the points is already on the wall
+                # check whether one of the points is close to the wall point and remove
+                # if it is - use a pretty loose checek because points apart from the
+                # wall point are about to be redistributed anyway, so does not matter if
+                # we remove one.
                 if (
                     calc_distance(contour[upper_intersect_index], upper_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
-                    pass
+                    contour.replace(upper_intersect_index, upper_intersect)
                 elif (
                     calc_distance(contour[upper_intersect_index + 1], upper_intersect)
-                    < self.atol
+                    < self.user_options.wall_point_exclude_radius
                 ):
                     upper_intersect_index = upper_intersect_index + 1
+                    contour.replace(upper_intersect_index, upper_intersect)
                 else:
                     # otherwise insert a new point
                     contour.insert(upper_intersect_index + 1, upper_intersect)
                     if upper_intersect_index >= 0:
+                        # If upper_intersect_index is negative, then it still points to
+                        # the correct element after insertion
                         upper_intersect_index += 1
 
                 # end point is now at the wall
@@ -1626,9 +1739,12 @@ class MeshRegion:
                 f"hy.corners should always be positive. Negative values found in "
                 f"region '{self.name}' at (x,y) indices {negative_indices(hy.corners)}"
             )
-        assert numpy.all(hy.xlow > 0.0), "hy.xlow should always be positive"
-        assert numpy.all(hy.ylow > 0.0), "hy.ylow should always be positive"
-        assert numpy.all(hy.corners > 0.0), "hy.corners should always be positive"
+        if not numpy.all(hy.xlow > 0.0):
+            raise ValueError("hy.xlow should always be positive")
+        if not numpy.all(hy.ylow > 0.0):
+            raise ValueError("hy.ylow should always be positive")
+        if not numpy.all(hy.corners > 0.0):
+            raise ValueError("hy.corners should always be positive")
 
         return hy
 
@@ -2516,26 +2632,41 @@ class Mesh:
 
         # create groups that connect in y
         self.y_groups = []
-        region_set = set(self.regions.values())
-        while region_set:
-            for region in region_set:
-                if region.connections["lower"] is None:
+        region_list = list(self.regions.values())
+
+        # Once 'region_list' is empty, all regions have been added to some group
+        while region_list:
+            for i, first_region in enumerate(region_list):
+                if first_region.connections["lower"] is None:
+                    # Found a region with a lower boundary - start stepping through
+                    # y-connections from here
                     break
                 # note, if no region with connections['lower']=None is found, then some
-                # arbitrary region will be 'region' after this loop. This is OK, as this
-                # region must be part of a periodic group, which we will handle.
+                # arbitrary region will be 'first_region' after this loop. This is OK,
+                # as this region must be part of a periodic group, which we will handle.
+
+            # Find all the regions connected in the y-direction to 'first_region' and
+            # add them to 'group'. Remove them from 'region_list' since each region can
+            # only be in one group.
             group = []
+            next_region = first_region
             while True:
-                assert (
-                    region.yGroupIndex is None
-                ), "region should not have been added to any yGroup before"
-                region.yGroupIndex = len(group)
-                group.append(region)
-                region_set.remove(region)
-                region = region.getNeighbour("upper")
-                if region is None or group.count(region) > 0:
+                if next_region.yGroupIndex is not None:
+                    raise ValueError(
+                        "region should not have been added to any yGroup before"
+                    )
+                next_region.yGroupIndex = len(group)
+                group.append(next_region)
+                region_list.pop(i)
+
+                next_region = next_region.getNeighbour("upper")
+                if next_region is None or group.count(next_region) > 0:
                     # reached boundary or have all regions in a periodic group
                     break
+                # index of 'next_region' in 'region_list', so we can remove
+                # 'next_region' after adding to 'group' in the next step of the loop
+                i = region_list.index(next_region)
+
             self.y_groups.append(group)
 
     def redistributePoints(self, nonorthogonal_settings):
@@ -2547,9 +2678,10 @@ class Mesh:
 
         self.equilibrium.resetNonorthogonalOptions(nonorthogonal_settings)
 
-        assert (
-            not self.user_options.orthogonal
-        ), "redistributePoints would do nothing for an orthogonal grid."
+        if self.user_options.orthogonal:
+            raise ValueError(
+                "redistributePoints would do nothing for an orthogonal grid."
+            )
         for region in self.regions.values():
             print("redistributing", region.name, flush=True)
             region.distributePointsNonorthogonal(nonorthogonal_settings)
@@ -3101,12 +3233,11 @@ class BoutMesh(Mesh):
 
         # Keep ranges of global indices for each region, separately from the MeshRegions,
         # because we don't want MeshRegion objects to depend on global indices
-        assert all(
-            [r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]
-        ), (
-            "all regions should have same set of x-grid sizes to be compatible with a "
-            "global, logically-rectangular grid"
-        )
+        if not all([r.nx == eq_region0.nx for r in self.equilibrium.regions.values()]):
+            raise ValueError(
+                "all regions should have same set of x-grid sizes to be compatible "
+                "with a global, logically-rectangular grid"
+            )
         x_sizes = [0] + list(eq_region0.nx)
 
         # Note: x_startinds includes the end: self.x_startinds[-1] = nx
@@ -3122,11 +3253,12 @@ class BoutMesh(Mesh):
             # all segments must have the same ny, i.e. same number of y-boundary guard
             # cells
             this_ny = region.ny(0)
-            assert all(region.ny(i) == this_ny for i in range(region.nSegments)), (
-                "all radial segments in an equilibrium-region must have the same ny "
-                "(i.e.  same number of boundary guard cells) to be compatible with a "
-                "global, logically-rectangular grid"
-            )
+            if not all(region.ny(i) == this_ny for i in range(region.nSegments)):
+                raise ValueError(
+                    "all radial segments in an equilibrium-region must have the same "
+                    "ny (i.e.  same number of boundary guard cells) to be compatible "
+                    "with a global, logically-rectangular grid"
+                )
 
             y_total_new = y_total + this_ny
             self.y_regions_noguards.append(region.ny_noguards)
@@ -3162,9 +3294,10 @@ class BoutMesh(Mesh):
             for region in self.regions.values():
                 f_region = region.__dict__[name]
 
-                assert (
-                    f.attributes == f_region.attributes
-                ), "attributes of a field must be set consistently in every region"
+                if f.attributes != f_region.attributes:
+                    raise ValueError(
+                        "attributes of a field must be set consistently in every region"
+                    )
                 if f_region._centre_array is not None:
                     f.centre[self.region_indices[region.myID]] = f_region.centre
                 if f_region._xlow_array is not None:
@@ -3194,19 +3327,18 @@ class BoutMesh(Mesh):
 
                 f_region = region.__dict__[name]
 
-                assert (
-                    f.attributes == f_region.attributes
-                ), "attributes of a field must be set consistently in every region"
+                if f.attributes != f_region.attributes:
+                    raise ValueError(
+                        "attributes of a field must be set consistently in every region"
+                    )
                 if f_region._centre_array is not None:
                     f.centre[self.region_indices[region.myID][0], :] = f_region.centre
                 if f_region._xlow_array is not None:
                     f.xlow[self.region_indices[region.myID]] = f_region.xlow[:-1, :]
-                assert (
-                    f_region._ylow_array is None
-                ), "Cannot have an x-direction array at ylow"
-                assert (
-                    f_region._corners_array is None
-                ), "Cannot have an x-direction array at corners"
+                if f_region._ylow_array is not None:
+                    raise ValueError("Cannot have an x-direction array at ylow")
+                if f_region._corners_array is not None:
+                    raise ValueError("Cannot have an x-direction array at corners")
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "ArrayX"
@@ -3482,6 +3614,10 @@ class BoutMesh(Mesh):
                     "hypnotoad_input_geqdsk_file_contents",
                     self.equilibrium.geqdsk_input,
                 )
+
+            # save Python and module versions to enable reproducibility
+            f.write("Python_version", sys.version)
+            f.write("module_versions", module_versions_formatted())
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

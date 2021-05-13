@@ -35,7 +35,7 @@ from numpy import (
 import numpy as np
 
 
-def find_critical(R, Z, psi, discard_xpoints=False):
+def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
     """
     Find critical points
 
@@ -45,6 +45,8 @@ def find_critical(R, Z, psi, discard_xpoints=False):
     R - R(nr, nz) 2D array of major radii
     Z - Z(nr, nz) 2D array of heights
     psi - psi(nr, nz) 2D array of psi values
+    atol - tolerance for refining position of X-points
+    maxits - maximum number of iterations for refinement of X-points
 
     Returns
     -------
@@ -109,7 +111,7 @@ def find_critical(R, Z, psi, discard_xpoints=False):
                     Br = -f(R1, Z1, dy=1, grid=False) / R1
                     Bz = f(R1, Z1, dx=1, grid=False) / R1
 
-                    if Br ** 2 + Bz ** 2 < 1e-6:
+                    if Br ** 2 + Bz ** 2 < atol:
                         # Found a minimum. Classify as either
                         # O-point or X-point
 
@@ -190,7 +192,9 @@ def find_critical(R, Z, psi, discard_xpoints=False):
                     count += 1
                     # If (R1,Z1) is too far from (R0,Z0) then discard
                     # or if we've taken too many iterations
-                    if ((R1 - R0) ** 2 + (Z1 - Z0) ** 2 > radius_sq) or (count > 100):
+                    if ((R1 - R0) ** 2 + (Z1 - Z0) ** 2 > radius_sq) or (
+                        count > maxits
+                    ):
                         # Discard this point
                         break
 

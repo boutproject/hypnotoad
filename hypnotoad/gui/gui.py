@@ -198,11 +198,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         options_to_save = self.options
         if self.gui_options["save_full_yaml"]:
-            options_ = BoutMesh.user_options_factory.create(self.options)
-            options_.update(
-                tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
+            mesh_options = BoutMesh.user_options_factory.create(self.options)
+            eq_options = tokamak.TokamakEquilibrium.user_options_factory.create(
+                self.options
             )
-            options_.update(
+            nonorth_options = (
                 tokamak.TokamakEquilibrium.nonorthogonal_options_factory.create(
                     self.options
                 )
@@ -212,10 +212,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             # method of any numpy objects/types. Note this does return a scalar
             # and not a list for values that aren't arrays. Also remove any
             # private/magic keys
-            options_to_save = {
-                key: getattr(value, "tolist", lambda: value)()
-                for key, value in dict(options_).items()
-            }
+            options_to_save = {}
+            for key, value in mesh_options.items():
+                options_to_save[key] = getattr(value, "tolist", lambda: value)()
+            for key, value in eq_options.items():
+                options_to_save[key] = getattr(value, "tolist", lambda: value)()
+            for key, value in nonorth_options.items():
+                options_to_save[key] = getattr(value, "tolist", lambda: value)()
 
         with open(self.filename, "w") as f:
             yaml.dump(options_to_save, f)

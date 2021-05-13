@@ -18,7 +18,7 @@ def test_one_opoint():
     def psi_func(R, Z):
         return np.exp(-((R - r0) ** 2 + (Z - z0) ** 2) / 0.3 ** 2)
 
-    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d))
+    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d), 1.0e-6, 100)
 
     assert len(xpoints) == 0
     assert len(opoints) == 1
@@ -41,7 +41,7 @@ def test_one_xpoint():
     def psi_func(R, Z):
         return (R - r0) ** 2 - (Z - z0) ** 2
 
-    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d))
+    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d), 1.0e-6, 100)
 
     assert len(xpoints) == 1
     assert len(opoints) == 0
@@ -66,7 +66,7 @@ def test_doublet():
             -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3 ** 2
         )
 
-    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d))
+    opoints, xpoints = critical.find_critical(r2d, z2d, psi_func(r2d, z2d), 1.0e-6, 100)
 
     assert len(xpoints) == 1
     assert len(opoints) == 2

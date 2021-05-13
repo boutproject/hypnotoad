@@ -7,11 +7,20 @@ What's new
 
 ### New features
 
+- Fix position of start and end points of contours when refining and add more tolerance
+  settings, to enable more reproducible grid generation (#95)\
+  By [John Omotani](https://github.com/johnomotani)
 - Options are saved as a YAML string in "hypnotoad_inputs_yaml" to make them
   easier to read in code later. (#98)\
   By [John Omotani](https://github.com/johnomotani)
 - When exceptions are caught by the GUI, print the traceback as well as the
   exception message (#95)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### Testing
+
+- Integrated tests, based on an analytic, connected double-null equilibrium (#97, fixes
+  #50)\
   By [John Omotani](https://github.com/johnomotani)
 
 ### Bug fixes

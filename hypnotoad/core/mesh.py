@@ -2804,7 +2804,7 @@ class Mesh:
                 break
         print("Calculate geometry", flush=True)
         for region in self.regions.values():
-            print("1", region.name, end="\r", flush=True)
+            print("1", region.name, flush=True)
             region.geometry1()
         for region in self.regions.values():
             print("2", region.name, end="\r", flush=True)

@@ -422,6 +422,37 @@ class TestContour:
             expected_distance, abs=4.0e-5
         )
 
+    def test_prepend(self, testcontour):
+        c = testcontour.c
+        c.startInd = 3
+        c.endInd = -1
+        point_to_add = c[1]
+        expected_distance = c.get_distance(psi=testcontour.psi)[1]
+        del c.points[0]
+        del c.points[0]
+        c.startInd = 1
+        c.prepend(point_to_add)
+        assert c.get_distance(psi=testcontour.psi)[1] == pytest.approx(
+            expected_distance, abs=6.0e-4
+        )
+        assert c.startInd == 1
+
+    def test_insert(self, testcontour):
+        c = testcontour.c
+        point_to_add = 0.5 * (c[5] + c[6])
+        assert c.endInd == 22
+        c.insert(6, point_to_add)
+        assert c[6] == point_to_add
+        assert c.endInd == 23
+
+    def test_replace(self, testcontour):
+        c = testcontour.c
+        point_to_add = 0.5 * (c[5] + c[6])
+        assert c.endInd == 22
+        c.replace(5, point_to_add)
+        assert c[5] == point_to_add
+        assert c.endInd == 22
+
     def test_reverse(self, testcontour):
         c = testcontour.c
         orig = deepcopy(c)
@@ -436,6 +467,15 @@ class TestContour:
             assert total_d - orig.get_distance(psi=testcontour.psi)[
                 n - 1 - i
             ] == tight_approx(c.get_distance(psi=testcontour.psi)[i])
+
+    def test_insertFindPosition(self, testcontour):
+        c = testcontour.c
+        theta_to_add = numpy.pi / 4.0
+        R_to_add = testcontour.R0 + testcontour.r * numpy.cos(theta_to_add)
+        Z_to_add = testcontour.Z0 + testcontour.r * numpy.sin(theta_to_add)
+        point_to_add = Point2D(R_to_add, Z_to_add)
+        c.insertFindPosition(point_to_add)
+        assert c[6] == point_to_add
 
     def test_refine(self, testcontour):
         # PsiContour.refine just calls PsiContour.getRefined, so this tests both

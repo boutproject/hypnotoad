@@ -1302,6 +1302,11 @@ class MeshRegion:
         self.calc_curvature()
 
     def calc_curvature(self):
+        """
+        Calculate curvature components. Note that curl_bOverB_x, curl_bOverB_y, and
+        curl_bOverB_z are contravariant components - Curl(b/B)^x, Curl(b/B)^y, and
+        Curl(b/B)^z - despite the slightly misleading variable names.
+        """
         if self.user_options.curvature_type == "curl(b/B) with x-y derivatives":
             # calculate curl on x-y grid
             self.curl_bOverB_x = (
@@ -1328,8 +1333,6 @@ class MeshRegion:
             # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
             # This calculates contravariant components of a curvature vector
 
-            raise ValueError("This option needs checking carefully before it is used")
-
             equilib = self.meshParent.equilibrium
             psi = equilib.psi
 
@@ -1339,7 +1342,9 @@ class MeshRegion:
             def fpolprime(R, Z):
                 return equilib.fpolprime(psi(R, Z))
 
+            # BR = dpsi/dZ / R
             BR = equilib.Bp_R
+            # BZ = -dpsi/dR / R
             BZ = equilib.Bp_Z
             d2psidR2 = equilib.d2psidR2
             d2psidZ2 = equilib.d2psidZ2
@@ -1353,64 +1358,100 @@ class MeshRegion:
             def B2(R, Z):
                 return BR(R, Z) ** 2 + BZ(R, Z) ** 2 + Bzeta(R, Z) ** 2
 
-            # d(B^2)/dR
-            def dB2dR(R, Z):
-                return -2.0 / R * B2(R, Z) + 2.0 / R * (
-                    -BZ(R, Z) * d2psidR2(R, Z)
-                    + BR(R, Z) * d2psidRdZ(R, Z)
-                    - fpol(R, Z) * fpolprime(R, Z) * BZ(R, Z)
-                )
-
-            # d(B^2)/dZ
-            def dB2dZ(R, Z):
-                return (
-                    2.0
-                    / R
-                    * (
-                        -BZ(R, Z) * d2psidRdZ(R, Z)
-                        + BR(R, Z) * d2psidZ2(R, Z)
-                        + fpol(R, Z) * fpolprime(R, Z) * BR(R, Z)
-                    )
-                )
-
             # dBzeta/dR
+            # = d(fpol/R)/dR
+            # = dfpol/dR / R - fpol/R**2
+            # = fpolprime dpsi/dR / R - Bzeta/R
+            # = -fpolprime BZ - Bzeta/R
             def dBzetadR(R, Z):
-                return -fpolprime(R, Z) * BZ(R, Z) - fpol(R, Z) / R ** 2
+                return -fpolprime(R, Z) * BZ(R, Z) - Bzeta(R, Z) / R
 
             # dBzeta/dZ
+            # = d(fpol/R)/dZ
+            # = dfpol/dZ / R
+            # = fpolprime dpsi/dZ / R
+            # = fpolprime BR
             def dBzetadZ(R, Z):
                 return fpolprime(R, Z) * BR(R, Z)
 
-            # dBZ/dR
-            def dBZdR(R, Z):
-                return -d2psidR2(R, Z) / R - BZ(R, Z) / R
+            # dBR/dR
+            # = d(dpsi/dZ / R)/dR
+            # = d2psi/dRdZ / R - dpsi/dZ / R**2
+            # = d2psi/dRdZ / R - BR / R
+            def dBRdR(R, Z):
+                return (d2psidRdZ(R, Z) - BR(R, Z)) / R
 
             # dBR/dZ
+            # = d(dpsi/dZ / R)/dZ
+            # = d2psi/dZ2 / R
             def dBRdZ(R, Z):
                 return d2psidZ2(R, Z) / R
 
+            # dBZ/dR
+            # = -d(dpsi/dR / R)/dR
+            # = -d2psi/dR2 / R + dpsi/dR / R**2
+            # = -d2psi/dR2 / R - BZ / R
+            def dBZdR(R, Z):
+                return -(d2psidR2(R, Z) - BZ(R, Z)) / R
+
+            # dBZ/dZ
+            # = -d(dpsi/dR / R)/dZ
+            # = -d2psi/dRdZ / R
+            def dBZdZ(R, Z):
+                return -d2psidRdZ(R, Z) / R
+
+            # d(B^2)/dR
+            # = 2 (BR dBR/dR + BZ dBZ/dR + Bzeta dBzeta/dR)
+            def dB2dR(R, Z):
+                return 2.0 * (
+                    BR(R, Z) * dBRdR(R, Z)
+                    + BZ(R, Z) * dBZdR(R, Z)
+                    + Bzeta(R, Z) * dBzetadR(R, Z)
+                )
+
+            # d(B^2)/dZ
+            # = 2 (BR dBR/dZ + BZ dBZ/dZ + Bzeta dBzeta/dZ)
+            def dB2dZ(R, Z):
+                return 2.0 * (
+                    BR(R, Z) * dBRdZ(R, Z)
+                    + BZ(R, Z) * dBZdZ(R, Z)
+                    + Bzeta(R, Z) * dBzetadZ(R, Z)
+                )
+
             # In cylindrical coords
             # curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat
-            #           + 1/R*(d(R A_zeta)/dR - d(AR)/dzeta) * Zhat
+            #           + 1/R*(d(R Azeta)/dR - d(AR)/dzeta) * Zhat
             #           + (d(AR)/dZ - d(AZ)/dR) * zetahat
+            # Where AR, AZ and Azeta are the components on a basis of unit vectors,
+            # i.e. AR = A.Rhat; AZ = A.Zhat; Azeta = A.zetahat
             # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
             #
             # curl(b/B) = curl((BR/B2), (BZ/B2), (Bzeta/B2))
-            # curl(b/B)_R = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta
-            #               - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
-            #             = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
-            # curl(b/B)_Z = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
-            #               - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
-            #             = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
-            # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ
-            #                  - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
+            # curl(b/B)_Rhat = 1/R d(BZ/B2)/dzeta - d(Bzeta/B2)/dZ
+            #                = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta
+            #                  - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            #                = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            # curl(b/B)_Zhat = 1/R * (d(R Bzeta/B2)/dR - d(BR/B2)/dzeta)
+            #                = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            #                  - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
+            #                = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            # curl(b/B)_zetahat = d(BR/B2)/dZ - d(BZ/B2)/dR
+            #                   = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ
+            #                     - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
             # remembering d/dzeta=0 for axisymmetric equilibrium
-            def curl_bOverB_R(R, Z):
+            def curl_bOverB_Rhat(R, Z):
                 return -dBzetadZ(R, Z) / B2(R, Z) + Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dZ(
                     R, Z
                 )
 
-            def curl_bOverB_zeta(R, Z):
+            def curl_bOverB_Zhat(R, Z):
+                return (
+                    Bzeta(R, Z) / (R * B2(R, Z))
+                    + dBzetadR(R, Z) / B2(R, Z)
+                    - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
+                )
+
+            def curl_bOverB_zetahat(R, Z):
                 return (
                     dBRdZ(R, Z) / B2(R, Z)
                     - BR(R, Z) / B2(R, Z) ** 2 * dB2dZ(R, Z)
@@ -1418,40 +1459,50 @@ class MeshRegion:
                     + BZ(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
                 )
 
-            def curl_bOverB_Z(R, Z):
-                return (
-                    Bzeta(R, Z) / (R * B2(R, Z))
-                    + dBzetadR(R, Z) / B2(R, Z)
-                    - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
-                )
-
+            # We want to output contravariant components of Curl(b/B) in the
+            # locally field-aligned coordinate system.
+            # The contravariant components of an arbitrary vector A are
             # A^x = A.Grad(x)
             # A^y = A.Grad(y)
             # A^z = A.Grad(z)
-            # dpsi/dR = -R*Bp_Z
-            # dpsi/dZ = R*Bp_R
-            def curl_bOverB_x(R, Z):
-                return curl_bOverB_R(R, Z) * (-R * BZ(R, Z)) + curl_bOverB_Z(R, Z) * (
-                    R * BR(R, Z)
-                )
 
-            self.curl_bOverB_x = curl_bOverB_x(self.Rxy, self.Zxy)
+            # Grad in cylindrical coordinates is
+            # Grad(f) = df/dR Rhat + 1/R df/dzeta zetahat + df/dZ Zhat
+            # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
 
-            # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
-            #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)/(Bp*hy*cosBeta)
-            #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
-            curl_bOverB_y = (
-                curl_bOverB_R(self.Rxy, self.Zxy)
-                * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
-                + curl_bOverB_Z(self.Rxy, self.Zxy)
-                * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
-            ) / (self.Bpxy * self.hy)
-            self.curl_bOverB_y = curl_bOverB_y
+            # x = psi - psi_min
+            # dpsi/dR = -R*BZ
+            # dpsi/dZ = R*BR
+            # => Grad(x) = (dpsi/dR, 0, dpsi/dZ).(Rhat, zetahat, Zhat)
+            # => Grad(x) = (-R BZ, 0, R BR).(Rhat, zetahat, Zhat)
+            self.curl_bOverB_x = curl_bOverB_Rhat(self.Rxy, self.Zxy) * (
+                -self.Rxy * BZ(self.Rxy, self.Zxy)
+            ) + curl_bOverB_Zhat(self.Rxy, self.Zxy) * (
+                self.Rxy * BR(self.Rxy, self.Zxy)
+            )
+
+            if self.user_options.orthogonal:
+                # Grad(y) = (BR, 0, BZ)/(hy Bp)
+                self.curl_bOverB_y = (
+                    curl_bOverB_Rhat(self.Rxy, self.Zxy) * BR(self.Rxy, self.Zxy)
+                    + curl_bOverB_Zhat(self.Rxy, self.Zxy) * BZ(self.Rxy, self.Zxy)
+                ) / (self.Bpxy * self.hy)
+            else:
+                # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
+                #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)
+                #           /(Bp*hy*cosBeta)
+                #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
+                self.curl_bOverB_y = (
+                    curl_bOverB_Rhat(self.Rxy, self.Zxy)
+                    * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
+                    + curl_bOverB_Zhat(self.Rxy, self.Zxy)
+                    * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
+                ) / (self.Bpxy * self.hy)
 
             # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
             self.curl_bOverB_z = (
-                curl_bOverB_zeta(self.Rxy, self.Zxy) / self.Rxy
-                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryB_y
+                curl_bOverB_zetahat(self.Rxy, self.Zxy) / self.Rxy
+                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOverB_y
                 - self.I * self.curl_bOverB_x
             )
 
@@ -3510,14 +3561,13 @@ class BoutMesh(Mesh):
         addFromRegions("g_12")
         addFromRegions("g_13")
         addFromRegions("g_23")
-        if self.user_options.curvature_type == "curl(b/B) with x-y derivatives":
+        if self.user_options.curvature_type in (
+            "curl(b/B) with x-y derivatives",
+            "curl(b/B)",
+        ):
             addFromRegions("curl_bOverB_x")
             addFromRegions("curl_bOverB_y")
             addFromRegions("curl_bOverB_z")
-        elif self.user_options.curvature_type == "curl(b/B)":
-            addFromRegions("curl_bOverBx")
-            addFromRegions("curl_bOverBy")
-            addFromRegions("curl_bOverBz")
         addFromRegions("bxcvx")
         addFromRegions("bxcvy")
         addFromRegions("bxcvz")

@@ -676,7 +676,7 @@ class MeshRegion:
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
 
-        self.contours = self.parallel_map(_refine_extend, ((c,) for c in self.contours))
+        self.contours = self.parallel_map(_refine_extend, enumerate(self.contours))
 
     def distributePointsNonorthogonal(self, nonorthogonal_settings=None):
         if nonorthogonal_settings is not None:
@@ -2563,7 +2563,13 @@ def _find_intersection(
     )
 
 
-def _refine_extend(contour, *, psi, **kwargs):
+def _refine_extend(i, contour, *, psi, **kwargs):
+    print(
+        "refine and extend",
+        i,
+        end="\r",
+        flush=True,
+    )
     contour.refine(psi=psi)
     contour.checkFineContourExtend(psi=psi)
     return contour

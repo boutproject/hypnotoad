@@ -7,6 +7,9 @@ What's new
 
 ### New features
 
+- Accuracy of calculation of zShift improved by integrating on FineContours
+  rather than PsiContours (#101)\
+  By [John Omotani](https://github.com/johnomotani)
 - Parallelise most expensive loops (#99)\
   By [John Omotani](https://github.com/johnomotani)
 - Fix position of start and end points of contours when refining and add more tolerance

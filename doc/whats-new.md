@@ -7,6 +7,8 @@ What's new
 
 ### New features
 
+- Parallelise most expensive loops (#99)\
+  By [John Omotani](https://github.com/johnomotani)
 - Fix position of start and end points of contours when refining and add more tolerance
   settings, to enable more reproducible grid generation (#95)\
   By [John Omotani](https://github.com/johnomotani)

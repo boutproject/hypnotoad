@@ -480,7 +480,7 @@ class FineContour:
         ),
     )
 
-    def __init__(self, parentContour, settings):
+    def __init__(self, parentContour, settings, *, psi):
         self.parentContour = parentContour
         self.user_options = self.user_options_factory.create(settings)
         self.distance = None
@@ -522,6 +522,7 @@ class FineContour:
         # This makes parentCopy have twice the extra points as parentContour has.
         parentCopy = self.parentContour.newContourFromSelf()
         parentCopy.temporaryExtend(
+            psi=psi,
             extend_lower=self.parentContour.extend_lower,
             extend_upper=self.parentContour.extend_upper,
             ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
@@ -546,9 +547,9 @@ class FineContour:
             self.parentContour.endInd
         ].as_ndarray()
 
-        self.equaliseSpacing()
+        self.equaliseSpacing(psi=psi)
 
-    def extend(self, *, extend_lower=0, extend_upper=0):
+    def extend(self, *, psi, extend_lower=0, extend_upper=0):
 
         Nfine = self.user_options.finecontour_Nfine
 
@@ -575,7 +576,9 @@ class FineContour:
             # Extend parentCopy to cover range of new_s_lower.
             ds_coarse = calc_distance(parentCopy[0], parentCopy[1])
             coarse_extend = int(extend_lower * ds_lower / ds_coarse)
-            parentCopy.temporaryExtend(extend_lower=coarse_extend, ds_lower=ds_coarse)
+            parentCopy.temporaryExtend(
+                psi=psi, extend_lower=coarse_extend, ds_lower=ds_coarse
+            )
 
             # Make sure parentCopy has point at start of existing FineContour - then
             # measure distances where initial guesses for new points are inserted
@@ -602,7 +605,9 @@ class FineContour:
             # Extend parentCopy to cover range of new_s_upper.
             ds_coarse = calc_distance(parentCopy[-2], parentCopy[-1])
             coarse_extend = int(extend_upper * ds_upper / ds_coarse)
-            parentCopy.temporaryExtend(extend_upper=coarse_extend, ds_upper=ds_coarse)
+            parentCopy.temporaryExtend(
+                psi=psi, extend_upper=coarse_extend, ds_upper=ds_coarse
+            )
 
             # Make sure parentCopy has point at end of existing FineContour - then
             # measure distances where initial guesses for new points are inserted
@@ -628,15 +633,15 @@ class FineContour:
         self.startInd = self.extend_lower_fine
         self.endInd = Nfine - 1 + self.extend_lower_fine
 
-        self.equaliseSpacing(reallocate=True)
+        self.equaliseSpacing(psi=psi, reallocate=True)
 
-    def equaliseSpacing(self, *, reallocate=False):
+    def equaliseSpacing(self, *, psi, reallocate=False):
         """
         Adjust the positions of points in this FineContour so they have a constant
         distance between them.
         """
 
-        self.refine(skip_endpoints=True)
+        self.refine(psi=psi, skip_endpoints=True)
 
         self.calcDistance(reallocate=reallocate)
 
@@ -662,9 +667,7 @@ class FineContour:
             pyplot.figure()
 
             pyplot.subplot(131)
-            pyplot.contour(
-                R, Z, self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis])
-            )
+            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
             self.parentContour.plot(color="g", marker="o")
             pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
             pyplot.xlabel("R")
@@ -726,7 +729,7 @@ class FineContour:
             self.positions[self.startInd] = original_start
             self.positions[self.endInd] = original_end
 
-            self.refine(skip_endpoints=True)
+            self.refine(psi=psi, skip_endpoints=True)
 
             self.calcDistance()
 
@@ -752,7 +755,7 @@ class FineContour:
                 pyplot.contour(
                     R,
                     Z,
-                    self.parentContour.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
+                    psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
                 )
                 self.parentContour.plot(color="k", marker="o")
                 pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
@@ -798,7 +801,9 @@ class FineContour:
         )
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
-    def refine(self, *, skip_endpoints=False):
+    def refine(self, *, psi, skip_endpoints=False, **kwargs):
+        # Includes unused **kwargs so we can pass the method to ParallelMap.__call__()
+
         # Define inner method so we can pass to func_timeout.func_timeout
         def refine(self, *, skip_endpoints=False):
             result = numpy.zeros(self.positions.shape)
@@ -806,18 +811,18 @@ class FineContour:
             p = self.positions[0, :]
             tangent = self.positions[1, :] - self.positions[0, :]
             result[0, :] = self.parentContour.refinePoint(
-                Point2D(*p), Point2D(*tangent)
+                Point2D(*p), Point2D(*tangent), psi=psi
             ).as_ndarray()
             for i in range(1, self.positions.shape[0] - 1):
                 p = self.positions[i, :]
                 tangent = self.positions[i + 1, :] - self.positions[i - 1, :]
                 result[i, :] = self.parentContour.refinePoint(
-                    Point2D(*p), Point2D(*tangent)
+                    Point2D(*p), Point2D(*tangent), psi=psi
                 ).as_ndarray()
             p = self.positions[-1, :]
             tangent = self.positions[-1, :] - self.positions[-2, :]
             result[-1, :] = self.parentContour.refinePoint(
-                Point2D(*p), Point2D(*tangent)
+                Point2D(*p), Point2D(*tangent), psi=psi
             ).as_ndarray()
 
             if skip_endpoints:
@@ -839,6 +844,8 @@ class FineContour:
         else:
             refine(self, skip_endpoints=skip_endpoints)
 
+        return self
+
     def reverse(self):
         if self.distance is not None:
             self.distance = self.distance[-1] - self.distance[::-1]
@@ -848,6 +855,8 @@ class FineContour:
         n = self.positions.shape[0]
         self.startInd = n - 1 - self.endInd
         self.endInd = n - 1 - old_start
+
+        return self
 
     def interpSSperp(self, vec, kind="linear"):
         """
@@ -992,7 +1001,7 @@ class PsiContour:
         ),
     )
 
-    def __init__(self, *, points, psi, psival, settings):
+    def __init__(self, *, points, psival, settings):
         self.points = points
 
         self._startInd = 0
@@ -1001,9 +1010,6 @@ class PsiContour:
         self._fine_contour = None
 
         self._distance = None
-
-        # Function that evaluates the vector potential at R,Z
-        self.psi = psi
 
         # Value of vector potential on this contour
         self.psival = psival
@@ -1065,29 +1071,28 @@ class PsiContour:
             self._fine_contour = None
             self._extend_upper = val
 
-    @property
-    def fine_contour(self):
+    def get_fine_contour(self, *, psi):
         if self._fine_contour is None:
-            self._fine_contour = FineContour(self, dict(self.user_options))
+            self._fine_contour = FineContour(self, dict(self.user_options), psi=psi)
             # Ensure that the fine contour is long enough
-            self.checkFineContourExtend()
+            self.checkFineContourExtend(psi=psi)
         return self._fine_contour
 
-    @property
-    def distance(self):
+    def get_distance(self, *, psi):
         if self._distance is None:
-            self._distance = [self.fine_contour.getDistance(p) for p in self]
+            fine_contour = self.get_fine_contour(psi=psi)
+            self._distance = [fine_contour.getDistance(p) for p in self]
             d = numpy.array(self._distance)
             if not numpy.all(d[1:] - d[:-1] > 0.0):
                 print("\nPsiContour distance", self._distance)
-                print("\nFineContour distance", self.fine_contour.distance)
+                print("\nFineContour distance", fine_contour.distance)
                 print("\nPsiContour points", self)
 
                 import matplotlib.pyplot as plt
 
                 self.plot(marker="o", color="k")
 
-                self.fine_contour.plot(marker="x", color="r")
+                fine_contour.plot(marker="x", color="r")
 
                 plt.show()
 
@@ -1117,7 +1122,6 @@ class PsiContour:
         self.startInd = contour.startInd
         self.endInd = contour.endInd
         self._distance = contour._distance
-        self.psi = contour.psi
         self.psival = contour.psival
         self.extend_lower = contour.extend_lower
         self.extend_upper = contour.extend_upper
@@ -1129,7 +1133,7 @@ class PsiContour:
         if psival is None:
             psival = self.psival
         new_contour = PsiContour(
-            points=points, psi=self.psi, psival=psival, settings=dict(self.user_options)
+            points=points, psival=psival, settings=dict(self.user_options)
         )
 
         new_contour.startInd = self.startInd
@@ -1211,8 +1215,9 @@ class PsiContour:
             self.insert(minind, point)
             return minind
 
-    def totalDistance(self):
-        return self.distance[self.endInd] - self.distance[self.startInd]
+    def totalDistance(self, *, psi):
+        distance = self.get_distance(psi=psi)
+        return distance[self.endInd] - distance[self.startInd]
 
     def reverse(self):
         self.points.reverse()
@@ -1226,18 +1231,22 @@ class PsiContour:
         if self._fine_contour is not None:
             self._fine_contour.reverse()
 
+        return self
+
     def refine(self, *args, **kwargs):
         new = self.getRefined(*args, **kwargs)
         self.points = new.points
         self._distance = new._distance
 
-    def refinePointNewton(self, p, tangent, width, atol):
+        return self
+
+    def refinePointNewton(self, p, tangent, *, psi, width, atol):
         """Use Newton iteration to refine point.
         This should converge quickly if the original point is sufficiently close
         """
 
         def f(s):
-            return self.psi(*(p + s * tangent)) - self.psival
+            return psi(*(p + s * tangent)) - self.psival
 
         def dfds(s, eps=1e-10):
             return (f(s + eps) - f(s)) / eps
@@ -1266,13 +1275,13 @@ class PsiContour:
             count += 1
             fprev = fnext
 
-    def refinePointLinesearch(self, p, tangent, width, atol):
+    def refinePointLinesearch(self, p, tangent, *, psi, width, atol):
         """Refines the location of a point p, using a line search method
         along the tangent vector
         """
 
         def f(R, Z):
-            return self.psi(R, Z) - self.psival
+            return psi(R, Z) - self.psival
 
         if numpy.abs(f(*p)) < atol * numpy.abs(self.psival):
             # don't need to refine
@@ -1306,7 +1315,7 @@ class PsiContour:
                 if False:
                     print("width =", width)
                     print("p = ", p)
-                    print("psi = {}, psival = {}".format(self.psi(*p), self.psival))
+                    print("psi = {}, psival = {}".format(psi(*p), self.psival))
                     print("Range: {} -> {}".format(f(*pline(0.0)), f(*pline(1.0))))
 
                     pline0 = perpLine(width)
@@ -1319,7 +1328,7 @@ class PsiContour:
                     pyplot.figure()
                     self.plot("+")
                     pyplot.contour(
-                        Rbox + 0.0 * Zbox, Zbox + 0.0 * Rbox, self.psi(Rbox, Zbox), 200
+                        Rbox + 0.0 * Zbox, Zbox + 0.0 * Rbox, psi(Rbox, Zbox), 200
                     )
                     pyplot.plot(
                         [pline0(s).R for s in svals], [pline0(s).Z for s in svals], "x"
@@ -1331,7 +1340,7 @@ class PsiContour:
                     "Could not find interval to refine point at " + str(p)
                 )
 
-    def refinePointIntegrate(self, p, tangent, width, atol):
+    def refinePointIntegrate(self, p, tangent, *, psi, width, atol):
         """Integrates across flux surfaces from p
 
         Integrates this:
@@ -1341,26 +1350,28 @@ class PsiContour:
         Note: This is the method used in the original Hypnotoad
         """
 
-        def func(psi, position, eps=1e-10):
+        def func(psival, position, eps=1e-10):
             R = position[0]
             Z = position[1]
-            psi0 = self.psi(R, Z)  # Note: This should be close to psi
+            psi0 = psi(R, Z)  # Note: This should be close to psi
             # Calculate derivatives using finite difference
-            dpsidr = (self.psi(R + eps, Z) - psi0) / eps
-            dpsidz = (self.psi(R, Z + eps) - psi0) / eps
+            dpsidr = (psi(R + eps, Z) - psi0) / eps
+            dpsidz = (psi(R, Z + eps) - psi0) / eps
             norm = 1.0 / (dpsidr ** 2 + dpsidz ** 2)  # Common factor
             return [dpsidr * norm, dpsidz * norm]
 
         result = solve_ivp(
-            func, (self.psi(*p), self.psival), [p.R, p.Z]  # Range of psi
+            func, (psi(*p), self.psival), [p.R, p.Z]  # Range of psi
         )  # Starting location
         if not result.success:
             raise SolutionError("refinePointIntegrate failed to converge")
         return Point2D(*result.y[:, 1])
 
-    def refinePoint(self, p, tangent, width=None, atol=None, methods=None):
+    def refinePoint(
+        self, p, tangent, *, psi, width=None, atol=None, methods=None, **kwargs
+    ):
         """Starting from point p, find a nearby point where
-        self.psi(p) is close to self.psival, by moving along
+        psi(p) is close to self.psival, by moving along
         the tangent vector.
 
         methods   An ordered list of methods to use.
@@ -1389,14 +1400,17 @@ class PsiContour:
             "line": self.refinePointLinesearch,
             "integrate": self.refinePointIntegrate,
             "integrate+newton": (
-                lambda p, tangent, width, atol: self.refinePointNewton(
-                    self.refinePointIntegrate(p, tangent, width, atol),
+                lambda p, tangent, *, psi, width, atol: self.refinePointNewton(
+                    self.refinePointIntegrate(
+                        p, tangent, psi=psi, width=width, atol=atol
+                    ),
                     tangent,
-                    width,
-                    atol,
+                    psi=psi,
+                    width=width,
+                    atol=atol,
                 )
             ),
-            "none": lambda p, tangent, width, atol: p,
+            "none": lambda p, tangent, *, psi, width, atol: p,
         }
 
         if width is None:
@@ -1419,7 +1433,9 @@ class PsiContour:
         for method in methods:
             try:
                 # Try each method
-                return available_methods[method](p, tangent, width, atol)
+                return available_methods[method](
+                    p, tangent, psi=psi, width=width, atol=atol
+                )
             except SolutionError:
                 # If it fails, try the next one
                 pass
@@ -1428,19 +1444,40 @@ class PsiContour:
         # the last method in the methods list can be set to "none"
         raise SolutionError(f"refinePoint failed to converge with methods: {methods}")
 
-    def getRefined(self, skip_endpoints=False, **kwargs):
+    def getRefined(self, skip_endpoints=False, *, width=None, atol=None, **kwargs):
+        if width is None:
+            width = self.user_options.refine_width
+        if atol is None:
+            atol = self.user_options.refine_atol
+
         newpoints = []
         newpoints.append(
-            self.refinePoint(self.points[0], self.points[1] - self.points[0], **kwargs)
+            self.refinePoint(
+                self.points[0],
+                self.points[1] - self.points[0],
+                width=width,
+                atol=atol,
+                **kwargs,
+            )
         )
         for i, p in enumerate(self.points[1:-1]):
             # note i+1 here is the index of point p
             newpoints.append(
-                self.refinePoint(p, self.points[i + 2] - self.points[i], **kwargs)
+                self.refinePoint(
+                    p,
+                    self.points[i + 2] - self.points[i],
+                    width=width,
+                    atol=atol,
+                    **kwargs,
+                )
             )
         newpoints.append(
             self.refinePoint(
-                self.points[-1], self.points[-1] - self.points[-2], **kwargs
+                self.points[-1],
+                self.points[-1] - self.points[-2],
+                width=width,
+                atol=atol,
+                **kwargs,
             )
         )
 
@@ -1450,8 +1487,8 @@ class PsiContour:
 
         return self.newContourFromSelf(points=newpoints)
 
-    def interpFunction(self):
-        return self.fine_contour.interpFunction()
+    def interpFunction(self, *, psi):
+        return self.get_fine_contour(psi=psi).interpFunction()
 
     def _coarseInterp(self, *, kind="cubic"):
         distance = [0.0]
@@ -1521,15 +1558,16 @@ class PsiContour:
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self, kind="cubic"):
+    def contourSfunc(self, *, psi, kind="cubic"):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
         aren't affected by extrapolation errors.
         """
+        distance = self.get_distance(psi=psi)
         interpS = interp1d(
             numpy.arange(len(self), dtype=float),
-            self.distance,
+            distance,
             kind=kind,
             assume_sorted=True,
             fill_value="extrapolate",
@@ -1540,8 +1578,8 @@ class PsiContour:
             # endInd might be negative, which would mean relative to the end of the list,
             # but we need the actual index below
             thisEndInd += len(self)
-        startDistance = self.distance[thisStartInd]
-        endDistance = self.distance[thisEndInd]
+        startDistance = distance[thisStartInd]
+        endDistance = distance[thisEndInd]
         return lambda i: numpy.piecewise(
             i,
             [i <= 0.0, i >= thisEndInd - thisStartInd],
@@ -1552,7 +1590,7 @@ class PsiContour:
             ],
         )
 
-    def interpSSperp(self, vec):
+    def interpSSperp(self, vec, *, psi):
         """
         Returns:
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
@@ -1561,7 +1599,7 @@ class PsiContour:
            contour.
         2. the total perpendicular distance between startInd and endInd of the contour.
         """
-        return self.fine_contour.interpSSperp(vec)
+        return self.get_fine_contour(psi=psi).interpSSperp(vec)
 
     def regrid(self, *args, **kwargs):
         """
@@ -1574,11 +1612,13 @@ class PsiContour:
         self,
         npoints,
         *,
+        psi,
         width=None,
         atol=None,
         sfunc=None,
         extend_lower=None,
         extend_upper=None,
+        refine=True,
     ):
         """
         Interpolate onto set of npoints points, then refine positions.
@@ -1586,6 +1626,8 @@ class PsiContour:
         which replaces the uniform interval 's' with 's=sfunc(s)'.
         'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
         number of points.
+        By default the result is refined to the correct psi value - if
+        refine=False is passed, the result should be refined before it is used.
         Returns a new PsiContour.
 
         Note: '*,' in the arguments list forces the following arguments to be passed as
@@ -1601,6 +1643,7 @@ class PsiContour:
         if extend_upper is not None:
             self.extend_upper = extend_upper
         self.temporaryExtend(
+            psi=psi,
             extend_lower=self.extend_lower,
             extend_upper=self.extend_upper,
             ds_lower=calc_distance(self[1], self[0]),
@@ -1618,40 +1661,41 @@ class PsiContour:
             # offset fine_contour.interpFunction in case sfunc(0.)!=0.
             sbegin = sfunc(0.0)
         else:
-            s = (
-                (self.distance[self.endInd] - self.distance[self.startInd])
-                / (npoints - 1)
-                * indices
-            )
+            d = self.get_distance(psi=psi)
+            s = (d[self.endInd] - d[self.startInd]) / (npoints - 1) * indices
             sbegin = 0.0
 
-        # Check s does not go beyond the end of self.fine_contour
+        # Check s does not go beyond the end of self._fine_contour
         # If self._fine_contour is reset to None later on, this extension will be lost,
         # but it should not be reset after a contour is re-gridded, because the
         # re-gridding should be the last change that is made to a PsiContour
-        orig_extend_lower = self.fine_contour.extend_lower_fine
-        orig_extend_upper = self.fine_contour.extend_upper_fine
+
+        # Calling get_fine_contour() ensures that self._fine_contour has been initialised
+        self.get_fine_contour(psi=psi)
+
+        orig_extend_lower = self._fine_contour.extend_lower_fine
+        orig_extend_upper = self._fine_contour.extend_upper_fine
 
         tol_lower = 0.25 * (
-            self.fine_contour.distance[1] - self.fine_contour.distance[0]
+            self._fine_contour.distance[1] - self._fine_contour.distance[0]
         )
         while (
-            s[0] < -self.fine_contour.distance[self._fine_contour.startInd] - tol_lower
+            s[0] < -self._fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
             self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1))
 
         tol_upper = 0.25 * (
-            self.fine_contour.distance[-1] - self.fine_contour.distance[-2]
+            self._fine_contour.distance[-1] - self._fine_contour.distance[-2]
         )
         while (
             s[-1]
-            > self.fine_contour.distance[-1]
-            - self.fine_contour.distance[self.fine_contour.startInd]
+            > self._fine_contour.distance[-1]
+            - self._fine_contour.distance[self._fine_contour.startInd]
             + tol_upper
         ):
             self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1))
 
-        interp_unadjusted = self.fine_contour.interpFunction()
+        interp_unadjusted = self._fine_contour.interpFunction()
 
         def interp(s):
             return interp_unadjusted(s - sbegin)
@@ -1668,25 +1712,28 @@ class PsiContour:
         new_contour._distance = None
 
         # re-use the extended fine_contour for new_contour
-        new_contour._fine_contour = self.fine_contour
+        new_contour._fine_contour = self._fine_contour
 
-        new_contour.refine(width=width, atol=atol, skip_endpoints=True)
+        if refine:
+            new_contour.refine(psi=psi, width=width, atol=atol, skip_endpoints=True)
 
         # Pass already converged fine_contour to new_contour
-        new_contour._fine_contour = self.fine_contour
+        new_contour._fine_contour = self._fine_contour
 
         return new_contour
 
-    def checkFineContourExtend(self):
+    def checkFineContourExtend(self, *, psi):
         """
         Ensure that self._fine_contour extends past the first and last points of this
         PsiContour
         """
 
+        fine_contour = self.get_fine_contour(psi=psi)
+
         # check first point
         p = numpy.array([*self[0]])
         distances = numpy.sqrt(
-            numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+            numpy.sum((fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
         )
         minind = numpy.argmin(distances)
         # if minind > 0, or the distance to point 1 is less than the distance between
@@ -1694,12 +1741,11 @@ class PsiContour:
         # does not need to be extended
         if minind == 0 and distances[1] > numpy.sqrt(
             numpy.sum(
-                (self.fine_contour.positions[1, :] - self.fine_contour.positions[0, :])
-                ** 2
+                (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
             )
         ):
 
-            ds = self.fine_contour.distance[1] - self.fine_contour.distance[0]
+            ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
         else:
             n_extend_lower = 0
@@ -1707,7 +1753,7 @@ class PsiContour:
         # check last point
         p = numpy.array([*self[-1]])
         distances = numpy.sqrt(
-            numpy.sum((self.fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+            numpy.sum((fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
         )
         minind = numpy.argmin(distances)
         # if minind < len(distances)-1, or the distance to the last point is less than
@@ -1715,15 +1761,11 @@ class PsiContour:
         # fine_contour extends past p so does not need to be extended
         if minind == len(distances) - 1 and distances[-2] > numpy.sqrt(
             numpy.sum(
-                (
-                    self.fine_contour.positions[-1, :]
-                    - self.fine_contour.positions[-2, :]
-                )
-                ** 2
+                (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
             )
         ):
 
-            ds = self.fine_contour.distance[-1] - self.fine_contour.distance[-2]
+            ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
         else:
             n_extend_upper = 0
@@ -1731,14 +1773,14 @@ class PsiContour:
         if n_extend_lower == 0 and n_extend_upper == 0:
             return
         else:
-            self.fine_contour.extend(
-                extend_lower=n_extend_lower, extend_upper=n_extend_upper
+            fine_contour.extend(
+                psi=psi, extend_lower=n_extend_lower, extend_upper=n_extend_upper
             )
             # Call recursively to check extending has gone far enough
-            self.checkFineContourExtend()
+            self.checkFineContourExtend(psi=psi)
 
     def temporaryExtend(
-        self, *, extend_lower=0, extend_upper=0, ds_lower=None, ds_upper=None
+        self, *, psi, extend_lower=0, extend_upper=0, ds_lower=None, ds_upper=None
     ):
         """
         Add temporary guard-cell points to the beginning and/or end of a contour
@@ -1747,30 +1789,32 @@ class PsiContour:
         """
         if extend_lower > 0:
             if ds_lower is None:
-                ds = self.distance[1] - self.distance[0]
+                distance = self.get_distance(psi=psi)
+                ds = distance[1] - distance[0]
             else:
                 ds = ds_lower
             for i in range(extend_lower):
                 extrap = self._coarseExtrapLower(0)
                 new_point = extrap(-ds)
-                self.prepend(self.refinePoint(new_point, new_point - self[0]))
+                self.prepend(self.refinePoint(new_point, new_point - self[0], psi=psi))
                 if self.startInd >= 0:
                     self.startInd += 1
                 if self.endInd >= 0:
                     self.endInd += 1
         if extend_upper > 0:
             if ds_upper is None:
-                ds = self.distance[-1] - self.distance[-2]
+                distance = self.get_distance(psi=psi)
+                ds = distance[-1] - distance[-2]
             else:
                 ds = ds_upper
             for i in range(extend_upper):
                 extrap = self._coarseExtrapUpper(-1)
                 new_point = extrap(ds)
-                self.append(self.refinePoint(new_point, new_point - self[-1]))
+                self.append(self.refinePoint(new_point, new_point - self[-1], psi=psi))
                 if self.endInd < 0:
                     self.endInd -= 1
 
-    def plot(self, *args, plotPsi=False, **kwargs):
+    def plot(self, *args, psi, plotPsi=False, **kwargs):
         from matplotlib import pyplot
 
         Rpoints = [p.R for p in self]
@@ -1778,7 +1822,7 @@ class PsiContour:
         if plotPsi:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
 
 
@@ -2201,9 +2245,10 @@ class EquilibriumRegion(PsiContour):
             self.equilibrium.user_options
         )
 
+        self.psi = equilibrium.psi
+
         super().__init__(
             points=points,
-            psi=equilibrium.psi,
             psival=psival,
             settings=self.user_options,
         )
@@ -2470,7 +2515,7 @@ class EquilibriumRegion(PsiContour):
     def getRefined(self, *args, **kwargs):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
-    def getRegridded(self, *, radialIndex, **kwargs):
+    def getRegridded(self, radialIndex, *, psi, **kwargs):
         for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
             # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its
@@ -2488,13 +2533,15 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2 * self.user_options.y_boundary_guards
         else:
             extend_upper = 0
+        distance = self.get_distance(psi=self.psi)
         sfunc = self.getSfuncFixedSpacing(
             2 * self.ny_noguards + 1,
-            self.distance[self.endInd] - self.distance[self.startInd],
+            distance[self.endInd] - distance[self.startInd],
         )
         return self.newRegionFromPsiContour(
             super().getRegridded(
                 2 * self.ny_noguards + 1,
+                psi=psi,
                 extend_lower=extend_lower,
                 extend_upper=extend_upper,
                 sfunc=sfunc,
@@ -2693,7 +2740,7 @@ class EquilibriumRegion(PsiContour):
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,
-                contour.totalDistance(),
+                contour.totalDistance(psi=self.psi),
                 method="monotonic",
                 spacing_lower=spacing_lower,
                 spacing_upper=spacing_upper,
@@ -2711,7 +2758,7 @@ class EquilibriumRegion(PsiContour):
         if vec_upper is None:
             sfunc_fixed_upper = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,
-                contour.totalDistance(),
+                contour.totalDistance(psi=self.psi),
                 method="monotonic",
                 spacing_lower=spacing_lower,
                 spacing_upper=spacing_upper,
@@ -2935,7 +2982,7 @@ class EquilibriumRegion(PsiContour):
                     (sfunc_fixed_upper, "fixed perp upper"),
                 ],
                 xind=contour.global_xind,
-                total_distance=contour.totalDistance(),
+                total_distance=contour.totalDistance(psi=self.psi),
                 prefix="nonorthogonal_",
             )
         except ValueError:
@@ -2990,7 +3037,7 @@ class EquilibriumRegion(PsiContour):
         else:
             d_upper = spacing_upper
 
-        s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction)
+        s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction, psi=self.psi)
         sperp_func = self.getMonotonicPoloidalDistanceFunc(
             s_perp_total, N - 1, N_norm, d_lower=d_lower, d_upper=d_upper
         )

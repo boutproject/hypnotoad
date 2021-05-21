@@ -1500,6 +1500,7 @@ class MeshRegion:
                 ) / (self.Bpxy * self.hy)
 
             # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
+            # Grad(z) = (0, 1/R, 0) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
             self.curl_bOverB_z = (
                 curl_bOverB_zetahat(self.Rxy, self.Zxy) / self.Rxy
                 - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOverB_y

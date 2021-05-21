@@ -8,6 +8,7 @@
 #
 #
 
+import gc
 import warnings
 
 
@@ -120,6 +121,15 @@ def main(*, add_noise=None):
     mesh.geometry()
 
     mesh.writeGridfile(options.get("grid_file", "bout.grd.nc"))
+
+    # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
+    # instances get deleted if they exists. ParallelMap.__del__() calls
+    # terminate on the worker processes. Needs to happen before program exits
+    # or program will hang waiting for parallel workers to finish (which they
+    # never do because they are waiting for another job in
+    # ParallelMap.worker_run()).
+    del eq, mesh
+    gc.collect()
 
 
 if __name__ == "__main__":

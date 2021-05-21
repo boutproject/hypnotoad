@@ -6,6 +6,7 @@ GUI for Hypnotoad using Qt
 import ast
 import copy
 import func_timeout
+import gc
 import os
 import pathlib
 import textwrap
@@ -142,6 +143,20 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.connect(self.options_form_changed)
         self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
+
+    def close(self):
+        # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
+        # instances get deleted if they exists. ParallelMap.__del__() calls
+        # terminate on the worker processes. Needs to happen before program exits
+        # or program will hang waiting for parallel workers to finish (which they
+        # never do because they are waiting for another job in
+        # ParallelMap.worker_run()).
+        if hasattr(self, "eq"):
+            del self.eq
+        if hasattr(self, "mesh"):
+            del self.mesh
+        gc.collect()
+        super().close()
 
     def help_about(self):
         """About Hypnotoad"""

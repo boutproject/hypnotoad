@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from collections.abc import Sequence
 import numpy as np
 from optionsfactory import WithMeta
@@ -113,7 +114,15 @@ class CircularEquilibrium(Equilibrium):
             ),
         )
 
-        self.regions = {"circular": self.makeRegion()}
+        self.regions = OrderedDict(circular=self.makeRegion())
+
+        if self.user_options.limiter:
+            self.psi_sep = [self.psi_r(self.user_options.r_inner)]
+        else:
+            self.psi_sep = [self.psi_r(self.user_options.r_outer)]
+
+            # Core-only geometry: add connection so domain is periodic in y
+            self.makeConnection("circular", 0, "circular", 0)
 
     def makeRegion(self):
         """

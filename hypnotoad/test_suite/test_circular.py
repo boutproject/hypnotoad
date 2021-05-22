@@ -19,6 +19,8 @@ class TestCircular:
         "q_coefficients": [q],
         "r_inner": r_inner,
         "r_outer": r_outer,
+        "refine_methods": "line",
+        "refine_width": 1.0e-3,
     }
     rtol = 2.0e-5
     atol = 1.0e-6
@@ -58,7 +60,7 @@ class TestCircular:
         """
         Create BoutMesh to test geometric quantities created by BoutMesh
         """
-        equilib = CircularEquilibrium(settings)
+        equilib = CircularEquilibrium(settings, nonorthogonal_settings=settings)
 
         mesh = BoutMesh(equilib, settings)
         mesh.geometry()
@@ -308,31 +310,57 @@ class TestCircular:
         )
 
     @pytest.mark.parametrize(
-        "curvature_type",
-        ["curl(b/B) with x-y derivatives", "curl(b/B)"],
+        "params",
+        [
+            ("curl(b/B) with x-y derivatives", True),
+            ("curl(b/B)", True),
+            ("curl(b/B)", False),
+        ],
     )
-    def test_curvature(self, curvature_type):
+    def test_curvature(self, params):
+        """
+        Test the curvature calculate by MeshRegion.calc_curvature(), parameterised by
+        different available methods.
+
+        Only "curl(b/B)" is tested for the non-orthogonal case, as it is the only method
+        that supports non-orthogonal grids. However, in this test the grid is actually
+        orthogonal, so only checks the consistency of the non-orthogonal branch, it does
+        not actually check that the calculation is correct for a non-orthogonal grid.
+        """
+        curvature_type, orthogonal = params
         settings = self.test_settings.copy()
-        settings.update(curvature_type=curvature_type)
+        settings.update(curvature_type=curvature_type, orthogonal=orthogonal)
         curv_grid_derivs = curvature_type == "curl(b/B) with x-y derivatives"
         if curv_grid_derivs:
             settings.update(
                 finecontour_Nfine=400, nx=40, ny=300, r_inner=0.5, r_outer=0.6
             )
-            rtol = 6.0e-5
-            atol = 1.0e-8
+            rtol_bxcvx = 6.0e-5
+            atol_bxcvx = 1.0e-8
             rtol_bxcvy = 6.0e-5
             atol_bxcvy = 1.0e-8
+            rtol_bxcvz = 6.0e-5
+            atol_bxcvz = 1.0e-8
         else:
             settings.update(nx=64, ny=64, finecontour_Nfine=1000)
-            rtol = 1.0e-14
-            atol = 1.0e-15
+            rtol_bxcvx = 1.0e-14
+            atol_bxcvx = 1.0e-15
             # bxcvy uses 'hy', which is calculated using PsiContour.distance, so depends
             # on the accuracy of the distance calculation on FineContours. Accuracy can
             # be increased by using a large finecontour_Nfine, but will not be machine
             # precision
-            rtol_bxcvy = 2.0e-6
+            rtol_bxcvy = 4.0e-6
             atol_bxcvy = 1.0e-8
+            if orthogonal:
+                rtol_bxcvz = 1.0e-14
+                atol_bxcvz = 1.0e-15
+            else:
+                # Inaccuracies in hy do no exactly cancel for non-orthogonal case, so
+                # need slightly looser tolerance
+                rtol_bxcvz = 4.0e-9
+                atol_bxcvz = 4.0e-9
+        if not orthogonal:
+            settings.update(nonorthogonal_spacing_method="orthogonal")
         mesh = self.get_mesh(settings)
         equilib = mesh.equilibrium
 
@@ -365,15 +393,20 @@ class TestCircular:
         bxcvy = B0 * R0 * Bp / hy / B ** 2 * dBdx
         bxcvz = Bp ** 3 / (2.0 * B * hy) * dhyBpdx + Bt ** 2 / (R * B) * dRdx
 
-        npt.assert_allclose(bxcvx.centre, mesh.bxcvx.centre, rtol=rtol_bxcvx,
-                atol=atol_bxcvx)
         npt.assert_allclose(
-            bxcvx.ylow[:, 1:-1], mesh.bxcvx.ylow[:, 1:-1], rtol=rtol_bxcvx,
-            atol=atol_bxcvx
+            bxcvx.centre, mesh.bxcvx.centre, rtol=rtol_bxcvx, atol=atol_bxcvx
         )
         npt.assert_allclose(
-            bxcvx.xlow[1:-1, :], mesh.bxcvx.xlow[1:-1, :], rtol=rtol_bxcvx,
-            atol=atol_bxcvx
+            bxcvx.ylow[:, 1:-1],
+            mesh.bxcvx.ylow[:, 1:-1],
+            rtol=rtol_bxcvx,
+            atol=atol_bxcvx,
+        )
+        npt.assert_allclose(
+            bxcvx.xlow[1:-1, :],
+            mesh.bxcvx.xlow[1:-1, :],
+            rtol=rtol_bxcvx,
+            atol=atol_bxcvx,
         )
         npt.assert_allclose(
             bxcvx.corners[1:-1, 1:-1],
@@ -405,19 +438,27 @@ class TestCircular:
                 atol=atol_bxcvy,
             )
 
-        npt.assert_allclose(bxcvz.centre, mesh.bxcvz.centre, rtol=rtol, atol=atol)
         npt.assert_allclose(
-            bxcvz.ylow[:, 1:-1], mesh.bxcvz.ylow[:, 1:-1], rtol=rtol, atol=atol
+            bxcvz.centre, mesh.bxcvz.centre, rtol=rtol_bxcvz, atol=atol_bxcvz
         )
-        if not curv_grid_derivs:
+        npt.assert_allclose(
+            bxcvz.ylow[:, 1:-1],
+            mesh.bxcvz.ylow[:, 1:-1],
+            rtol=rtol_bxcvz,
+            atol=atol_bxcvz,
+        )
+        if orthogonal and not curv_grid_derivs:
             npt.assert_allclose(
-                bxcvz.xlow[1:-1, :], mesh.bxcvz.xlow[1:-1, :], rtol=rtol, atol=atol
+                bxcvz.xlow[1:-1, :],
+                mesh.bxcvz.xlow[1:-1, :],
+                rtol=rtol_bxcvz,
+                atol=atol_bxcvz,
             )
             npt.assert_allclose(
                 bxcvz.corners[1:-1, 1:-1],
                 mesh.bxcvz.corners[1:-1, 1:-1],
-                rtol=rtol,
-                atol=atol,
+                rtol=rtol_bxcvz,
+                atol=atol_bxcvz,
             )
 
         del equilib

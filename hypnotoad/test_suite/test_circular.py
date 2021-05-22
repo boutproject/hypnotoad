@@ -19,7 +19,6 @@ class TestCircular:
         "q_coefficients": [q],
         "r_inner": r_inner,
         "r_outer": r_outer,
-        "number_of_processors": 20,
     }
     rtol = 2.0e-5
     atol = 1.0e-6
@@ -307,3 +306,122 @@ class TestCircular:
             rtol=self.rtol,
             atol=self.atol,
         )
+
+    @pytest.mark.parametrize(
+        "curvature_type",
+        ["curl(b/B) with x-y derivatives", "curl(b/B)"],
+    )
+    def test_curvature(self, curvature_type):
+        settings = self.test_settings.copy()
+        settings.update(curvature_type=curvature_type)
+        curv_grid_derivs = curvature_type == "curl(b/B) with x-y derivatives"
+        if curv_grid_derivs:
+            settings.update(
+                finecontour_Nfine=400, nx=40, ny=300, r_inner=0.5, r_outer=0.6
+            )
+            rtol = 6.0e-5
+            atol = 1.0e-8
+            rtol_bxcvy = 6.0e-5
+            atol_bxcvy = 1.0e-8
+        else:
+            settings.update(nx=64, ny=64, finecontour_Nfine=1000)
+            rtol = 1.0e-14
+            atol = 1.0e-15
+            # bxcvy uses 'hy', which is calculated using PsiContour.distance, so depends
+            # on the accuracy of the distance calculation on FineContours. Accuracy can
+            # be increased by using a large finecontour_Nfine, but will not be machine
+            # precision
+            rtol_bxcvy = 2.0e-6
+            atol_bxcvy = 1.0e-8
+        mesh = self.get_mesh(settings)
+        equilib = mesh.equilibrium
+
+        R = mesh.Rxy
+        Z = mesh.Zxy
+
+        # calculate expected values using only the positions of the grid points
+        R0 = self.R0
+        B0 = self.B0
+        q = self.q
+
+        r = np.sqrt((R - R0) ** 2 + Z ** 2)
+        theta = np.arctan2(Z, R - R0)
+        epsilon = r / R0
+        qbar = q * np.sqrt(1.0 - epsilon ** 2)
+        dqbardr = -qbar * r / (R0 ** 2 - r ** 2)
+        hy = r
+        dpsidr = B0 * r / qbar
+        Bp = B0 * r / (qbar * R)
+        Bt = B0 * R0 / R
+        B = np.sqrt(Bp ** 2 + Bt ** 2)
+        dRdx = np.cos(theta) / dpsidr
+        dBdy = -B * r / R * np.sin(theta)
+        dBdx = -B * dRdx / R + B * epsilon / dpsidr / (
+            qbar ** 2 + epsilon ** 2
+        ) / R0 / (1.0 - epsilon ** 2)
+        dhyBpdx = qbar * dRdx / B0 + R / dpsidr / B0 * dqbardr
+
+        bxcvx = -B0 * R0 * Bp / (hy * B ** 2) * dBdy
+        bxcvy = B0 * R0 * Bp / hy / B ** 2 * dBdx
+        bxcvz = Bp ** 3 / (2.0 * B * hy) * dhyBpdx + Bt ** 2 / (R * B) * dRdx
+
+        npt.assert_allclose(bxcvx.centre, mesh.bxcvx.centre, rtol=rtol_bxcvx,
+                atol=atol_bxcvx)
+        npt.assert_allclose(
+            bxcvx.ylow[:, 1:-1], mesh.bxcvx.ylow[:, 1:-1], rtol=rtol_bxcvx,
+            atol=atol_bxcvx
+        )
+        npt.assert_allclose(
+            bxcvx.xlow[1:-1, :], mesh.bxcvx.xlow[1:-1, :], rtol=rtol_bxcvx,
+            atol=atol_bxcvx
+        )
+        npt.assert_allclose(
+            bxcvx.corners[1:-1, 1:-1],
+            mesh.bxcvx.corners[1:-1, 1:-1],
+            rtol=rtol_bxcvx,
+            atol=atol_bxcvx,
+        )
+
+        npt.assert_allclose(
+            bxcvy.centre, mesh.bxcvy.centre, rtol=rtol_bxcvy, atol=atol_bxcvy
+        )
+        npt.assert_allclose(
+            bxcvy.ylow[:, 1:-1],
+            mesh.bxcvy.ylow[:, 1:-1],
+            rtol=rtol_bxcvy,
+            atol=atol_bxcvy,
+        )
+        if orthogonal and not curv_grid_derivs:
+            npt.assert_allclose(
+                bxcvy.xlow[1:-1, :],
+                mesh.bxcvy.xlow[1:-1, :],
+                rtol=rtol_bxcvy,
+                atol=atol_bxcvy,
+            )
+            npt.assert_allclose(
+                bxcvy.corners[1:-1, 1:-1],
+                mesh.bxcvy.corners[1:-1, 1:-1],
+                rtol=rtol_bxcvy,
+                atol=atol_bxcvy,
+            )
+
+        npt.assert_allclose(bxcvz.centre, mesh.bxcvz.centre, rtol=rtol, atol=atol)
+        npt.assert_allclose(
+            bxcvz.ylow[:, 1:-1], mesh.bxcvz.ylow[:, 1:-1], rtol=rtol, atol=atol
+        )
+        if not curv_grid_derivs:
+            npt.assert_allclose(
+                bxcvz.xlow[1:-1, :], mesh.bxcvz.xlow[1:-1, :], rtol=rtol, atol=atol
+            )
+            npt.assert_allclose(
+                bxcvz.corners[1:-1, 1:-1],
+                mesh.bxcvz.corners[1:-1, 1:-1],
+                rtol=rtol,
+                atol=atol,
+            )
+
+        del equilib
+        del mesh
+        import gc
+
+        gc.collect()

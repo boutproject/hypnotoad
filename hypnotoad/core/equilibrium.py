@@ -1854,10 +1854,11 @@ class EquilibriumRegion(PsiContour):
             doc=(
                 "Method to use for poloidal spacing function: 'sqrt' for "
                 "getSqrtPoloidalSpacingFunction; 'monotonic' for "
-                "getMonotonicPoloidalDistanceFunc"
+                "getMonotonicPoloidalDistanceFunc; 'linear' for "
+                "getLinearPoloidalDistanceFunc"
             ),
             value_type=str,
-            allowed=["sqrt", "monotonic"],
+            allowed=["sqrt", "monotonic", "linear"],
         ),
         xpoint_poloidal_spacing_length=WithMeta(
             lambda options: 5.0e-2 if options.orthogonal else 4.0,
@@ -2619,6 +2620,12 @@ class EquilibriumRegion(PsiContour):
                 d_upper=spacing_upper,
             )
             self._checkMonotonic([(sfunc, "monotonic")], total_distance=distance)
+        elif method == "linear":
+            sfunc = self.getLinearPoloidalDistanceFunc(
+                distance,
+                npoints - 1,
+            )
+            self._checkMonotonic([(sfunc, "linear")], total_distance=distance)
         elif method == "nonorthogonal":
             if (
                 self.nonorthogonal_options.nonorthogonal_spacing_method
@@ -3583,6 +3590,14 @@ class EquilibriumRegion(PsiContour):
                     + e * (i / N_norm) ** 2
                     + f * (i / N_norm) ** 3
                 )
+
+    def getLinearPoloidalDistanceFunc(self, length, N):
+        """
+        Return a function s(i) giving poloidal distance as a function of index-number.
+
+        Function is linear - s(i) = constant * i
+        """
+        return lambda i: i / N * length
 
 
 class Equilibrium:

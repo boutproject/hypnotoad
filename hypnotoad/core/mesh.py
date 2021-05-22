@@ -292,7 +292,7 @@ class MeshRegion:
             value_type=bool,
         ),
         curvature_type=WithMeta(
-            "curl(b/B) with x-y derivatives",
+            "curl(b/B)",
             doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
             allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],

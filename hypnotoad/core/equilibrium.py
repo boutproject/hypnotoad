@@ -3752,6 +3752,110 @@ class Equilibrium:
         self.d2psidZ2 = self._dct.d2dZ2
         self.d2psidRdZ = self._dct.d2dRdZ
 
+    def Bzeta(self, R, Z):
+        """
+        Toroidal magnetic field as a function of R and Z
+        """
+        return self.fpol(self.psi(R, Z)) / R
+
+    def B2(self, R, Z):
+        """
+        B^2 as a function of R and Z
+        """
+        return self.Bp_R(R, Z) ** 2 + self.Bp_Z(R, Z) ** 2 + self.Bzeta(R, Z) ** 2
+
+    def dBzetadR(self, R, Z):
+        """
+        d(Bzeta)/dR
+        """
+        # = d(fpol/R)/dR
+        # = dfpol/dR / R - fpol/R**2
+        # = fpolprime dpsi/dR / R - Bzeta/R
+        # = -fpolprime BZ - Bzeta/R
+        return -self.fpolprime(self.psi(R, Z)) * self.Bp_Z(R, Z) - self.Bzeta(R, Z) / R
+
+    def dBzetadZ(self, R, Z):
+        """
+        d(Bzeta)/dZ
+        """
+        # = d(fpol/R)/dZ
+        # = dfpol/dZ / R
+        # = fpolprime dpsi/dZ / R
+        # = fpolprime BR
+        return self.fpolprime(self.psi(R, Z)) * self.Bp_R(R, Z)
+
+    def dBRdR(self, R, Z):
+        """
+        d(Bp_R)/dR
+        """
+        # = d(dpsi/dZ / R)/dR
+        # = d2psi/dRdZ / R - dpsi/dZ / R**2
+        # = d2psi/dRdZ / R - BR / R
+        return (self.d2psidRdZ(R, Z) - self.Bp_R(R, Z)) / R
+
+    def dBRdZ(self, R, Z):
+        """
+        d(Bp_R)/dZ
+        """
+        # = d(dpsi/dZ / R)/dZ
+        # = d2psi/dZ2 / R
+        return self.d2psidZ2(R, Z) / R
+
+    def dBZdR(self, R, Z):
+        """
+        d(Bp_Z)/dR
+        """
+        # = -d(dpsi/dR / R)/dR
+        # = -d2psi/dR2 / R + dpsi/dR / R**2
+        # = -d2psi/dR2 / R - BZ / R
+        return -(self.d2psidR2(R, Z) + self.Bp_Z(R, Z)) / R
+
+    def dBZdZ(self, R, Z):
+        """
+        d(Bp_Z)/dZ
+        """
+        # = -d(dpsi/dR / R)/dZ
+        # = -d2psi/dRdZ / R
+        return -self.d2psidRdZ(R, Z) / R
+
+    def dB2dR(self, R, Z):
+        """
+        d(B^2)/dR
+        """
+        # d(B^2)/dR = 2 (BR dBR/dR + BZ dBZ/dR + Bzeta dBzeta/dR)
+        return 2.0 * (
+            self.Bp_R(R, Z) * self.dBRdR(R, Z)
+            + self.Bp_Z(R, Z) * self.dBZdR(R, Z)
+            + self.Bzeta(R, Z) * self.dBzetadR(R, Z)
+        )
+
+    def dB2dZ(self, R, Z):
+        """
+        d(B^2)/dZ
+        """
+        # d(B^2)/dZ = 2 (BR dBR/dZ + BZ dBZ/dZ + Bzeta dBzeta/dZ)
+        return 2.0 * (
+            self.Bp_R(R, Z) * self.dBRdZ(R, Z)
+            + self.Bp_Z(R, Z) * self.dBZdZ(R, Z)
+            + self.Bzeta(R, Z) * self.dBzetadZ(R, Z)
+        )
+
+    def dBdR(self, R, Z):
+        """
+        dB/dR
+        """
+        # d(B^2)/dR = 2 B dB/dR
+        # dB/dR = d(B^2)/dR / (2 B)
+        return self.dB2dR(R, Z) / (2.0 * numpy.sqrt(self.B2(R, Z)))
+
+    def dBdZ(self, R, Z):
+        """
+        dB/dZ
+        """
+        # d(B^2)/dZ = 2 B dB/dZ
+        # dB/dZ = d(B^2)/dZ / (2 B)
+        return self.dB2dZ(R, Z) / (2.0 * numpy.sqrt(self.B2(R, Z)))
+
     def findMinimum_1d(self, pos1, pos2, atol=1.0e-14):
         def coords(s):
             return pos1 + s * (pos2 - pos1)

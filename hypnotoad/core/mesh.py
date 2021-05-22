@@ -1308,6 +1308,12 @@ class MeshRegion:
         Curl(b/B)^z - despite the slightly misleading variable names.
         """
         if self.user_options.curvature_type == "curl(b/B) with x-y derivatives":
+            if not self.user_options.orthogonal:
+                raise ValueError(
+                    'curvature_type = "curl(b/B) with x-y derivatives" does not '
+                    "support non-orthogonal grids."
+                )
+
             # calculate curl on x-y grid
             self.curl_bOverB_x = (
                 -2.0

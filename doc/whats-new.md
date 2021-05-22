@@ -7,6 +7,10 @@ What's new
 
 ### New features
 
+- Circular, concentric flux surfaces magnetic geometry (#100)\
+  By [John Omotani](https://github.com/johnomotani)
+- Non-grid based method for calculating curvature (#100)\
+  By [John Omotani](https://github.com/johnomotani)
 - Parallelise most expensive loops (#99)\
   By [John Omotani](https://github.com/johnomotani)
 - Fix position of start and end points of contours when refining and add more tolerance

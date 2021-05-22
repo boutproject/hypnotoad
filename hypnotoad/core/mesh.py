@@ -2403,7 +2403,7 @@ def _find_intersection(
 
                 import matplotlib.pyplot as plt
 
-                contour.plot(color="b")
+                contour.plot(color="b", psi=equilibrium.psi)
 
                 plt.plot(
                     [contour[0].R, contour[1].R],

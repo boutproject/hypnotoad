@@ -1346,77 +1346,14 @@ class MeshRegion:
             BR = equilib.Bp_R
             # BZ = -dpsi/dR / R
             BZ = equilib.Bp_Z
-            d2psidR2 = equilib.d2psidR2
-            d2psidZ2 = equilib.d2psidZ2
-            d2psidRdZ = equilib.d2psidRdZ
-
-            # Toroidal component of B
-            def Bzeta(R, Z):
-                return fpol(R, Z) / R
-
-            # B^2
-            def B2(R, Z):
-                return BR(R, Z) ** 2 + BZ(R, Z) ** 2 + Bzeta(R, Z) ** 2
-
-            # dBzeta/dR
-            # = d(fpol/R)/dR
-            # = dfpol/dR / R - fpol/R**2
-            # = fpolprime dpsi/dR / R - Bzeta/R
-            # = -fpolprime BZ - Bzeta/R
-            def dBzetadR(R, Z):
-                return -fpolprime(R, Z) * BZ(R, Z) - Bzeta(R, Z) / R
-
-            # dBzeta/dZ
-            # = d(fpol/R)/dZ
-            # = dfpol/dZ / R
-            # = fpolprime dpsi/dZ / R
-            # = fpolprime BR
-            def dBzetadZ(R, Z):
-                return fpolprime(R, Z) * BR(R, Z)
-
-            # dBR/dR
-            # = d(dpsi/dZ / R)/dR
-            # = d2psi/dRdZ / R - dpsi/dZ / R**2
-            # = d2psi/dRdZ / R - BR / R
-            def dBRdR(R, Z):
-                return (d2psidRdZ(R, Z) - BR(R, Z)) / R
-
-            # dBR/dZ
-            # = d(dpsi/dZ / R)/dZ
-            # = d2psi/dZ2 / R
-            def dBRdZ(R, Z):
-                return d2psidZ2(R, Z) / R
-
-            # dBZ/dR
-            # = -d(dpsi/dR / R)/dR
-            # = -d2psi/dR2 / R + dpsi/dR / R**2
-            # = -d2psi/dR2 / R - BZ / R
-            def dBZdR(R, Z):
-                return -(d2psidR2(R, Z) - BZ(R, Z)) / R
-
-            # dBZ/dZ
-            # = -d(dpsi/dR / R)/dZ
-            # = -d2psi/dRdZ / R
-            def dBZdZ(R, Z):
-                return -d2psidRdZ(R, Z) / R
-
-            # d(B^2)/dR
-            # = 2 (BR dBR/dR + BZ dBZ/dR + Bzeta dBzeta/dR)
-            def dB2dR(R, Z):
-                return 2.0 * (
-                    BR(R, Z) * dBRdR(R, Z)
-                    + BZ(R, Z) * dBZdR(R, Z)
-                    + Bzeta(R, Z) * dBzetadR(R, Z)
-                )
-
-            # d(B^2)/dZ
-            # = 2 (BR dBR/dZ + BZ dBZ/dZ + Bzeta dBzeta/dZ)
-            def dB2dZ(R, Z):
-                return 2.0 * (
-                    BR(R, Z) * dBRdZ(R, Z)
-                    + BZ(R, Z) * dBZdZ(R, Z)
-                    + Bzeta(R, Z) * dBzetadZ(R, Z)
-                )
+            Bzeta = equilib.Bzeta
+            B2 = equilib.B2
+            dBzetadR = equilib.dBzetadR
+            dBzetadZ = equilib.dBzetadZ
+            dBRdZ = equilib.dBRdZ
+            dBZdR = equilib.dBZdR
+            dB2dR = equilib.dB2dR
+            dB2dZ = equilib.dB2dZ
 
             # In cylindrical coords
             # curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat

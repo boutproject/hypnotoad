@@ -668,7 +668,7 @@ class FineContour:
 
             pyplot.subplot(131)
             pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-            self.parentContour.plot(color="g", marker="o")
+            self.parentContour.plot(color="g", marker="o", psi=psi)
             pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
             pyplot.xlabel("R")
             pyplot.ylabel("Z")
@@ -757,7 +757,7 @@ class FineContour:
                     Z,
                     psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
                 )
-                self.parentContour.plot(color="k", marker="o")
+                self.parentContour.plot(color="k", marker="o", psi=psi)
                 pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
                 pyplot.xlabel("R")
                 pyplot.ylabel("Z")
@@ -1682,7 +1682,9 @@ class PsiContour:
         while (
             s[0] < -self._fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
-            self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1))
+            self._fine_contour.extend(
+                extend_lower=max(orig_extend_lower, 1), psi=self.psi
+            )
 
         tol_upper = 0.25 * (
             self._fine_contour.distance[-1] - self._fine_contour.distance[-2]
@@ -1693,7 +1695,9 @@ class PsiContour:
             - self._fine_contour.distance[self._fine_contour.startInd]
             + tol_upper
         ):
-            self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1))
+            self._fine_contour.extend(
+                extend_upper=max(orig_extend_upper, 1), psi=self.psi
+            )
 
         interp_unadjusted = self._fine_contour.interpFunction()
 

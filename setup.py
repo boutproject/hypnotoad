@@ -38,6 +38,7 @@ setuptools.setup(
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [
+            "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
             "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
             "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
         ],

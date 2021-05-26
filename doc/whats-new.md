@@ -5,6 +5,14 @@ What's new
 0.3.2 (unreleased)
 ------------------
 
+### Breaking changes
+
+- Default value for 'curvature_type' changed from "curl(b/B) with x-y derivatives" to
+  "curl(b/B)". New default should be more accurate and more consistent when changing
+  grid sizes, but will produce slightly different output from the same input file. If
+  the old behaviour is needed, set 'curvature_type = "curl(b/B) with x-y derivatives"'
+  explicitly.
+
 ### New features
 
 - Circular, concentric flux surfaces magnetic geometry (#100)\

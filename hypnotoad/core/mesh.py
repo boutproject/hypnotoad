@@ -35,7 +35,8 @@ from optionsfactory.checks import (
     is_non_negative,
     is_positive,
 )
-from scipy.integrate import solve_ivp
+from scipy.integrate import cumulative_trapezoid, solve_ivp
+from scipy.interpolate import interp1d
 
 from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
@@ -1644,29 +1645,13 @@ class MeshRegion:
 
     def calcZShift(self):
         """
-        Calculate zShift by integrating dphidy in y.
+        Calculate zShift by integrating along FineContours.
         """
-        # Integrate using all available points - centre+ylow or xlow+corner.
-        # Integrate from lower boundary on open field lines.
-        # Integrate from lower side of MeshRegion with yGroupIndex=0 on closed field
-        # lines.
-        # Use trapezoid rule. If int_f = \int f dy
-        # int_f.centre[j] = int_f.centre[j-1]
-        #                   + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
-        #                   + 0.5*(f.ylow[j] + f.centre[j]) * (0.5*dy.centre[j])
-        #                 = i_centre[j-1] + i_ylow_upper[j]
-        #                   + i_ylow_lower[j] + i_centre[j]
-        # At the moment dy is a constant, but we allow for future changes with variable
-        # grid-spacing in y. The cell-centre points should be half way between the
-        # cell-face points, so the distance between centre[j-1] and ylow[j] is
-        # 0.5*dy[j-1], and the distace between ylow[j] and centre[j] is 0.5*dy[j]
-        #
-        # Also
-        # int_f.ylow[j] = int_f.ylow[j-1]
-        #                 + 0.5*(f.ylow[j-1] + f.centre[j-1]) * (0.5*dy.centre[j-1])
-        #                 + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
-        #               = i_ylow_lower[j-1] + i_centre[j-1]
-        #                 + i_centre[j-1] + i_ylow_upper[j]
+        # Step in toroidal direction for a step of length ds in the poloidal
+        # plane along a FineContour is ds*Bt/Bp.
+        # The change in toroidal angle is therefore (ds Bt)/(R Bp).
+        # The toroidal angle along the FineContour can be calculated by
+        # integrating using scipy.integrate.cumulative_trapezoid
 
         # Cannot just test 'connections['lower'] is not None' because periodic regions
         # always have a lower connection - requires us to give a yGroupIndex to each
@@ -1676,71 +1661,77 @@ class MeshRegion:
 
         region = self
         region.zShift = MultiLocationArray(region.nx, region.ny)
+        region.zShift.centre[:, :] = 0.0
+        region.zShift.ylow[:, :] = 0.0
+        region.zShift.xlow[:, :] = 0.0
+        region.zShift.corners[:, :] = 0.0
         while True:
-            # calculate integral for field lines with centre and ylow points
-            i_centre = 0.25 * numpy.cumsum(
-                region.dphidy.centre * region.dy.centre, axis=1
-            )
-            i_ylow_lower = 0.25 * numpy.cumsum(
-                region.dphidy.ylow[:, :-1] * region.dy.centre, axis=1
-            )
-            i_ylow_upper = 0.25 * numpy.cumsum(
-                region.dphidy.ylow[:, 1:] * region.dy.centre, axis=1
-            )
+            print("calcZShift", region.name, end="\r", flush=True)
+            for i, contour in enumerate(region.contours):
+                fine_contour = contour.get_fine_contour(psi=self.equilibriumRegion.psi)
+                fine_distance = fine_contour.distance
 
-            region.zShift.centre[:, 0] = (
-                region.zShift.ylow[:, 0] + i_ylow_lower[:, 0] + i_centre[:, 0]
-            )
-            region.zShift.centre[:, 1:] = (
-                region.zShift.ylow[:, 0, numpy.newaxis]
-                + i_centre[:, :-1]
-                + i_ylow_upper[:, :-1]
-                + i_ylow_lower[:, 1:]
-                + i_centre[:, 1:]
-            )
+                def integrand_func(R, Z):
+                    Bt = (
+                        self.meshParent.equilibrium.fpol(
+                            self.meshParent.equilibrium.psi(R, Z)
+                        )
+                        / R
+                    )
+                    Bp = numpy.sqrt(
+                        self.meshParent.equilibrium.Bp_R(R, Z) ** 2
+                        + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
+                    )
+                    return Bt / (R * Bp)
 
-            region.zShift.ylow[:, 1:] = (
-                region.zShift.ylow[:, 0, numpy.newaxis]
-                + i_ylow_lower
-                + 2.0 * i_centre
-                + i_ylow_upper
-            )
+                integrand = integrand_func(
+                    fine_contour.positions[:, 0],
+                    fine_contour.positions[:, 1],
+                )
 
-            # repeat for field lines with xlow and corner points
-            i_xlow = 0.25 * numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
-            i_corners_lower = 0.25 * numpy.cumsum(
-                region.dphidy.corners[:, :-1] * region.dy.xlow, axis=1
-            )
-            i_corners_upper = 0.25 * numpy.cumsum(
-                region.dphidy.corners[:, 1:] * region.dy.xlow, axis=1
-            )
+                zShift_fine = cumulative_trapezoid(
+                    integrand, x=fine_distance, initial=0.0
+                )
 
-            region.zShift.xlow[:, 0] = (
-                region.zShift.corners[:, 0] + i_corners_lower[:, 0] + i_xlow[:, 0]
-            )
-            region.zShift.xlow[:, 1:] = (
-                region.zShift.corners[:, 0, numpy.newaxis]
-                + i_xlow[:, :-1]
-                + i_corners_upper[:, :-1]
-                + i_corners_lower[:, 1:]
-                + i_xlow[:, 1:]
-            )
+                # Make sure zShift_fine starts at the 'startInd' of the
+                # contour/fine_contour
+                zShift_fine[:] -= zShift_fine[fine_contour.startInd]
 
-            region.zShift.corners[:, 1:] = (
-                region.zShift.corners[:, 0, numpy.newaxis]
-                + i_corners_lower
-                + 2.0 * i_xlow
-                + i_corners_upper
-            )
+                zShift_interpolator = interp1d(
+                    fine_distance, zShift_fine, kind="linear", assume_sorted=True
+                )
+                zShift_contour = zShift_interpolator(
+                    contour.get_distance(psi=self.equilibriumRegion.psi)
+                )
+
+                if i % 2 == 0:
+                    # xlow and corners
+                    xind = i // 2
+                    region.zShift.corners[xind, :] += zShift_contour[::2]
+                    region.zShift.xlow[xind, :] += zShift_contour[1::2]
+                else:
+                    # centre and ylow
+                    xind = i // 2
+                    region.zShift.ylow[xind, :] += zShift_contour[::2]
+                    region.zShift.centre[xind, :] += zShift_contour[1::2]
 
             next_region = region.getNeighbour("upper")
             if (next_region is None) or (next_region is self):
                 # Note: If periodic, next_region is self (back to start)
                 break
             else:
+                # Initialise with values at the lower y-boundary of next_region
                 next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)
-                next_region.zShift.ylow[:, 0] = region.zShift.ylow[:, -1]
-                next_region.zShift.corners[:, 0] = region.zShift.corners[:, -1]
+                next_region.zShift.centre[:, :] = region.zShift.ylow[
+                    :, -1, numpy.newaxis
+                ]
+                next_region.zShift.ylow[:, :] = region.zShift.ylow[:, -1, numpy.newaxis]
+                next_region.zShift.xlow[:, :] = region.zShift.corners[
+                    :, -1, numpy.newaxis
+                ]
+                next_region.zShift.corners[:, :] = region.zShift.corners[
+                    :, -1, numpy.newaxis
+                ]
                 region = next_region
 
         # Calculate ShiftAngle for closed field line regions

@@ -35,7 +35,8 @@ from optionsfactory.checks import (
     is_non_negative,
     is_positive,
 )
-from scipy.integrate import solve_ivp
+from scipy.integrate import cumulative_trapezoid, solve_ivp
+from scipy.interpolate import interp1d
 
 from boututils.boutarray import BoutArray
 from boututils.run_wrapper import shell_safe
@@ -292,7 +293,7 @@ class MeshRegion:
             value_type=bool,
         ),
         curvature_type=WithMeta(
-            "curl(b/B) with x-y derivatives",
+            "curl(b/B)",
             doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
             allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
@@ -676,7 +677,7 @@ class MeshRegion:
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
 
-        self.contours = self.parallel_map(_refine_extend, ((c,) for c in self.contours))
+        self.contours = self.parallel_map(_refine_extend, enumerate(self.contours))
 
     def distributePointsNonorthogonal(self, nonorthogonal_settings=None):
         if nonorthogonal_settings is not None:
@@ -1302,7 +1303,18 @@ class MeshRegion:
         self.calc_curvature()
 
     def calc_curvature(self):
+        """
+        Calculate curvature components. Note that curl_bOverB_x, curl_bOverB_y, and
+        curl_bOverB_z are contravariant components - Curl(b/B)^x, Curl(b/B)^y, and
+        Curl(b/B)^z - despite the slightly misleading variable names.
+        """
         if self.user_options.curvature_type == "curl(b/B) with x-y derivatives":
+            if not self.user_options.orthogonal:
+                raise ValueError(
+                    'curvature_type = "curl(b/B) with x-y derivatives" does not '
+                    "support non-orthogonal grids."
+                )
+
             # calculate curl on x-y grid
             self.curl_bOverB_x = (
                 -2.0
@@ -1328,8 +1340,6 @@ class MeshRegion:
             # Calculate Curl(b/B) in R-Z, then project onto x-y-z components
             # This calculates contravariant components of a curvature vector
 
-            raise ValueError("This option needs checking carefully before it is used")
-
             equilib = self.meshParent.equilibrium
             psi = equilib.psi
 
@@ -1339,78 +1349,53 @@ class MeshRegion:
             def fpolprime(R, Z):
                 return equilib.fpolprime(psi(R, Z))
 
+            # BR = dpsi/dZ / R
             BR = equilib.Bp_R
+            # BZ = -dpsi/dR / R
             BZ = equilib.Bp_Z
-            d2psidR2 = equilib.d2psidR2
-            d2psidZ2 = equilib.d2psidZ2
-            d2psidRdZ = equilib.d2psidRdZ
-
-            # Toroidal component of B
-            def Bzeta(R, Z):
-                return fpol(R, Z) / R
-
-            # B^2
-            def B2(R, Z):
-                return BR(R, Z) ** 2 + BZ(R, Z) ** 2 + Bzeta(R, Z) ** 2
-
-            # d(B^2)/dR
-            def dB2dR(R, Z):
-                return -2.0 / R * B2(R, Z) + 2.0 / R * (
-                    -BZ(R, Z) * d2psidR2(R, Z)
-                    + BR(R, Z) * d2psidRdZ(R, Z)
-                    - fpol(R, Z) * fpolprime(R, Z) * BZ(R, Z)
-                )
-
-            # d(B^2)/dZ
-            def dB2dZ(R, Z):
-                return (
-                    2.0
-                    / R
-                    * (
-                        -BZ(R, Z) * d2psidRdZ(R, Z)
-                        + BR(R, Z) * d2psidZ2(R, Z)
-                        + fpol(R, Z) * fpolprime(R, Z) * BR(R, Z)
-                    )
-                )
-
-            # dBzeta/dR
-            def dBzetadR(R, Z):
-                return -fpolprime(R, Z) * BZ(R, Z) - fpol(R, Z) / R ** 2
-
-            # dBzeta/dZ
-            def dBzetadZ(R, Z):
-                return fpolprime(R, Z) * BR(R, Z)
-
-            # dBZ/dR
-            def dBZdR(R, Z):
-                return -d2psidR2(R, Z) / R - BZ(R, Z) / R
-
-            # dBR/dZ
-            def dBRdZ(R, Z):
-                return d2psidZ2(R, Z) / R
+            Bzeta = equilib.Bzeta
+            B2 = equilib.B2
+            dBzetadR = equilib.dBzetadR
+            dBzetadZ = equilib.dBzetadZ
+            dBRdZ = equilib.dBRdZ
+            dBZdR = equilib.dBZdR
+            dB2dR = equilib.dB2dR
+            dB2dZ = equilib.dB2dZ
 
             # In cylindrical coords
             # curl(A) = (1/R*d(AZ)/dzeta - d(Azeta)/dZ)  * Rhat
-            #           + 1/R*(d(R A_zeta)/dR - d(AR)/dzeta) * Zhat
+            #           + 1/R*(d(R Azeta)/dR - d(AR)/dzeta) * Zhat
             #           + (d(AR)/dZ - d(AZ)/dR) * zetahat
+            # Where AR, AZ and Azeta are the components on a basis of unit vectors,
+            # i.e. AR = A.Rhat; AZ = A.Zhat; Azeta = A.zetahat
             # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
             #
             # curl(b/B) = curl((BR/B2), (BZ/B2), (Bzeta/B2))
-            # curl(b/B)_R = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta
-            #               - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
-            #             = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
-            # curl(b/B)_Z = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
-            #               - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
-            #             = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
-            # curl(b/B)_zeta = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ
-            #                  - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
+            # curl(b/B)_Rhat = 1/R d(BZ/B2)/dzeta - d(Bzeta/B2)/dZ
+            #                = 1/(R*B2)*d(BZ)/dzeta - BZ/(R*B4)*d(B2)/dzeta
+            #                  - 1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            #                = -1/B2*d(Bzeta)/dZ + Bzeta/B4*d(B2)/dZ
+            # curl(b/B)_Zhat = 1/R * (d(R Bzeta/B2)/dR - d(BR/B2)/dzeta)
+            #                = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            #                  - 1/(R*B2)*d(BR)/dzeta + BR/(R*B4)*d(B2)/dzeta
+            #                = Bzeta/(R*B2) + 1/B2*d(Bzeta)/dR - Bzeta/B4*d(B2)/dR
+            # curl(b/B)_zetahat = d(BR/B2)/dZ - d(BZ/B2)/dR
+            #                   = 1/B2*d(BR)/dZ - BR/B4*d(B2)/dZ
+            #                     - 1/B2*d(BZ)/dR + BZ/B4*d(B2)/dR
             # remembering d/dzeta=0 for axisymmetric equilibrium
-            def curl_bOverB_R(R, Z):
+            def curl_bOverB_Rhat(R, Z):
                 return -dBzetadZ(R, Z) / B2(R, Z) + Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dZ(
                     R, Z
                 )
 
-            def curl_bOverB_zeta(R, Z):
+            def curl_bOverB_Zhat(R, Z):
+                return (
+                    Bzeta(R, Z) / (R * B2(R, Z))
+                    + dBzetadR(R, Z) / B2(R, Z)
+                    - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
+                )
+
+            def curl_bOverB_zetahat(R, Z):
                 return (
                     dBRdZ(R, Z) / B2(R, Z)
                     - BR(R, Z) / B2(R, Z) ** 2 * dB2dZ(R, Z)
@@ -1418,40 +1403,51 @@ class MeshRegion:
                     + BZ(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
                 )
 
-            def curl_bOverB_Z(R, Z):
-                return (
-                    Bzeta(R, Z) / (R * B2(R, Z))
-                    + dBzetadR(R, Z) / B2(R, Z)
-                    - Bzeta(R, Z) / B2(R, Z) ** 2 * dB2dR(R, Z)
-                )
-
+            # We want to output contravariant components of Curl(b/B) in the
+            # locally field-aligned coordinate system.
+            # The contravariant components of an arbitrary vector A are
             # A^x = A.Grad(x)
             # A^y = A.Grad(y)
             # A^z = A.Grad(z)
-            # dpsi/dR = -R*Bp_Z
-            # dpsi/dZ = R*Bp_R
-            def curl_bOverB_x(R, Z):
-                return curl_bOverB_R(R, Z) * (-R * BZ(R, Z)) + curl_bOverB_Z(R, Z) * (
-                    R * BR(R, Z)
-                )
 
-            self.curl_bOverB_x = curl_bOverB_x(self.Rxy, self.Zxy)
+            # Grad in cylindrical coordinates is
+            # Grad(f) = df/dR Rhat + 1/R df/dzeta zetahat + df/dZ Zhat
+            # https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates,
 
-            # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
-            #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)/(Bp*hy*cosBeta)
-            #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
-            curl_bOverB_y = (
-                curl_bOverB_R(self.Rxy, self.Zxy)
-                * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
-                + curl_bOverB_Z(self.Rxy, self.Zxy)
-                * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
-            ) / (self.Bpxy * self.hy)
-            self.curl_bOverB_y = curl_bOverB_y
+            # x = psi - psi_min
+            # dpsi/dR = -R*BZ
+            # dpsi/dZ = R*BR
+            # => Grad(x) = (dpsi/dR, 0, dpsi/dZ).(Rhat, zetahat, Zhat)
+            # => Grad(x) = (-R BZ, 0, R BR).(Rhat, zetahat, Zhat)
+            self.curl_bOverB_x = curl_bOverB_Rhat(self.Rxy, self.Zxy) * (
+                -self.Rxy * BZ(self.Rxy, self.Zxy)
+            ) + curl_bOverB_Zhat(self.Rxy, self.Zxy) * (
+                self.Rxy * BR(self.Rxy, self.Zxy)
+            )
+
+            if self.user_options.orthogonal:
+                # Grad(y) = (BR, 0, BZ)/(hy Bp)
+                self.curl_bOverB_y = (
+                    curl_bOverB_Rhat(self.Rxy, self.Zxy) * BR(self.Rxy, self.Zxy)
+                    + curl_bOverB_Zhat(self.Rxy, self.Zxy) * BZ(self.Rxy, self.Zxy)
+                ) / (self.Bpxy * self.hy)
+            else:
+                # Grad(y) = (d_Z, 0, -d_R)/(hy*cosBeta)
+                #         = (BR*cosBeta-BZ*sinBeta, 0, BZ*cosBeta+BR*sinBeta)
+                #           /(Bp*hy*cosBeta)
+                #         = (BR-BZ*tanBeta, 0, BZ+BR*tanBeta)/(Bp*hy)
+                self.curl_bOverB_y = (
+                    curl_bOverB_Rhat(self.Rxy, self.Zxy)
+                    * (BR(self.Rxy, self.Zxy) - BZ(self.Rxy, self.Zxy) * self.tanBeta)
+                    + curl_bOverB_Zhat(self.Rxy, self.Zxy)
+                    * (BZ(self.Rxy, self.Zxy) + BR(self.Rxy, self.Zxy) * self.tanBeta)
+                ) / (self.Bpxy * self.hy)
 
             # Grad(z) = Grad(zeta) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
+            # Grad(z) = (0, 1/R, 0) - Bt*hy/(Bp*R)*Grad(y) - I*Grad(x)
             self.curl_bOverB_z = (
-                curl_bOverB_zeta(self.Rxy, self.Zxy) / self.Rxy
-                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOveryB_y
+                curl_bOverB_zetahat(self.Rxy, self.Zxy) / self.Rxy
+                - self.Btxy * self.hy / (self.Bpxy * self.Rxy) * self.curl_bOverB_y
                 - self.I * self.curl_bOverB_x
             )
 
@@ -1649,29 +1645,13 @@ class MeshRegion:
 
     def calcZShift(self):
         """
-        Calculate zShift by integrating dphidy in y.
+        Calculate zShift by integrating along FineContours.
         """
-        # Integrate using all available points - centre+ylow or xlow+corner.
-        # Integrate from lower boundary on open field lines.
-        # Integrate from lower side of MeshRegion with yGroupIndex=0 on closed field
-        # lines.
-        # Use trapezoid rule. If int_f = \int f dy
-        # int_f.centre[j] = int_f.centre[j-1]
-        #                   + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
-        #                   + 0.5*(f.ylow[j] + f.centre[j]) * (0.5*dy.centre[j])
-        #                 = i_centre[j-1] + i_ylow_upper[j]
-        #                   + i_ylow_lower[j] + i_centre[j]
-        # At the moment dy is a constant, but we allow for future changes with variable
-        # grid-spacing in y. The cell-centre points should be half way between the
-        # cell-face points, so the distance between centre[j-1] and ylow[j] is
-        # 0.5*dy[j-1], and the distace between ylow[j] and centre[j] is 0.5*dy[j]
-        #
-        # Also
-        # int_f.ylow[j] = int_f.ylow[j-1]
-        #                 + 0.5*(f.ylow[j-1] + f.centre[j-1]) * (0.5*dy.centre[j-1])
-        #                 + 0.5*(f.centre[j-1] + f.ylow[j]) * (0.5*dy.centre[j-1])
-        #               = i_ylow_lower[j-1] + i_centre[j-1]
-        #                 + i_centre[j-1] + i_ylow_upper[j]
+        # Step in toroidal direction for a step of length ds in the poloidal
+        # plane along a FineContour is ds*Bt/Bp.
+        # The change in toroidal angle is therefore (ds Bt)/(R Bp).
+        # The toroidal angle along the FineContour can be calculated by
+        # integrating using scipy.integrate.cumulative_trapezoid
 
         # Cannot just test 'connections['lower'] is not None' because periodic regions
         # always have a lower connection - requires us to give a yGroupIndex to each
@@ -1681,71 +1661,77 @@ class MeshRegion:
 
         region = self
         region.zShift = MultiLocationArray(region.nx, region.ny)
+        region.zShift.centre[:, :] = 0.0
+        region.zShift.ylow[:, :] = 0.0
+        region.zShift.xlow[:, :] = 0.0
+        region.zShift.corners[:, :] = 0.0
         while True:
-            # calculate integral for field lines with centre and ylow points
-            i_centre = 0.25 * numpy.cumsum(
-                region.dphidy.centre * region.dy.centre, axis=1
-            )
-            i_ylow_lower = 0.25 * numpy.cumsum(
-                region.dphidy.ylow[:, :-1] * region.dy.centre, axis=1
-            )
-            i_ylow_upper = 0.25 * numpy.cumsum(
-                region.dphidy.ylow[:, 1:] * region.dy.centre, axis=1
-            )
+            print("calcZShift", region.name, end="\r", flush=True)
+            for i, contour in enumerate(region.contours):
+                fine_contour = contour.get_fine_contour(psi=self.equilibriumRegion.psi)
+                fine_distance = fine_contour.distance
 
-            region.zShift.centre[:, 0] = (
-                region.zShift.ylow[:, 0] + i_ylow_lower[:, 0] + i_centre[:, 0]
-            )
-            region.zShift.centre[:, 1:] = (
-                region.zShift.ylow[:, 0, numpy.newaxis]
-                + i_centre[:, :-1]
-                + i_ylow_upper[:, :-1]
-                + i_ylow_lower[:, 1:]
-                + i_centre[:, 1:]
-            )
+                def integrand_func(R, Z):
+                    Bt = (
+                        self.meshParent.equilibrium.fpol(
+                            self.meshParent.equilibrium.psi(R, Z)
+                        )
+                        / R
+                    )
+                    Bp = numpy.sqrt(
+                        self.meshParent.equilibrium.Bp_R(R, Z) ** 2
+                        + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
+                    )
+                    return Bt / (R * Bp)
 
-            region.zShift.ylow[:, 1:] = (
-                region.zShift.ylow[:, 0, numpy.newaxis]
-                + i_ylow_lower
-                + 2.0 * i_centre
-                + i_ylow_upper
-            )
+                integrand = integrand_func(
+                    fine_contour.positions[:, 0],
+                    fine_contour.positions[:, 1],
+                )
 
-            # repeat for field lines with xlow and corner points
-            i_xlow = 0.25 * numpy.cumsum(region.dphidy.xlow * region.dy.xlow, axis=1)
-            i_corners_lower = 0.25 * numpy.cumsum(
-                region.dphidy.corners[:, :-1] * region.dy.xlow, axis=1
-            )
-            i_corners_upper = 0.25 * numpy.cumsum(
-                region.dphidy.corners[:, 1:] * region.dy.xlow, axis=1
-            )
+                zShift_fine = cumulative_trapezoid(
+                    integrand, x=fine_distance, initial=0.0
+                )
 
-            region.zShift.xlow[:, 0] = (
-                region.zShift.corners[:, 0] + i_corners_lower[:, 0] + i_xlow[:, 0]
-            )
-            region.zShift.xlow[:, 1:] = (
-                region.zShift.corners[:, 0, numpy.newaxis]
-                + i_xlow[:, :-1]
-                + i_corners_upper[:, :-1]
-                + i_corners_lower[:, 1:]
-                + i_xlow[:, 1:]
-            )
+                # Make sure zShift_fine starts at the 'startInd' of the
+                # contour/fine_contour
+                zShift_fine[:] -= zShift_fine[fine_contour.startInd]
 
-            region.zShift.corners[:, 1:] = (
-                region.zShift.corners[:, 0, numpy.newaxis]
-                + i_corners_lower
-                + 2.0 * i_xlow
-                + i_corners_upper
-            )
+                zShift_interpolator = interp1d(
+                    fine_distance, zShift_fine, kind="linear", assume_sorted=True
+                )
+                zShift_contour = zShift_interpolator(
+                    contour.get_distance(psi=self.equilibriumRegion.psi)
+                )
+
+                if i % 2 == 0:
+                    # xlow and corners
+                    xind = i // 2
+                    region.zShift.corners[xind, :] += zShift_contour[::2]
+                    region.zShift.xlow[xind, :] += zShift_contour[1::2]
+                else:
+                    # centre and ylow
+                    xind = i // 2
+                    region.zShift.ylow[xind, :] += zShift_contour[::2]
+                    region.zShift.centre[xind, :] += zShift_contour[1::2]
 
             next_region = region.getNeighbour("upper")
             if (next_region is None) or (next_region is self):
                 # Note: If periodic, next_region is self (back to start)
                 break
             else:
+                # Initialise with values at the lower y-boundary of next_region
                 next_region.zShift = MultiLocationArray(next_region.nx, next_region.ny)
-                next_region.zShift.ylow[:, 0] = region.zShift.ylow[:, -1]
-                next_region.zShift.corners[:, 0] = region.zShift.corners[:, -1]
+                next_region.zShift.centre[:, :] = region.zShift.ylow[
+                    :, -1, numpy.newaxis
+                ]
+                next_region.zShift.ylow[:, :] = region.zShift.ylow[:, -1, numpy.newaxis]
+                next_region.zShift.xlow[:, :] = region.zShift.corners[
+                    :, -1, numpy.newaxis
+                ]
+                next_region.zShift.corners[:, :] = region.zShift.corners[
+                    :, -1, numpy.newaxis
+                ]
                 region = next_region
 
         # Calculate ShiftAngle for closed field line regions
@@ -2414,7 +2400,7 @@ def _find_intersection(
 
                 import matplotlib.pyplot as plt
 
-                contour.plot(color="b")
+                contour.plot(color="b", psi=equilibrium.psi)
 
                 plt.plot(
                     [contour[0].R, contour[1].R],
@@ -2563,7 +2549,13 @@ def _find_intersection(
     )
 
 
-def _refine_extend(contour, *, psi, **kwargs):
+def _refine_extend(i, contour, *, psi, **kwargs):
+    print(
+        "refine and extend",
+        i,
+        end="\r",
+        flush=True,
+    )
     contour.refine(psi=psi)
     contour.checkFineContourExtend(psi=psi)
     return contour
@@ -3504,14 +3496,13 @@ class BoutMesh(Mesh):
         addFromRegions("g_12")
         addFromRegions("g_13")
         addFromRegions("g_23")
-        if self.user_options.curvature_type == "curl(b/B) with x-y derivatives":
+        if self.user_options.curvature_type in (
+            "curl(b/B) with x-y derivatives",
+            "curl(b/B)",
+        ):
             addFromRegions("curl_bOverB_x")
             addFromRegions("curl_bOverB_y")
             addFromRegions("curl_bOverB_z")
-        elif self.user_options.curvature_type == "curl(b/B)":
-            addFromRegions("curl_bOverBx")
-            addFromRegions("curl_bOverBy")
-            addFromRegions("curl_bOverBz")
         addFromRegions("bxcvx")
         addFromRegions("bxcvy")
         addFromRegions("bxcvz")

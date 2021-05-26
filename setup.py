@@ -31,13 +31,14 @@ setuptools.setup(
         "optionsfactory~=1.0.1",
         "pyparsing~=2.4",
         "PyYAML~=5.1",
-        "scipy~=1.4",
+        "scipy~=1.6",
         "Qt.py~=1.2",
     ],
     extras_require={"gui-pyside2": ["pyside2~=5.13"], "gui-PyQt5": ["PyQt5~=5.12"]},
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [
+            "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
             "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
             "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
         ],

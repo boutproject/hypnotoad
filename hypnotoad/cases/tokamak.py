@@ -364,13 +364,14 @@ class TokamakEquilibrium(Equilibrium):
             psi2D *= -1.0
             psi1D *= -1.0
 
+        self.psi_increasing = psi1D[-1] > psi1D[0]
+
         if self.user_options.extrapolate_profiles:
             # Extend the array to outer-most psi on grid
             if pressure is not None:
                 dpdpsi = (pressure[-1] - pressure[-2]) / (psi1D[-1] - psi1D[-2])
 
-            psi_increasing = psi1D[-1] > psi1D[0]
-            if psi_increasing:
+            if self.psi_increasing:
                 psi_outer = max(
                     self.user_options.psi_sol, self.user_options.psi_sol_inner
                 )
@@ -378,8 +379,8 @@ class TokamakEquilibrium(Equilibrium):
                 psi_outer = min(
                     self.user_options.psi_sol, self.user_options.psi_sol_inner
                 )
-            if (psi_increasing and psi_outer > psi1D[-1]) or (
-                not psi_increasing and psi_outer < psi1D[-1]
+            if (self.psi_increasing and psi_outer > psi1D[-1]) or (
+                not self.psi_increasing and psi_outer < psi1D[-1]
             ):
                 # if psi_outer is not beyond the last point of psi1D, no need to extend
                 # Exclude first point since duplicates last point in core
@@ -1117,10 +1118,34 @@ class TokamakEquilibrium(Equilibrium):
                 ("outer_core", 1, "outer_lower_divertor", 1),
             ]
 
+            segments = self.segmentsWithPsivals(segments)
+
+            psi_check_sign = 1.0 if self.psi_increasing else -1.0
+            if (
+                psi_check_sign * segments["outer_sol"]["psi_vals"][1]
+                < psi_check_sign * self.psi_sep[1]
+            ):
+                raise ValueError(
+                    "Cannot create connected double-null grid - second X-point would "
+                    "be outside first gridded flux-surface in the outer SOL. Try "
+                    "increasing psi_spacing_separatrix_multiplier or setting "
+                    "nx_inter_sep>0."
+                )
+            if (
+                psi_check_sign * segments["inner_sol"]["psi_vals"][1]
+                < psi_check_sign * self.psi_sep[1]
+            ):
+                raise ValueError(
+                    "Cannot create connected double-null grid - second X-point would "
+                    "be outside first gridded flux-surface in the inner SOL. Try"
+                    "increasing psi_spacing_separatrix_multiplier or setting "
+                    "nx_inter_sep>0."
+                )
+
             return (
                 leg_regions,
                 core_regions,
-                self.segmentsWithPsivals(segments),
+                segments,
                 connections,
             )
 

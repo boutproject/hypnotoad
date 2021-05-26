@@ -1636,6 +1636,21 @@ class TokamakEquilibrium(Equilibrium):
         return -self.psi_func(R, Z, dx=1, grid=False) / R
 
     @handleMultiLocationArray
+    def d2psidR2(self, R, Z):
+        """returns the second R derivative of psi"""
+        return self.psi_func(R, Z, dx=2, grid=False)
+
+    @handleMultiLocationArray
+    def d2psidZ2(self, R, Z):
+        """returns the second Z derivative of psi"""
+        return self.psi_func(R, Z, dy=2, grid=False)
+
+    @handleMultiLocationArray
+    def d2psidRdZ(self, R, Z):
+        """returns the mixed second derivative of psi"""
+        return self.psi_func(R, Z, dx=1, dy=1, grid=False)
+
+    @handleMultiLocationArray
     def fpol(self, psi):
         """poloidal current function,
         returns fpol such that B_toroidal = fpol/R"""

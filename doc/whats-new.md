@@ -2,6 +2,16 @@ What's new
 ==========
 
 
+0.4.1 (26th May 2021)
+---------------------
+
+### Bug fixes
+
+- Check if an equilibrium can be gridded as a connected double-null before gridding.
+  Prevents creation of invalid grids where second X-point is outside the first
+  flux-surface in the SOL (#104)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.4.0 (26th May 2021)
 ---------------------
 

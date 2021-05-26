@@ -187,8 +187,8 @@ def test_bounding():
         np.linspace(Rmin, Rmax, nx),
         np.linspace(Zmin, Zmax, ny),
         np.zeros((nx, ny)),  # psi2d
-        [],
-        [],  # psi1d, fpol
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
     )
 
@@ -216,7 +216,12 @@ def test_xpoint():
         )
 
     eq = tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
     )
 
     assert len(eq.x_points) == 1
@@ -245,8 +250,8 @@ def test_wall_anticlockwise():
         np.linspace(Rmin, Rmax, nx),
         np.linspace(Zmin, Zmax, ny),
         np.zeros((nx, ny)),  # psi2d
-        [],
-        [],  # psi1d, fpol
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
         wall=wall,
         make_regions=False,
     )
@@ -275,8 +280,8 @@ def test_wall_clockwise():
         np.linspace(Rmin, Rmax, nx),
         np.linspace(Zmin, Zmax, ny),
         np.zeros((nx, ny)),  # psi2d
-        [],
-        [],  # psi1d, fpol
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
         wall=wall,
         make_regions=False,
     )
@@ -312,7 +317,12 @@ def make_lower_single_null():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
     )
 
 
@@ -335,7 +345,12 @@ def make_upper_single_null():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        np.linspace(0.0, 1.0, nx),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
     )
 
 
@@ -359,7 +374,12 @@ def make_connected_double_null():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
     )
 
 
@@ -382,7 +402,13 @@ def make_lower_double_null():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
+        settings={"nx_inter_sep": 1},
     )
 
 
@@ -405,7 +431,13 @@ def make_upper_double_null():
         )
 
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False  # psi1d, fpol
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
+        settings={"nx_inter_sep": 1},
     )
 
 
@@ -431,8 +463,16 @@ def make_upper_double_null_largesep(settings={}):
             + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3 ** 2)
         )
 
+    settings.update(nx_inter_sep=1)
+
     return tokamak.TokamakEquilibrium(
-        r1d, z1d, psi_func(r2d, z2d), [], [], make_regions=False, settings=settings
+        r1d,
+        z1d,
+        psi_func(r2d, z2d),
+        psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
+        np.linspace(0.0, 1.0, nx),  # fpol1d
+        make_regions=False,
+        settings=settings,
     )
 
 

@@ -1090,7 +1090,7 @@ class PsiContour:
 
                 import matplotlib.pyplot as plt
 
-                self.plot(marker="o", color="k")
+                self.plot(marker="o", color="k", psi=psi)
 
                 fine_contour.plot(marker="x", color="r")
 

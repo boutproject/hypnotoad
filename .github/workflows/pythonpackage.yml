@@ -78,7 +78,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install sympy
+        pip install -e .
     - name: Examples
       run: |
         cd examples/tokamak
@@ -88,6 +89,9 @@ jobs:
         ./tokamak_example.py --no-plot ldn
         ./tokamak_example.py --no-plot udn
         ./tokamak_example.py --no-plot udn2
+        cd ../torpex-xpoint
+        hypnotoad_torpex --noplot torpex-coils.yaml
+        hypnotoad_torpex --noplot torpex-coils-nonorth.yaml
 
 
   flake8:

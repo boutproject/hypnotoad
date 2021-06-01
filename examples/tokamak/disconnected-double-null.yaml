@@ -1,4 +1,4 @@
-# Input for tokamak example in lower single null
+# Input for tokamak example in disconnected double null geometries
 #
 # Note: Other available options will be printed when the regions are generated
 
@@ -10,13 +10,17 @@ psinorm_pf: 0.9
 
 # Number of points in poloidal regions
 
-ny_inner_divertor: 4
-ny_sol: 8
-ny_outer_divertor: 4
+ny_inner_lower_divertor: 4
+ny_inner_upper_divertor: 4
+ny_inner_sol: 4
+ny_outer_sol: 4
+ny_outer_lower_divertor: 4
+ny_outer_upper_divertor: 4
 
 # Number of points in radial segments
 
 nx_core: 5
+nx_inter_sep: 1
 nx_sol: 5
 
 # Radial grid spacing

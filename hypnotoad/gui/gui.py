@@ -300,7 +300,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             return
 
         # Skip options handled specially elsewhere
-        del filtered_options["orthogonal"]
+        filtered_options.pop("orthogonal", None)
         del filtered_defaults["orthogonal"]
 
         self.options_form.setSortingEnabled(False)
@@ -372,7 +372,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_file_line_edit.setText(filename)
         self.filename = filename
         self.read_options()
-        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
+        self.nonorthogonal_box.setChecked(not self.options.get("orthogonal", True))
 
     def read_options(self):
         """Read the options file"""

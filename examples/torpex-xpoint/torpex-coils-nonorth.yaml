@@ -20,9 +20,6 @@ Bt_axis: 77.e-3
 
 Mesh:
   orthogonal: False
-  # Should prefere 'curl(b/B' option, but implementation still needs checking
-  #curvature_type: 'curl(b/B)'
-  curvature_type: 'curl(b/B) with x-y derivatives'
   nx_core: 8
   nx_sol: 8
   ny_inner_lower_divertor: 8

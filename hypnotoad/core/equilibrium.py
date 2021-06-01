@@ -4063,10 +4063,10 @@ class Equilibrium:
         except AttributeError:
             # wall interpolation functions not created yet
 
-            R = self.closed_wall_array[:, 0]
-            Z = self.closed_wall_array[:, 1]
+            R = self.closed_wallarray[:, 0]
+            Z = self.closed_wallarray[:, 1]
 
-            wallfraction = numpy.linspace(0.0, 1.0, len(self.wall))
+            wallfraction = numpy.linspace(0.0, 1.0, len(R))
 
             self.wallRInterp = interp1d(
                 wallfraction, R, kind="linear", assume_sorted=True

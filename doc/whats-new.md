@@ -11,6 +11,9 @@ What's new
   Prevents creation of invalid grids where second X-point is outside the first
   flux-surface in the SOL (#104)\
   By [John Omotani](https://github.com/johnomotani)
+- Correct setting of ixseps1 and ixseps2 for upper disconnected double null
+  case - should have ixseps1>ixseps2 but previously had ixseps1<ixseps2 (#109)\
+  By [John Omotani](https://github.com/johnomotani)
 
 0.4.0 (26th May 2021)
 ---------------------

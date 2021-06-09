@@ -3568,8 +3568,17 @@ class BoutMesh(Mesh):
                 ixseps2 = self.nx
             elif len(self.x_startinds) == 4:
                 # Two separatrices
-                ixseps1 = self.x_startinds[1]
-                ixseps2 = self.x_startinds[2]
+                if self.equilibrium.double_null_type == "lower":
+                    ixseps1 = self.x_startinds[1]
+                    ixseps2 = self.x_startinds[2]
+                elif self.equilibrium.double_null_type == "upper":
+                    ixseps1 = self.x_startinds[2]
+                    ixseps2 = self.x_startinds[1]
+                else:
+                    raise ValueError(
+                        'Expected either double_null_type=="lower" or '
+                        'double_null_type="upper" when there are two separatrices.'
+                    )
             else:
                 raise ValueError("More than two separatrices not supported by BoutMesh")
 

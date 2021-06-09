@@ -1,12 +1,6 @@
-# Input for tokamak example in lower single null
+# Input for tokamak example in connected double null
 #
 # Note: Other available options will be printed when the regions are generated
-
-# Generate the poloidal flux input
-
-geometry: "ldn"
-nx: 65
-ny: 65
 
 # Ranges of normalised poloidal flux
 
@@ -34,6 +28,5 @@ psi_spacing_separatrix_multiplier: 0.5   # Smaller -> pack near separatrix
 
 # Poloidal grid spacing
 
-target_poloidal_spacing_length: 0.05   # Smaller -> pack near targets
+target_all_poloidal_spacing_length: 0.05   # Smaller -> pack near targets
 xpoint_poloidal_spacing_length: 0.05   # Smaller -> pack near X-points
-

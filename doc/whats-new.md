@@ -2,6 +2,23 @@ What's new
 ==========
 
 
+0.4.3 (Unreleased)
+------------------
+
+### Bug fixes
+
+- Minor fixes updating TORPEX case (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+- Fix crash in hypnotoad-gui if input file did not contain an 'orthogonal'
+  setting (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### New features
+
+- Clean up of examples. Input files from examples/tokamak can now be used with
+  hypnotoad-gui (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.4.1 (26th May 2021)
 ---------------------
 

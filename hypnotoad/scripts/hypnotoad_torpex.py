@@ -43,6 +43,7 @@ def main():
     if not args.noplot:
         from matplotlib import pyplot
 
+    import gc
     from ..cases.torpex import createMesh
 
     filename = args.filename
@@ -69,6 +70,9 @@ def main():
         pyplot.show()
 
     mesh.writeGridfile(gridname)
+
+    del mesh
+    gc.collect()
 
 
 if __name__ == "__main__":

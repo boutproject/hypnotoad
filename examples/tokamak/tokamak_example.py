@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import gc
 import numpy as np
 
 
-def create_tokamak(geometry="sn", nx=65, ny=65):
+def create_tokamak(geometry="lsn", nx=65, ny=65):
     """
     Create an example, based on a simple analytic form for the poloidal flux.
 
@@ -68,35 +69,54 @@ def create_tokamak(geometry="sn", nx=65, ny=65):
 
     psi_func = psi_functions[geometry]
 
-    return r1d, z1d, psi_func(r2d, z2d)
+    return r1d, z1d, psi_func(r2d, z2d), psi_func(np.linspace(r0, 1.2 * r0, nx), 0.0)
 
 
 if __name__ == "__main__":
-    import sys
+    from argparse import ArgumentParser
 
-    if len(sys.argv) != 2:
-        raise ValueError("Usage: " + sys.argv[0] + " input.yaml")
+    parser = ArgumentParser()
+    parser.add_argument(
+        "geometry",
+        type=str,
+        nargs="?",
+        default="lsn",
+        choices=["lsn", "usn", "cdn", "ldn", "udn", "udn2"],
+    )
+    parser.add_argument("--nx", type=int, default=65)
+    parser.add_argument("--ny", type=int, default=65)
+    parser.add_argument("--np", "--number-of-processors", type=int, default=-1)
+    parser.add_argument("--no-plot", action="store_true", default=False)
+    args = parser.parse_args()
+
+    if "sn" in args.geometry:
+        filename = "single-null.yaml"
+    elif "cdn" == args.geometry:
+        filename = "connected-double-null.yaml"
+    else:
+        filename = "disconnected-double-null.yaml"
 
     # Read input options
-
-    filename = sys.argv[1]
 
     import yaml
 
     with open(filename, "r") as inputfile:
         options = yaml.safe_load(inputfile)
 
+    if args.np >= 0:
+        options.update(number_of_processors=args.np)
+
     # Generate an artificial poloidal flux function
-    r1d, z1d, psi2d = create_tokamak(
-        geometry=options.get("geometry", "lsn"),
-        nx=options.get("nx", 65),
-        ny=options.get("ny", 65),
+    r1d, z1d, psi2d, psi1d = create_tokamak(
+        geometry=args.geometry,
+        nx=args.nx,
+        ny=args.ny,
     )
 
     from hypnotoad import tokamak
 
     eq = tokamak.TokamakEquilibrium(
-        r1d, z1d, psi2d, [], [], settings=options  # psi1d, fpol
+        r1d, z1d, psi2d, psi1d, [], settings=options  # psi1d, fpol
     )
 
     from hypnotoad.core.mesh import BoutMesh
@@ -104,12 +124,16 @@ if __name__ == "__main__":
     mesh = BoutMesh(eq, options)
     mesh.geometry()
 
-    import matplotlib.pyplot as plt
+    if not args.no_plot:
+        import matplotlib.pyplot as plt
 
-    eq.plotPotential(ncontours=40)
+        eq.plotPotential(ncontours=40)
 
-    plt.plot(*eq.x_points[0], "rx")
+        plt.plot(*eq.x_points[0], "rx")
 
-    mesh.plotPoints(xlow=True, ylow=True, corners=True)
+        mesh.plotPoints(xlow=True, ylow=True, corners=True)
 
-    plt.show()
+        plt.show()
+
+    del eq, mesh
+    gc.collect()

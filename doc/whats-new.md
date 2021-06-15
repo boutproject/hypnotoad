@@ -2,6 +2,23 @@ What's new
 ==========
 
 
+0.4.3 (Unreleased)
+------------------
+
+### Bug fixes
+
+- Minor fixes updating TORPEX case (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+- Fix crash in hypnotoad-gui if input file did not contain an 'orthogonal'
+  setting (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### New features
+
+- Clean up of examples. Input files from examples/tokamak can now be used with
+  hypnotoad-gui (#106)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.4.1 (26th May 2021)
 ---------------------
 
@@ -10,6 +27,9 @@ What's new
 - Check if an equilibrium can be gridded as a connected double-null before gridding.
   Prevents creation of invalid grids where second X-point is outside the first
   flux-surface in the SOL (#104)\
+  By [John Omotani](https://github.com/johnomotani)
+- Correct setting of ixseps1 and ixseps2 for upper disconnected double null
+  case - should have ixseps1>ixseps2 but previously had ixseps1<ixseps2 (#109)\
   By [John Omotani](https://github.com/johnomotani)
 
 0.4.0 (26th May 2021)

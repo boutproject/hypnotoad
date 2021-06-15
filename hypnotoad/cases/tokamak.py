@@ -1039,6 +1039,8 @@ class TokamakEquilibrium(Equilibrium):
         if nx_inter_sep == 0:
             print("Generating a connected double null", flush=True)
 
+            self.double_null_type = "connected"
+
             # Only use psi of inner separatrix, not the outer one (if it is slightly
             # different)
             segments["upper_pf"]["psi_end"] = self.psi_sep[0]
@@ -1164,6 +1166,8 @@ class TokamakEquilibrium(Equilibrium):
             if self.x_points[0] == lower_x_point:
                 print("Lower double null", flush=True)
 
+                self.double_null_type = "lower"
+
                 inner_lower_segments = ["lower_pf", "near_sol", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "near_sol", "outer_sol"]
 
@@ -1219,6 +1223,9 @@ class TokamakEquilibrium(Equilibrium):
 
             else:
                 print("Upper double null", flush=True)
+
+                self.double_null_type = "upper"
+
                 inner_lower_segments = ["lower_pf", "lower_pf2", "inner_sol"]
                 outer_lower_segments = ["lower_pf", "lower_pf2", "outer_sol"]
 

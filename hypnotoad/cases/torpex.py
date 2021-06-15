@@ -137,9 +137,6 @@ class TORPEXMagneticField(Equilibrium):
 
         print(self.user_options.as_table())
 
-        # Call Equilibrium constructor after adding stuff to options
-        super().__init__(meshOptions)
-
         if "Coils" in equilibOptions:
             self.coils = [Coil(**c) for c in equilibOptions["Coils"]]
 
@@ -294,6 +291,9 @@ class TORPEXMagneticField(Equilibrium):
             warnings.warn(
                 "Warning: failed to find X-point. Equilibrium generation will fail"
             )
+
+        # Call Equilibrium constructor after adding stuff to options
+        super().__init__(meshOptions)
 
     def TORPEX_wall(self, theta):
         """
@@ -522,7 +522,7 @@ class TORPEXMagneticField(Equilibrium):
                 points=[Point2D(R, Z) for R, Z in zip(legR, legZ)],
                 psival=self.psi_sep[0],
             )
-            self.regions[name] = leg.getRefined()
+            self.regions[name] = leg.getRefined(psi=self.psi)
             wall_vectors[name] = self.wallVector(boundary_position)
 
         # Make the SeparatrixContours go around clockwise
@@ -646,11 +646,14 @@ def createMesh(filename):
 
     equilibrium = TORPEXMagneticField(equilibOptions, meshOptions)
 
+    # Pick up any changes due to default options, etc.
+    meshOptions.update(equilibrium.user_options)
+
     print("X-point", equilibrium.x_points[0], "with psi=" + str(equilibrium.psi_sep[0]))
 
     equilibrium.makeRegions()
 
-    return BoutMesh(equilibrium, settings=equilibrium.user_options)
+    return BoutMesh(equilibrium, settings=meshOptions)
 
 
 def createEqdsk(equilib, *, nR, Rmin, Rmax, nZ, Zmin, Zmax, filename="torpex_test.g"):

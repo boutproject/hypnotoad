@@ -456,6 +456,7 @@ class TokamakEquilibrium(Equilibrium):
                 psi_axis = opoints[0][2]  # Psi on magnetic axis
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
         self.psi_axis = psi_axis
+        self.psi_bdry = xpoints[0][2]
 
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")

@@ -3730,6 +3730,7 @@ class BoutMesh(Mesh):
                 )
 
                 from ..geqdsk._geqdsk import read as geq_read
+
                 with open(self.equilibrium.geqdsk_filename, "rt") as gfile:
                     gfile_data = geq_read(gfile)
                     f.write("psi_axis_gfile", gfile_data["simagx"])

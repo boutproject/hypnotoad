@@ -3533,8 +3533,8 @@ class BoutMesh(Mesh):
             f.write("y_boundary_guards", self.user_options.y_boundary_guards)
             f.write("curvature_type", self.user_options.curvature_type)
             f.write("Bt_axis", self.equilibrium.Bt_axis)
-            f.write("psi_axis",self.equilibrium.psi_axis)
-            f.write("psi_bdry",self.equilibrium.psi_bdry)
+            f.write("psi_axis", self.equilibrium.psi_axis)
+            f.write("psi_bdry", self.equilibrium.psi_bdry)
 
             # write the 2d fields
             for name in self.fields_to_output:
@@ -3728,11 +3728,12 @@ class BoutMesh(Mesh):
                 f.write_file_attribute(
                     "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
                 )
+
                 from ..geqdsk._geqdsk import read as geq_read
                 with open(self.equilibrium.geqdsk_filename, "rt") as gfile:
                     gfile_data = geq_read(gfile)
                     f.write("psi_axis_gfile", gfile_data["simagx"])
-                    f.write("psi_bdry_gfile",gfile_data["sibdry"])
+                    f.write("psi_bdry_gfile", gfile_data["sibdry"])
 
             if hasattr(self.equilibrium, "geqdsk_input"):
                 # If grid was created from a geqdsk file, save the file contents

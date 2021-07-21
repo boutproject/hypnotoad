@@ -3533,8 +3533,11 @@ class BoutMesh(Mesh):
             f.write("y_boundary_guards", self.user_options.y_boundary_guards)
             f.write("curvature_type", self.user_options.curvature_type)
             f.write("Bt_axis", self.equilibrium.Bt_axis)
-            f.write("psi_axis", self.equilibrium.psi_axis)
-            f.write("psi_bdry", self.equilibrium.psi_bdry)
+
+            if self.equilibrium.psi_axis is not None:
+                f.write("psi_axis", self.equilibrium.psi_axis)
+            if self.equilibrium.psi_bdry is not None:
+                f.write("psi_bdry", self.equilibrium.psi_bdry)
 
             # write the 2d fields
             for name in self.fields_to_output:

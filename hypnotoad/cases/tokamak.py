@@ -463,7 +463,7 @@ class TokamakEquilibrium(Equilibrium):
             warnings.warn("No X-points found in TokamakEquilibrium input")
         else:
             if psi_bdry is None:
-                psi_bdry = xpoints[0][2]  # Psi on primary X-point 
+                psi_bdry = xpoints[0][2]  # Psi on primary X-point
             self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
         self.psi_bdry = psi_bdry
 

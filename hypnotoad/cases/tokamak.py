@@ -450,14 +450,21 @@ class TokamakEquilibrium(Equilibrium):
             self.user_options.xpoint_refine_atol,
             self.user_options.xpoint_refine_maxits,
         )
+
         if len(opoints) == 0:
             warnings.warn("No O-points found in TokamakEquilibrium input")
         else:
             if psi_axis is None:
                 psi_axis = opoints[0][2]  # Psi on magnetic axis
-                psi_bdry = xpoints[0][2]  # Psi on primary X-point 
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
         self.psi_axis = psi_axis
+
+        if len(xpoints) == 0:
+            warnings.warn("No X-points found in TokamakEquilibrium input")
+        else:
+            if psi_bdry is None:
+                psi_bdry = xpoints[0][2]  # Psi on primary X-point 
+            self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
         self.psi_bdry = psi_bdry
 
         if len(xpoints) == 0:

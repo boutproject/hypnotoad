@@ -3732,13 +3732,6 @@ class BoutMesh(Mesh):
                     "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
                 )
 
-                from ..geqdsk._geqdsk import read as geq_read
-
-                with open(self.equilibrium.geqdsk_filename, "rt") as gfile:
-                    gfile_data = geq_read(gfile)
-                    f.write("psi_axis_gfile", gfile_data["simagx"])
-                    f.write("psi_bdry_gfile", gfile_data["sibdry"])
-
             if hasattr(self.equilibrium, "geqdsk_input"):
                 # If grid was created from a geqdsk file, save the file contents
                 #

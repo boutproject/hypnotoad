@@ -18,8 +18,7 @@ What's new
 - Clean up of examples. Input files from examples/tokamak can now be used with
   hypnotoad-gui (#106)\
   By [John Omotani](https://github.com/johnomotani)
-
-- psi_axis and psi_bdry are added to the grid file for post-processing. 
+- psi_axis and psi_bdry are added to the grid file for post-processing.
   The calculated values should be consistent with the EFIT data (#112)\
   By [Qian Xia](https://github.com/Vandoo)
 
@@ -150,22 +149,12 @@ What's new
 
 ### Bug fixes
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-- BoutMesh options now settable in GUI (#63)\
-=======
-=======
 - String outputs written as file attributes rather than variables (#69, fixes #68)\
   By [John Omotani](https://github.com/johnomotani)
->>>>>>> 4d4f76a5244e535e826108dc35791ae84f29145a
 - Failure when target_poloidal_spacing_length set to number (rather than the
   default None) when y_boundary_guards is non-zero (#64)\
   By [John Omotani](https://github.com/johnomotani)
 - BoutMesh options now settable in GUI (#63)
-<<<<<<< HEAD
->>>>>>> 752b8d893017c3597df5a8aa80e3231fa448c328
-=======
->>>>>>> 4d4f76a5244e535e826108dc35791ae84f29145a
   By [John Omotani](https://github.com/johnomotani)
 - Changing settings in File->Preferences caused GUI to crash (#62, fixes #61)\
   By [John Omotani](https://github.com/johnomotani)

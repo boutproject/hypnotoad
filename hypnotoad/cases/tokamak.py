@@ -313,7 +313,10 @@ class TokamakEquilibrium(Equilibrium):
         fpol1D,
         pressure=None,
         wall=None,
+        psi_axis_gfile=None,
+        psi_bdry_gfile=None,
         psi_axis=None,
+        psi_bdry=None,
         dct=False,
         make_regions=True,
         settings=None,
@@ -339,9 +342,12 @@ class TokamakEquilibrium(Equilibrium):
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
                The wall is closed, so the last point connects to the first.
-        psi_axis = float
-               The value of poloidal flux on the magnetic axis. If not
-               given, the value found at the axis will be used.
+        psi_axis_gfile = float
+               The value of poloidal flux on the magnetic axis, given by the EFIT file.
+               psi_axis is the value calculated on the O-point.
+        psi_bdry_gfile = float
+               The value of poloidal flux at the plasma boundary, given by the EFIT file.
+               psi_bdry is the value calculated on the X-point.
         dct = bool
                EXPERIMENTAL: If true, use a DCT to interpolate and differentiate
                poloidal flux. By default a cubic spline is used.
@@ -449,16 +455,36 @@ class TokamakEquilibrium(Equilibrium):
             self.user_options.xpoint_refine_atol,
             self.user_options.xpoint_refine_maxits,
         )
+
         if len(opoints) == 0:
             warnings.warn("No O-points found in TokamakEquilibrium input")
         else:
-            if psi_axis is None:
-                psi_axis = opoints[0][2]  # Psi on magnetic axis
+            self.psi_axis = opoints[0][2]  # Psi on magnetic axis
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
-        self.psi_axis = psi_axis
+            self.psi_axis_gfile = psi_axis_gfile
+            if (
+                psi_axis_gfile is not None
+                and abs(self.psi_axis - psi_axis_gfile) > 1.0e-3
+            ):
+                raise ValueError(
+                    f"psi_axis from the gfile ({psi_axis}) is different from psi "
+                    f"calculated on the O-point ({self.psi_axis})"
+                )
 
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")
+        else:
+            self.psi_bdry = xpoints[0][2]  # Psi on primary X-point
+            self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
+            self.psi_bdry_gfile = psi_bdry_gfile
+            if (
+                psi_bdry_gfile is not None
+                and abs(self.psi_bdry - psi_bdry_gfile) > 1.0e-3
+            ):
+                raise ValueError(
+                    f"psi_bdry from the gfile ({psi_bdry}) is different from psi "
+                    f"calculated at the primary X-point ({self.psi_bdry})"
+                )
 
         self.x_points = [Point2D(r, z) for r, z, psi in xpoints]
         self.psi_sep = [psi for r, z, psi in xpoints]
@@ -1733,11 +1759,11 @@ def read_geqdsk(
     data = geq_read(filehandle)
 
     # Range of psi normalises psi derivatives
-    psi_boundary = data["sibdry"]
-    psi_axis = data["simagx"]
+    psi_bdry_gfile = data["sibdry"]
+    psi_axis_gfile = data["simagx"]
 
     # 1D grid on which fpol is defined. Goes from normalised psi 0 to 1
-    psi1D = np.linspace(psi_axis, psi_boundary, data["nx"], endpoint=True)
+    psi1D = np.linspace(psi_axis_gfile, psi_bdry_gfile, data["nx"], endpoint=True)
 
     R1D = np.linspace(
         data["rleft"], data["rleft"] + data["rdim"], data["nx"], endpoint=True
@@ -1767,6 +1793,8 @@ def read_geqdsk(
         psi2D,
         psi1D,
         fpol,
+        psi_bdry_gfile=psi_bdry_gfile,
+        psi_axis_gfile=psi_axis_gfile,
         pressure=pressure,
         wall=wall,
         make_regions=make_regions,

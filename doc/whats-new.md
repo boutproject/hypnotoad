@@ -18,6 +18,9 @@ What's new
 - Clean up of examples. Input files from examples/tokamak can now be used with
   hypnotoad-gui (#106)\
   By [John Omotani](https://github.com/johnomotani)
+- psi_axis and psi_bdry are added to the grid file for post-processing.
+  The calculated values should be consistent with the EFIT data (#112)\
+  By [Qian Xia](https://github.com/Vandoo)
 
 0.4.1 (26th May 2021)
 ---------------------

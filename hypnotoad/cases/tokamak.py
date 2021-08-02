@@ -1793,6 +1793,8 @@ def read_geqdsk(
         psi2D,
         psi1D,
         fpol,
+        psi_bdry_gfile=psi_bdry_gfile,
+        psi_axis_gfile=psi_axis_gfile,
         pressure=pressure,
         wall=wall,
         make_regions=make_regions,

@@ -3538,6 +3538,10 @@ class BoutMesh(Mesh):
                 f.write("psi_axis", self.equilibrium.psi_axis)
             if hasattr(self.equilibrium, "psi_bdry"):
                 f.write("psi_bdry", self.equilibrium.psi_bdry)
+            if hasattr(self.equilibrium, "psi_axis_gfile"):
+                f.write("psi_axis_gfile", self.equilibrium.psi_axis_gfile)
+            if hasattr(self.equilibrium, "psi_bdry_gfile"):
+                f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
 
             # write the 2d fields
             for name in self.fields_to_output:

@@ -309,6 +309,7 @@ class TORPEXMagneticField(Equilibrium):
 
         # Call Equilibrium constructor after adding stuff to options
         super().__init__(meshOptions)
+        print(self.nonorthogonal_options.as_table())
 
     def TORPEX_wall(self, theta):
         """

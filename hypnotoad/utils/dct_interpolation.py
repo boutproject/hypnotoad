@@ -20,7 +20,7 @@
 from scipy.fftpack import dct
 import numpy
 
-from ..core.mesh import MultiLocationArray
+from ..core.multilocationarray import MultiLocationArray
 
 
 class DCT_2D:
@@ -43,6 +43,11 @@ class DCT_2D:
         self.Zarray = Zarray
         self.nR = len(self.Rarray)
         self.nZ = len(self.Zarray)
+
+        # Note we expect first index (row) of psiRZ to change with the height Z, and
+        # the second (column) to change with major radius R, which is the opposite
+        # from _geqdsk's (from FreeGS) convention, so transpose
+        psiRZ = psiRZ.T
 
         # Assume constant spacing in R and Z
         if not all(

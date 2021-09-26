@@ -171,10 +171,7 @@ class TORPEXMagneticField(Equilibrium):
                 gfile["zmid"] + 0.5 * gfile["zdim"],
                 gfile["ny"],
             )
-            # Note we expect first index (row) of psirz to change with the height Z, and
-            # the second (column) to change with major radius R, which is the opposite
-            # from _geqdsk's (from FreeGS) convention, so transpose
-            psirz = gfile["psi"].T
+            psirz = gfile["psi"]
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
             # plasma current
@@ -238,7 +235,9 @@ class TORPEXMagneticField(Equilibrium):
                     # axis. Should be going towards psi_bndry. So flip the sign
                     psirz = -psirz
 
-            self.magneticFunctionsFromGrid(R, Z, psirz)
+            self.magneticFunctionsFromGrid(
+                R, Z, psirz, self.user_options.psi_interpolation_method
+            )
 
             self.Bt_axis = gfile["bcentr"]
         elif "matfile" in equilibOptions:
@@ -265,7 +264,9 @@ class TORPEXMagneticField(Equilibrium):
             psi = psi[:, Rinds]
             psi = psi[Zinds, :]
 
-            self.magneticFunctionsFromGrid(R[0, :], Z[:, 0], psi)
+            self.magneticFunctionsFromGrid(
+                R[0, :], Z[:, 0], psi.T, self.user_options.psi_interpolation_method
+            )
 
             Bt = eqfile["Bphi"][0, 0]
             RindMid = Bt.shape[1] // 2

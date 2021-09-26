@@ -12,10 +12,8 @@ from scipy import interpolate
 from scipy.integrate import solve_ivp
 import warnings
 from collections import OrderedDict
-import functools
 
 from ..core.equilibrium import Equilibrium, EquilibriumRegion, Point2D
-from ..core.mesh import MultiLocationArray
 
 from ..utils import critical, polygons
 from ..utils.utils import with_default
@@ -317,7 +315,6 @@ class TokamakEquilibrium(Equilibrium):
         psi_bdry_gfile=None,
         psi_axis=None,
         psi_bdry=None,
-        dct=False,
         make_regions=True,
         settings=None,
         nonorthogonal_settings=None,
@@ -348,9 +345,6 @@ class TokamakEquilibrium(Equilibrium):
         psi_bdry_gfile = float
                The value of poloidal flux at the plasma boundary, given by the EFIT file.
                psi_bdry is the value calculated on the X-point.
-        dct = bool
-               EXPERIMENTAL: If true, use a DCT to interpolate and differentiate
-               poloidal flux. By default a cubic spline is used.
         make_regions = bool
                Generate the regions to be meshed. The default (True)
                means that the object is complete after initialisation.
@@ -403,20 +397,9 @@ class TokamakEquilibrium(Equilibrium):
                 # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
                 pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
 
-        if dct:
-            # Create an interpolation
-            # This sets the functions
-            #   self.psi
-            #   self.f_R
-            #   self.f_Z
-            #   self.Bp_R
-            #   self.Bp_Z
-            #   self.d2psidR2
-            #   self.d2psidZ2
-            #   self.d2psidRdZ
-            self.magneticFunctionsFromGrid(R1D, Z1D, psi2D)
-        else:
-            self.psi_func = interpolate.RectBivariateSpline(R1D, Z1D, psi2D)
+        self.magneticFunctionsFromGrid(
+            R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
+        )
 
         self.f_psi_sign = 1.0
         if len(fpol1D) > 0:
@@ -1634,92 +1617,18 @@ class TokamakEquilibrium(Equilibrium):
             [(key, region_objects[key]) for key in ordering if key in region_objects]
         )
 
-    def handleMultiLocationArray(getResult):
-        @functools.wraps(getResult)
-        # Define a function which handles MultiLocationArray arguments
-        def handler(self, *args):
-            if isinstance(args[0], MultiLocationArray):
-                for arg in args[1:]:
-                    if not isinstance(arg, MultiLocationArray):
-                        raise ValueError(
-                            "if first arg is a MultiLocationArray, then others must be "
-                            "as well"
-                        )
-                result = MultiLocationArray(args[0].nx, args[0].ny)
-
-                if all(arg.centre is not None for arg in args):
-                    result.centre = getResult(self, *(arg.centre for arg in args))
-
-                if all(arg.xlow is not None for arg in args):
-                    result.xlow = getResult(self, *(arg.xlow for arg in args))
-
-                if all(arg.ylow is not None for arg in args):
-                    result.ylow = getResult(self, *(arg.ylow for arg in args))
-
-                if all(arg.corners is not None for arg in args):
-                    result.corners = getResult(self, *(arg.corners for arg in args))
-            else:
-                result = getResult(self, *args)
-            return result
-
-        return handler
-
-    @handleMultiLocationArray
-    def psi(self, R, Z):
-        "Return the poloidal flux at the given (R,Z) location"
-        return self.psi_func(R, Z, grid=False)
-
-    @handleMultiLocationArray
-    def f_R(self, R, Z):
-        """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
-
-    @handleMultiLocationArray
-    def f_Z(self, R, Z):
-        """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
-        dpsidR = self.psi_func(R, Z, dx=1, grid=False)
-        dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-        return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
-
-    @handleMultiLocationArray
-    def Bp_R(self, R, Z):
-        """returns the R component of the poloidal magnetic field."""
-        return self.psi_func(R, Z, dy=1, grid=False) / R
-
-    @handleMultiLocationArray
-    def Bp_Z(self, R, Z):
-        """returns the Z component of the poloidal magnetic field."""
-        return -self.psi_func(R, Z, dx=1, grid=False) / R
-
-    @handleMultiLocationArray
-    def d2psidR2(self, R, Z):
-        """returns the second R derivative of psi"""
-        return self.psi_func(R, Z, dx=2, grid=False)
-
-    @handleMultiLocationArray
-    def d2psidZ2(self, R, Z):
-        """returns the second Z derivative of psi"""
-        return self.psi_func(R, Z, dy=2, grid=False)
-
-    @handleMultiLocationArray
-    def d2psidRdZ(self, R, Z):
-        """returns the mixed second derivative of psi"""
-        return self.psi_func(R, Z, dx=1, dy=1, grid=False)
-
-    @handleMultiLocationArray
+    @Equilibrium.handleMultiLocationArray
     def fpol(self, psi):
         """poloidal current function,
         returns fpol such that B_toroidal = fpol/R"""
         return self.f_spl(psi * self.f_psi_sign)
 
-    @handleMultiLocationArray
+    @Equilibrium.handleMultiLocationArray
     def fpolprime(self, psi):
         """psi-derivative of fpol"""
         return self.fprime_spl(psi * self.f_psi_sign)
 
-    @handleMultiLocationArray
+    @Equilibrium.handleMultiLocationArray
     def pressure(self, psi):
         """Plasma pressure in Pascals"""
         if self.p_spl is None:

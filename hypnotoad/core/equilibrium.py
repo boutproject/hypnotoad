@@ -26,6 +26,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 import func_timeout
+import functools
 from optionsfactory import OptionsFactory, WithMeta
 from optionsfactory.checks import (
     NoneType,
@@ -38,9 +39,11 @@ import warnings
 
 import numpy
 from scipy.optimize import minimize_scalar, brentq
-from scipy.interpolate import interp1d
+from scipy import interpolate
 from scipy.integrate import solve_ivp
 from scipy.special import erf, sici
+
+from .multilocationarray import MultiLocationArray
 
 
 class SolutionError(Exception):
@@ -785,14 +788,14 @@ class FineContour:
     def interpFunction(self, *, kind="linear"):
         distance = self.distance - self.distance[self.startInd]
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance,
             self.positions[:, 0],
             kind=kind,
             assume_sorted=True,
             fill_value="extrapolate",
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance,
             self.positions[:, 1],
             kind=kind,
@@ -909,7 +912,7 @@ class FineContour:
         s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
 
         distance = self.distance - self.distance[self.startInd]
-        s_of_sperp = interp1d(
+        s_of_sperp = interpolate.interp1d(
             s_perp, distance, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
 
@@ -1501,10 +1504,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s)), distance
@@ -1525,10 +1528,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points[:npoints]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[:npoints]]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
@@ -1552,10 +1555,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
@@ -1567,7 +1570,7 @@ class PsiContour:
         aren't affected by extrapolation errors.
         """
         distance = self.get_distance(psi=psi)
-        interpS = interp1d(
+        interpS = interpolate.interp1d(
             numpy.arange(len(self), dtype=float),
             distance,
             kind=kind,
@@ -3647,6 +3650,19 @@ class Equilibrium:
         # Include settings for member EquilibriumRegion objects
         EquilibriumRegion.user_options_factory,
         #
+        # Psi interpolation options
+        ###########################
+        psi_interpolation_method=WithMeta(
+            "spline",
+            doc=(
+                "Method to use for interpolating psi from the eqdsk file. Possible "
+                "values are: 'spline' for scipy.interpolate.RectBivariateSpline;"
+                "'dct' for a discrete cosine transform.",
+            ),
+            value_type=str,
+            allowed=["spline", "dct"],
+        ),
+        #
         # Radial spacing options
         ########################
         psi_spacing_separatrix_multiplier=WithMeta(
@@ -3737,22 +3753,121 @@ class Equilibrium:
         lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]["lower"] = (lowerRegion, lowerSegment)
 
-    def magneticFunctionsFromGrid(self, R, Z, psiRZ):
-        from ..utils.dct_interpolation import DCT_2D
+    def handleMultiLocationArray(getResult):
+        @functools.wraps(getResult)
+        # Define a function which handles MultiLocationArray arguments
+        def handler(self, *args):
+            if isinstance(args[0], MultiLocationArray):
+                for arg in args[1:]:
+                    if not isinstance(arg, MultiLocationArray):
+                        raise ValueError(
+                            "if first arg is a MultiLocationArray, then others must be "
+                            "as well"
+                        )
+                result = MultiLocationArray(args[0].nx, args[0].ny)
 
-        self._dct = DCT_2D(R, Z, psiRZ)
+                if all(arg.centre is not None for arg in args):
+                    result.centre = getResult(self, *(arg.centre for arg in args))
 
-        self.psi = lambda R, Z: self._dct(R, Z)
-        modGradpsiSquared = (
-            lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
-        )
-        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
-        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
-        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
-        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
-        self.d2psidR2 = self._dct.d2dR2
-        self.d2psidZ2 = self._dct.d2dZ2
-        self.d2psidRdZ = self._dct.d2dRdZ
+                if all(arg.xlow is not None for arg in args):
+                    result.xlow = getResult(self, *(arg.xlow for arg in args))
+
+                if all(arg.ylow is not None for arg in args):
+                    result.ylow = getResult(self, *(arg.ylow for arg in args))
+
+                if all(arg.corners is not None for arg in args):
+                    result.corners = getResult(self, *(arg.corners for arg in args))
+            else:
+                result = getResult(self, *args)
+            return result
+
+        return handler
+
+    def magneticFunctionsFromGrid(self, R, Z, psiRZ, option):
+        if option == "spline":
+            self.psi_func = interpolate.RectBivariateSpline(R, Z, psiRZ)
+
+            @Equilibrium.handleMultiLocationArray
+            def psi(self, R, Z):
+                "Return the poloidal flux at the given (R,Z) location"
+                return self.psi_func(R, Z, grid=False)
+
+            # The __get__(self) call converts the function to a 'bound
+            # method'. See
+            # https://stackoverflow.com/questions/972/adding-a-method-to-an-existing-object-instance#comment66379065_2982
+            self.psi = psi.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def f_R(self, R, Z):
+                """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
+                dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+                dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+                return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
+
+            self.f_R = f_R.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def f_Z(self, R, Z):
+                """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
+                dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+                dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+                return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
+
+            self.f_Z = f_Z.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def Bp_R(self, R, Z):
+                """returns the R component of the poloidal magnetic field."""
+                return self.psi_func(R, Z, dy=1, grid=False) / R
+
+            self.Bp_R = Bp_R.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def Bp_Z(self, R, Z):
+                """returns the Z component of the poloidal magnetic field."""
+                return -self.psi_func(R, Z, dx=1, grid=False) / R
+
+            self.Bp_Z = Bp_Z.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidR2(self, R, Z):
+                """returns the second R derivative of psi"""
+                return self.psi_func(R, Z, dx=2, grid=False)
+
+            self.d2psidR2 = d2psidR2.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidZ2(self, R, Z):
+                """returns the second Z derivative of psi"""
+                return self.psi_func(R, Z, dy=2, grid=False)
+
+            self.d2psidZ2 = d2psidZ2.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidRdZ(self, R, Z):
+                """returns the mixed second derivative of psi"""
+                return self.psi_func(R, Z, dx=1, dy=1, grid=False)
+
+            self.d2psidRdZ = d2psidRdZ.__get__(self)
+
+        elif option == "dct":
+            from ..utils.dct_interpolation import DCT_2D
+
+            self._dct = DCT_2D(R, Z, psiRZ)
+
+            self.psi = lambda R, Z: self._dct(R, Z)
+            modGradpsiSquared = (
+                lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
+            )
+            self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
+            self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
+            self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
+            self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
+            self.d2psidR2 = self._dct.d2dR2
+            self.d2psidZ2 = self._dct.d2dZ2
+            self.d2psidRdZ = self._dct.d2dRdZ
+        else:
+            raise ValueError(f"Interpolation option '{option}' not recognised")
 
     def Bzeta(self, R, Z):
         """
@@ -4066,10 +4181,10 @@ class Equilibrium:
 
             wallfraction = numpy.linspace(0.0, 1.0, len(R))
 
-            self.wallRInterp = interp1d(
+            self.wallRInterp = interpolate.interp1d(
                 wallfraction, R, kind="linear", assume_sorted=True
             )
-            self.wallZInterp = interp1d(
+            self.wallZInterp = interpolate.interp1d(
                 wallfraction, Z, kind="linear", assume_sorted=True
             )
 
@@ -4104,10 +4219,10 @@ class Equilibrium:
             # segments are straight. Have calculated the vector at each vertex for the
             # following segment, so use 'previous' interpolation to just take the value
             # from the previous point
-            self.wallVectorRComponent = interp1d(
+            self.wallVectorRComponent = interpolate.interp1d(
                 wallfraction, Rcomponents, kind="previous", assume_sorted=True
             )
-            self.wallVectorZComponent = interp1d(
+            self.wallVectorZComponent = interpolate.interp1d(
                 wallfraction, Zcomponents, kind="previous", assume_sorted=True
             )
 

@@ -949,15 +949,17 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
-    def plot(self, *args, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, plotPsi=False, **kwargs):
         from matplotlib import pyplot
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
         if plotPsi:
+            if psi is None:
+                raise ValueError("Must pass psi kwarg when plotPsi=True")
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
 
 
@@ -1682,9 +1684,7 @@ class PsiContour:
         while (
             s[0] < -self._fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
-            self._fine_contour.extend(
-                extend_lower=max(orig_extend_lower, 1), psi=self.psi
-            )
+            self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1), psi=psi)
 
         tol_upper = 0.25 * (
             self._fine_contour.distance[-1] - self._fine_contour.distance[-2]
@@ -1695,9 +1695,7 @@ class PsiContour:
             - self._fine_contour.distance[self._fine_contour.startInd]
             + tol_upper
         ):
-            self._fine_contour.extend(
-                extend_upper=max(orig_extend_upper, 1), psi=self.psi
-            )
+            self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1), psi=psi)
 
         interp_unadjusted = self._fine_contour.interpFunction()
 
@@ -2538,7 +2536,7 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2 * self.user_options.y_boundary_guards
         else:
             extend_upper = 0
-        distance = self.get_distance(psi=self.psi)
+        distance = self.get_distance(psi=psi)
         sfunc = self.getSfuncFixedSpacing(
             2 * self.ny_noguards + 1,
             distance[self.endInd] - distance[self.startInd],

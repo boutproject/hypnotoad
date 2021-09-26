@@ -123,6 +123,21 @@ class TORPEXMagneticField(Equilibrium):
         ),
         saddle_point_p1=[0.85, -0.15],
         saddle_point_p2=[0.85, 0.15],
+        # Tolerance for positioning points that should be at X-point, but need to be
+        # slightly displaced from the null so code can follow Grad(psi).
+        # Number between 0. and 1.
+        xpoint_offset=WithMeta(
+            0.1,
+            doc=(
+                "Tolerance for placing intial positions for tracing perpendiculars "
+                "that should start exactly at an X-point, but initial positions to be "
+                "slightly displaced from the null so code can follow Grad(psi).  This "
+                "is a numerical fudge factor that may need to be increased for "
+                "low-resolution input equilibria."
+            ),
+            value_type=float,
+            check_all=[is_positive, lambda x: x < 1.0],
+        ),
     )
 
     def __init__(self, equilibOptions, meshOptions):
@@ -505,7 +520,7 @@ class TORPEXMagneticField(Equilibrium):
 
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
-        s = numpy.linspace(10.0 * self.user_options.refine_atol, 1.0, npoints)
+        s = numpy.linspace(self.user_options.xpoint_offset / npoints, 1.0, npoints)
         for i, boundary_position in enumerate(boundary):
             name = legnames[i]
             boundaryPoint = self.wallPosition(boundary_position)

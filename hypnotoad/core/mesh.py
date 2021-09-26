@@ -2973,7 +2973,7 @@ class Mesh:
                     R = numpy.empty([region.nx + 1, 2 * region.ny + 1])
                     R[:, 1::2] = region.Rxy.xlow
                     R[:, ::2] = region.Rxy.corners
-                    Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                    Z = numpy.empty([region.nx + 1, 2 * region.ny + 1])
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
                     ax.plot(R.T, Z.T, linestyle="--", c=c)

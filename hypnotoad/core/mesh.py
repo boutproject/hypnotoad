@@ -614,6 +614,7 @@ class MeshRegion:
         for i, c, sfunc_orth in zip(
             range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
         ):
+            print("Regridding:", i, flush=True, end="\r")
             c.regrid(
                 2 * self.ny_noguards + 1,
                 psi=self.equilibriumRegion.psi,

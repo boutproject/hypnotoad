@@ -399,34 +399,44 @@ class MeshRegion:
                         # need to correct for point already added at lower wall
                         upper_intersect_index += 1
 
-                def correct_sfunc_orthogonal(contour, sfunc_orthogonal_original):
-                    distance = contour.get_distance(psi=self.equilibriumRegion.psi)
-                    distance_at_original_start = distance[contour.startInd]
+                def correct_sfunc_orthogonal_and_set_startInd(
+                    contour, sfunc_orthogonal_original
+                ):
+                    # Shift sfunc_orthogonal so that the distance at the endInd
+                    # value is exactly that calculated using the *new*
+                    # FineContour
+                    original_total_distance = sfunc_orthogonal_original(
+                        float(contour.endInd)
+                    )
 
-                    distance_at_wall = distance[lower_intersect_index]
+                    # start contour from the wall
+                    contour.startInd = lower_intersect_index
+                    # Force reset of contour._fine_contour, etc. even if
+                    # lower_intersect_index happens to be the same as previous startInd
+                    contour._reset_cached()
 
-                    # correct sfunc_orthogonal for the distance between the point at the
-                    # lower wall and the original start-point
+                    # Calculate total distance using a new FineContour, created at this
+                    # point
+                    new_total_distance = contour.totalDistance(
+                        psi=self.equilibriumRegion.psi
+                    )
+
                     return (
                         lambda i: sfunc_orthogonal_original(i)
-                        + distance_at_original_start
-                        - distance_at_wall
+                        - original_total_distance
+                        + new_total_distance
                     )
 
                 # original sfuncs_orthogonal would put the points at the positions
                 # along the contour where the grid would be orthogonal need to
                 # correct sfunc_orthogonal for the distance between the point at
                 # the lower wall and the original start-point
-                self.sfunc_orthogonal_list[i] = correct_sfunc_orthogonal(
+                self.sfunc_orthogonal_list[
+                    i
+                ] = correct_sfunc_orthogonal_and_set_startInd(
                     contour,
                     self.sfunc_orthogonal_list[i],
                 )
-
-                # start contour from the wall
-                contour.startInd = lower_intersect_index
-                # Force reset of contour._fine_contour, etc. even if
-                # lower_intersect_index happens to be the same as previous startInd
-                contour._reset_cached()
 
             if upper_wall:
                 # now make upper_intersect_index the index where the point at the wall is
@@ -458,6 +468,8 @@ class MeshRegion:
                 # Force reset of contour._fine_contour, etc. even if
                 # upper_intersect_index happens to be the same as previous endInd
                 contour._reset_cached()
+                # Note: no need to adjust sfunc_orthogonal[i] because the startInd (at
+                # an X-point) is still at distance=0.0
 
         self.contours = self.parallel_map(_refine_extend, enumerate(self.contours))
 

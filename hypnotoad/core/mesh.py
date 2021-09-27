@@ -424,11 +424,14 @@ class MeshRegion:
 
                 # start contour from the wall
                 contour.startInd = lower_intersect_index
+                # Force reset of contour._fine_contour, etc. even if
+                # lower_intersect_index happens to be the same as previous startInd
+                contour._reset_cached()
 
             if upper_wall:
                 # now make upper_intersect_index the index where the point at the wall is
                 # check whether one of the points is close to the wall point and remove
-                # if it is - use a pretty loose checek because points apart from the
+                # if it is - use a pretty loose check because points apart from the
                 # wall point are about to be redistributed anyway, so does not matter if
                 # we remove one.
                 if (
@@ -452,6 +455,9 @@ class MeshRegion:
 
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
+                # Force reset of contour._fine_contour, etc. even if
+                # upper_intersect_index happens to be the same as previous endInd
+                contour._reset_cached()
 
         self.contours = self.parallel_map(_refine_extend, enumerate(self.contours))
 

@@ -1033,6 +1033,11 @@ class PsiContour:
         self._extend_lower = 0
         self._extend_upper = 0
 
+    def _reset_cached(self):
+        # Reset all cached objects/values because the contour has been changed
+        self._fine_contour = None
+        self._distance = None
+
     @property
     def startInd(self):
         return self._startInd
@@ -1041,8 +1046,7 @@ class PsiContour:
     def startInd(self, val):
         if self._startInd != val:
             # self._fine_contour needs to be recalculated if the start position changes
-            self._fine_contour = None
-            self._distance = None
+            self._reset_cached()
             self._startInd = val
 
     @property
@@ -1053,8 +1057,7 @@ class PsiContour:
     def endInd(self, val):
         if self._endInd != val:
             # self._fine_contour needs to be recalculated if the end position changes
-            self._fine_contour = None
-            self._distance = None
+            self._reset_cached()
             self._endInd = val
 
     @property
@@ -1066,7 +1069,7 @@ class PsiContour:
         if self._extend_lower != val:
             # self._fine_contour needs to be recalculated if extend_lower changes, to add
             # more points at the lower end
-            self._fine_contour = None
+            self._reset_cached()
             self._extend_lower = val
 
     @property
@@ -1078,7 +1081,7 @@ class PsiContour:
         if self._extend_upper != val:
             # self._fine_contour needs to be recalculated if extend_upper changes, to add
             # more points at the upper end
-            self._fine_contour = None
+            self._reset_cached()
             self._extend_upper = val
 
     def get_fine_contour(self, *, psi):
@@ -1162,20 +1165,21 @@ class PsiContour:
         return new_contour
 
     def append(self, point):
-        self._fine_contour = None
-        self._distance = None
+        self._reset_cached()
         self.points.append(point)
 
     def prepend(self, point):
-        self._fine_contour = None
-        self._distance = None
+        self._reset_cached()
         self.points.insert(0, point)
 
     def replace(self, index, point):
+        # Don't need to replace self._fine_contour here
         self._distance = None
         self.points[index] = point
 
     def insert(self, index, point):
+        # Don't necessarily need to replace self._fine_contour here - will be
+        # done by the startInd or endInd setters if needed.
         self._distance = None
 
         # Make sure index is positive, following behaviour of list.insert()

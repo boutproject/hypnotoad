@@ -386,6 +386,8 @@ class TestContour:
                     points=[Point2D(R, Z) for R, Z in zip(self.R, self.Z)],
                     psival=psi_xpoint,
                     settings={"refine_width": 1.0e-3, "refine_methods": "line"},
+                    Rrange=(-float("inf"), float("inf")),
+                    Zrange=(-float("inf"), float("inf")),
                 )
 
                 self.psi = psifunc
@@ -606,6 +608,8 @@ class TestContour:
             points=[Point2D(R, Z) for R, Z in zip(R, Z)],
             psival=c1.psival,
             settings=dict(c1.user_options),
+            Rrange=(-float("inf"), float("inf")),
+            Zrange=(-float("inf"), float("inf")),
         )
         c2.startInd = 2
         c2.endInd = len(c2) - 1
@@ -939,6 +943,8 @@ class TestEquilibriumRegion:
             ny_total=5,
             points=points,
             psival=0.0,
+            Rrange=(-float("inf"), float("inf")),
+            Zrange=(-float("inf"), float("inf")),
         )
         return eqReg
 

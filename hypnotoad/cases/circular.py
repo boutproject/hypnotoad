@@ -155,6 +155,8 @@ class CircularEquilibrium(Equilibrium):
             # The following arguments are passed through to PsiContour
             points=points,  # list of Point2D objects on the line
             psival=self.psi_r(r0),
+            Rrange=(-float("inf"), float("inf")),
+            Zrange=(-float("inf"), float("inf")),
         )
 
         eq_reg.psi_vals = [

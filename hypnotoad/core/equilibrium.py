@@ -1006,7 +1006,7 @@ class PsiContour:
         ),
     )
 
-    def __init__(self, *, points, psival, settings):
+    def __init__(self, *, points, psival, settings, Rrange, Zrange):
         self.points = points
 
         self._startInd = 0
@@ -1020,6 +1020,11 @@ class PsiContour:
         self.psival = psival
 
         self.user_options = self.user_options_factory.create(settings)
+
+        # Valid range of R and Z values (from equilibrium source)
+        # Don't try to extrapolate outside of this
+        self.Rrange = Rrange
+        self.Zrange = Zrange
 
         # Number of boundary guard cells at either end
         # This may be set even if the contour has not been extended yet, to specify how
@@ -1130,6 +1135,8 @@ class PsiContour:
         self.psival = contour.psival
         self.extend_lower = contour.extend_lower
         self.extend_upper = contour.extend_upper
+        self.Rrange = contour.Rrange
+        self.Zrange = contour.Zrange
         self._fine_contour = contour._fine_contour
 
     def newContourFromSelf(self, *, points=None, psival=None):
@@ -1138,7 +1145,11 @@ class PsiContour:
         if psival is None:
             psival = self.psival
         new_contour = PsiContour(
-            points=points, psival=psival, settings=dict(self.user_options)
+            points=points,
+            psival=psival,
+            settings=dict(self.user_options),
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
 
         new_contour.startInd = self.startInd
@@ -1792,6 +1803,15 @@ class PsiContour:
         Use coarseInterp to extrapolate as using a bigger spacing gives a more stable
         extrapolation.
         """
+
+        def notInRange(p):
+            return (
+                p.R < self.Rrange[0]
+                or p.R > self.Rrange[1]
+                or p.Z < self.Zrange[0]
+                or p.Z > self.Zrange[1]
+            )
+
         if extend_lower > 0:
             if ds_lower is None:
                 distance = self.get_distance(psi=psi)
@@ -1801,6 +1821,8 @@ class PsiContour:
             for i in range(extend_lower):
                 extrap = self._coarseExtrapLower(0)
                 new_point = extrap(-ds)
+                if notInRange(new_point):
+                    break
                 self.prepend(self.refinePoint(new_point, new_point - self[0], psi=psi))
                 if self.startInd >= 0:
                     self.startInd += 1
@@ -1815,6 +1837,8 @@ class PsiContour:
             for i in range(extend_upper):
                 extrap = self._coarseExtrapUpper(-1)
                 new_point = extrap(ds)
+                if notInRange(new_point):
+                    break
                 self.append(self.refinePoint(new_point, new_point - self[-1], psi=psi))
                 if self.endInd < 0:
                     self.endInd -= 1
@@ -2241,7 +2265,19 @@ class EquilibriumRegion(PsiContour):
     )
 
     def __init__(
-        self, *, equilibrium, name, nSegments, nx, ny, kind, ny_total, points, psival
+        self,
+        *,
+        equilibrium,
+        name,
+        nSegments,
+        nx,
+        ny,
+        kind,
+        ny_total,
+        points,
+        psival,
+        Rrange,
+        Zrange,
     ):
         self.equilibrium = equilibrium
         self.name = name
@@ -2257,6 +2293,8 @@ class EquilibriumRegion(PsiContour):
             points=points,
             psival=psival,
             settings=self.user_options,
+            Rrange=Rrange,
+            Zrange=Zrange,
         )
 
         # Use nonorthogonal defaults from settings updated in user_options by Equilibrium
@@ -2461,6 +2499,8 @@ class EquilibriumRegion(PsiContour):
             ny_total=self.ny_total,
             points=deepcopy(self.points),
             psival=self.psival,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
@@ -2486,6 +2526,8 @@ class EquilibriumRegion(PsiContour):
             ny_total=self.ny_total,
             points=contour.points,
             psival=contour.psival,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)

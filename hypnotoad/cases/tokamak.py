@@ -1534,6 +1534,8 @@ class TokamakEquilibrium(Equilibrium):
                 # The following arguments are passed through to PsiContour
                 points=region["points"],  # list of Point2D objects on the line
                 psival=region["psi"],
+                Rrange=(self.Rmin, self.Rmax),
+                Zrange=(self.Zmin, self.Zmax),
             )
 
             # Grids of psi values in each segment

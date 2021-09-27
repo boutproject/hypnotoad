@@ -158,6 +158,11 @@ class TORPEXMagneticField(Equilibrium):
             self.magneticFunctionsFromCoils()
 
             self.Bt_axis = equilibOptions["Bt_axis"]
+
+            self.Rmin = -float("inf")
+            self.Rmax = float("inf")
+            self.Zmin = -float("inf")
+            self.Zmax = float("inf")
         elif "gfile" in equilibOptions:
             # load a g-file
             with open(equilibOptions["gfile"], "rt") as fh:
@@ -171,6 +176,10 @@ class TORPEXMagneticField(Equilibrium):
                 gfile["zmid"] + 0.5 * gfile["zdim"],
                 gfile["ny"],
             )
+            self.Rmin = R[0]
+            self.Rmax = R[-1]
+            self.Zmin = Z[0]
+            self.Zmax = Z[-1]
             psirz = gfile["psi"]
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
@@ -261,6 +270,10 @@ class TORPEXMagneticField(Equilibrium):
             R = R[Zinds, :]
             Z = Z[:, Rinds]
             Z = Z[Zinds, :]
+            self.Rmin = R[0, 0]
+            self.Rmax = R[0, -1]
+            self.Zmin = Z[0, 0]
+            self.Zmax = Z[-1, 0]
             psi = psi[:, Rinds]
             psi = psi[Zinds, :]
 
@@ -538,6 +551,8 @@ class TORPEXMagneticField(Equilibrium):
                 ny_total=self.ny_total,
                 points=[Point2D(R, Z) for R, Z in zip(legR, legZ)],
                 psival=self.psi_sep[0],
+                Rrange=(self.Rmin, self.Rmax),
+                Zrange=(self.Zmin, self.Zmax),
             )
             self.regions[name] = leg.getRefined(psi=self.psi)
             wall_vectors[name] = self.wallVector(boundary_position)

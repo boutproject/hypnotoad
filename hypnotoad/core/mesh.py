@@ -2335,6 +2335,9 @@ def _find_intersection(
             psi=psi,
         )
 
+    # Create FineContour for result, so that this is done in parallel
+    contour.get_fine_contour(psi=psi)
+
     return (
         contour,
         lower_intersect_index,

@@ -123,6 +123,21 @@ class TORPEXMagneticField(Equilibrium):
         ),
         saddle_point_p1=[0.85, -0.15],
         saddle_point_p2=[0.85, 0.15],
+        # Tolerance for positioning points that should be at X-point, but need to be
+        # slightly displaced from the null so code can follow Grad(psi).
+        # Number between 0. and 1.
+        xpoint_offset=WithMeta(
+            0.1,
+            doc=(
+                "Tolerance for placing intial positions for tracing perpendiculars "
+                "that should start exactly at an X-point, but initial positions to be "
+                "slightly displaced from the null so code can follow Grad(psi).  This "
+                "is a numerical fudge factor that may need to be increased for "
+                "low-resolution input equilibria."
+            ),
+            value_type=float,
+            check_all=[is_positive, lambda x: x < 1.0],
+        ),
     )
 
     def __init__(self, equilibOptions, meshOptions):
@@ -143,6 +158,11 @@ class TORPEXMagneticField(Equilibrium):
             self.magneticFunctionsFromCoils()
 
             self.Bt_axis = equilibOptions["Bt_axis"]
+
+            self.Rmin = -float("inf")
+            self.Rmax = float("inf")
+            self.Zmin = -float("inf")
+            self.Zmax = float("inf")
         elif "gfile" in equilibOptions:
             # load a g-file
             with open(equilibOptions["gfile"], "rt") as fh:
@@ -156,10 +176,11 @@ class TORPEXMagneticField(Equilibrium):
                 gfile["zmid"] + 0.5 * gfile["zdim"],
                 gfile["ny"],
             )
-            # Note we expect first index (row) of psirz to change with the height Z, and
-            # the second (column) to change with major radius R, which is the opposite
-            # from _geqdsk's (from FreeGS) convention, so transpose
-            psirz = gfile["psi"].T
+            self.Rmin = R[0]
+            self.Rmax = R[-1]
+            self.Zmin = Z[0]
+            self.Zmax = Z[-1]
+            psirz = gfile["psi"]
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
             # plasma current
@@ -223,7 +244,9 @@ class TORPEXMagneticField(Equilibrium):
                     # axis. Should be going towards psi_bndry. So flip the sign
                     psirz = -psirz
 
-            self.magneticFunctionsFromGrid(R, Z, psirz)
+            self.magneticFunctionsFromGrid(
+                R, Z, psirz, self.user_options.psi_interpolation_method
+            )
 
             self.Bt_axis = gfile["bcentr"]
         elif "matfile" in equilibOptions:
@@ -247,10 +270,16 @@ class TORPEXMagneticField(Equilibrium):
             R = R[Zinds, :]
             Z = Z[:, Rinds]
             Z = Z[Zinds, :]
+            self.Rmin = R[0, 0]
+            self.Rmax = R[0, -1]
+            self.Zmin = Z[0, 0]
+            self.Zmax = Z[-1, 0]
             psi = psi[:, Rinds]
             psi = psi[Zinds, :]
 
-            self.magneticFunctionsFromGrid(R[0, :], Z[:, 0], psi)
+            self.magneticFunctionsFromGrid(
+                R[0, :], Z[:, 0], psi.T, self.user_options.psi_interpolation_method
+            )
 
             Bt = eqfile["Bphi"][0, 0]
             RindMid = Bt.shape[1] // 2
@@ -294,6 +323,7 @@ class TORPEXMagneticField(Equilibrium):
 
         # Call Equilibrium constructor after adding stuff to options
         super().__init__(meshOptions)
+        print(self.nonorthogonal_options.as_table())
 
     def TORPEX_wall(self, theta):
         """
@@ -505,7 +535,7 @@ class TORPEXMagneticField(Equilibrium):
 
         self.regions = OrderedDict()
         wall_vectors = OrderedDict()
-        s = numpy.linspace(10.0 * self.user_options.refine_atol, 1.0, npoints)
+        s = numpy.linspace(self.user_options.xpoint_offset / npoints, 1.0, npoints)
         for i, boundary_position in enumerate(boundary):
             name = legnames[i]
             boundaryPoint = self.wallPosition(boundary_position)
@@ -521,6 +551,8 @@ class TORPEXMagneticField(Equilibrium):
                 ny_total=self.ny_total,
                 points=[Point2D(R, Z) for R, Z in zip(legR, legZ)],
                 psival=self.psi_sep[0],
+                Rrange=(self.Rmin, self.Rmax),
+                Zrange=(self.Zmin, self.Zmax),
             )
             self.regions[name] = leg.getRefined(psi=self.psi)
             wall_vectors[name] = self.wallVector(boundary_position)

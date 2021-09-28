@@ -26,6 +26,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 import func_timeout
+import functools
 from optionsfactory import OptionsFactory, WithMeta
 from optionsfactory.checks import (
     NoneType,
@@ -38,9 +39,11 @@ import warnings
 
 import numpy
 from scipy.optimize import minimize_scalar, brentq
-from scipy.interpolate import interp1d
+from scipy import interpolate
 from scipy.integrate import solve_ivp
 from scipy.special import erf, sici
+
+from .multilocationarray import MultiLocationArray
 
 
 class SolutionError(Exception):
@@ -785,14 +788,14 @@ class FineContour:
     def interpFunction(self, *, kind="linear"):
         distance = self.distance - self.distance[self.startInd]
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance,
             self.positions[:, 0],
             kind=kind,
             assume_sorted=True,
             fill_value="extrapolate",
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance,
             self.positions[:, 1],
             kind=kind,
@@ -909,7 +912,7 @@ class FineContour:
         s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
 
         distance = self.distance - self.distance[self.startInd]
-        s_of_sperp = interp1d(
+        s_of_sperp = interpolate.interp1d(
             s_perp, distance, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
 
@@ -949,15 +952,17 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
-    def plot(self, *args, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, plotPsi=False, **kwargs):
         from matplotlib import pyplot
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
         if plotPsi:
+            if psi is None:
+                raise ValueError("Must pass psi kwarg when plotPsi=True")
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, self.psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
 
 
@@ -1001,7 +1006,7 @@ class PsiContour:
         ),
     )
 
-    def __init__(self, *, points, psival, settings):
+    def __init__(self, *, points, psival, settings, Rrange, Zrange):
         self.points = points
 
         self._startInd = 0
@@ -1016,12 +1021,22 @@ class PsiContour:
 
         self.user_options = self.user_options_factory.create(settings)
 
+        # Valid range of R and Z values (from equilibrium source)
+        # Don't try to extrapolate outside of this
+        self.Rrange = Rrange
+        self.Zrange = Zrange
+
         # Number of boundary guard cells at either end
         # This may be set even if the contour has not been extended yet, to specify how
         # many guard cells should be added when it is - this is extra information to
         # startInd and endInd.
         self._extend_lower = 0
         self._extend_upper = 0
+
+    def _reset_cached(self):
+        # Reset all cached objects/values because the contour has been changed
+        self._fine_contour = None
+        self._distance = None
 
     @property
     def startInd(self):
@@ -1031,8 +1046,7 @@ class PsiContour:
     def startInd(self, val):
         if self._startInd != val:
             # self._fine_contour needs to be recalculated if the start position changes
-            self._fine_contour = None
-            self._distance = None
+            self._reset_cached()
             self._startInd = val
 
     @property
@@ -1043,8 +1057,7 @@ class PsiContour:
     def endInd(self, val):
         if self._endInd != val:
             # self._fine_contour needs to be recalculated if the end position changes
-            self._fine_contour = None
-            self._distance = None
+            self._reset_cached()
             self._endInd = val
 
     @property
@@ -1056,7 +1069,7 @@ class PsiContour:
         if self._extend_lower != val:
             # self._fine_contour needs to be recalculated if extend_lower changes, to add
             # more points at the lower end
-            self._fine_contour = None
+            self._reset_cached()
             self._extend_lower = val
 
     @property
@@ -1068,7 +1081,7 @@ class PsiContour:
         if self._extend_upper != val:
             # self._fine_contour needs to be recalculated if extend_upper changes, to add
             # more points at the upper end
-            self._fine_contour = None
+            self._reset_cached()
             self._extend_upper = val
 
     def get_fine_contour(self, *, psi):
@@ -1125,6 +1138,8 @@ class PsiContour:
         self.psival = contour.psival
         self.extend_lower = contour.extend_lower
         self.extend_upper = contour.extend_upper
+        self.Rrange = contour.Rrange
+        self.Zrange = contour.Zrange
         self._fine_contour = contour._fine_contour
 
     def newContourFromSelf(self, *, points=None, psival=None):
@@ -1133,7 +1148,11 @@ class PsiContour:
         if psival is None:
             psival = self.psival
         new_contour = PsiContour(
-            points=points, psival=psival, settings=dict(self.user_options)
+            points=points,
+            psival=psival,
+            settings=dict(self.user_options),
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
 
         new_contour.startInd = self.startInd
@@ -1146,20 +1165,21 @@ class PsiContour:
         return new_contour
 
     def append(self, point):
-        self._fine_contour = None
-        self._distance = None
+        self._reset_cached()
         self.points.append(point)
 
     def prepend(self, point):
-        self._fine_contour = None
-        self._distance = None
+        self._reset_cached()
         self.points.insert(0, point)
 
     def replace(self, index, point):
+        # Don't need to replace self._fine_contour here
         self._distance = None
         self.points[index] = point
 
     def insert(self, index, point):
+        # Don't necessarily need to replace self._fine_contour here - will be
+        # done by the startInd or endInd setters if needed.
         self._distance = None
 
         # Make sure index is positive, following behaviour of list.insert()
@@ -1499,10 +1519,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s)), distance
@@ -1523,10 +1543,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points[:npoints]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[:npoints]]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
@@ -1550,10 +1570,10 @@ class PsiContour:
         R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))
 
-        interpR = interp1d(
+        interpR = interpolate.interp1d(
             distance, R, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
-        interpZ = interp1d(
+        interpZ = interpolate.interp1d(
             distance, Z, kind=kind, assume_sorted=True, fill_value="extrapolate"
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
@@ -1565,7 +1585,7 @@ class PsiContour:
         aren't affected by extrapolation errors.
         """
         distance = self.get_distance(psi=psi)
-        interpS = interp1d(
+        interpS = interpolate.interp1d(
             numpy.arange(len(self), dtype=float),
             distance,
             kind=kind,
@@ -1682,9 +1702,7 @@ class PsiContour:
         while (
             s[0] < -self._fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
-            self._fine_contour.extend(
-                extend_lower=max(orig_extend_lower, 1), psi=self.psi
-            )
+            self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1), psi=psi)
 
         tol_upper = 0.25 * (
             self._fine_contour.distance[-1] - self._fine_contour.distance[-2]
@@ -1695,9 +1713,7 @@ class PsiContour:
             - self._fine_contour.distance[self._fine_contour.startInd]
             + tol_upper
         ):
-            self._fine_contour.extend(
-                extend_upper=max(orig_extend_upper, 1), psi=self.psi
-            )
+            self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1), psi=psi)
 
         interp_unadjusted = self._fine_contour.interpFunction()
 
@@ -1791,6 +1807,15 @@ class PsiContour:
         Use coarseInterp to extrapolate as using a bigger spacing gives a more stable
         extrapolation.
         """
+
+        def notInRange(p):
+            return (
+                p.R < self.Rrange[0]
+                or p.R > self.Rrange[1]
+                or p.Z < self.Zrange[0]
+                or p.Z > self.Zrange[1]
+            )
+
         if extend_lower > 0:
             if ds_lower is None:
                 distance = self.get_distance(psi=psi)
@@ -1800,6 +1825,8 @@ class PsiContour:
             for i in range(extend_lower):
                 extrap = self._coarseExtrapLower(0)
                 new_point = extrap(-ds)
+                if notInRange(new_point):
+                    break
                 self.prepend(self.refinePoint(new_point, new_point - self[0], psi=psi))
                 if self.startInd >= 0:
                     self.startInd += 1
@@ -1814,6 +1841,8 @@ class PsiContour:
             for i in range(extend_upper):
                 extrap = self._coarseExtrapUpper(-1)
                 new_point = extrap(ds)
+                if notInRange(new_point):
+                    break
                 self.append(self.refinePoint(new_point, new_point - self[-1], psi=psi))
                 if self.endInd < 0:
                     self.endInd -= 1
@@ -2240,7 +2269,19 @@ class EquilibriumRegion(PsiContour):
     )
 
     def __init__(
-        self, *, equilibrium, name, nSegments, nx, ny, kind, ny_total, points, psival
+        self,
+        *,
+        equilibrium,
+        name,
+        nSegments,
+        nx,
+        ny,
+        kind,
+        ny_total,
+        points,
+        psival,
+        Rrange,
+        Zrange,
     ):
         self.equilibrium = equilibrium
         self.name = name
@@ -2256,6 +2297,8 @@ class EquilibriumRegion(PsiContour):
             points=points,
             psival=psival,
             settings=self.user_options,
+            Rrange=Rrange,
+            Zrange=Zrange,
         )
 
         # Use nonorthogonal defaults from settings updated in user_options by Equilibrium
@@ -2460,6 +2503,8 @@ class EquilibriumRegion(PsiContour):
             ny_total=self.ny_total,
             points=deepcopy(self.points),
             psival=self.psival,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
@@ -2485,6 +2530,8 @@ class EquilibriumRegion(PsiContour):
             ny_total=self.ny_total,
             points=contour.points,
             psival=contour.psival,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
         )
         result.xPointsAtStart = deepcopy(self.xPointsAtStart)
         result.xPointsAtEnd = deepcopy(self.xPointsAtEnd)
@@ -2538,7 +2585,7 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2 * self.user_options.y_boundary_guards
         else:
             extend_upper = 0
-        distance = self.get_distance(psi=self.psi)
+        distance = self.get_distance(psi=psi)
         sfunc = self.getSfuncFixedSpacing(
             2 * self.ny_noguards + 1,
             distance[self.endInd] - distance[self.startInd],
@@ -3649,6 +3696,19 @@ class Equilibrium:
         # Include settings for member EquilibriumRegion objects
         EquilibriumRegion.user_options_factory,
         #
+        # Psi interpolation options
+        ###########################
+        psi_interpolation_method=WithMeta(
+            "spline",
+            doc=(
+                "Method to use for interpolating psi from the eqdsk file. Possible "
+                "values are: 'spline' for scipy.interpolate.RectBivariateSpline;"
+                "'dct' for a discrete cosine transform.",
+            ),
+            value_type=str,
+            allowed=["spline", "dct"],
+        ),
+        #
         # Radial spacing options
         ########################
         psi_spacing_separatrix_multiplier=WithMeta(
@@ -3739,22 +3799,121 @@ class Equilibrium:
         lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]["lower"] = (lowerRegion, lowerSegment)
 
-    def magneticFunctionsFromGrid(self, R, Z, psiRZ):
-        from ..utils.dct_interpolation import DCT_2D
+    def handleMultiLocationArray(getResult):
+        @functools.wraps(getResult)
+        # Define a function which handles MultiLocationArray arguments
+        def handler(self, *args):
+            if isinstance(args[0], MultiLocationArray):
+                for arg in args[1:]:
+                    if not isinstance(arg, MultiLocationArray):
+                        raise ValueError(
+                            "if first arg is a MultiLocationArray, then others must be "
+                            "as well"
+                        )
+                result = MultiLocationArray(args[0].nx, args[0].ny)
 
-        self._dct = DCT_2D(R, Z, psiRZ)
+                if all(arg.centre is not None for arg in args):
+                    result.centre = getResult(self, *(arg.centre for arg in args))
 
-        self.psi = lambda R, Z: self._dct(R, Z)
-        modGradpsiSquared = (
-            lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
-        )
-        self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
-        self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
-        self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
-        self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
-        self.d2psidR2 = self._dct.d2dR2
-        self.d2psidZ2 = self._dct.d2dZ2
-        self.d2psidRdZ = self._dct.d2dRdZ
+                if all(arg.xlow is not None for arg in args):
+                    result.xlow = getResult(self, *(arg.xlow for arg in args))
+
+                if all(arg.ylow is not None for arg in args):
+                    result.ylow = getResult(self, *(arg.ylow for arg in args))
+
+                if all(arg.corners is not None for arg in args):
+                    result.corners = getResult(self, *(arg.corners for arg in args))
+            else:
+                result = getResult(self, *args)
+            return result
+
+        return handler
+
+    def magneticFunctionsFromGrid(self, R, Z, psiRZ, option):
+        if option == "spline":
+            self.psi_func = interpolate.RectBivariateSpline(R, Z, psiRZ)
+
+            @Equilibrium.handleMultiLocationArray
+            def psi(self, R, Z):
+                "Return the poloidal flux at the given (R,Z) location"
+                return self.psi_func(R, Z, grid=False)
+
+            # The __get__(self) call converts the function to a 'bound
+            # method'. See
+            # https://stackoverflow.com/questions/972/adding-a-method-to-an-existing-object-instance#comment66379065_2982
+            self.psi = psi.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def f_R(self, R, Z):
+                """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
+                dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+                dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+                return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
+
+            self.f_R = f_R.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def f_Z(self, R, Z):
+                """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
+                dpsidR = self.psi_func(R, Z, dx=1, grid=False)
+                dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
+                return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
+
+            self.f_Z = f_Z.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def Bp_R(self, R, Z):
+                """returns the R component of the poloidal magnetic field."""
+                return self.psi_func(R, Z, dy=1, grid=False) / R
+
+            self.Bp_R = Bp_R.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def Bp_Z(self, R, Z):
+                """returns the Z component of the poloidal magnetic field."""
+                return -self.psi_func(R, Z, dx=1, grid=False) / R
+
+            self.Bp_Z = Bp_Z.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidR2(self, R, Z):
+                """returns the second R derivative of psi"""
+                return self.psi_func(R, Z, dx=2, grid=False)
+
+            self.d2psidR2 = d2psidR2.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidZ2(self, R, Z):
+                """returns the second Z derivative of psi"""
+                return self.psi_func(R, Z, dy=2, grid=False)
+
+            self.d2psidZ2 = d2psidZ2.__get__(self)
+
+            @Equilibrium.handleMultiLocationArray
+            def d2psidRdZ(self, R, Z):
+                """returns the mixed second derivative of psi"""
+                return self.psi_func(R, Z, dx=1, dy=1, grid=False)
+
+            self.d2psidRdZ = d2psidRdZ.__get__(self)
+
+        elif option == "dct":
+            from ..utils.dct_interpolation import DCT_2D
+
+            self._dct = DCT_2D(R, Z, psiRZ)
+
+            self.psi = lambda R, Z: self._dct(R, Z)
+            modGradpsiSquared = (
+                lambda R, Z: self._dct.ddR(R, Z) ** 2 + self._dct.ddZ(R, Z) ** 2
+            )
+            self.f_R = lambda R, Z: self._dct.ddR(R, Z) / modGradpsiSquared(R, Z)
+            self.f_Z = lambda R, Z: self._dct.ddZ(R, Z) / modGradpsiSquared(R, Z)
+            self.Bp_R = lambda R, Z: self._dct.ddZ(R, Z) / R
+            self.Bp_Z = lambda R, Z: -self._dct.ddR(R, Z) / R
+            self.d2psidR2 = self._dct.d2dR2
+            self.d2psidZ2 = self._dct.d2dZ2
+            self.d2psidRdZ = self._dct.d2dRdZ
+        else:
+            raise ValueError(f"Interpolation option '{option}' not recognised")
 
     def Bzeta(self, R, Z):
         """
@@ -4068,10 +4227,10 @@ class Equilibrium:
 
             wallfraction = numpy.linspace(0.0, 1.0, len(R))
 
-            self.wallRInterp = interp1d(
+            self.wallRInterp = interpolate.interp1d(
                 wallfraction, R, kind="linear", assume_sorted=True
             )
-            self.wallZInterp = interp1d(
+            self.wallZInterp = interpolate.interp1d(
                 wallfraction, Z, kind="linear", assume_sorted=True
             )
 
@@ -4106,10 +4265,10 @@ class Equilibrium:
             # segments are straight. Have calculated the vector at each vertex for the
             # following segment, so use 'previous' interpolation to just take the value
             # from the previous point
-            self.wallVectorRComponent = interp1d(
+            self.wallVectorRComponent = interpolate.interp1d(
                 wallfraction, Rcomponents, kind="previous", assume_sorted=True
             )
-            self.wallVectorZComponent = interp1d(
+            self.wallVectorZComponent = interpolate.interp1d(
                 wallfraction, Zcomponents, kind="previous", assume_sorted=True
             )
 

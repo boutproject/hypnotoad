@@ -22,7 +22,6 @@ Classes to handle Meshes and geometrical quantities for generating BOUT++ grids
 """
 
 from copy import deepcopy
-import numbers
 import re
 import sys
 import warnings
@@ -48,233 +47,10 @@ from .equilibrium import (
     Point2D,
     PsiContour,
 )
+from .multilocationarray import MultiLocationArray
 from ..utils.utils import module_versions_formatted
 from ..utils.parallel_map import ParallelMap
 from ..__version__ import get_versions
-
-
-class MultiLocationArray(numpy.lib.mixins.NDArrayOperatorsMixin):
-    """
-    Container for arrays representing points at different cell locations
-    Not all have to be filled.
-    """
-
-    _centre_array = None
-    _xlow_array = None
-    _ylow_array = None
-    _corners_array = None
-
-    def __init__(self, nx, ny):
-        self.nx = nx
-        self.ny = ny
-        # Attributes that will be saved to output files along with the array
-        self.attributes = {}
-
-    @property
-    def centre(self):
-        if self._centre_array is None:
-            self._centre_array = numpy.zeros([self.nx, self.ny])
-        return self._centre_array
-
-    @centre.setter
-    def centre(self, value):
-        if self._centre_array is None:
-            self._centre_array = numpy.zeros([self.nx, self.ny])
-        self._centre_array[...] = value
-
-    @property
-    def xlow(self):
-        if self._xlow_array is None:
-            self._xlow_array = numpy.zeros([self.nx + 1, self.ny])
-        return self._xlow_array
-
-    @xlow.setter
-    def xlow(self, value):
-        if self._xlow_array is None:
-            self._xlow_array = numpy.zeros([self.nx + 1, self.ny])
-        self._xlow_array[...] = value
-
-    @property
-    def ylow(self):
-        if self._ylow_array is None:
-            self._ylow_array = numpy.zeros([self.nx, self.ny + 1])
-        return self._ylow_array
-
-    @ylow.setter
-    def ylow(self, value):
-        if self._ylow_array is None:
-            self._ylow_array = numpy.zeros([self.nx, self.ny + 1])
-        self._ylow_array[...] = value
-
-    @property
-    def corners(self):
-        if self._corners_array is None:
-            self._corners_array = numpy.zeros([self.nx + 1, self.ny + 1])
-        return self._corners_array
-
-    @corners.setter
-    def corners(self, value):
-        if self._corners_array is None:
-            self._corners_array = numpy.zeros([self.nx + 1, self.ny + 1])
-        self._corners_array[...] = value
-
-    def copy(self):
-        new_multilocationarray = MultiLocationArray(self.nx, self.ny)
-        if self.centre is not None:
-            new_multilocationarray.centre = self.centre.copy()
-        if self.xlow is not None:
-            new_multilocationarray.xlow = self.xlow.copy()
-        if self.ylow is not None:
-            new_multilocationarray.ylow = self.ylow.copy()
-        if self.corners is not None:
-            new_multilocationarray.corners = self.corners.copy()
-
-        return new_multilocationarray
-
-    # The following __array_ufunc__ implementation allows the MultiLocationArray class to
-    # be handled by Numpy functions, and add, subtract, etc. like an ndarray.
-    # The implementation is mostly copied from the example in
-    # https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.mixins.NDArrayOperatorsMixin.html#numpy.lib.mixins.NDArrayOperatorsMixin
-
-    # One might also consider adding the built-in list type to this
-    # list, to support operations like np.add(array_like, list)
-    _HANDLED_TYPES = (numpy.ndarray, numbers.Number)
-
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        out = kwargs.get("out", ())
-        for x in inputs + out:
-            # Only support operations with instances of _HANDLED_TYPES.
-            # Use MultiLocationArray instead of type(self) for isinstance to
-            # allow subclasses that don't override __array_ufunc__ to
-            # handle MultiLocationArray objects.
-            if not isinstance(x, self._HANDLED_TYPES + (MultiLocationArray,)):
-                return NotImplemented
-
-        MLArrays = [self] + [x for x in inputs if isinstance(x, MultiLocationArray)]
-
-        result = MultiLocationArray(self.nx, self.ny)
-
-        # Defer to the implementation of the ufunc on unwrapped values.
-        if all(x._centre_array is not None for x in MLArrays):
-            this_inputs = tuple(
-                x._centre_array if isinstance(x, MultiLocationArray) else x
-                for x in inputs
-            )
-            if out:
-                kwargs["out"] = tuple(
-                    x.centre if isinstance(x, MultiLocationArray) else x for x in out
-                )
-            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
-
-            if type(this_result) is tuple:
-                # multiple return values
-                if not type(result) is tuple:
-                    result = tuple(
-                        MultiLocationArray(self.nx, self.ny) for x in this_result
-                    )
-                for i, x in enumerate(this_result):
-                    result[i].centre = x
-
-            elif method == "at":
-                # no return value
-                result = None
-            else:
-                # one return value
-                result.centre = this_result
-
-        # Defer to the implementation of the ufunc on unwrapped values.
-        if all(x._xlow_array is not None for x in MLArrays):
-            this_inputs = tuple(
-                x._xlow_array if isinstance(x, MultiLocationArray) else x
-                for x in inputs
-            )
-            if out:
-                kwargs["out"] = tuple(
-                    x.xlow if isinstance(x, MultiLocationArray) else x for x in out
-                )
-            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
-
-            if type(this_result) is tuple:
-                # multiple return values
-                if not type(result) is tuple:
-                    result = tuple(
-                        MultiLocationArray(self.nx, self.ny) for x in this_result
-                    )
-                for i, x in enumerate(this_result):
-                    result[i].xlow = x
-
-            elif method == "at":
-                # no return value
-                result = None
-            else:
-                # one return value
-                result.xlow = this_result
-
-        # Defer to the implementation of the ufunc on unwrapped values.
-        if all(x._ylow_array is not None for x in MLArrays):
-            this_inputs = tuple(
-                x._ylow_array if isinstance(x, MultiLocationArray) else x
-                for x in inputs
-            )
-            if out:
-                kwargs["out"] = tuple(
-                    x.ylow if isinstance(x, MultiLocationArray) else x for x in out
-                )
-            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
-
-            if type(this_result) is tuple:
-                # multiple return values
-                if not type(result) is tuple:
-                    result = tuple(
-                        MultiLocationArray(self.nx, self.ny) for x in this_result
-                    )
-                for i, x in enumerate(this_result):
-                    result[i].ylow = x
-
-            elif method == "at":
-                # no return value
-                result = None
-            else:
-                # one return value
-                result.ylow = this_result
-
-        # Defer to the implementation of the ufunc on unwrapped values.
-        if all(x._corners_array is not None for x in MLArrays):
-            this_inputs = tuple(
-                x._corners_array if isinstance(x, MultiLocationArray) else x
-                for x in inputs
-            )
-            if out:
-                kwargs["out"] = tuple(
-                    x.corners if isinstance(x, MultiLocationArray) else x for x in out
-                )
-            this_result = getattr(ufunc, method)(*this_inputs, **kwargs)
-
-            if type(this_result) is tuple:
-                # multiple return values
-                if not type(result) is tuple:
-                    result = tuple(
-                        MultiLocationArray(self.nx, self.ny) for x in this_result
-                    )
-                for i, x in enumerate(this_result):
-                    result[i].corners = x
-
-            elif method == "at":
-                # no return value
-                result = None
-            else:
-                # one return value
-                result.corners = this_result
-
-        return result
-
-    def zero(self):
-        # Initialise all locations, set them to zero and return the result
-        self.centre = 0.0
-        self.xlow = 0.0
-        self.ylow = 0.0
-        self.corners = 0.0
-        return self
 
 
 class MeshRegion:
@@ -623,36 +399,49 @@ class MeshRegion:
                         # need to correct for point already added at lower wall
                         upper_intersect_index += 1
 
-                def correct_sfunc_orthogonal(contour, sfunc_orthogonal_original):
-                    distance = contour.get_distance(psi=self.equilibriumRegion.psi)
-                    distance_at_original_start = distance[contour.startInd]
+                def correct_sfunc_orthogonal_and_set_startInd(
+                    contour, sfunc_orthogonal_original
+                ):
+                    # Shift sfunc_orthogonal so that the distance at the endInd
+                    # value is exactly that calculated using the *new*
+                    # FineContour
+                    original_total_distance = sfunc_orthogonal_original(
+                        float(contour.endInd)
+                    )
 
-                    distance_at_wall = distance[lower_intersect_index]
+                    # start contour from the wall
+                    contour.startInd = lower_intersect_index
+                    # Force reset of contour._fine_contour, etc. even if
+                    # lower_intersect_index happens to be the same as previous startInd
+                    contour._reset_cached()
 
-                    # correct sfunc_orthogonal for the distance between the point at the
-                    # lower wall and the original start-point
+                    # Calculate total distance using a new FineContour, created at this
+                    # point
+                    new_total_distance = contour.totalDistance(
+                        psi=self.equilibriumRegion.psi
+                    )
+
                     return (
                         lambda i: sfunc_orthogonal_original(i)
-                        + distance_at_original_start
-                        - distance_at_wall
+                        - original_total_distance
+                        + new_total_distance
                     )
 
                 # original sfuncs_orthogonal would put the points at the positions
                 # along the contour where the grid would be orthogonal need to
                 # correct sfunc_orthogonal for the distance between the point at
                 # the lower wall and the original start-point
-                self.sfunc_orthogonal_list[i] = correct_sfunc_orthogonal(
+                self.sfunc_orthogonal_list[
+                    i
+                ] = correct_sfunc_orthogonal_and_set_startInd(
                     contour,
                     self.sfunc_orthogonal_list[i],
                 )
 
-                # start contour from the wall
-                contour.startInd = lower_intersect_index
-
             if upper_wall:
                 # now make upper_intersect_index the index where the point at the wall is
                 # check whether one of the points is close to the wall point and remove
-                # if it is - use a pretty loose checek because points apart from the
+                # if it is - use a pretty loose check because points apart from the
                 # wall point are about to be redistributed anyway, so does not matter if
                 # we remove one.
                 if (
@@ -676,6 +465,11 @@ class MeshRegion:
 
                 # end point is now at the wall
                 contour.endInd = upper_intersect_index
+                # Force reset of contour._fine_contour, etc. even if
+                # upper_intersect_index happens to be the same as previous endInd
+                contour._reset_cached()
+                # Note: no need to adjust sfunc_orthogonal[i] because the startInd (at
+                # an X-point) is still at distance=0.0
 
         self.contours = self.parallel_map(_refine_extend, enumerate(self.contours))
 
@@ -820,6 +614,7 @@ class MeshRegion:
         for i, c, sfunc_orth in zip(
             range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
         ):
+            print("Regridding:", i, flush=True, end="\r")
             c.regrid(
                 2 * self.ny_noguards + 1,
                 psi=self.equilibriumRegion.psi,
@@ -2540,6 +2335,9 @@ def _find_intersection(
             psi=psi,
         )
 
+    # Create FineContour for result, so that this is done in parallel
+    contour.get_fine_contour(psi=psi)
+
     return (
         contour,
         lower_intersect_index,
@@ -3197,7 +2995,7 @@ class Mesh:
                     R = numpy.empty([region.nx + 1, 2 * region.ny + 1])
                     R[:, 1::2] = region.Rxy.xlow
                     R[:, ::2] = region.Rxy.corners
-                    Z = numpy.empty([region.nx, 2 * region.ny + 1])
+                    Z = numpy.empty([region.nx + 1, 2 * region.ny + 1])
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
                     ax.plot(R.T, Z.T, linestyle="--", c=c)

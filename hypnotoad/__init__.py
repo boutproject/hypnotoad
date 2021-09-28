@@ -19,7 +19,8 @@
 
 from .cases import tokamak, torpex
 from .core.equilibrium import Point2D, EquilibriumRegion, Equilibrium, SolutionError
-from .core.mesh import MultiLocationArray, MeshRegion, Mesh, BoutMesh
+from .core.mesh import MeshRegion, Mesh, BoutMesh
+from .core.multilocationarray import MultiLocationArray
 from .__version__ import get_versions
 
 __version__ = get_versions()["version"]

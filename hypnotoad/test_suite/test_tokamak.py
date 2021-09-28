@@ -1,12 +1,16 @@
 import numpy as np
 from io import StringIO
+import pytest
 
 from hypnotoad.cases import tokamak
 from hypnotoad.geqdsk import _geqdsk
 
 
-def test_tokamak_interpolations():
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_tokamak_interpolations(psi_interpolation_method):
     """Test interpolations and derivatives"""
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
 
     # Define 2D (R,Z) grid
     r1d = np.linspace(1.0, 2.0, 129)
@@ -41,7 +45,9 @@ def test_tokamak_interpolations():
     psi1d = np.linspace(0, 1, 65)
     fpol1d = fpol_func(psi1d)
 
-    eq = tokamak.TokamakEquilibrium(r1d, z1d, psi2d, psi1d, fpol1d, make_regions=False)
+    eq = tokamak.TokamakEquilibrium(
+        r1d, z1d, psi2d, psi1d, fpol1d, make_regions=False, settings=settings
+    )
 
     # Check interpolation of psi, f and f' at some locations
     for r, z in [(1.2, 0.1), (1.6, -0.4), (1.8, 0.9)]:
@@ -56,7 +62,7 @@ def test_tokamak_interpolations():
 
         # Poloidal magnetic field
         assert np.isclose(eq.Bp_R(r, z), dpsi_dz(r, z) / r, atol=1e-3)
-        assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z) / r, atol=1e-3)
+        assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z) / r, atol=3e-3)
 
         # vector Grad(psi)/|Grad(psi)|**2
         assert np.isclose(
@@ -71,7 +77,11 @@ def test_tokamak_interpolations():
         )
 
 
-def test_read_geqdsk():
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_read_geqdsk(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
     # Number of mesh points
     nx = 65
     ny = 65
@@ -143,7 +153,7 @@ def test_read_geqdsk():
     output.seek(0)
 
     # Read geqdsk from StringIO. Don't create the regions
-    eq = tokamak.read_geqdsk(output, make_regions=False)
+    eq = tokamak.read_geqdsk(output, make_regions=False, settings=settings)
 
     # Check interpolation of psi, f and f' at some locations
     for r, z in [(1.2, 0.1), (1.6, -0.4), (1.8, 0.9)]:
@@ -158,18 +168,18 @@ def test_read_geqdsk():
 
         # Poloidal magnetic field
         assert np.isclose(eq.Bp_R(r, z), dpsi_dz(r, z) / r, atol=1e-3)
-        assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z) / r, atol=1e-3)
+        assert np.isclose(eq.Bp_Z(r, z), -dpsi_dr(r, z) / r, atol=3e-3)
 
         # vector Grad(psi)/|Grad(psi)|**2
         assert np.isclose(
             eq.f_R(r, z),
             dpsi_dr(r, z) / (dpsi_dr(r, z) ** 2 + dpsi_dz(r, z) ** 2),
-            rtol=1e-3,
+            rtol=3e-3,
         )
         assert np.isclose(
             eq.f_Z(r, z),
             dpsi_dz(r, z) / (dpsi_dr(r, z) ** 2 + dpsi_dz(r, z) ** 2),
-            rtol=1e-3,
+            rtol=4e-3,
         )
 
 
@@ -198,7 +208,11 @@ def test_bounding():
     assert np.isclose(eq.Zmax, Zmax)
 
 
-def test_xpoint():
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_xpoint(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
     nx = 65
     ny = 65
 
@@ -222,6 +236,7 @@ def test_xpoint():
         np.linspace(0.0, 1.0, nx),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
+        settings=settings,  # psi1d, fpol
     )
 
     assert len(eq.x_points) == 1
@@ -299,7 +314,10 @@ def test_wall_clockwise():
 # the regions. This is to allow earlier stages to be tested.
 
 
-def make_lower_single_null():
+def make_lower_single_null(settings=None):
+    if settings is None:
+        settings = {}
+
     nx = 65
     ny = 65
 
@@ -323,10 +341,14 @@ def make_lower_single_null():
         np.linspace(0.0, 1.0, nx),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
+        settings=settings,
     )
 
 
-def make_upper_single_null():
+def make_upper_single_null(settings=None):
+    if settings is None:
+        settings = {}
+
     nx = 65
     ny = 65
 
@@ -351,10 +373,14 @@ def make_upper_single_null():
         np.linspace(0.0, 1.0, nx),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
+        settings=settings,
     )
 
 
-def make_connected_double_null():
+def make_connected_double_null(settings=None):
+    if settings is None:
+        settings = {}
+
     nx = 65
     ny = 65
 
@@ -380,10 +406,14 @@ def make_connected_double_null():
         psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
+        settings=settings,
     )
 
 
-def make_lower_double_null():
+def make_lower_double_null(settings=None):
+    if settings is None:
+        settings = {}
+
     nx = 65
     ny = 65
 
@@ -401,6 +431,8 @@ def make_lower_double_null():
             - np.exp(-((R - r0) ** 2 + (Z - 2 * z0 - 0.003) ** 2) / 0.3 ** 2)
         )
 
+    settings["nx_inter_sep"] = 1
+
     return tokamak.TokamakEquilibrium(
         r1d,
         z1d,
@@ -408,11 +440,14 @@ def make_lower_double_null():
         psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
-        settings={"nx_inter_sep": 1},
+        settings=settings,
     )
 
 
-def make_upper_double_null():
+def make_upper_double_null(settings=None):
+    if settings is None:
+        settings = {}
+
     nx = 65
     ny = 65
 
@@ -430,6 +465,8 @@ def make_upper_double_null():
             + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3 ** 2)
         )
 
+    settings["nx_inter_sep"] = 1
+
     return tokamak.TokamakEquilibrium(
         r1d,
         z1d,
@@ -437,14 +474,17 @@ def make_upper_double_null():
         psi_func(np.linspace(1.6, 2.0, nx), np.zeros(nx)),  # psi1d
         np.linspace(0.0, 1.0, nx),  # fpol1d
         make_regions=False,
-        settings={"nx_inter_sep": 1},
+        settings=settings,
     )
 
 
-def make_upper_double_null_largesep(settings={}):
+def make_upper_double_null_largesep(settings=None):
     """UDN with larger separation between X-points.
     With psinorm = 1.1 this should be single null
     With psinorm = 1.2 it's double null"""
+
+    if settings is None:
+        settings = {}
 
     nx = 65
     ny = 65
@@ -479,8 +519,12 @@ def make_upper_double_null_largesep(settings={}):
 ###################################################################
 
 
-def test_findlegs():
-    eq = make_lower_single_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_findlegs(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_lower_single_null(settings)
     legs = eq.findLegs(eq.x_points[0])
 
     # Check both inner and outer legs are present
@@ -494,8 +538,12 @@ def test_findlegs():
     assert legs["inner"][-1].R < legs["outer"][-1].R
 
 
-def test_findlegs_upper():
-    eq = make_upper_single_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_findlegs_upper(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_upper_single_null(settings)
     legs = eq.findLegs(eq.x_points[0])
 
     # Check both inner and outer legs are present
@@ -509,48 +557,79 @@ def test_findlegs_upper():
     assert legs["inner"][-1].R < legs["outer"][-1].R
 
 
-def test_makeregions_lsn():
-    eq = make_lower_single_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_lsn(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_lower_single_null(settings)
     eq.makeRegions()
 
     assert len(eq.regions) == 3
 
 
-def test_makeregions_usn():
-    eq = make_upper_single_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_usn(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_upper_single_null(settings)
     eq.makeRegions()
 
     assert len(eq.regions) == 3
 
 
-def test_makeregions_cdn():
-    eq = make_connected_double_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_cdn(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_connected_double_null(settings)
     eq.makeRegions()
 
     assert len(eq.regions) == 6
 
 
-def test_makeregions_udn():
-    eq = make_upper_double_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_udn(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_upper_double_null(settings)
     eq.makeRegions()
 
     assert len(eq.regions) == 6
 
 
-def test_makeregions_ldn():
-    eq = make_lower_double_null()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_ldn(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_lower_double_null(settings)
     eq.makeRegions()
 
     assert len(eq.regions) == 6
 
 
-def test_makeregions_udn_largesep_1():
-    eq = make_upper_double_null_largesep()
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_udn_largesep_1(psi_interpolation_method):
+
+    settings = {"psi_interpolation_method": psi_interpolation_method}
+
+    eq = make_upper_double_null_largesep(settings)
     eq.makeRegions()
     assert len(eq.regions) == 3  # Only one X-point in range -> single null
 
 
-def test_makeregions_udn_largesep_2():
-    eq = make_upper_double_null_largesep(settings={"psinorm_sol": 1.2})
+@pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
+def test_makeregions_udn_largesep_2(psi_interpolation_method):
+
+    settings = {
+        "psinorm_sol": 1.2,
+        "psi_interpolation_method": psi_interpolation_method,
+    }
+
+    eq = make_upper_double_null_largesep(settings=settings)
     eq.makeRegions()
     assert len(eq.regions) == 6  # Becomes double null

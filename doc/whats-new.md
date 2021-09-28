@@ -7,6 +7,12 @@ What's new
 
 ### Bug fixes
 
+- Small fixes and minor optimizations for nonorthogonal gridding (#113)\
+  By [John Omotani](https://github.com/johnomotani)
+- Pass `psi` to keyword argument where this update had been missed previously
+  (#113)\
+- Fix plotting of poloidal lines in Mesh.plotPoints() (#113)\
+  By [John Omotani](https://github.com/johnomotani)
 - Minor fixes updating TORPEX case (#106)\
   By [John Omotani](https://github.com/johnomotani)
 - Fix crash in hypnotoad-gui if input file did not contain an 'orthogonal'
@@ -15,6 +21,11 @@ What's new
 
 ### New features
 
+- Enable DCT interpolation scheme in TokamakEquilibrum, can be selected with new option
+  psi_interpolation_method (#113)\
+  By [John Omotani](https://github.com/johnomotani)
+- Add xpoint_offset option for TORPEX case (#113)\
+  By [John Omotani](https://github.com/johnomotani)
 - Clean up of examples. Input files from examples/tokamak can now be used with
   hypnotoad-gui (#106)\
   By [John Omotani](https://github.com/johnomotani)

@@ -256,6 +256,11 @@ class TokamakEquilibrium(Equilibrium):
             ),
             value_type=[float, int, NoneType],
         ),
+        reverse_Bt=WithMeta(
+            False,
+            doc="Reverse the sign of toroidal magnetic field Bt.",
+            value_type=bool,
+        ),
         start_at_upper_outer=WithMeta(
             False,
             doc=(
@@ -363,6 +368,10 @@ class TokamakEquilibrium(Equilibrium):
             warnings.warn("Reversing the sign of the poloidal field")
             psi2D *= -1.0
             psi1D *= -1.0
+
+        if self.user_options.reverse_Bt:
+            warnings.warn("Reversing the sign of the toroidal field")
+            fpol1D *= -1.0
 
         self.psi_increasing = psi1D[-1] > psi1D[0]
 

@@ -3324,7 +3324,13 @@ class BoutMesh(Mesh):
             # Save unique ID for grid file
             import uuid
 
-            f.write_file_attribute("grid_id", str(uuid.uuid1()))
+            f.write_file_attribute("title", "BOUT++ grid file")
+            f.write_file_attribute("software_name", "hypnotoad")
+            f.write_file_attribute("software_version", self.version)
+            grid_id = str(uuid.uuid1())
+            f.write_file_attribute("id", grid_id)       # conventional name
+            f.write_file_attribute("grid_id", grid_id)  # BOUT++ specific name
+
             f.write("nx", self.nx)
             # ny for BOUT++ excludes boundary guard cells
             f.write("ny", self.ny_noguards)

@@ -738,9 +738,9 @@ class MeshRegion:
             self.Rxy.corners[:, -1] = up.Rxy.corners[:, 0]
             self.Zxy.corners[:, -1] = up.Zxy.corners[:, 0]
 
-    def geometry1(self):
+    def calcDistances(self):
         """
-        Calculate geometrical quantities for this region
+        Calculate the distances for all PsiContours in the region
         """
         if self.user_options.orthogonal:
             # Distances already calculated in non-orthogonal case
@@ -748,6 +748,10 @@ class MeshRegion:
                 _calc_contour_distance, enumerate(self.contours)
             )
 
+    def geometry1(self):
+        """
+        Calculate geometrical quantities for this region
+        """
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
         self.dx = MultiLocationArray(self.nx, self.ny)
@@ -771,6 +775,8 @@ class MeshRegion:
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
         self.Bpxy = numpy.sqrt(self.Brxy ** 2 + self.Bzxy ** 2)
+
+        self.calcPoloidalDistance()
 
         if hasattr(
             self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pressure"
@@ -1541,6 +1547,105 @@ class MeshRegion:
             self.ShiftAngle.xlow = (
                 region.zShift.corners[:, -1] - self.zShift.corners[:, 0]
             ).reshape((-1, 1))
+
+    def calcPoloidalDistance(self):
+        """
+        Calculate poloidal distance by following contours between regions.
+        """
+        # Cannot just test 'connections['lower'] is not None' because periodic regions
+        # always have a lower connection - requires us to give a yGroupIndex to each
+        # region when creating the groups.
+        if self.yGroupIndex != 0:
+            return None
+
+        region = self
+        region.poloidal_distance = MultiLocationArray(region.nx, region.ny)
+        region.poloidal_distance.centre = 0.0
+        region.poloidal_distance.ylow = 0.0
+        region.poloidal_distance.xlow = 0.0
+        region.poloidal_distance.corners = 0.0
+
+        # Initialise so that distance counts from the lower wall (for SOL/PFR) or wall
+        # (for core)
+        for i in range(self.nx):
+            c = region.contours[2 * i + 1]
+            # Cell-centre points
+            region.poloidal_distance.centre[i, :] -= c.get_distance(
+                psi=self.meshParent.equilibrium.psi
+            )[c.startInd]
+            # ylow points
+            region.poloidal_distance.ylow[i, :] -= c.get_distance(
+                psi=self.meshParent.equilibrium.psi
+            )[c.startInd]
+        for i in range(self.nx + 1):
+            c = region.contours[2 * i]
+            # Cell-centre points
+            region.poloidal_distance.xlow[i, :] -= c.get_distance(
+                psi=self.meshParent.equilibrium.psi
+            )[c.startInd]
+            # ylow points
+            region.poloidal_distance.corners[i, :] -= c.get_distance(
+                psi=self.meshParent.equilibrium.psi
+            )[c.startInd]
+
+        # Get distances from contours
+        while True:
+            for i in range(self.nx):
+                c = region.contours[2 * i + 1]
+                # Cell-centre points
+                region.poloidal_distance.centre[i, :] += c.get_distance(
+                    psi=self.meshParent.equilibrium.psi
+                )[1::2]
+                # ylow points
+                region.poloidal_distance.ylow[i, :] += c.get_distance(
+                    psi=self.meshParent.equilibrium.psi
+                )[::2]
+            for i in range(self.nx + 1):
+                c = region.contours[2 * i]
+                # Cell-centre points
+                region.poloidal_distance.xlow[i, :] += c.get_distance(
+                    psi=self.meshParent.equilibrium.psi
+                )[1::2]
+                # ylow points
+                region.poloidal_distance.corners[i, :] += c.get_distance(
+                    psi=self.meshParent.equilibrium.psi
+                )[::2]
+
+            next_region = region.getNeighbour("upper")
+            if (next_region is None) or (next_region is self):
+                # Note: If periodic, next_region is self (back to start)
+                break
+            else:
+                # Initialise with values at the lower y-boundary of next_region
+                next_region.poloidal_distance = MultiLocationArray(
+                    next_region.nx, next_region.ny
+                )
+                next_region.poloidal_distance.centre[
+                    :, :
+                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.ylow[
+                    :, :
+                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.xlow[
+                    :, :
+                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.corners[
+                    :, :
+                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                region = next_region
+
+        # Save total poloidal distance in core
+        self.total_poloidal_distance = MultiLocationArray(region.nx, 1)
+        if self.connections["lower"] is not None:
+            # This is a periodic region (we already checked that the self.yGroupIndex is
+            # 0).
+            # 'region' is the last region in the y-group
+            self.total_poloidal_distance.centre[:, 0] = region.poloidal_distance.ylow[
+                :, -1
+            ]
+            self.total_poloidal_distance.xlow[:, 0] = region.poloidal_distance.corners[
+                :, -1
+            ]
 
     def getNeighbour(self, face):
         if self.connections[face] is None:
@@ -2603,6 +2708,9 @@ class Mesh:
                 break
         print("Calculate geometry", flush=True)
         for region in self.regions.values():
+            print("Distances", region.name, flush=True)
+            region.calcDistances()
+        for region in self.regions.values():
             print("1", region.name, flush=True)
             region.geometry1()
         for region in self.regions.values():
@@ -3262,6 +3370,8 @@ class BoutMesh(Mesh):
         addFromRegions("psixy")
         addFromRegions("dx")
         addFromRegions("dy")
+        addFromRegions("poloidal_distance")
+        addFromRegionsXArray("total_poloidal_distance")
         addFromRegions("Brxy")
         addFromRegions("Bzxy")
         addFromRegions("Bpxy")

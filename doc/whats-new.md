@@ -23,6 +23,8 @@ What's new
 
 - Save poloidal distances along psi contours to grid file (#116)\
   By [John Omotani](https://github.com/johnomotani)
+- Option to reverse sign of toroidal magnetic field Bt for TokamakEquilibrium (#114)\
+  By [John Omotani](https://github.com/johnomotani)
 - Enable DCT interpolation scheme in TokamakEquilibrum, can be selected with new option
   psi_interpolation_method (#113)\
   By [John Omotani](https://github.com/johnomotani)

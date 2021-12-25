@@ -3703,7 +3703,7 @@ class Equilibrium:
             doc=(
                 "Method to use for interpolating psi from the eqdsk file. Possible "
                 "values are: 'spline' for scipy.interpolate.RectBivariateSpline;"
-                "'dct' for a discrete cosine transform.",
+                "'dct' for a discrete cosine transform."
             ),
             value_type=str,
             allowed=["spline", "dct"],

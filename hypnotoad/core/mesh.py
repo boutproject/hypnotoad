@@ -3421,6 +3421,9 @@ class BoutMesh(Mesh):
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(
+            name + "_xlow", BoutArray(array.xlow[:-1, :], attributes=array.attributes)
+        )
+        f.write(
             name + "_ylow", BoutArray(array.ylow[:, :-1], attributes=array.attributes)
         )
 

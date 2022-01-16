@@ -11,6 +11,9 @@ What's new
   of the cell corners (`Rxy_corners` and `Zxy_corners`) as these may be useful
   for plotting (#118)\
   By [John Omotani](https://github.com/johnomotani)
+- Add executable `hypnotoad_plot_grid_cells` that takes a grid file as input and uses
+  `xbout` to plot the grid cells from the newly added corner positions (#118)\
+  By [John Omotani](https://github.com/johnomotani)
 
 0.4.3
 -----

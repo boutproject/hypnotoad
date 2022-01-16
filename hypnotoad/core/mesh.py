@@ -3427,6 +3427,12 @@ class BoutMesh(Mesh):
             name + "_ylow", BoutArray(array.ylow[:, :-1], attributes=array.attributes)
         )
 
+    def writeCorners(self, name, array, f):
+        f.write(
+            name + "_corners",
+            BoutArray(array.corners[:-1, :-1], attributes=array.attributes),
+        )
+
     def writeArrayXDirection(self, name, array, f):
         f.write(name, BoutArray(array.centre[:, 0], attributes=array.attributes))
 
@@ -3457,6 +3463,10 @@ class BoutMesh(Mesh):
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
+
+            # write corner positions, as these may be useful for plotting, etc.
+            for name in ["Rxy", "Zxy"]:
+                self.writeCorners(name, self.__dict__[name], f)
 
             if self.user_options.orthogonal:
                 # Also write hy as "hthe" for backward compatibility

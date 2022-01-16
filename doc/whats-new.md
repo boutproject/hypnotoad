@@ -1,6 +1,16 @@
 What's new
 ==========
 
+0.4.4 (unreleased)
+------------------
+
+### New features
+
+- Save all variables at `xlow` positions (as `*_xlow`), as these can be used by
+  BOUT++ to create `CELL_XLOW` `Coordinates` objects. Also save the positions
+  of the cell corners (`Rxy_corners` and `Zxy_corners`) as these may be useful
+  for plotting (#118)\
+  By [John Omotani](https://github.com/johnomotani)
 
 0.4.3
 -----
@@ -11,6 +21,7 @@ What's new
   By [John Omotani](https://github.com/johnomotani)
 - Pass `psi` to keyword argument where this update had been missed previously
   (#113)\
+  By [John Omotani](https://github.com/johnomotani)
 - Fix plotting of poloidal lines in Mesh.plotPoints() (#113)\
   By [John Omotani](https://github.com/johnomotani)
 - Minor fixes updating TORPEX case (#106)\

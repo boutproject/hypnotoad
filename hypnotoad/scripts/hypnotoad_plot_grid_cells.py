@@ -149,10 +149,19 @@ def main():
             color="k",
         )
 
-        if branch_cuts and ds_region.regions[r].connection_upper_y is not None:
+        connection_upper_y = ds_region.regions[r].connection_upper_y
+        if (
+            branch_cuts
+            and connection_upper_y is not None
+            and ds.regions[r].yupper_ind != ds.regions[connection_upper_y].ylower_ind
+        ):
             # Highlight the branch cuts
             # By arbitrary choice, plot from the region(s) below the branch cut, so
             # highlight the upper edge.
+            # Note, the condition above comparing r's yupper_ind and
+            # connection_upper_y's ylower_ind checks that the region's aren't actually
+            # neighbouring in the global grid, because if they are the boundary between
+            # regions is not (or 'not really') a branch cut.
             plt.plot(
                 ds_region["Rxy_corners"].isel(
                     x=slice(xin, xout_corner_rad), theta=-1

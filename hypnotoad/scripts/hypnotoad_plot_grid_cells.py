@@ -37,6 +37,12 @@ def main():
         help="Highlight the separatrix/separatrices?",
     )
     parser.add_argument(
+        "--targets",
+        action="store_true",
+        default=False,
+        help="Highlight the targets?",
+    )
+    parser.add_argument(
         "--save-as",
         default=None,
         help="Filename to save plot to, suffix gives type of file",
@@ -52,6 +58,7 @@ def main():
     mxg = args.mxg
     branch_cuts = args.branch_cuts
     separatrix = args.separatrix
+    targets = args.targets
     save_as = args.save_as
     no_show = args.no_show
     if mxg < 1:
@@ -189,6 +196,34 @@ def main():
                 linewidth=3,
                 zorder=999,
             )
+
+        if targets:
+            if ds_region.regions[r].connection_lower_y is None:
+                plt.plot(
+                    ds_region["Rxy_corners"].isel(
+                        x=slice(xin, xout_corner_rad), theta=ylow
+                    ),
+                    ds_region["Zxy_corners"].isel(
+                        x=slice(xin, xout_corner_rad), theta=ylow
+                    ),
+                    color="k",
+                    linewidth=3,
+                    zorder=1000,
+                )
+            if ds_region.regions[r].connection_upper_y is None:
+                yval = -1 if yup_corner is None else yup_corner
+                plt.plot(
+                    ds_region["Rxy_corners"].isel(
+                        x=slice(xin, xout_corner_rad), theta=yval
+                    ),
+                    ds_region["Zxy_corners"].isel(
+                        x=slice(xin, xout_corner_rad), theta=yval
+                    ),
+                    color="k",
+                    linewidth=3,
+                    zorder=1000,
+                )
+
 
     plt.gca().set_aspect("equal")
 

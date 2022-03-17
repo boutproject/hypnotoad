@@ -22,21 +22,21 @@ def test_tokamak_interpolations(psi_interpolation_method):
     z0 = 0.0
 
     def psi_func(R, Z):
-        return np.exp(-((R - r0) ** 2 + (Z - z0) ** 2) / 0.3 ** 2)
+        return np.exp(-((R - r0) ** 2 + (Z - z0) ** 2) / 0.3**2)
 
     def dpsi_dr(R, Z):
         "Derivative of psi in R"
-        return -(2 / 0.3 ** 2) * (R - r0) * psi_func(R, Z)
+        return -(2 / 0.3**2) * (R - r0) * psi_func(R, Z)
 
     def dpsi_dz(R, Z):
         "Derivative of psi in Z"
-        return -(2 / 0.3 ** 2) * (Z - z0) * psi_func(R, Z)
+        return -(2 / 0.3**2) * (Z - z0) * psi_func(R, Z)
 
     psi2d = psi_func(r2d, z2d)
 
     def fpol_func(psi):
         "Define a simple profile for poloidal current function f = R * Bt"
-        return 1.0 - 0.1 * psi ** 2
+        return 1.0 - 0.1 * psi**2
 
     def fpolprime_func(psi):
         "Derivative of fpol"
@@ -98,22 +98,22 @@ def test_read_geqdsk(psi_interpolation_method):
 
     # A poloidal flux function
     def psi_func(R, Z):
-        return -1.5 * np.exp(-((R - r0) ** 2 + (Z - z0) ** 2) / 0.3 ** 2)
+        return -1.5 * np.exp(-((R - r0) ** 2 + (Z - z0) ** 2) / 0.3**2)
 
     def dpsi_dr(R, Z):
         "Derivative of psi in R"
-        return -(2 / 0.3 ** 2) * (R - r0) * psi_func(R, Z)
+        return -(2 / 0.3**2) * (R - r0) * psi_func(R, Z)
 
     def dpsi_dz(R, Z):
         "Derivative of psi in Z"
-        return -(2 / 0.3 ** 2) * (Z - z0) * psi_func(R, Z)
+        return -(2 / 0.3**2) * (Z - z0) * psi_func(R, Z)
 
     psi_boundary = psi_func(1.5, z0)
 
     def fpol_func(psi):
         "Define a simple profile for poloidal current function f = R * Bt"
         psi = np.clip(psi, None, psi_boundary)
-        return 1.0 - 0.1 * psi ** 2
+        return 1.0 - 0.1 * psi**2
 
     def fpolprime_func(psi):
         "Derivative of fpol"
@@ -225,8 +225,8 @@ def test_xpoint(psi_interpolation_method):
 
     # This has two O-points, and one x-point at (r0, z0)
     def psi_func(R, Z):
-        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3 ** 2) + np.exp(
-            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3 ** 2
+        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3**2) + np.exp(
+            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3**2
         )
 
     eq = tokamak.TokamakEquilibrium(
@@ -330,8 +330,8 @@ def make_lower_single_null(settings=None):
 
     # This has two O-points, and one x-point at (r0, z0)
     def psi_func(R, Z):
-        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3 ** 2) + np.exp(
-            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3 ** 2
+        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3**2) + np.exp(
+            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3**2
         )
 
     return tokamak.TokamakEquilibrium(
@@ -362,8 +362,8 @@ def make_upper_single_null(settings=None):
     # This has two O-points, and one x-point at (r0, z0)
     def psi_func(R, Z):
         Z = -Z  # Upside-down
-        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3 ** 2) + np.exp(
-            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3 ** 2
+        return np.exp(-((R - r0) ** 2 + (Z - z0 - 0.3) ** 2) / 0.3**2) + np.exp(
+            -((R - r0) ** 2 + (Z - z0 + 0.3) ** 2) / 0.3**2
         )
 
     return tokamak.TokamakEquilibrium(
@@ -394,9 +394,9 @@ def make_connected_double_null(settings=None):
     # This has two X-points
     def psi_func(R, Z):
         return (
-            np.exp(-((R - r0) ** 2 + Z ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0) ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3 ** 2)
+            np.exp(-((R - r0) ** 2 + Z**2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0) ** 2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3**2)
         )
 
     return tokamak.TokamakEquilibrium(
@@ -426,9 +426,9 @@ def make_lower_double_null(settings=None):
 
     def psi_func(R, Z):
         return (
-            -np.exp(-((R - r0) ** 2 + Z ** 2) / 0.3 ** 2)
-            - np.exp(-((R - r0) ** 2 + (Z + 2 * z0) ** 2) / 0.3 ** 2)
-            - np.exp(-((R - r0) ** 2 + (Z - 2 * z0 - 0.003) ** 2) / 0.3 ** 2)
+            -np.exp(-((R - r0) ** 2 + Z**2) / 0.3**2)
+            - np.exp(-((R - r0) ** 2 + (Z + 2 * z0) ** 2) / 0.3**2)
+            - np.exp(-((R - r0) ** 2 + (Z - 2 * z0 - 0.003) ** 2) / 0.3**2)
         )
 
     settings["nx_inter_sep"] = 1
@@ -460,9 +460,9 @@ def make_upper_double_null(settings=None):
 
     def psi_func(R, Z):
         return (
-            np.exp(-((R - r0) ** 2 + Z ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0 + 0.002) ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3 ** 2)
+            np.exp(-((R - r0) ** 2 + Z**2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0 + 0.002) ** 2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3**2)
         )
 
     settings["nx_inter_sep"] = 1
@@ -498,9 +498,9 @@ def make_upper_double_null_largesep(settings=None):
 
     def psi_func(R, Z):
         return (
-            np.exp(-((R - r0) ** 2 + Z ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0 + 0.02) ** 2) / 0.3 ** 2)
-            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3 ** 2)
+            np.exp(-((R - r0) ** 2 + Z**2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z + 2 * z0 + 0.02) ** 2) / 0.3**2)
+            + np.exp(-((R - r0) ** 2 + (Z - 2 * z0) ** 2) / 0.3**2)
         )
 
     settings.update(nx_inter_sep=1)

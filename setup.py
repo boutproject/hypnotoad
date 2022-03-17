@@ -29,7 +29,7 @@ setuptools.setup(
         "netCDF4~=1.5",
         "numpy~=1.18",
         "optionsfactory~=1.0.1",
-        "pyparsing~=2.4",
+        "pyparsing>=2.4",
         "PyYAML~=5.1",
         "scipy~=1.6",
         "Qt.py~=1.2",
@@ -41,6 +41,8 @@ setuptools.setup(
             "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
             "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
             "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
+            "hypnotoad-recreate-inputs = "
+            "hypnotoad.scripts.hypnotoad_recreate_inputs:main",
         ],
         "gui_scripts": ["hypnotoad-gui = hypnotoad.gui:main"],
     },

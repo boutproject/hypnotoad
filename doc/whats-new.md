@@ -2,6 +2,14 @@ What's new
 ==========
 
 
+0.4.4 (unreleased)
+------------------
+
+### New features
+
+- Command to recreate input file and gfile from a grid file (#119)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.4.3
 -----
 

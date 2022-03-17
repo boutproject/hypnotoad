@@ -211,7 +211,7 @@ class CircularEquilibrium(Equilibrium):
         r = sqrt((R - R0)**2 + Z**2)
         """
         R0 = self.user_options.R0
-        return np.sqrt((R - R0) ** 2 + Z ** 2)
+        return np.sqrt((R - R0) ** 2 + Z**2)
 
     def theta(self, R, Z):
         """
@@ -229,7 +229,7 @@ class CircularEquilibrium(Equilibrium):
             exponent_list = range(len(coef_list))
 
             def func(x):
-                return sum(c * x ** e for c, e in zip(coef_list, exponent_list))
+                return sum(c * x**e for c, e in zip(coef_list, exponent_list))
 
             self._q = func
 
@@ -269,7 +269,7 @@ class CircularEquilibrium(Equilibrium):
             R0 = self.user_options.R0
 
             def func(x):
-                return B0 * x / (np.sqrt(1.0 - x ** 2 / R0 ** 2) * self.q(x))
+                return B0 * x / (np.sqrt(1.0 - x**2 / R0**2) * self.q(x))
 
             self._dpsidr_r = func
 
@@ -290,14 +290,14 @@ class CircularEquilibrium(Equilibrium):
 
             def func(x):
                 return (
-                    B0 / (np.sqrt(1.0 - x ** 2 / R0 ** 2) * self.q(x))
+                    B0 / (np.sqrt(1.0 - x**2 / R0**2) * self.q(x))
                     + B0
-                    * x ** 2
-                    / (R0 ** 2 * (1.0 - x ** 2 / R0 ** 2) ** 1.5 * self.q(x))
+                    * x**2
+                    / (R0**2 * (1.0 - x**2 / R0**2) ** 1.5 * self.q(x))
                     - B0
                     * x
                     * self.dqdr(x)
-                    / (np.sqrt(1.0 - x ** 2 / R0 ** 2) * self.q(x) ** 2)
+                    / (np.sqrt(1.0 - x**2 / R0**2) * self.q(x) ** 2)
                 )
 
             self._d2psidr2_r = func
@@ -323,9 +323,9 @@ class CircularEquilibrium(Equilibrium):
                 def func(x):
                     return (
                         B0
-                        * R0 ** 2
+                        * R0**2
                         / coef_array[0]
-                        * (1.0 - np.sqrt(1.0 - x ** 2 / R0 ** 2))
+                        * (1.0 - np.sqrt(1.0 - x**2 / R0**2))
                     )
 
                 self._psi_r = func
@@ -338,15 +338,15 @@ class CircularEquilibrium(Equilibrium):
                         * R0
                         / a1
                         * (
-                            np.arctan(x / np.sqrt(R0 ** 2 - x ** 2))
+                            np.arctan(x / np.sqrt(R0**2 - x**2))
                             - a0
                             * np.arctan(
-                                (a0 * x + a1 * R0 ** 2)
+                                (a0 * x + a1 * R0**2)
                                 / np.sqrt(
-                                    (R0 ** 2 - x ** 2) * (a0 ** 2 - a1 ** 2 * R0 ** 2)
+                                    (R0**2 - x**2) * (a0**2 - a1**2 * R0**2)
                                 )
                             )
-                            / np.sqrt(a0 ** 2 - a1 ** 2 * R0 ** 2)
+                            / np.sqrt(a0**2 - a1**2 * R0**2)
                         )
                     )
 
@@ -360,24 +360,24 @@ class CircularEquilibrium(Equilibrium):
 
                 def func(x):
                     return (
-                        np.sqrt(2.0 / (a1 ** 2 - 4.0 * a0 * a2))
+                        np.sqrt(2.0 / (a1**2 - 4.0 * a0 * a2))
                         * B0
                         * R0
                         * (
                             (
-                                (np.sqrt(a1 ** 2 - 4.0 * a0 * a2) + a1)
+                                (np.sqrt(a1**2 - 4.0 * a0 * a2) + a1)
                                 * np.arctan(
                                     (
-                                        x * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
+                                        x * np.sqrt(a1**2 - 4.0 * a0 * a2)
                                         + a1 * x
-                                        + 2.0 * a2 * R0 ** 2
+                                        + 2.0 * a2 * R0**2
                                     )
                                     / (
-                                        np.sqrt(2.0 * (R0 ** 2 - x ** 2))
+                                        np.sqrt(2.0 * (R0**2 - x**2))
                                         * np.sqrt(
-                                            a1 * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
-                                            - 2.0 * a2 * (a0 + a2 * R0 ** 2)
-                                            + a1 ** 2
+                                            a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
+                                            - 2.0 * a2 * (a0 + a2 * R0**2)
+                                            + a1**2
                                         )
                                     )
                                 )
@@ -385,38 +385,38 @@ class CircularEquilibrium(Equilibrium):
                             / (
                                 2.0
                                 * np.sqrt(
-                                    a1 * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
-                                    - 2.0 * a2 * (a0 + a2 * R0 ** 2)
-                                    + a1 ** 2
+                                    a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
+                                    - 2.0 * a2 * (a0 + a2 * R0**2)
+                                    + a1**2
                                 )
                             )
                             - (
-                                (np.sqrt(a1 ** 2 - 4.0 * a0 * a2) - a1)
+                                (np.sqrt(a1**2 - 4.0 * a0 * a2) - a1)
                                 * np.sqrt(
-                                    -a1 * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
-                                    - 2.0 * a2 * (a0 + a2 * R0 ** 2)
-                                    + a1 ** 2
+                                    -a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
+                                    - 2.0 * a2 * (a0 + a2 * R0**2)
+                                    + a1**2
                                 )
                                 * np.arctan(
                                     (
-                                        -x * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
+                                        -x * np.sqrt(a1**2 - 4.0 * a0 * a2)
                                         + a1 * x
-                                        + 2.0 * a2 * R0 ** 2
+                                        + 2.0 * a2 * R0**2
                                     )
                                     / (
-                                        np.sqrt(2.0 * (R0 ** 2 - x ** 2))
+                                        np.sqrt(2.0 * (R0**2 - x**2))
                                         * np.sqrt(
-                                            -a1 * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
-                                            - 2.0 * a2 * (a0 + a2 * R0 ** 2)
-                                            + a1 ** 2
+                                            -a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
+                                            - 2.0 * a2 * (a0 + a2 * R0**2)
+                                            + a1**2
                                         )
                                     )
                                 )
                             )
                             / (
-                                2.0 * a1 * np.sqrt(a1 ** 2 - 4.0 * a0 * a2)
-                                + 4.0 * a2 * (a0 + a2 * R0 ** 2)
-                                - 2.0 * a1 ** 2
+                                2.0 * a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
+                                + 4.0 * a2 * (a0 + a2 * R0**2)
+                                - 2.0 * a1**2
                             )
                         )
                     )
@@ -436,7 +436,7 @@ class CircularEquilibrium(Equilibrium):
         dr/dR = (R - R0) / sqrt((R - R0)**2 + Z**2)
         """
         R0 = self.user_options.R0
-        return (R - R0) / np.sqrt((R - R0) ** 2 + Z ** 2)
+        return (R - R0) / np.sqrt((R - R0) ** 2 + Z**2)
 
     def drdZ(self, R, Z):
         """
@@ -444,7 +444,7 @@ class CircularEquilibrium(Equilibrium):
         dr/dZ = Z / sqrt((R - R0)**2 + Z**2)
         """
         R0 = self.user_options.R0
-        return Z / np.sqrt((R - R0) ** 2 + Z ** 2)
+        return Z / np.sqrt((R - R0) ** 2 + Z**2)
 
     def dRdr(self, R, Z):
         """
@@ -522,8 +522,8 @@ class CircularEquilibrium(Equilibrium):
         R0 = self.user_options.R0
         r = self.r(R, Z)
         return (
-            self.d2psidr2_r(r) * (R - R0) ** 2 / ((R - R0) ** 2 + Z ** 2)
-            + self.dpsidr_r(r) * Z ** 2 / ((R - R0) ** 2 + Z ** 2) ** 1.5
+            self.d2psidr2_r(r) * (R - R0) ** 2 / ((R - R0) ** 2 + Z**2)
+            + self.dpsidr_r(r) * Z**2 / ((R - R0) ** 2 + Z**2) ** 1.5
         )
 
     def d2psidZ2(self, R, Z):
@@ -548,8 +548,8 @@ class CircularEquilibrium(Equilibrium):
         R0 = self.user_options.R0
         r = self.r(R, Z)
         return (
-            self.d2psidr2_r(r) * Z ** 2 / ((R - R0) ** 2 + Z ** 2)
-            + self.dpsidr_r(r) * (R - R0) ** 2 / ((R - R0) ** 2 + Z ** 2) ** 1.5
+            self.d2psidr2_r(r) * Z**2 / ((R - R0) ** 2 + Z**2)
+            + self.dpsidr_r(r) * (R - R0) ** 2 / ((R - R0) ** 2 + Z**2) ** 1.5
         )
 
     def d2psidRdZ(self, R, Z):
@@ -570,10 +570,10 @@ class CircularEquilibrium(Equilibrium):
         R0 = self.user_options.R0
         r = self.r(R, Z)
         return (
-            (self.d2psidr2_r(r) - self.dpsidr_r(r) / np.sqrt((R - R0) ** 2 + Z ** 2))
+            (self.d2psidr2_r(r) - self.dpsidr_r(r) / np.sqrt((R - R0) ** 2 + Z**2))
             * (R - R0)
             * Z
-            / ((R - R0) ** 2 + Z ** 2)
+            / ((R - R0) ** 2 + Z**2)
         )
 
     def fpol(self, psi):

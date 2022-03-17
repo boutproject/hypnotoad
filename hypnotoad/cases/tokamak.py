@@ -605,7 +605,7 @@ class TokamakEquilibrium(Equilibrium):
                 z = pos[1]
                 Br = self.Bp_R(r, z)
                 Bz = self.Bp_Z(r, z)
-                B = np.sqrt(Br ** 2 + Bz ** 2)
+                B = np.sqrt(Br**2 + Bz**2)
                 return [sign * Br / B, sign * Bz / B]
 
             pos = leg  # Starting position
@@ -1422,7 +1422,7 @@ class TokamakEquilibrium(Equilibrium):
 
                 # Smoother step function (Ken Perlin)
                 # https://en.wikipedia.org/wiki/Smoothstep
-                norm = 6.0 * norm ** 5 - 15.0 * norm ** 4 + 10.0 * norm ** 3
+                norm = 6.0 * norm**5 - 15.0 * norm**4 + 10.0 * norm**3
 
                 return norm * end_psi + (1.0 - norm) * start_psi
 

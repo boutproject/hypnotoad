@@ -879,14 +879,14 @@ class TestEquilibrium:
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
         # for i<<1, d2f/di2 = 0
         assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest**2 == pytest.approx(
-            0.0, abs=1.0e-5
+            0.0, abs=2.0e-5
         )
         # for N-i<<1, df/di = grad_upper
         assert (f(N) - f(N - itest)) / itest == pytest.approx(grad_upper, abs=1.0e-5)
         # for N-i<<1, d2f/di2 = 0
         assert (
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
-        ) / itest**2 == pytest.approx(0.0, abs=1.0e-5)
+        ) / itest**2 == pytest.approx(0.0, abs=3.0e-5)
 
     @pytest.mark.parametrize(
         ["grad_lower", "grad_upper", "lower", "upper"],

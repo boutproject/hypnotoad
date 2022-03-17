@@ -270,26 +270,26 @@ class MeshRegion:
                 fine_contour.positions[fine_contour.startInd + 1, :]
                 - fine_contour.positions[fine_contour.startInd, :]
             )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix ** 2))
+            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
             unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface ** 2))
+            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
             # this gives abs(sin_angle), but that's OK because we only want the magnitude
             # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(1.0 - cos_angle ** 2)
+            self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(1.0 - cos_angle**2)
         if self.equilibriumRegion.wallSurfaceAtEnd is None:
             # upper end
             unit_vec_separatrix = (
                 fine_contour.positions[fine_contour.endInd - 1, :]
                 - fine_contour.positions[fine_contour.endInd, :]
             )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix ** 2))
+            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
             unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface ** 2))
+            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
             cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
             # this gives abs(sin_angle), but that's OK because we only want the magnitude
             # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle ** 2)
+            self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle**2)
 
         perp_points_list = self.parallel_map(
             followPerpendicular,
@@ -774,7 +774,7 @@ class MeshRegion:
 
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
-        self.Bpxy = numpy.sqrt(self.Brxy ** 2 + self.Bzxy ** 2)
+        self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
         self.calcPoloidalDistance()
 
@@ -821,7 +821,7 @@ class MeshRegion:
         # Get toroidal field from poloidal current function fpol
         self.Btxy = self.meshParent.equilibrium.fpol(self.psixy) / self.Rxy
 
-        self.Bxy = numpy.sqrt(self.Bpxy ** 2 + self.Btxy ** 2)
+        self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
     def geometry2(self):
         """
@@ -939,27 +939,27 @@ class MeshRegion:
 
         if self.user_options.orthogonal:
             self.g11 = (self.Rxy * self.Bpxy) ** 2
-            self.g22 = 1.0 / self.hy ** 2
+            self.g22 = 1.0 / self.hy**2
             self.g33 = (
-                self.I * self.g11 + (self.dphidy / self.hy) ** 2 + 1.0 / self.Rxy ** 2
+                self.I * self.g11 + (self.dphidy / self.hy) ** 2 + 1.0 / self.Rxy**2
             )
             self.g12 = MultiLocationArray(self.nx, self.ny).zero()
             self.g13 = -self.I * self.g11
-            self.g23 = -self.dphidy / self.hy ** 2
+            self.g23 = -self.dphidy / self.hy**2
 
             self.J = self.hy / self.Bpxy
 
             self.g_11 = 1.0 / self.g11 + (self.I * self.Rxy) ** 2
-            self.g_22 = self.hy ** 2 + (self.Rxy * self.dphidy) ** 2
-            self.g_33 = self.Rxy ** 2
-            self.g_12 = self.Rxy ** 2 * self.dphidy * self.I
-            self.g_13 = self.Rxy ** 2 * self.I
-            self.g_23 = self.dphidy * self.Rxy ** 2
+            self.g_22 = self.hy**2 + (self.Rxy * self.dphidy) ** 2
+            self.g_33 = self.Rxy**2
+            self.g_12 = self.Rxy**2 * self.dphidy * self.I
+            self.g_13 = self.Rxy**2 * self.I
+            self.g_23 = self.dphidy * self.Rxy**2
         else:
             self.g11 = (self.Rxy * self.Bpxy) ** 2
             self.g22 = 1.0 / (self.hy * self.cosBeta) ** 2
             self.g33 = (
-                1.0 / self.Rxy ** 2
+                1.0 / self.Rxy**2
                 + (self.Rxy * self.Bpxy * self.I) ** 2
                 + (self.dphidy / (self.hy * self.cosBeta)) ** 2
                 + 2.0
@@ -986,14 +986,14 @@ class MeshRegion:
                 1.0 / (self.Rxy * self.Bpxy * self.cosBeta) ** 2
                 + (self.I * self.Rxy) ** 2
             )
-            self.g_22 = self.hy ** 2 + (self.dphidy * self.Rxy) ** 2
-            self.g_33 = self.Rxy ** 2
+            self.g_22 = self.hy**2 + (self.dphidy * self.Rxy) ** 2
+            self.g_33 = self.Rxy**2
             self.g_12 = (
-                self.bpsign * self.I * self.dphidy * self.Rxy ** 2
+                self.bpsign * self.I * self.dphidy * self.Rxy**2
                 - self.hy * self.tanBeta / (self.Rxy * numpy.abs(self.Bpxy))
             )
-            self.g_13 = self.I * self.Rxy ** 2
-            self.g_23 = self.bpsign * self.dphidy * self.Rxy ** 2
+            self.g_13 = self.I * self.Rxy**2
+            self.g_23 = self.bpsign * self.dphidy * self.Rxy**2
 
         # check Jacobian is OK
         Jcheck = (
@@ -1002,9 +1002,9 @@ class MeshRegion:
             / numpy.sqrt(
                 self.g11 * self.g22 * self.g33
                 + 2.0 * self.g12 * self.g13 * self.g23
-                - self.g11 * self.g23 ** 2
-                - self.g22 * self.g13 ** 2
-                - self.g33 * self.g12 ** 2
+                - self.g11 * self.g23**2
+                - self.g22 * self.g13**2
+                - self.g33 * self.g12**2
             )
         )
         # ignore grid points at X-points as J should diverge there (as Bp->0)
@@ -1123,15 +1123,15 @@ class MeshRegion:
                 * self.Bpxy
                 * self.Btxy
                 * self.Rxy
-                / (self.hy * self.Bxy ** 3)
+                / (self.hy * self.Bxy**3)
                 * self.DDY("#Bxy")
             )
             self.curl_bOverB_y = (
                 -self.bpsign * self.Bpxy / self.hy * self.DDX("#Btxy*#Rxy/#Bxy**2")
             )
             self.curl_bOverB_z = (
-                self.Bpxy ** 3 / (self.hy * self.Bxy ** 2) * self.DDX("#hy/#Bpxy")
-                - self.Btxy * self.Rxy / self.Bxy ** 2 * self.DDX("#Btxy/#Rxy")
+                self.Bpxy**3 / (self.hy * self.Bxy**2) * self.DDX("#hy/#Bpxy")
+                - self.Btxy * self.Rxy / self.Bxy**2 * self.DDX("#Btxy/#Rxy")
                 - self.I * self.curl_bOverB_x
             )
             self.bxcvx = self.Bxy / 2.0 * self.curl_bOverB_x

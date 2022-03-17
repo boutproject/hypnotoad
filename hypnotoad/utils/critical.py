@@ -66,13 +66,13 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
     f = interpolate.RectBivariateSpline(R[:, 0], Z[0, :], psi)
 
     # Find candidate locations, based on minimising Bp^2
-    Bp2 = (f(R, Z, dx=1, grid=False) ** 2 + f(R, Z, dy=1, grid=False) ** 2) / R ** 2
+    Bp2 = (f(R, Z, dx=1, grid=False) ** 2 + f(R, Z, dy=1, grid=False) ** 2) / R**2
 
     # Get grid resolution, which determines a reasonable tolerance
     # for the Newton iteration search area
     dR = R[1, 0] - R[0, 0]
     dZ = Z[0, 1] - Z[0, 0]
-    radius_sq = 9 * (dR ** 2 + dZ ** 2)
+    radius_sq = 9 * (dR**2 + dZ**2)
 
     # Find local minima
 
@@ -111,7 +111,7 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
                     Br = -f(R1, Z1, dy=1, grid=False) / R1
                     Bz = f(R1, Z1, dx=1, grid=False) / R1
 
-                    if Br ** 2 + Bz ** 2 < atol:
+                    if Br**2 + Bz**2 < atol:
                         # Found a minimum. Classify as either
                         # O-point or X-point
 
@@ -134,15 +134,15 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
                             dZ = Z[0, 1] - Z[0, 0]
                             d2dr2 = (
                                 psi[i + 1, j] - 2.0 * psi[i, j] + psi[i - 1, j]
-                            ) / dR ** 2
+                            ) / dR**2
                             d2dz2 = (
                                 psi[i, j + 1] - 2.0 * psi[i, j] + psi[i, j - 1]
-                            ) / dZ ** 2
+                            ) / dZ**2
                             d2drdz = (
                                 (psi[i + 1, j + 1] - psi[i + 1, j - 1]) / (2.0 * dZ)
                                 - (psi[i - 1, j + 1] - psi[i - 1, j - 1]) / (2.0 * dZ)
                             ) / (2.0 * dR)
-                            D = d2dr2 * d2dz2 - d2drdz ** 2
+                            D = d2dr2 * d2dz2 - d2drdz**2
 
                             # print("D1 = %e" % D)
 
@@ -159,7 +159,7 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
                                 (psi[i + 2, j + 2] - psi[i + 2, j - 2]) / (4.0 * dZ)
                                 - (psi[i - 2, j + 2] - psi[i - 2, j - 2]) / (4.0 * dZ)
                             ) / (4.0 * dR)
-                            D = d2dr2 * d2dz2 - d2drdz ** 2
+                            D = d2dr2 * d2dz2 - d2drdz**2
 
                             # print("D2 = %e" % D)
 

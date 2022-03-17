@@ -373,7 +373,7 @@ class TORPEXMagneticField(Equilibrium):
         for coil in self.coils:
             # little-r is the vector position from the centre of the coil to (R,Z)
             # sinTheta is the angle between r and the axis through the centre of the coil
-            rSquared = R ** 2 + (Z - coil.Z) ** 2
+            rSquared = R**2 + (Z - coil.Z) ** 2
             r = sympy.sqrt(rSquared)
             sinTheta = R / r
             kSquared = (
@@ -381,12 +381,12 @@ class TORPEXMagneticField(Equilibrium):
                 * coil.R
                 * r
                 * sinTheta
-                / (rSquared + coil.R ** 2 + 2 * coil.R * r * sinTheta)
+                / (rSquared + coil.R**2 + 2 * coil.R * r * sinTheta)
             )
             A_phi += (
                 coil.I
                 * coil.R
-                / sympy.sqrt(r ** 2 + coil.R ** 2 + 2 * coil.R * r * sinTheta)
+                / sympy.sqrt(r**2 + coil.R**2 + 2 * coil.R * r * sinTheta)
                 / kSquared
                 * ((2 - kSquared) * elliptic_k(kSquared) - 2 * elliptic_e(kSquared))
             )
@@ -397,7 +397,7 @@ class TORPEXMagneticField(Equilibrium):
         psi = -R * A_phi
         dpsidR = sympy.diff(psi, R)
         dpsidZ = sympy.diff(psi, Z)
-        modGradpsiSquared = dpsidR ** 2 + dpsidZ ** 2
+        modGradpsiSquared = dpsidR**2 + dpsidZ**2
         B_R = dpsidZ / R
         B_Z = -dpsidR / R
         d2psidR2 = sympy.diff(psi, R, R)

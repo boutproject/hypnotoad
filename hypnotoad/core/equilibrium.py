@@ -144,7 +144,7 @@ class Point2D:
 
 def calc_distance(p1, p2):
     d = p2 - p1
-    return numpy.sqrt(d.R ** 2 + d.Z ** 2)
+    return numpy.sqrt(d.R**2 + d.Z**2)
 
 
 def swap_points(p1, p2):
@@ -884,7 +884,7 @@ class FineContour:
         vec_perp[1] = vec[0]
 
         # make vec_perp a unit vector
-        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp ** 2))
+        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
         start_position = self.positions[self.startInd, :]
 
         # s_perp = (vec_perp).(r) where r is the displacement vector of each point from
@@ -1312,7 +1312,7 @@ class PsiContour:
             # tangent - vector tangent to original curve, result will be perpendicular to
             #           this
             # w - width on either side of p to draw the perpLine to
-            modTangent = numpy.sqrt(tangent.R ** 2 + tangent.Z ** 2)
+            modTangent = numpy.sqrt(tangent.R**2 + tangent.Z**2)
             perpIdentityVector = Point2D(
                 tangent.Z / modTangent, -tangent.R / modTangent
             )
@@ -1377,7 +1377,7 @@ class PsiContour:
             # Calculate derivatives using finite difference
             dpsidr = (psi(R + eps, Z) - psi0) / eps
             dpsidz = (psi(R, Z + eps) - psi0) / eps
-            norm = 1.0 / (dpsidr ** 2 + dpsidz ** 2)  # Common factor
+            norm = 1.0 / (dpsidr**2 + dpsidz**2)  # Common factor
             return [dpsidr * norm, dpsidz * norm]
 
         result = solve_ivp(
@@ -3489,8 +3489,8 @@ class EquilibriumRegion(PsiContour):
                     - a * numpy.sqrt(N / N_norm) / 4.0
                     - length
                 )
-                * N_norm ** 3
-                / N ** 3
+                * N_norm**3
+                / N**3
             )
             e = (
                 b_upper - a / 2.0 / numpy.sqrt(N / N_norm) - d
@@ -3848,7 +3848,7 @@ class Equilibrium:
                 """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
                 dpsidR = self.psi_func(R, Z, dx=1, grid=False)
                 dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-                return dpsidR / (dpsidR ** 2 + dpsidZ ** 2)
+                return dpsidR / (dpsidR**2 + dpsidZ**2)
 
             self.f_R = f_R.__get__(self)
 
@@ -3857,7 +3857,7 @@ class Equilibrium:
                 """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
                 dpsidR = self.psi_func(R, Z, dx=1, grid=False)
                 dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
-                return dpsidZ / (dpsidR ** 2 + dpsidZ ** 2)
+                return dpsidZ / (dpsidR**2 + dpsidZ**2)
 
             self.f_Z = f_Z.__get__(self)
 
@@ -4376,10 +4376,10 @@ class Equilibrium:
                 # and calculate a from the constraint that integral of dpsidi from 0 to
                 # n is (upper-lower):
                 # grad_lower*n + a*n**3/3 = (upper-lower)
-                a = 3.0 * (upper - lower - grad_lower * n) / n ** 3
+                a = 3.0 * (upper - lower - grad_lower * n) / n**3
 
                 # Integrate dpsidi to get psi, with psi(0)=lower
-                return lambda i: lower + grad_lower * i + a * i ** 3 / 3.0
+                return lambda i: lower + grad_lower * i + a * i**3 / 3.0
             else:
                 # Need decreasing grid spacing, but spacing must always be positive.
                 # Also nice to make grid spacing monotonic. A function that does this is
@@ -4420,7 +4420,7 @@ class Equilibrium:
                 # and calculate a from the constraint that integral of dpsidi from 0 to
                 # n is (upper-lower):
                 # grad_upper*n + a*n**3/3 = (upper-lower)
-                a = 3.0 * (upper - lower - grad_upper * n) / n ** 3
+                a = 3.0 * (upper - lower - grad_upper * n) / n**3
 
                 # Integrate dpsidi to get psi, with psi(n)=upper
                 return lambda i: upper + grad_upper * (i - n) - a * (n - i) ** 3 / 3.0
@@ -4654,9 +4654,9 @@ class Equilibrium:
                         * (
                             -b * n
                             + j1(i) * n
-                            - n ** 2
+                            - n**2
                             + b * n * numpy.cos(j1(i) * numpy.pi / n)
-                            + n ** 2 * numpy.cos(j1(i) * numpy.pi / n)
+                            + n**2 * numpy.cos(j1(i) * numpy.pi / n)
                             - (b + n)
                             * (b - j1(i) + n)
                             * numpy.pi
@@ -4667,7 +4667,7 @@ class Equilibrium:
                             * numpy.pi
                             * CosInt_m_j1
                             * numpy.sin(b * numpy.pi / n)
-                            + b ** 2
+                            + b**2
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_b_n
@@ -4687,11 +4687,11 @@ class Equilibrium:
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_b_n
-                            + n ** 2
+                            + n**2
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_b_n
-                            - b ** 2
+                            - b**2
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_j1
@@ -4711,7 +4711,7 @@ class Equilibrium:
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_j1
-                            - n ** 2
+                            - n**2
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_j1
@@ -4737,7 +4737,7 @@ class Equilibrium:
                                 * numpy.pi
                                 * CosInt_j2
                                 * numpy.sin(b * numpy.pi / n)
-                                + b ** 2
+                                + b**2
                                 * numpy.pi
                                 * numpy.cos(b * numpy.pi / n)
                                 * SinInt_b
@@ -4746,7 +4746,7 @@ class Equilibrium:
                                 * numpy.pi
                                 * numpy.cos(b * numpy.pi / n)
                                 * SinInt_b
-                                - b ** 2
+                                - b**2
                                 * numpy.pi
                                 * numpy.cos(b * numpy.pi / n)
                                 * SinInt_j2

@@ -753,7 +753,7 @@ class TestEquilibrium:
         n = 4
 
         def f(i):
-            return i ** 2
+            return i**2
 
         r = eq.make1dGrid(n, f)
         assert r == tight_approx([0.0, 0.5, 1.0, 2.5, 4.0, 6.5, 9.0, 12.5, 16.0])
@@ -787,7 +787,7 @@ class TestEquilibrium:
         itest = 1.0e-3
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
         # for i<<1, d2f/di2 = 0
-        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest**2 == pytest.approx(
             0.0, abs=1.0e-5
         )
 
@@ -809,7 +809,7 @@ class TestEquilibrium:
         itest = 1.0e-3
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
         # for i<<1, d2f/di2 = 0
-        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest**2 == pytest.approx(
             0.0, abs=1.0e-5
         )
 
@@ -833,7 +833,7 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert (
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
-        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+        ) / itest**2 == pytest.approx(0.0, abs=1.0e-5)
 
     @pytest.mark.parametrize(
         ["grad_upper", "lower", "upper"], [[0.1, 0.4, 2.0], [-0.1, 2.0, 0.4]]
@@ -855,7 +855,7 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert (
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
-        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+        ) / itest**2 == pytest.approx(0.0, abs=1.0e-5)
 
     @pytest.mark.parametrize(
         ["grad_lower", "grad_upper", "lower", "upper"],
@@ -878,7 +878,7 @@ class TestEquilibrium:
         itest = 1.0e-5
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
         # for i<<1, d2f/di2 = 0
-        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest**2 == pytest.approx(
             0.0, abs=1.0e-5
         )
         # for N-i<<1, df/di = grad_upper
@@ -886,7 +886,7 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert (
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
-        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+        ) / itest**2 == pytest.approx(0.0, abs=1.0e-5)
 
     @pytest.mark.parametrize(
         ["grad_lower", "grad_upper", "lower", "upper"],
@@ -913,7 +913,7 @@ class TestEquilibrium:
         itest = 5.0e-4
         assert (f(itest) - f(0.0)) / itest == pytest.approx(grad_lower, abs=1.0e-5)
         # for i<<1, d2f/di2 = 0
-        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest ** 2 == pytest.approx(
+        assert (f(0.0) - 2.0 * f(itest) + f(2.0 * itest)) / itest**2 == pytest.approx(
             0.0, abs=1.0e-5
         )
         # for N-i<<1, df/di = grad_upper
@@ -921,7 +921,7 @@ class TestEquilibrium:
         # for N-i<<1, d2f/di2 = 0
         assert (
             f(N) - 2.0 * f(N - itest) + f(N - 2.0 * itest)
-        ) / itest ** 2 == pytest.approx(0.0, abs=1.0e-5)
+        ) / itest**2 == pytest.approx(0.0, abs=1.0e-5)
 
 
 class TestEquilibriumRegion:

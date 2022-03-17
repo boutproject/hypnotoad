@@ -6,6 +6,8 @@ What's new
 
 ### New features
 
+- Command to recreate input file and gfile from a grid file (#119)\
+  By [John Omotani](https://github.com/johnomotani)
 - Save all variables at `xlow` positions (as `*_xlow`), as these can be used by
   BOUT++ to create `CELL_XLOW` `Coordinates` objects. Also save the positions
   of the cell corners (`Rxy_corners` and `Zxy_corners`) as these may be useful

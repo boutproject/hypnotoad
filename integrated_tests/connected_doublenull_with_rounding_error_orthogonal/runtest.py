@@ -8,7 +8,7 @@ from integrated_tests.utils import run_case
 
 diagnose = False
 
-rtol = 1.0e-9
+rtol = 2.0e-9
 atol = 5.0e-10
 
 # make sure we are in the test directory

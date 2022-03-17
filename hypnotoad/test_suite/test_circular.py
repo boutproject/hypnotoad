@@ -38,15 +38,15 @@ class TestCircular:
     DDR_slice = (slice(1, -1), slice(None))
     DDZ_slice = (slice(None), slice(1, -1))
     D2DRDZ_slice = (slice(1, -1), slice(1, -1))
-    r_cartesian = np.sqrt((R_cartesian - R0) ** 2 + Z_cartesian ** 2)
+    r_cartesian = np.sqrt((R_cartesian - R0) ** 2 + Z_cartesian**2)
     theta_cartesian = np.arctan2(Z_cartesian, R_cartesian - R0)
     epsilon_cartesian = r_cartesian / R0
-    qbar_cartesian = q * np.sqrt(1.0 - epsilon_cartesian ** 2)
+    qbar_cartesian = q * np.sqrt(1.0 - epsilon_cartesian**2)
     Bp_cartesian = B0 * r_cartesian / (qbar_cartesian * R_cartesian)
     Bt_cartesian = B0 * R0 / R_cartesian
     BR_cartesian = Bp_cartesian * np.sin(theta_cartesian)
     BZ_cartesian = -Bp_cartesian * np.cos(theta_cartesian)
-    B2_cartesian = Bt_cartesian ** 2 + Bp_cartesian ** 2
+    B2_cartesian = Bt_cartesian**2 + Bp_cartesian**2
     B_cartesian = np.sqrt(B2_cartesian)
 
     @pytest.fixture
@@ -71,13 +71,13 @@ class TestCircular:
         return (f[2:, :] - f[:-2, :]) / (2.0 * self.dR)
 
     def D2DR2(self, f):
-        return (f[2:, :] - 2.0 * f[1:-1, :] + f[:-2, :]) / self.dR ** 2
+        return (f[2:, :] - 2.0 * f[1:-1, :] + f[:-2, :]) / self.dR**2
 
     def DDZ(self, f):
         return (f[:, 2:] - f[:, :-2]) / (2.0 * self.dZ)
 
     def D2DZ2(self, f):
-        return (f[:, 2:] - 2.0 * f[:, 1:-1] + f[:, :-2]) / self.dZ ** 2
+        return (f[:, 2:] - 2.0 * f[:, 1:-1] + f[:, :-2]) / self.dZ**2
 
     def D2DRDZ(self, f):
         return self.DDR(self.DDZ(f))
@@ -161,7 +161,7 @@ class TestCircular:
         """
         B^2
         """
-        B2 = self.Bt_cartesian ** 2 + self.Bp_cartesian ** 2
+        B2 = self.Bt_cartesian**2 + self.Bp_cartesian**2
         npt.assert_allclose(
             equilib.B2(self.R_cartesian, self.Z_cartesian),
             B2,
@@ -372,26 +372,26 @@ class TestCircular:
         B0 = self.B0
         q = self.q
 
-        r = np.sqrt((R - R0) ** 2 + Z ** 2)
+        r = np.sqrt((R - R0) ** 2 + Z**2)
         theta = np.arctan2(Z, R - R0)
         epsilon = r / R0
-        qbar = q * np.sqrt(1.0 - epsilon ** 2)
-        dqbardr = -qbar * r / (R0 ** 2 - r ** 2)
+        qbar = q * np.sqrt(1.0 - epsilon**2)
+        dqbardr = -qbar * r / (R0**2 - r**2)
         hy = r
         dpsidr = B0 * r / qbar
         Bp = B0 * r / (qbar * R)
         Bt = B0 * R0 / R
-        B = np.sqrt(Bp ** 2 + Bt ** 2)
+        B = np.sqrt(Bp**2 + Bt**2)
         dRdx = np.cos(theta) / dpsidr
         dBdy = -B * r / R * np.sin(theta)
         dBdx = -B * dRdx / R + B * epsilon / dpsidr / (
-            qbar ** 2 + epsilon ** 2
-        ) / R0 / (1.0 - epsilon ** 2)
+            qbar**2 + epsilon**2
+        ) / R0 / (1.0 - epsilon**2)
         dhyBpdx = qbar * dRdx / B0 + R / dpsidr / B0 * dqbardr
 
-        bxcvx = -B0 * R0 * Bp / (hy * B ** 2) * dBdy
-        bxcvy = B0 * R0 * Bp / hy / B ** 2 * dBdx
-        bxcvz = Bp ** 3 / (2.0 * B * hy) * dhyBpdx + Bt ** 2 / (R * B) * dRdx
+        bxcvx = -B0 * R0 * Bp / (hy * B**2) * dBdy
+        bxcvy = B0 * R0 * Bp / hy / B**2 * dBdx
+        bxcvz = Bp**3 / (2.0 * B * hy) * dhyBpdx + Bt**2 / (R * B) * dRdx
 
         npt.assert_allclose(
             bxcvx.centre, mesh.bxcvx.centre, rtol=rtol_bxcvx, atol=atol_bxcvx

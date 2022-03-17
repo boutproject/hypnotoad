@@ -41,7 +41,7 @@ setuptools.setup(
             "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
             "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
             "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
-            "hypnotoad_plot_grid_cells = hypnotoad.scripts.hypnotoad_plot_grid_cells:main",
+            "hypnotoad-plot-grid-cells = hypnotoad.scripts.hypnotoad_plot_grid_cells:main",
             "hypnotoad-recreate-inputs = "
             "hypnotoad.scripts.hypnotoad_recreate_inputs:main",
         ],

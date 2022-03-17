@@ -147,12 +147,12 @@ def main():
 
         # plot poloidal grid lines
         plt.plot(
-            ds_region["Rxy_corners"].isel(
-                x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner)
-            ).T,
-            ds_region["Zxy_corners"].isel(
-                x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner)
-            ).T,
+            ds_region["Rxy_corners"]
+            .isel(x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner))
+            .T,
+            ds_region["Zxy_corners"]
+            .isel(x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner))
+            .T,
             color="k",
         )
 
@@ -170,12 +170,8 @@ def main():
             # neighbouring in the global grid, because if they are the boundary between
             # regions is not (or 'not really') a branch cut.
             plt.plot(
-                ds_region["Rxy_corners"].isel(
-                    x=slice(xin, xout_corner_rad), theta=-1
-                ),
-                ds_region["Zxy_corners"].isel(
-                    x=slice(xin, xout_corner_rad), theta=-1
-                ),
+                ds_region["Rxy_corners"].isel(x=slice(xin, xout_corner_rad), theta=-1),
+                ds_region["Zxy_corners"].isel(x=slice(xin, xout_corner_rad), theta=-1),
                 color="r",
                 linewidth=3,
                 zorder=1000,
@@ -186,12 +182,8 @@ def main():
             # By arbitrary choice, plot from the region(s) inside the separatrix, so
             # highlight the outer edge.
             plt.plot(
-                ds_region["Rxy_corners"].isel(
-                    x=-1, theta=slice(ylow, yup_corner)
-                ),
-                ds_region["Zxy_corners"].isel(
-                    x=-1, theta=slice(ylow, yup_corner)
-                ),
+                ds_region["Rxy_corners"].isel(x=-1, theta=slice(ylow, yup_corner)),
+                ds_region["Zxy_corners"].isel(x=-1, theta=slice(ylow, yup_corner)),
                 color="b",
                 linewidth=3,
                 zorder=999,
@@ -223,7 +215,6 @@ def main():
                     linewidth=3,
                     zorder=1000,
                 )
-
 
     plt.gca().set_aspect("equal")
 

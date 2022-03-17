@@ -30,7 +30,7 @@ setuptools.setup(
         "numpy~=1.18",
         "optionsfactory~=1.0.1",
         "pyparsing>=2.4",
-        "PyYAML~=5.1",
+        "PyYAML>=5.1",
         "scipy~=1.6",
         "Qt.py~=1.2",
     ],
@@ -41,6 +41,8 @@ setuptools.setup(
             "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
             "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
             "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
+            "hypnotoad-plot-grid-cells = "
+            "hypnotoad.scripts.hypnotoad_plot_grid_cells:main",
             "hypnotoad-recreate-inputs = "
             "hypnotoad.scripts.hypnotoad_recreate_inputs:main",
         ],

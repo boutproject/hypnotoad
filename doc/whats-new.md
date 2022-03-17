@@ -1,13 +1,20 @@
 What's new
 ==========
 
-
 0.4.4 (unreleased)
 ------------------
 
 ### New features
 
 - Command to recreate input file and gfile from a grid file (#119)\
+  By [John Omotani](https://github.com/johnomotani)
+- Save all variables at `xlow` positions (as `*_xlow`), as these can be used by
+  BOUT++ to create `CELL_XLOW` `Coordinates` objects. Also save the positions
+  of the cell corners (`Rxy_corners` and `Zxy_corners`) as these may be useful
+  for plotting (#118)\
+  By [John Omotani](https://github.com/johnomotani)
+- Add executable `hypnotoad_plot_grid_cells` that takes a grid file as input and uses
+  `xbout` to plot the grid cells from the newly added corner positions (#118)\
   By [John Omotani](https://github.com/johnomotani)
 
 0.4.3
@@ -19,6 +26,7 @@ What's new
   By [John Omotani](https://github.com/johnomotani)
 - Pass `psi` to keyword argument where this update had been missed previously
   (#113)\
+  By [John Omotani](https://github.com/johnomotani)
 - Fix plotting of poloidal lines in Mesh.plotPoints() (#113)\
   By [John Omotani](https://github.com/johnomotani)
 - Minor fixes updating TORPEX case (#106)\

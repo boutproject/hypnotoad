@@ -4,6 +4,11 @@ What's new
 0.4.4 (unreleased)
 ------------------
 
+### Bug fixes
+
+- Fix for circular geometries with non-constant q (#120)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### New features
 
 - Command to recreate input file and gfile from a grid file (#119)\

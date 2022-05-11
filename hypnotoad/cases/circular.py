@@ -53,7 +53,7 @@ class CircularEquilibrium(Equilibrium):
                 "Coefficients determining the safety factor q. Value is a float "
                 "(treated as a length-0 sequence) or a sequence of floats. The values "
                 "a[i] are used as the coefficients of a polynomial series "
-                "q(r) = a[0] + a[1]*r + a[2]*r**2 + ..."
+                "q(r) = a[0] + a[1]*r**2 + a[2]*r**4 + ..."
             ),
             value_type=(float, Sequence),
             check_all=lambda x: all(is_positive(y) for y in tuple(x)),
@@ -226,7 +226,7 @@ class CircularEquilibrium(Equilibrium):
         """
         if not hasattr(self, "_q"):
             coef_list = self.user_options.q_coefficients
-            exponent_list = range(len(coef_list))
+            exponent_list = range(0, 2 * len(coef_list), 2)
 
             def func(x):
                 return sum(c * x**e for c, e in zip(coef_list, exponent_list))
@@ -249,7 +249,7 @@ class CircularEquilibrium(Equilibrium):
                 self._dqdr = func
             else:
                 coef_list = coef_list[1:]
-                exponent_list = range(1, len(coef_list) + 1)
+                exponent_list = range(1, 2 * len(coef_list) + 1, 2)
 
                 def func(x):
                     return sum(
@@ -312,7 +312,9 @@ class CircularEquilibrium(Equilibrium):
         above eq (24) in Jolliet et al.
 
         Integrals done with Wolfram Alpha for the first few values of the maximum order
-        in the polynomial q(r) = a0 + a1 * r + a2 * r**2 + ...
+        in the polynomial q(r) = a0 + a1 * r**2 + a2 * r**4 + ...
+        where only even powers of r are used so that q(r) is even at r=0 so there is no
+        discontinuity in gradient at the magnetic axis.
         """
         if not hasattr(self, "_psi_r"):
             coef_array = np.array(self.user_options.q_coefficients)
@@ -336,92 +338,35 @@ class CircularEquilibrium(Equilibrium):
                     return (
                         B0
                         * R0
-                        / a1
-                        * (
-                            np.arctan(x / np.sqrt(R0**2 - x**2))
-                            - a0
-                            * np.arctan(
-                                (a0 * x + a1 * R0**2)
-                                / np.sqrt(
-                                    (R0**2 - x**2) * (a0**2 - a1**2 * R0**2)
-                                )
-                            )
-                            / np.sqrt(a0**2 - a1**2 * R0**2)
-                        )
-                    )
-
-                self._psi_r = func
-            elif len(coef_array) == 3:
-                raise ValueError(
-                    "This expression needs careful checking before being used - it's "
-                    "so long that the chance of typos is high!"
-                )
-                a0, a1, a2 = coef_array
-
-                def func(x):
-                    return (
-                        np.sqrt(2.0 / (a1**2 - 4.0 * a0 * a2))
-                        * B0
-                        * R0
-                        * (
+                        * np.log(
                             (
-                                (np.sqrt(a1**2 - 4.0 * a0 * a2) + a1)
-                                * np.arctan(
-                                    (
-                                        x * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                        + a1 * x
-                                        + 2.0 * a2 * R0**2
-                                    )
-                                    / (
-                                        np.sqrt(2.0 * (R0**2 - x**2))
-                                        * np.sqrt(
-                                            a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                            - 2.0 * a2 * (a0 + a2 * R0**2)
-                                            + a1**2
-                                        )
+                                (1.0 + R0 * np.sqrt(a1 / (a0 + a1 * R0**2)))
+                                * (
+                                    -1.0
+                                    + np.sqrt(
+                                        (a1 * (-(x**2) + R0**2))
+                                        / (a0 + a1 * R0**2)
                                     )
                                 )
                             )
                             / (
-                                2.0
-                                * np.sqrt(
-                                    a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                    - 2.0 * a2 * (a0 + a2 * R0**2)
-                                    + a1**2
-                                )
-                            )
-                            - (
-                                (np.sqrt(a1**2 - 4.0 * a0 * a2) - a1)
-                                * np.sqrt(
-                                    -a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                    - 2.0 * a2 * (a0 + a2 * R0**2)
-                                    + a1**2
-                                )
-                                * np.arctan(
-                                    (
-                                        -x * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                        + a1 * x
-                                        + 2.0 * a2 * R0**2
-                                    )
-                                    / (
-                                        np.sqrt(2.0 * (R0**2 - x**2))
-                                        * np.sqrt(
-                                            -a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                            - 2.0 * a2 * (a0 + a2 * R0**2)
-                                            + a1**2
-                                        )
+                                (-1.0 + R0 * np.sqrt(a1 / (a0 + a1 * R0**2)))
+                                * (
+                                    1.0
+                                    + np.sqrt(
+                                        (a1 * (-(x**2) + R0**2))
+                                        / (a0 + a1 * R0**2)
                                     )
                                 )
-                            )
-                            / (
-                                2.0 * a1 * np.sqrt(a1**2 - 4.0 * a0 * a2)
-                                + 4.0 * a2 * (a0 + a2 * R0**2)
-                                - 2.0 * a1**2
                             )
                         )
+                        / (2.0 * np.sqrt(a1 * (a0 + a1 * R0**2)))
                     )
 
                 self._psi_r = func
+            # Note, don't seem to be able to get closed-form expression for integral
+            # with three q-coefficients (quartic q) from Mathematica without it being
+            # written with complex numbers, even though the answer is real.
             else:
                 raise ValueError(
                     f"This number of coefficients in the polynomial expansion of q not "

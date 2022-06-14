@@ -457,7 +457,7 @@ class TokamakEquilibrium(Equilibrium):
                 and abs(self.psi_axis - psi_axis_gfile) > 1.0e-3
             ):
                 raise ValueError(
-                    f"psi_axis from the gfile ({psi_axis}) is different from psi "
+                    f"psi_axis from the gfile ({psi_axis_gfile}) is different from psi "
                     f"calculated on the O-point ({self.psi_axis})"
                 )
 
@@ -472,7 +472,7 @@ class TokamakEquilibrium(Equilibrium):
                 and abs(self.psi_bdry - psi_bdry_gfile) > 1.0e-3
             ):
                 raise ValueError(
-                    f"psi_bdry from the gfile ({psi_bdry}) is different from psi "
+                    f"psi_bdry from the gfile ({psi_bdry_gfile}) is different from psi "
                     f"calculated at the primary X-point ({self.psi_bdry})"
                 )
 

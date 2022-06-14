@@ -318,8 +318,6 @@ class TokamakEquilibrium(Equilibrium):
         wall=None,
         psi_axis_gfile=None,
         psi_bdry_gfile=None,
-        psi_axis=None,
-        psi_bdry=None,
         make_regions=True,
         settings=None,
         nonorthogonal_settings=None,
@@ -346,10 +344,10 @@ class TokamakEquilibrium(Equilibrium):
                The wall is closed, so the last point connects to the first.
         psi_axis_gfile = float
                The value of poloidal flux on the magnetic axis, given by the EFIT file.
-               psi_axis is the value calculated on the O-point.
+               self.psi_axis is the value calculated on the O-point.
         psi_bdry_gfile = float
                The value of poloidal flux at the plasma boundary, given by the EFIT file.
-               psi_bdry is the value calculated on the X-point.
+               self.psi_bdry is the value calculated on the X-point.
         make_regions = bool
                Generate the regions to be meshed. The default (True)
                means that the object is complete after initialisation.

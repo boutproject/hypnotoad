@@ -123,6 +123,7 @@ if __name__ == "__main__":
 
     mesh = BoutMesh(eq, options)
     mesh.geometry()
+    mesh.writeGridfile("bout.grd.nc")
 
     if not args.no_plot:
         import matplotlib.pyplot as plt

@@ -23,8 +23,8 @@ def create_tokamak(geometry="lsn", nx=65, ny=65):
     psi2d[nx,ny]  2D array of poloidal flux [Wb]
     """
 
-    r1d = np.linspace(1.2, 1.8, nx)
-    z1d = np.linspace(-0.5, 0.5, ny)
+    r1d = np.linspace(1.0, 2.0, nx)
+    z1d = np.linspace(-0.7, 0.7, ny)
     r2d, z2d = np.meshgrid(r1d, z1d, indexing="ij")
 
     r0 = 1.5
@@ -115,8 +115,16 @@ if __name__ == "__main__":
 
     from hypnotoad import tokamak
 
+    # Put wall inside grid, so that we can have boundary points outside with wall wthout
+    # hitting extrapolated psi.
+    wall_extra = 0.2
+    rmin = min(r1d) + wall_extra
+    rmax = max(r1d) - wall_extra
+    zmin = min(z1d) + wall_extra
+    zmax = max(z1d) - wall_extra
     eq = tokamak.TokamakEquilibrium(
-        r1d, z1d, psi2d, psi1d, [], settings=options  # psi1d, fpol
+        r1d, z1d, psi2d, psi1d, [], settings=options,  # psi1d, fpol
+        wall=[(rmin, zmin), (rmin, zmax), (rmax, zmax), (rmax, zmin)],
     )
 
     from hypnotoad.core.mesh import BoutMesh
@@ -129,10 +137,12 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
 
         eq.plotPotential(ncontours=40)
+        eq.plotWall()
 
         plt.plot(*eq.x_points[0], "rx")
 
         mesh.plotPoints(xlow=True, ylow=True, corners=True)
+        eq.plotWall()
 
         plt.show()
 

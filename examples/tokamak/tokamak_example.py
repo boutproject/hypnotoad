@@ -123,7 +123,12 @@ if __name__ == "__main__":
     zmin = min(z1d) + wall_extra
     zmax = max(z1d) - wall_extra
     eq = tokamak.TokamakEquilibrium(
-        r1d, z1d, psi2d, psi1d, [], settings=options,  # psi1d, fpol
+        r1d,
+        z1d,
+        psi2d,
+        psi1d,
+        [],  # fpol
+        settings=options,
         wall=[(rmin, zmin), (rmin, zmax), (rmax, zmax), (rmax, zmin)],
     )
 

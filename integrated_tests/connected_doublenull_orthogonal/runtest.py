@@ -5,7 +5,9 @@ from pathlib import Path
 import sys
 import xarray.testing as xrt
 
-from integrated_tests.utils import run_case
+# Put the integrated_tests directory into sys.path so we can import from it
+sys.path.append(str(Path(__file__).joinpath("..", "..", "..").resolve()))
+from integrated_tests.utils import run_case  # noqa: E402
 
 diagnose = False
 

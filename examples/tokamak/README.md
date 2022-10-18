@@ -1,3 +1,6 @@
+> **Warning:** This example does not use/generate a geqdsk file, so does not
+support the 'standard' workflow with `hypnotoad-gui` or `hypnotoad_geqdsk`.
+
 To generate a tokamak grid for a simple poloidal flux, psi, given by an
 analytic function:
 

@@ -127,7 +127,7 @@ if __name__ == "__main__":
         z1d,
         psi2d,
         psi1d,
-        [],  # fpol
+        fpol1D=[],
         settings=options,
         wall=[(rmin, zmin), (rmin, zmax), (rmax, zmax), (rmax, zmin)],
     )

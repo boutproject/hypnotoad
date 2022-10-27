@@ -1017,6 +1017,9 @@ class TokamakEquilibrium(Equilibrium):
             nx_pf_lower = self.user_options.nx_pf + nx_inter_sep
             nx_pf_upper = self.user_options.nx_pf
 
+        if (self.psi_sol_inner - self.psi_sep[-1]) * dpsidi_sep < 0.0:
+            raise ValueError("psi_sol_inner out of range. Try increasing psinorm_sol_inner.")
+
         # Radial segments i.e. gridded ranges of poloidal flux
         # These are common to both connected and disconnected double null
         segments = {

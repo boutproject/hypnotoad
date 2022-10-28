@@ -1019,7 +1019,8 @@ class TokamakEquilibrium(Equilibrium):
 
         if (self.psi_sol_inner - self.psi_sep[-1]) * dpsidi_sep < 0.0:
             raise ValueError(
-                "psi_sol_inner out of range. Try increasing psinorm_sol_inner."
+                "psi_sol_inner out of range. Try increasing "
+                "psinorm_sol_inner/psi_sol_inner."
             )
 
         # Radial segments i.e. gridded ranges of poloidal flux

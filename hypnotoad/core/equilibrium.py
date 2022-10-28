@@ -3424,8 +3424,9 @@ class EquilibriumRegion(PsiContour):
             # upper boundary:
             if a / (2.0 * numpy.sqrt(N / N_norm)) + d + 2.0 * e * N / N_norm <= 0.0:
                 raise ValueError(
-                    "gradient at end should be positive. Try setting "
-                    "poloidal_spacing_method to e.g. 'monotonic'"
+                    "gradient at end should be positive. Try increasing the spacing "
+                    "parameter at the other end, or setting poloidal_spacing_method to "
+                    "e.g. 'monotonic'"
                 )
 
             def upper_extrap(i):

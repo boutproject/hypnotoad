@@ -468,9 +468,10 @@ class TokamakEquilibrium(Equilibrium):
             self.psi_bdry = xpoints[0][2]  # Psi on primary X-point
             self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
             self.psi_bdry_gfile = psi_bdry_gfile
+            psi_reverse_sign = -1.0 if self.user_options.reverse_current else 1.0
             if (
                 psi_bdry_gfile is not None
-                and abs(self.psi_bdry - psi_bdry_gfile) > 1.0e-3
+                and abs(self.psi_bdry - psi_reverse_sign * psi_bdry_gfile) > 1.0e-3
             ):
                 raise ValueError(
                     f"psi_bdry from the gfile ({psi_bdry_gfile}) is different from psi "

@@ -1,6 +1,14 @@
 What's new
 ==========
 
+0.4.5 (unreleased)
+------------------
+
+### Bug fixes
+
+- Fix `psi_axis` check when `reverse_current=True` (#131)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.4.4
 -----
 

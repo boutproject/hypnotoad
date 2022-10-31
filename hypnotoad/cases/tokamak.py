@@ -452,9 +452,10 @@ class TokamakEquilibrium(Equilibrium):
             self.psi_axis = opoints[0][2]  # Psi on magnetic axis
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
             self.psi_axis_gfile = psi_axis_gfile
+            psi_reverse_sign = -1.0 if self.user_options.reverse_current else 1.0
             if (
                 psi_axis_gfile is not None
-                and abs(self.psi_axis - psi_axis_gfile) > 1.0e-3
+                and abs(self.psi_axis - psi_reverse_sign * psi_axis_gfile) > 1.0e-3
             ):
                 raise ValueError(
                     f"psi_axis from the gfile ({psi_axis_gfile}) is different from psi "

@@ -167,13 +167,15 @@ class TokamakEquilibrium(Equilibrium):
         ),
         ny_inner_sol=WithMeta(
             lambda options: options.ny_sol // 2,
-            doc="Number of poloidal points in the inner SOL upstream of the X-point(s)",
+            doc="Number of poloidal points in the inboard SOL upstream of the "
+            "X-point(s)",
             value_type=int,
             check_all=is_positive,
         ),
         ny_outer_sol=WithMeta(
             lambda options: options.ny_sol - options.ny_inner_sol,
-            doc="Number of poloidal points in the outer SOL upstream of the X-point(s)",
+            doc="Number of poloidal points in the outboard SOL upstream of the "
+            "X-point(s)",
             value_type=int,
             check_all=is_positive,
         ),

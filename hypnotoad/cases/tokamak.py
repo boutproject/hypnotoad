@@ -1653,11 +1653,15 @@ class TokamakEquilibrium(Equilibrium):
 
 
 def read_geqdsk(
-    filehandle, settings=None, nonorthogonal_settings=None, make_regions=True
+    filehandle, settings=None, nonorthogonal_settings=None, make_regions=True, cocos = 1
 ):
     """
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
+
+    cocos   - COordinate COnventions. Not fully handled yet,
+              only whether psi is divided by 2pi or not.
+              if < 10 then psi is divided by 2pi, otherwise not.
 
     Inputs
     ------
@@ -1676,7 +1680,7 @@ def read_geqdsk(
 
     from ..geqdsk._geqdsk import read as geq_read
 
-    data = geq_read(filehandle)
+    data = geq_read(filehandle, cocos)
 
     # Range of psi normalises psi derivatives
     psi_bdry_gfile = data["sibdry"]

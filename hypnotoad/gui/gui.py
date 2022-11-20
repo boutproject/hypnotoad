@@ -343,7 +343,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 if key in self.options:
                     del self.options[key]
             else:
-                self.options[key] = ast.literal_eval(item.text())
+                try:
+                    self.options[key] = ast.literal_eval(item.text())
+                except (ValueError, SyntaxError):
+                    # Value might have been string with some illegal character in
+                    self.options[key] = item.text()
 
         self.update_options_form()
 

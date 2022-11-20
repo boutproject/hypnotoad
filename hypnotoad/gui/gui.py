@@ -274,12 +274,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
         )
 
-        # evaluate filtered_defaults using the values in self.options, so that any
-        # expressions get evaluated
-        filtered_default_values = dict(
-            BoutMesh.user_options_factory.create(self.options)
-        )
         try:
+            # evaluate filtered_defaults using the values in self.options, so that any
+            # expressions get evaluated
+            filtered_default_values = dict(
+                BoutMesh.user_options_factory.create(self.options)
+            )
+
             filtered_default_values.update(
                 tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )

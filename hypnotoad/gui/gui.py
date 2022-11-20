@@ -342,9 +342,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 # don't know how to get that
                 if key in self.options:
                     del self.options[key]
-                return
-
-            self.options[key] = ast.literal_eval(item.text())
+            else:
+                self.options[key] = ast.literal_eval(item.text())
 
         self.update_options_form()
 

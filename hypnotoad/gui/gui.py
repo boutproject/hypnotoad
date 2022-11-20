@@ -298,7 +298,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 )
         except (ValueError, TypeError) as e:
             self._popup_error_message(e)
-            return
+            return False
 
         # Skip options handled specially elsewhere
         filtered_options.pop("orthogonal", None)
@@ -325,6 +325,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.setSortingEnabled(True)
         self.options_form.cellChanged.connect(self.options_form_changed)
 
+        return True
+
     def options_form_changed(self, row, column):
         """Change the options form from the widget table"""
 
@@ -335,6 +337,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
+            has_old_value = key in self.options
+            if has_old_value:
+                old_value = self.options[key]
 
             if item.text() == "":
                 # Reset to default
@@ -349,7 +354,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     # Value might have been string with some illegal character in
                     self.options[key] = item.text()
 
-        self.update_options_form()
+        if not self.update_options_form():
+            # Some error occured, reset the original value
+            if has_old_value:
+                self.options[key] = old_value
+            else:
+                del self.options[key]
+            self.update_options_form()
 
     def search_options_form(self, text):
         """Search for specific options"""

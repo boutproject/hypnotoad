@@ -6,6 +6,9 @@ What's new
 
 ### Bug fixes
 
+- Catch error when `psi_sol_inner` is set wrong. Add suggestions to 'gradient
+  at end should be positive' error message (#130)\
+  By [Ben Dudson](https://github.com/bendudson)
 - Fix `psi_axis` check when `reverse_current=True` (#131)\
   By [John Omotani](https://github.com/johnomotani)
 - Errors when setting options could crash GUI. Can now change string options in

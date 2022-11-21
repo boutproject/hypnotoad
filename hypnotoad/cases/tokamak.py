@@ -167,13 +167,15 @@ class TokamakEquilibrium(Equilibrium):
         ),
         ny_inner_sol=WithMeta(
             lambda options: options.ny_sol // 2,
-            doc="Number of poloidal points in the inner SOL upstream of the X-point(s)",
+            doc="Number of poloidal points in the inboard SOL upstream of the "
+            "X-point(s)",
             value_type=int,
             check_all=is_positive,
         ),
         ny_outer_sol=WithMeta(
             lambda options: options.ny_sol - options.ny_inner_sol,
-            doc="Number of poloidal points in the outer SOL upstream of the X-point(s)",
+            doc="Number of poloidal points in the outboard SOL upstream of the "
+            "X-point(s)",
             value_type=int,
             check_all=is_positive,
         ),
@@ -452,9 +454,10 @@ class TokamakEquilibrium(Equilibrium):
             self.psi_axis = opoints[0][2]  # Psi on magnetic axis
             self.o_point = Point2D(opoints[0][0], opoints[0][1])
             self.psi_axis_gfile = psi_axis_gfile
+            psi_reverse_sign = -1.0 if self.user_options.reverse_current else 1.0
             if (
                 psi_axis_gfile is not None
-                and abs(self.psi_axis - psi_axis_gfile) > 1.0e-3
+                and abs(self.psi_axis - psi_reverse_sign * psi_axis_gfile) > 1.0e-3
             ):
                 raise ValueError(
                     f"psi_axis from the gfile ({psi_axis_gfile}) is different from psi "
@@ -467,9 +470,10 @@ class TokamakEquilibrium(Equilibrium):
             self.psi_bdry = xpoints[0][2]  # Psi on primary X-point
             self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
             self.psi_bdry_gfile = psi_bdry_gfile
+            psi_reverse_sign = -1.0 if self.user_options.reverse_current else 1.0
             if (
                 psi_bdry_gfile is not None
-                and abs(self.psi_bdry - psi_bdry_gfile) > 1.0e-3
+                and abs(self.psi_bdry - psi_reverse_sign * psi_bdry_gfile) > 1.0e-3
             ):
                 raise ValueError(
                     f"psi_bdry from the gfile ({psi_bdry_gfile}) is different from psi "

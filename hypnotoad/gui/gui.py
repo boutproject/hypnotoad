@@ -274,12 +274,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
         )
 
-        # evaluate filtered_defaults using the values in self.options, so that any
-        # expressions get evaluated
-        filtered_default_values = dict(
-            BoutMesh.user_options_factory.create(self.options)
-        )
         try:
+            # evaluate filtered_defaults using the values in self.options, so that any
+            # expressions get evaluated
+            filtered_default_values = dict(
+                BoutMesh.user_options_factory.create(self.options)
+            )
+
             filtered_default_values.update(
                 tokamak.TokamakEquilibrium.user_options_factory.create(self.options)
             )
@@ -297,7 +298,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 )
         except (ValueError, TypeError) as e:
             self._popup_error_message(e)
-            return
+            return False
 
         # Skip options handled specially elsewhere
         filtered_options.pop("orthogonal", None)
@@ -324,6 +325,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.setSortingEnabled(True)
         self.options_form.cellChanged.connect(self.options_form_changed)
 
+        return True
+
     def options_form_changed(self, row, column):
         """Change the options form from the widget table"""
 
@@ -334,6 +337,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
             raise ValueError("Not allowed to change option names")
         else:
             key = self.options_form.item(row, 0).text()
+            has_old_value = key in self.options
+            if has_old_value:
+                old_value = self.options[key]
 
             if item.text() == "":
                 # Reset to default
@@ -341,11 +347,20 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 # don't know how to get that
                 if key in self.options:
                     del self.options[key]
-                return
+            else:
+                try:
+                    self.options[key] = ast.literal_eval(item.text())
+                except (ValueError, SyntaxError):
+                    # Value might have been string with some illegal character in
+                    self.options[key] = item.text()
 
-            self.options[key] = ast.literal_eval(item.text())
-
-        self.update_options_form()
+        if not self.update_options_form():
+            # Some error occured, reset the original value
+            if has_old_value:
+                self.options[key] = old_value
+            else:
+                del self.options[key]
+            self.update_options_form()
 
     def search_options_form(self, text):
         """Search for specific options"""

@@ -8,6 +8,17 @@ What's new
 
 - Fix `psi_axis` check when `reverse_current=True` (#131)\
   By [John Omotani](https://github.com/johnomotani)
+- Errors when setting options could crash GUI. Can now change string options in
+  GUI. Reset to old value if invalid value is passed for some option. Type name
+  is actually shown in error message pop-up when incorrect type is passed
+  (#134)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### New features
+
+- If an `int` (or other `Number`) literal is passed to a float-type option, it
+  is converted implicitly instead of causing an error. (#134)\
+  By [John Omotani](https://github.com/johnomotani)
 
 0.4.4
 -----

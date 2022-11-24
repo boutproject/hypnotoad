@@ -67,6 +67,11 @@ uninstall hypnotoad correctly.
 Usage
 -----
 
+> **Note**
+>
+> A collection of tips about grid generation is kept on the wiki:
+> https://github.com/boutproject/hypnotoad/wiki. Please add to it!
+
 Options are read and set up in the Equilibrium (child-)class object, and passed
 from there to the Mesh (child-)class object.
 

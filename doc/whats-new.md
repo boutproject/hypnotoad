@@ -1,8 +1,28 @@
 What's new
 ==========
 
-0.4.5 (unreleased)
+0.5.0 (unreleased)
 ------------------
+
+### Breaking changes
+
+- Change how initial spacing of points on separatrix for nonorthogonal grids is
+  calculated (this spacing is used to construct the underlying orthogonal
+  grid). Now use weights that are just
+  {`cos(0.5*pi*i/index_length)**2`,`sin(0.5*pi*i/index_length)**2`} rather than
+  trying to construct a function that will give the same spacings when called
+  with the 'orthogonal spacing' that came from the initial call passed in as
+  `sfunc_orthogonal`. This means that the underlying orthogonal grid does not
+  rely at all on `nonorthogonal_*` settings, so removes an issue where some
+  grids could only be constructed by generating first with one set of
+  `nonorthogonal_*` settings, then changing them and regridding. It also
+  removes the possibility of a "Weight too small. Suggest increasing poloidal
+  'range' settings" error, since the branch that produced that error no longer
+  exists. Does change the nonorthogonal grids that will be produced by
+  hypnotoad, although the integrated tests pass without updating the expected
+  results, so the changes should be small (less than 1e-9 for the integrated
+  test cases) (#138)\
+  By [John Omotani](https://github.com/johnomotani)
 
 ### Bug fixes
 

@@ -1,10 +1,14 @@
 [flake8]
 max-line-length = 89
+#E741 - 'ambiguous variable names' forbids using 'I', 'O' or 'l'
+#W503 - 'line break before binary operator', but this is allowed and useful inside brackets
+#E203 - 'whitespace before ':'', but black formats some slice expressions with space before ':'
+#E231 - missing whitespace after ',', but black formats some expressions without space after ','
 ignore =
-    E741, # 'ambiguous variable names' forbids using 'I', 'O' or 'l'
-    W503, # 'line break before binary operator', but this is allowed and useful inside brackets
-    E203, # 'whitespace before ':'', but black formats some slice expressions with space before ':'
-    E231, # missing whitespace after ',', but black formats some expressions without space after ','
+    E741,
+    W503,
+    E203,
+    E231,
 exclude =
     hypnotoad/gui/hypnotoad_mainWindow.py,
     hypnotoad/gui/hypnotoad_preferences.py,

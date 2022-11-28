@@ -642,6 +642,17 @@ class TokamakEquilibrium(Equilibrium):
             leg_lines = leg_lines[::-1]
         return {"inner": leg_lines[0], "outer": leg_lines[1]}
 
+    # psi values
+    def _psinorm_to_psi(self, psinorm):
+        if psinorm is None:
+            return None
+        return self.psi_axis + psinorm * (self.psi_sep[0] - self.psi_axis)
+
+    def _psi_to_psinorm(self, psi):
+        if psi is None:
+            return None
+        return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
+
     def makeRegions(self):
         """Main region generation function. Regions are logically
         rectangular ranges in poloidal angle; segments are
@@ -680,34 +691,25 @@ class TokamakEquilibrium(Equilibrium):
         if self.psi_axis is None:
             raise ValueError("psi_axis has not been set")
 
-        # psi values
-        def psinorm_to_psi(psinorm):
-            if psinorm is None:
-                return None
-            return self.psi_axis + psinorm * (self.psi_sep[0] - self.psi_axis)
-
-        def psi_to_psinorm(psi):
-            if psi is None:
-                return None
-            return (psi - self.psi_axis) / (self.psi_sep[0] - self.psi_axis)
-
         self.psi_core = with_default(
-            self.user_options.psi_core, psinorm_to_psi(self.user_options.psinorm_core)
+            self.user_options.psi_core,
+            self._psinorm_to_psi(self.user_options.psinorm_core),
         )
         self.psi_sol = with_default(
-            self.user_options.psi_sol, psinorm_to_psi(self.user_options.psinorm_sol)
+            self.user_options.psi_sol,
+            self._psinorm_to_psi(self.user_options.psinorm_sol),
         )
         self.psi_sol_inner = with_default(
             self.user_options.psi_sol_inner,
-            psinorm_to_psi(self.user_options.psinorm_sol_inner),
+            self._psinorm_to_psi(self.user_options.psinorm_sol_inner),
         )
         self.psi_pf_lower = with_default(
             self.user_options.psi_pf_lower,
-            psinorm_to_psi(self.user_options.psinorm_pf_lower),
+            self._psinorm_to_psi(self.user_options.psinorm_pf_lower),
         )
         self.psi_pf_upper = with_default(
             self.user_options.psi_pf_upper,
-            psinorm_to_psi(self.user_options.psinorm_pf_upper),
+            self._psinorm_to_psi(self.user_options.psinorm_pf_upper),
         )
 
         self.poloidal_spacing_delta_psi = with_default(
@@ -721,7 +723,7 @@ class TokamakEquilibrium(Equilibrium):
             *(
                 (psi, xpoint)
                 for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if psi_to_psinorm(psi) < self.user_options.psinorm_sol
+                if self._psi_to_psinorm(psi) < self.user_options.psinorm_sol
             )
         )
 

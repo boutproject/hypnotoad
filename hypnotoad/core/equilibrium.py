@@ -4902,3 +4902,41 @@ class Equilibrium:
                     pyplot.scatter(R, Z, marker=marker, label=region.name, **kwargs)
                 else:
                     pyplot.plot(R, Z, label=region.name, **kwargs)
+
+    def plotHighlightRegion(
+        self, psiN_bounds, *, color="orange", alpha=0.5, npoints=100, **kwargs
+    ):
+        """
+        Highlight a region between given psiN values, may be useful for example to show
+        the extent of a simulation grid without plotting all the grid points.
+
+        Parameters
+        ----------
+        psiN_bounds : (float, float)
+            Inner and outer values of psiN to highlight between.
+        color : str, default "orange"
+            Color to use for highlight.
+        alpha : float, default 0.5
+            Transparency level for the highlighted region.
+        npoints : int, default 100
+            When `separate_contours=True`, number of points used in the grid
+            discretizing psi.
+        **kwargs
+            Extra keyword arguments passed to `pyplot.contourf()`.
+        """
+        from matplotlib import pyplot
+
+        psi_bounds = tuple(self._psinorm_to_psi(x) for x in psiN_bounds)
+
+        R = numpy.linspace(self.Rmin, self.Rmax, npoints)
+        Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
+
+        pyplot.contourf(
+            R,
+            Z,
+            self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+            psi_bounds,
+            colors=color,
+            alpha=alpha,
+            **kwargs,
+        )

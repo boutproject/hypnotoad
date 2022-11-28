@@ -53,6 +53,19 @@ def main():
         help="Color psi contours",
     )
     parser.add_argument(
+        "--highlight-region",
+        nargs=2,
+        type=float,
+        default=None,
+        help="Highlight a region between the two values of normalised psi given by the "
+        "arguments to this flag.",
+    )
+    parser.add_argument(
+        "--highlight-color",
+        default="orange",
+        help="Color to use for region highlighted by `--hilight-region`",
+    )
+    parser.add_argument(
         "--show",
         action="store_false",
         default=True,
@@ -83,6 +96,9 @@ def main():
     eq.plotPotential(
         ncontours=args.n_contours, labels=args.psi_labels, colors=colors, linestyles="-"
     )
+
+    if args.highlight_region is not None:
+        eq.plotHighlightRegion(args.highlight_region, color=args.highlight_color)
 
     if args.wall:
         eq.plotWall(linewidth=args.wall_width)

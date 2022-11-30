@@ -38,7 +38,10 @@ def main():
         "equilibrium.",
     )
     parser.add_argument(
-        "--separatrix-color", default="blue", help="Color of the separatrix contour"
+        "--separatrix-color",
+        default="blue",
+        nargs="*",
+        help="Color (or list of colors) for the separatrix contour(s)",
     )
     parser.add_argument(
         "--psi-labels", action="store_true", default=False, help="Label psi contours"

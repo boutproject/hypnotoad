@@ -4887,13 +4887,17 @@ class Equilibrium:
             R = numpy.linspace(self.Rmin, self.Rmax, npoints)
             Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
 
-            pyplot.contour(
-                R,
-                Z,
-                self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
-                self.psi_sep,
-                **kwargs,
-            )
+            for i, psi_val in reversed(tuple(enumerate(self.psi_sep))):
+                this_kwargs = {
+                    k: v[i] if isinstance(v, Sequence) else v for k, v in kwargs.items()
+                }
+                pyplot.contour(
+                    R,
+                    Z,
+                    self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+                    (psi_val,),
+                    **this_kwargs,
+                )
         else:
             for region in self.regions.values():
                 R = [p.R for p in region]

@@ -4818,7 +4818,7 @@ class Equilibrium:
 
         return axis
 
-    def plotWall(self, axis=None):
+    def plotWall(self, axis=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
         if self.wall:
             wall_R = [p.R for p in self.wall]
             wall_Z = [p.Z for p in self.wall]
@@ -4830,16 +4830,117 @@ class Equilibrium:
             if axis is None:
                 from matplotlib import pyplot
 
-                axis = pyplot.plot(wall_R, wall_Z, "k-", linewidth=2)
+                axis = pyplot.plot(
+                    wall_R,
+                    wall_Z,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                    **kwargs,
+                )
             else:
-                axis.plot(wall_R, wall_Z, "k-", linewidth=2)
+                axis.plot(
+                    wall_R,
+                    wall_Z,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                    **kwargs,
+                )
 
             return axis
 
-    def plotSeparatrix(self):
+    def plotSeparatrix(
+        self,
+        *,
+        scatter=True,
+        separate_contours=False,
+        npoints=100,
+        marker="x",
+        **kwargs,
+    ):
+        """
+        Plot the separatrix contour(s)
+
+        Parameters
+        ----------
+        scatter : bool, default True
+            If `True`, make a scatter plot of the points on the EquilibriumRegion
+            contours in `self.regions`. If `False`, make a line plot. Only used when
+            `separate_contours=False`.
+        separate_contours : bool, default False
+            If `False`, plot the EquilibriumRegion contours from `self.regions`. If
+            `True`, make a contour plot of the psi values in `self.psi_sep` - this is
+            useful for disconnected double-null equilibria to plot the true
+            separatrices.
+        npoints : int, default 100
+            When `separate_contours=True`, number of points used in the grid
+            discretizing psi.
+        marker : default "x"
+            Argument passed to `marker` argument of `pyplot.scatter()`.
+        **kwargs
+            Extra keyword arguments passed to `pyplot.scatter()` or `pyplot.plot()`.
+        """
         from matplotlib import pyplot
 
-        for region in self.regions.values():
-            R = [p.R for p in region]
-            Z = [p.Z for p in region]
-            pyplot.scatter(R, Z, marker="x", label=region.name)
+        if separate_contours:
+            R = numpy.linspace(self.Rmin, self.Rmax, npoints)
+            Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
+
+            for i, psi_val in reversed(tuple(enumerate(self.psi_sep))):
+                this_kwargs = {
+                    k: v[i] if isinstance(v, Sequence) else v for k, v in kwargs.items()
+                }
+                pyplot.contour(
+                    R,
+                    Z,
+                    self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+                    (psi_val,),
+                    **this_kwargs,
+                )
+        else:
+            for region in self.regions.values():
+                R = [p.R for p in region]
+                Z = [p.Z for p in region]
+                if scatter:
+                    pyplot.scatter(R, Z, marker=marker, label=region.name, **kwargs)
+                else:
+                    pyplot.plot(R, Z, label=region.name, **kwargs)
+
+    def plotHighlightRegion(
+        self, psiN_bounds, *, color="orange", alpha=0.5, npoints=100, **kwargs
+    ):
+        """
+        Highlight a region between given psiN values, may be useful for example to show
+        the extent of a simulation grid without plotting all the grid points.
+
+        Parameters
+        ----------
+        psiN_bounds : (float, float)
+            Inner and outer values of psiN to highlight between.
+        color : str, default "orange"
+            Color to use for highlight.
+        alpha : float, default 0.5
+            Transparency level for the highlighted region.
+        npoints : int, default 100
+            When `separate_contours=True`, number of points used in the grid
+            discretizing psi.
+        **kwargs
+            Extra keyword arguments passed to `pyplot.contourf()`.
+        """
+        from matplotlib import pyplot
+
+        psi_bounds = tuple(self._psinorm_to_psi(x) for x in psiN_bounds)
+
+        R = numpy.linspace(self.Rmin, self.Rmax, npoints)
+        Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
+
+        pyplot.contourf(
+            R,
+            Z,
+            self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+            psi_bounds,
+            colors=color,
+            alpha=alpha,
+            **kwargs,
+        )

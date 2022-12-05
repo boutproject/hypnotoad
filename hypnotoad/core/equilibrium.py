@@ -24,7 +24,7 @@ the potential.
 
 from collections import OrderedDict
 from collections.abc import Sequence
-from copy import deepcopy
+from copy import copy, deepcopy
 import func_timeout
 import functools
 from optionsfactory import OptionsFactory, WithMeta
@@ -4899,6 +4899,13 @@ class Equilibrium:
                     **this_kwargs,
                 )
         else:
+            kwargs = copy(kwargs)
+            if "linewidths" in kwargs:
+                # Passing `linewidths` to `plot` or `scatter` causes an error
+                del kwargs["linewidths"]
+            if "colors" in kwargs:
+                # Passing `colors` to `plot` or `scatter` causes an error
+                del kwargs["colors"]
             for region in self.regions.values():
                 R = [p.R for p in region]
                 Z = [p.Z for p in region]

@@ -47,6 +47,12 @@ def main():
         "--psi-labels", action="store_true", default=False, help="Label psi contours"
     )
     parser.add_argument(
+        "--n-points",
+        default=100,
+        type=int,
+        help="Number points to use for interpolated array of psi values",
+    )
+    parser.add_argument(
         "--n-contours", default=40, type=int, help="Number of psi contours to plot"
     )
     parser.add_argument(
@@ -97,7 +103,11 @@ def main():
     else:
         colors = "grey"
     eq.plotPotential(
-        ncontours=args.n_contours, labels=args.psi_labels, colors=colors, linestyles="-"
+        npoints=args.n_points,
+        ncontours=args.n_contours,
+        labels=args.psi_labels,
+        colors=colors,
+        linestyles="-",
     )
 
     if args.highlight_region is not None:

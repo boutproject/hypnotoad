@@ -1,5 +1,5 @@
-What's new
-==========
+Release history
+===============
 
 0.5.0 (unreleased)
 ------------------
@@ -50,8 +50,8 @@ What's new
   is converted implicitly instead of causing an error. (#134)\
   By [John Omotani](https://github.com/johnomotani)
 
-0.4.4
------
+0.4.4 (26th October 2022)
+-------------------------
 
 ### Bug fixes
 
@@ -71,8 +71,8 @@ What's new
   `xbout` to plot the grid cells from the newly added corner positions (#118)\
   By [John Omotani](https://github.com/johnomotani)
 
-0.4.3
------
+0.4.3 (25th December 2021)
+--------------------------
 
 ### Bug fixes
 

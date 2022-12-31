@@ -7,11 +7,12 @@ Welcome to hypnotoad's documentation!
 =====================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    quickstart
    api
+   whats-new
 
 
 

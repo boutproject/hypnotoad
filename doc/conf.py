@@ -4,7 +4,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+from pathlib import Path
 import sys
+
 import hypnotoad
 
 # -- Project information -----------------------------------------------------
@@ -46,3 +48,27 @@ if on_rtd:
 else:
     html_theme = "sphinx_rtd_theme"
 # html_static_path = ['_static']
+
+# -- Create temporary files with programatically generated content that can be included
+# in the .rst files
+tempdir = Path("_temp")
+if not tempdir.exists():
+    tempdir.mkdir()
+
+
+def create_options_rst(filename, title, options_factory):
+    with open(tempdir.joinpath(filename), "w") as f:
+        f.write(f":orphan:\n\n{title}\n{'='*len(title)}\n\n")
+        f.write(options_factory.get_help_table())
+
+
+create_options_rst(
+    "options.rst",
+    "Tokamak options",
+    hypnotoad.tokamak.TokamakEquilibrium.user_options_factory,
+)
+create_options_rst(
+    "nonorthogonal-options.rst",
+    "Nonorthogonal options",
+    hypnotoad.tokamak.TokamakEquilibrium.nonorthogonal_options_factory,
+)

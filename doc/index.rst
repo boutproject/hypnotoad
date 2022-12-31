@@ -11,6 +11,7 @@ Welcome to hypnotoad's documentation!
    :caption: Contents:
 
    quickstart
+   options
    api
    developer/developer
    whats-new

@@ -12,6 +12,7 @@ Welcome to hypnotoad's documentation!
 
    quickstart
    api
+   developer/developer
    whats-new
 
 

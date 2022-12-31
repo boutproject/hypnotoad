@@ -1,6 +1,8 @@
 Developing hypnotoad
 ====================
 
-[GUI](../../hypnotoad/gui/README.md)
+```{include} gui.md
+```
 
-[Release process](RELEASE_HOWTO.md)
+```{include} RELEASE_HOWTO.md
+```

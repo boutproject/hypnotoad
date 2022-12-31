@@ -45,7 +45,7 @@ You can install from the git repo with ``pip``, this is useful to get the
 executables added to your path. If you use ``conda`` you may wish to first
 install the dependencies using
 
-    $ conda install boututils matplotlib netcdf4 numpy optionsfactory pyparsing pyqt pyyaml qt.py scipy
+    $ conda install boututils matplotlib netcdf4 numpy optionsfactory pyqt pyyaml qt.py scipy
 
 (replacing ``pyqt`` with ``pyside2`` if you prefer PySide2 to PyQt5) to ensure
 they are not ``pip``-installed. Make sure to do an 'editable' install using

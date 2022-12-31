@@ -1,0 +1,16 @@
+To build the documentation, you will need sphinx and several extensions.
+Install with pip by running
+```
+$ pip install --user sphinx myst-parser sphinx-rtd-theme
+```
+or with conda
+```
+$ conda install sphinx myst-parser sphinx-rtd-theme
+```
+
+To build the documentation in html format, run
+```
+$ make html
+```
+in this directory. Several other formats are available, run `$ make` to see a
+list.

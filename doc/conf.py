@@ -5,6 +5,7 @@
 
 import os
 import sys
+import hypnotoad
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -12,6 +13,7 @@ import sys
 project = "hypnotoad"
 copyright = "2022, J.T. Omotani, B.D. Dudson and the hypnotoad team"
 author = "J.T. Omotani, B.D. Dudson and the hypnotoad team"
+release = hypnotoad.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -75,3 +75,13 @@ create_options_rst(
     "Nonorthogonal options",
     hypnotoad.tokamak.TokamakEquilibrium.nonorthogonal_options_factory,
 )
+create_options_rst(
+    "circular-options.rst",
+    "Circular options",
+    hypnotoad.circular.CircularEquilibrium.user_options_factory,
+)
+create_options_rst(
+    "torpex-options.rst",
+    "TORPEX options",
+    hypnotoad.torpex.TORPEXMagneticField.user_options_factory,
+)

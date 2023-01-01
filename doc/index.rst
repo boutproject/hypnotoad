@@ -8,6 +8,7 @@ Welcome to hypnotoad's documentation!
 
 .. toctree::
    :maxdepth: 1
+   :numbered:
    :caption: Contents:
 
    quickstart

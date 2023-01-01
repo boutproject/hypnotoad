@@ -28,6 +28,7 @@ on_rtd = os.environ.get("READTHEDOCS") == "True"
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
 ]
 
@@ -38,6 +39,8 @@ source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
 }
+
+autosectionlabel_prefix_document = True
 
 
 # -- Options for HTML output -------------------------------------------------

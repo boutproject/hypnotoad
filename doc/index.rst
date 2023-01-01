@@ -13,6 +13,7 @@ Welcome to hypnotoad's documentation!
 
    quickstart
    options
+   tips-and-tricks
    api
    other-configurations
    developer/developer

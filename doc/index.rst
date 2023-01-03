@@ -14,6 +14,7 @@ Welcome to hypnotoad's documentation!
    quickstart
    options
    tips-and-tricks
+   nonorthogonal-tips
    api
    other-configurations
    developer/developer

@@ -12,6 +12,7 @@ Welcome to hypnotoad's documentation!
    :caption: Contents:
 
    quickstart
+   introduction-overview
    options
    tips-and-tricks
    nonorthogonal-tips

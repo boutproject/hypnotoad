@@ -1,5 +1,5 @@
 Developing the GUI
-------------------
+==================
 
 The main functionality is implemented in `gui.py`. The windows are defined in the
 auto-generated `hypnotoad_mainWindow.py` and `hypnotoad_preferences.py` files, and

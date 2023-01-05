@@ -1,3 +1,6 @@
 .wy-nav-content {
   max-width: none;
 }
+p {
+  margin: 15px 0
+}

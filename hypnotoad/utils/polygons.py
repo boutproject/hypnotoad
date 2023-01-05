@@ -1,9 +1,6 @@
 """
 Routines for geometric calculations with polygons
 
-License
--------
-
 Copyright 2019 Ben Dudson, University of York. Email: benjamin.dudson@york.ac.uk
 
 This file is part of FreeGS.

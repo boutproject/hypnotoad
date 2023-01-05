@@ -16,7 +16,7 @@ Welcome to hypnotoad's documentation!
    inputs
    tips-and-tricks
    nonorthogonal-tips
-   api
+   _apidoc/modules
    other-configurations
    developer/developer
    whats-new

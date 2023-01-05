@@ -24,7 +24,7 @@ the potential.
 
 from collections import OrderedDict
 from collections.abc import Sequence
-from copy import deepcopy
+from copy import copy, deepcopy
 import func_timeout
 import functools
 from optionsfactory import OptionsFactory, WithMeta
@@ -2884,142 +2884,154 @@ class EquilibriumRegion(PsiContour):
             and spacings["nonorthogonal_range_upper"] is not None
         ):
 
-            def new_sfunc(i):
-                sfixed_lower = sfunc_fixed_lower(i)
+            if sfunc_orthogonal is None:
+                # Define new_sfunc in a sensible way to create the initial distribution
+                # of points on the separatrix that is then used to create the orthogonal
+                # grid. This shouldn't rely on 'range' parameters as it should be fixed
+                # when nonorthogonal_* parameters are changed. Also want to avoid a
+                # sharp transition between sfixed_lower and sfixed_upper which might
+                # give odd spacings
+                def new_sfunc(i):
+                    sfixed_lower = sfunc_fixed_lower(i)
+                    sfixed_upper = sfunc_fixed_upper(i)
 
-                sfixed_upper = sfunc_fixed_upper(i)
+                    # define weight_lower so it is 1. at the lower boundary and 0. at the
+                    # upper boundary and the gradient is zero at both boundaries
+                    weight_lower = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            1.0,
+                            0.0,
+                            lambda i: numpy.cos(0.5 * numpy.pi * i / index_length) ** 2,
+                        ],
+                    )
 
-                if sfunc_orthogonal is None:
-                    sorth = None
-                else:
+                    # define weight_upper so it is 1. at the upper boundary and 0. at the
+                    # lower boundary and the gradient is zero at both boundaries
+                    weight_upper = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            0.0,
+                            1.0,
+                            lambda i: numpy.sin(0.5 * numpy.pi * i / index_length) ** 2,
+                        ],
+                    )
+
+                    # Note weight_lower+weight_upper=1 by construction
+                    return weight_lower * sfixed_lower + weight_upper * sfixed_upper
+
+            else:
+
+                def new_sfunc(i):
+                    sfixed_lower = sfunc_fixed_lower(i)
+                    sfixed_upper = sfunc_fixed_upper(i)
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_lower so it is 1. at the lower boundary and 0. at the
-                # upper boundary and the gradient is zero at both boundaries
-                weight_lower = numpy.piecewise(
-                    i,
-                    [i < 0.0, i > index_length],
-                    [
-                        1.0,
-                        0.0,
-                        lambda i: numpy.exp(-((i / N_norm / this_range_lower) ** 2)),
-                    ],
-                )
+                    # define weight_lower so it is 1. at the lower boundary and 0. at the
+                    # upper boundary and the gradient is zero at both boundaries
+                    weight_lower = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            1.0,
+                            0.0,
+                            lambda i: numpy.exp(
+                                -((i / N_norm / this_range_lower) ** 2)
+                            ),
+                        ],
+                    )
 
-                # define weight_upper so it is 1. at the upper boundary and 0. at the
-                # lower boundary and the gradient is zero at both boundaries
-                weight_upper = numpy.piecewise(
-                    i,
-                    [i < 0.0, i > index_length],
-                    [
-                        0.0,
-                        1.0,
-                        lambda i: numpy.exp(
-                            -(((index_length - i) / N_norm / this_range_upper) ** 2)
-                        ),
-                    ],
-                )
+                    # define weight_upper so it is 1. at the upper boundary and 0. at the
+                    # lower boundary and the gradient is zero at both boundaries
+                    weight_upper = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            0.0,
+                            1.0,
+                            lambda i: numpy.exp(
+                                -(((index_length - i) / N_norm / this_range_upper) ** 2)
+                            ),
+                        ],
+                    )
 
-                # make sure weight_lower + weight_upper <= 1
-                weight = weight_lower + weight_upper
-                weight_over_slice = weight[weight > 1.0]
-                weight_lower[weight > 1.0] /= weight_over_slice
-                weight_upper[weight > 1.0] /= weight_over_slice
+                    # make sure weight_lower + weight_upper <= 1
+                    weight = weight_lower + weight_upper
+                    weight_over_slice = weight[weight > 1.0]
+                    weight_lower[weight > 1.0] /= weight_over_slice
+                    weight_upper[weight > 1.0] /= weight_over_slice
 
-                if sorth is None:
-                    # Fix spacing so that if we call combineSfuncs again for this contour
-                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
-                    # spacing again. This is used to make the contours along the
-                    # separatrix keep the same values when pushing the other contours
-                    # towards orthogonal positions
-                    # s = weight_lower*sfixed_lower
-                    #     + weight_upper*sfixed_upper
-                    #     + (1. - weight_lower - weight_upper)*s
-                    sorth = (
-                        weight_lower * sfixed_lower + weight_upper * sfixed_upper
-                    ) / (weight_lower + weight_upper)
-
-                    if numpy.any(weight_lower + weight_upper < 1e-200):
-                        print("radial index", ix)
-                        print(weight_lower + weight_upper)
-                        raise ValueError(
-                            "Weight too small. Suggest increasing poloidal 'range' "
-                            "settings"
-                        )
-
-                return (
-                    weight_lower * sfixed_lower
-                    + weight_upper * sfixed_upper
-                    + (1.0 - weight_lower - weight_upper) * sorth
-                )
+                    return (
+                        weight_lower * sfixed_lower
+                        + weight_upper * sfixed_upper
+                        + (1.0 - weight_lower - weight_upper) * sorth
+                    )
 
         elif spacings["nonorthogonal_range_lower"] is not None:
 
-            def new_sfunc(i):
-                sfixed_lower = sfunc_fixed_lower(i)
+            if sfunc_orthogonal is None:
+                # Fix spacing so that if we call combineSfuncs again for this contour
+                # with sfunc_orthogonal from self.contourSfunc() then we get the same
+                # spacing again. This is used to make the contours along the separatrix
+                # keep the same values when pushing the other contours towards
+                # orthogonal positions
+                # s = sorth = weight_lower*sfixed_lower + (1. - weight_lower)*sorth
+                new_sfunc = sfunc_fixed_lower
+            else:
 
-                if sfunc_orthogonal is None:
-                    sorth = None
-                else:
+                def new_sfunc(i):
+                    sfixed_lower = sfunc_fixed_lower(i)
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_lower so it is 1. at the lower boundary and the gradient
-                # is zero at the lower boundary.
-                weight_lower = numpy.piecewise(
-                    i,
-                    [i < 0.0, i > index_length],
-                    [
-                        1.0,
-                        0.0,
-                        lambda i: numpy.exp(-((i / N_norm / this_range_lower) ** 2)),
-                    ],
-                )
+                    # define weight_lower so it is 1. at the lower boundary and the
+                    # gradient is zero at the lower boundary.
+                    weight_lower = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            1.0,
+                            0.0,
+                            lambda i: numpy.exp(
+                                -((i / N_norm / this_range_lower) ** 2)
+                            ),
+                        ],
+                    )
 
-                if sorth is None:
-                    # Fix spacing so that if we call combineSfuncs again for this contour
-                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
-                    # spacing again. This is used to make the contours along the
-                    # separatrix keep the same values when pushing the other contours
-                    # towards orthogonal positions
-                    # s = weight_lower*sfixed_lower + (1. - weight_lower)*s
-                    sorth = sfixed_lower
-
-                return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
+                    return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
 
         elif spacings["nonorthogonal_range_upper"] is not None:
 
-            def new_sfunc(i):
-                sfixed_upper = sfunc_fixed_upper(i)
+            if sfunc_orthogonal is None:
+                # Fix spacing so that if we call combineSfuncs again for this contour
+                # with sfunc_orthogonal from self.contourSfunc() then we get the same
+                # spacing again. This is used to make the contours along the separatrix
+                # keep the same values when pushing the other contours towards
+                # orthogonal positions
+                # s = sorth = weight_upper*sfixed_upper + (1. - weight_upper)*sorth
+                new_sfunc = sfunc_fixed_upper
+            else:
 
-                if sfunc_orthogonal is None:
-                    sorth = None
-                else:
+                def new_sfunc(i):
+                    sfixed_upper = sfunc_fixed_upper(i)
                     sorth = sfunc_orthogonal(i)
 
-                # define weight_upper so it is 1. at the upper boundary and the gradient
-                # is zero at the upper boundary.
-                weight_upper = numpy.piecewise(
-                    i,
-                    [i < 0.0, i > index_length],
-                    [
-                        0.0,
-                        1.0,
-                        lambda i: numpy.exp(
-                            -(((index_length - i) / N_norm / this_range_upper) ** 2)
-                        ),
-                    ],
-                )
+                    # define weight_upper so it is 1. at the upper boundary and the
+                    # gradient is zero at the upper boundary.
+                    weight_upper = numpy.piecewise(
+                        i,
+                        [i < 0.0, i > index_length],
+                        [
+                            0.0,
+                            1.0,
+                            lambda i: numpy.exp(
+                                -(((index_length - i) / N_norm / this_range_upper) ** 2)
+                            ),
+                        ],
+                    )
 
-                if sorth is None:
-                    # Fix spacing so that if we call combineSfuncs again for this contour
-                    # with sfunc_orthogonal from self.contourSfunc() then we get the same
-                    # spacing again. This is used to make the contours along the
-                    # separatrix keep the same values when pushing the other contours
-                    # towards orthogonal positions
-                    # s = weight_upper*sfixed_upper + (1. - weight_upper)*s
-                    sorth = sfixed_upper
-
-                return (weight_upper) * sfixed_upper + (1.0 - weight_upper) * sorth
+                    return (weight_upper) * sfixed_upper + (1.0 - weight_upper) * sorth
 
         else:
             if sfunc_orthogonal is None:
@@ -4806,7 +4818,7 @@ class Equilibrium:
 
         return axis
 
-    def plotWall(self, axis=None):
+    def plotWall(self, axis=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
         if self.wall:
             wall_R = [p.R for p in self.wall]
             wall_Z = [p.Z for p in self.wall]
@@ -4818,16 +4830,124 @@ class Equilibrium:
             if axis is None:
                 from matplotlib import pyplot
 
-                axis = pyplot.plot(wall_R, wall_Z, "k-", linewidth=2)
+                axis = pyplot.plot(
+                    wall_R,
+                    wall_Z,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                    **kwargs,
+                )
             else:
-                axis.plot(wall_R, wall_Z, "k-", linewidth=2)
+                axis.plot(
+                    wall_R,
+                    wall_Z,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=linewidth,
+                    **kwargs,
+                )
 
             return axis
 
-    def plotSeparatrix(self):
+    def plotSeparatrix(
+        self,
+        *,
+        scatter=True,
+        separate_contours=False,
+        npoints=100,
+        marker="x",
+        **kwargs,
+    ):
+        """
+        Plot the separatrix contour(s)
+
+        Parameters
+        ----------
+        scatter : bool, default True
+            If `True`, make a scatter plot of the points on the EquilibriumRegion
+            contours in `self.regions`. If `False`, make a line plot. Only used when
+            `separate_contours=False`.
+        separate_contours : bool, default False
+            If `False`, plot the EquilibriumRegion contours from `self.regions`. If
+            `True`, make a contour plot of the psi values in `self.psi_sep` - this is
+            useful for disconnected double-null equilibria to plot the true
+            separatrices.
+        npoints : int, default 100
+            When `separate_contours=True`, number of points used in the grid
+            discretizing psi.
+        marker : default "x"
+            Argument passed to `marker` argument of `pyplot.scatter()`.
+        **kwargs
+            Extra keyword arguments passed to `pyplot.scatter()` or `pyplot.plot()`.
+        """
         from matplotlib import pyplot
 
-        for region in self.regions.values():
-            R = [p.R for p in region]
-            Z = [p.Z for p in region]
-            pyplot.scatter(R, Z, marker="x", label=region.name)
+        if separate_contours:
+            R = numpy.linspace(self.Rmin, self.Rmax, npoints)
+            Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
+
+            for i, psi_val in reversed(tuple(enumerate(self.psi_sep))):
+                this_kwargs = {
+                    k: v[i] if isinstance(v, Sequence) else v for k, v in kwargs.items()
+                }
+                pyplot.contour(
+                    R,
+                    Z,
+                    self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+                    (psi_val,),
+                    **this_kwargs,
+                )
+        else:
+            kwargs = copy(kwargs)
+            if "linewidths" in kwargs:
+                # Passing `linewidths` to `plot` or `scatter` causes an error
+                del kwargs["linewidths"]
+            if "colors" in kwargs:
+                # Passing `colors` to `plot` or `scatter` causes an error
+                del kwargs["colors"]
+            for region in self.regions.values():
+                R = [p.R for p in region]
+                Z = [p.Z for p in region]
+                if scatter:
+                    pyplot.scatter(R, Z, marker=marker, label=region.name, **kwargs)
+                else:
+                    pyplot.plot(R, Z, label=region.name, **kwargs)
+
+    def plotHighlightRegion(
+        self, psiN_bounds, *, color="orange", alpha=0.5, npoints=100, **kwargs
+    ):
+        """
+        Highlight a region between given psiN values, may be useful for example to show
+        the extent of a simulation grid without plotting all the grid points.
+
+        Parameters
+        ----------
+        psiN_bounds : (float, float)
+            Inner and outer values of psiN to highlight between.
+        color : str, default "orange"
+            Color to use for highlight.
+        alpha : float, default 0.5
+            Transparency level for the highlighted region.
+        npoints : int, default 100
+            When `separate_contours=True`, number of points used in the grid
+            discretizing psi.
+        **kwargs
+            Extra keyword arguments passed to `pyplot.contourf()`.
+        """
+        from matplotlib import pyplot
+
+        psi_bounds = tuple(self._psinorm_to_psi(x) for x in psiN_bounds)
+
+        R = numpy.linspace(self.Rmin, self.Rmax, npoints)
+        Z = numpy.linspace(self.Zmin, self.Zmax, npoints)
+
+        pyplot.contourf(
+            R,
+            Z,
+            self.psi(R[:, numpy.newaxis], Z[numpy.newaxis, :]).T,
+            psi_bounds,
+            colors=color,
+            alpha=alpha,
+            **kwargs,
+        )

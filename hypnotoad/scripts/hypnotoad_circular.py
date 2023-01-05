@@ -4,7 +4,7 @@
 # geometry, optionally using a set of inputs in a YAML file
 #
 # For example:
-#  $ hypnotoad_circular settings.yml
+#  $ hypnotoad-circular settings.yml
 #
 
 import gc

@@ -80,14 +80,14 @@ Equilibrium object is created.  Internal options should not need to be set by
 the user, but can be overridden with keyword arguments to the Equilibrium
 constructor.
 
-Hypnotoad can be run either as an executable (``hypnotoad_geqdsk``), which just
+Hypnotoad can be run either as an executable (``hypnotoad-geqdsk``), which just
 reads from an input file, using the gui (``hypnotoad-gui``) or interactively
 from a Python shell. To ensure reproducibility, it is suggested to create your
 final grid non-interactively. The interactive mode is intended to make it
 easier to prototype the grid and find a good set of input parameters. Once you
 have found a configuration you are happy with, you can save the current input
 parameters using the save dialog in the gui, or with
-``Equilibrium.saveOptions(filename='hypnotoad_options.yaml')`` from the Python
+``Equilibrium.saveOptions(filename='hypnotoad-options.yaml')`` from the Python
 shell; this may be especially useful if you have changed some options from the
 Python shell with keyword-arguments.
 
@@ -116,11 +116,11 @@ Utilities
 
 Hypnotoad provides several executables for working with equilibria and grid files:
 - `hypnotoad-gui` is the main GUI interface
-- `hypnotoad_geqdsk` is a command line interface for creating tokamak
+- `hypnotoad-geqdsk` is a command line interface for creating tokamak
   equilibria from geqdsk equilibrium files
-- `hypnotoad_circular` is a command line interface for creating grid files for
+- `hypnotoad-circular` is a command line interface for creating grid files for
   concentric, circular flux surfaces
-- `hypnotoad_torpex` is a command line interface for creating grid files for
+- `hypnotoad-torpex` is a command line interface for creating grid files for
   TORPEX X-point configurations
 - `hypnotoad-plot-equilibrium` is a command line tool for creating plots of the
   equilibrium (flux surfaces, wall and separatrix) from a geqdsk file

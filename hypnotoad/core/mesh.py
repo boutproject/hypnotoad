@@ -3206,28 +3206,24 @@ class BoutMesh(Mesh):
     Mesh, with the topology assumed by BOUT++ (allowing complexity up to
     disconnected-double-null).
 
-    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions
-    must be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
-    outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
-    positioning in the global logically rectangular grid. Regions are allowed to not be
-    present (if they would have size 0).
-
-    Poloidal coordinates
-    --------------------
+    Notes
+    -----
     BoutMesh writes three poloidal coordinates to the grid file:
-    - `y-coord` increments by `dy` between points and starts from zero at the beginning
-      of the global grid. `y` includes boundary cells and is single-valued (at a given
-      radial position) everywhere on the global grid. `y` has branch cuts adjacent to
-      both X-points in the core, and adjacent to the X-point in the PFRs.
-    - `theta` increments by `dy` between points and goes from 0 to 2pi in the core
+
+    - ``y-coord`` increments by ``dy`` between points and starts from zero at the
+      beginning of the global grid. ``y`` includes boundary cells and is single-valued
+      (at a given radial position) everywhere on the global grid. ``y`` has branch cuts
+      adjacent to both X-points in the core, and adjacent to the X-point in the PFRs.
+    - ``theta`` increments by ``dy`` between points and goes from 0 to 2pi in the core
       region. The lower inner divertor leg has negative values. The lower outer divertor
       leg has values >2pi. The upper inner leg (if it exists) has values increasing
       continuously from those in the inner SOL (these will overlap values in the outer
       core region). The outer upper leg (if it exists) has values continuous with those
       in the outer SOL (these will overlap values in the inner core region).
-    - `chi` is a straight-field line poloidal coordinate proportional to the toroidal
-      angle (i.e. to zShift). It goes from 0 to 2pi in the core, and is undefined on open
-      field lines.
+    - ``chi`` is a straight-field line poloidal coordinate proportional to the toroidal
+      angle (i.e. to zShift). It goes from 0 to 2pi in the core, and is undefined on
+      open field lines.
+
     Note: these coordinates are defined/created in BoutMesh because they require a global
     mesh, which is not required in Mesh where everything is defined only in terms of
     MeshRegions.

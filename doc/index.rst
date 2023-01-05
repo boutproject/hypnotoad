@@ -13,14 +13,13 @@ Welcome to hypnotoad's documentation!
 
    quickstart
    introduction-overview
-   options
+   inputs
    tips-and-tricks
    nonorthogonal-tips
    api
    other-configurations
    developer/developer
    whats-new
-
 
 
 Indices and tables

@@ -1,7 +1,9 @@
 Developing hypnotoad
 ====================
 
-.. include:: gui.md
-   :parser: myst_parser.sphinx_
+.. toctree::
 
-.. include:: RELEASE_HOWTO.rst
+   equilibrium
+   meshregion
+   gui
+   RELEASE_HOWTO

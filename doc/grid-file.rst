@@ -45,6 +45,10 @@ Poloidal coordinates
 
 BoutMesh writes three poloidal coordinates to the grid file:
 
+.. note:: These coordinates are defined/created in BoutMesh because they
+   require a global mesh, which is not required in Mesh where everything is
+   defined only in terms of MeshRegions.
+
 ``y-coord``
         increments by ``dy`` between points and starts from zero at the
         beginning of the global grid. ``y`` includes boundary cells and is

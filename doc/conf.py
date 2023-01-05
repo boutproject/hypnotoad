@@ -40,6 +40,7 @@ source_suffix = {
     ".md": "markdown",
 }
 
+autodoc_class_signature = "separated"
 autosectionlabel_prefix_document = True
 # Setting the autosectionlabel_maxdepth avoids warnings about repeated labels due to
 # subsections with the same heading

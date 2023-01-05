@@ -406,8 +406,19 @@ def closest_approach(point, a, b):
 
 class FineContour:
     """
-    Used to give a high-resolution representation of a contour.
-    Points in FineContour are uniformly spaced in poloidal distance along the contour.
+    High-resolution representation of a contour of constant :math:`\\psi`.
+
+    Each ``FineContour`` belongs to a ``PsiContour`` and provides a high resolution
+    representation of the contour, which does not depend on the grid settings: points in
+    a FineContour are uniformly spaced in poloidal distance along the contour; and the
+    number of points is set by the ``finecontour_Nfine`` setting, which should be
+    significantly higher than the number of points in the y-direction in any region of
+    the grid.
+
+    The ``FineContour`` provides a robust calculation of the poloidal distance along a
+    contour, and provides accurate interpolation functions so that points belonging to
+    the parent ``PsiContour`` can be placed at specified poloidal locations along the
+    contour.
     """
 
     user_options_factory = OptionsFactory(
@@ -970,9 +981,11 @@ class FineContour:
 
 class PsiContour:
     """
-    Represents a contour as a collection of points.
-    Includes methods for interpolation.
-    Mostly behaves like a list
+    A piece of a flux surface (on the R-Z plane), i.e. a contour at constant poloidal
+    magnetic flux function :math:`\\psi`.
+
+    Contains a set of points lying on the contour. These will represent points belonging
+    to the generated grid.
     """
 
     user_options_factory = OptionsFactory(
@@ -1866,10 +1879,17 @@ class PsiContour:
 
 class EquilibriumRegion(PsiContour):
     """
-    Specialization of PsiContour for representing an equilibrium segment, which is a
-    poloidal segment based around a contour (normally a segment of a separatrix).
-    Includes members giving the connections to other regions and to list the X-points at
-    the boundaries where the contour starts or ends.
+    One part of the poloidal split of the equilibrium into distinct regions.
+
+    Inherits from PsiContour as it represents a line on the R-Z plane, normally a
+    part of a separatrix). In diverted tokamak configurations one or both ends are at an
+    X-point.
+
+    Contains the connections to other ``EquilibriumRegion`` objects of different radial
+    segments of the region.
+
+    Used as the starting point to generate the ``PsiContours`` that eventually fill the
+    region as part of ``MeshRegion`` objects.
     """
 
     user_options_factory = OptionsFactory(
@@ -3691,47 +3711,17 @@ class EquilibriumRegion(PsiContour):
 
 class Equilibrium:
     """
-    Base class to provide an interface to an interpolating function for the flux function
-    psi that defines the magnetic equilibrium, along with some useful methods.
+    The magnetic equilibrium and topology.
 
-    psi is the magnetic flux function.
+    Provides functions (usually created by interpolating) that give the poloidal
+    magnetic flux function :math:`\\psi`, components of the magnetic field, etc. at any
+    point.
 
-    f_R and f_Z are the components of a vector :math:`\\nabla\\psi/|\\nabla\\psi|^2`.
-    This vector points along a path perpendicular to psi-contours, and its value is
-    ds/dpsi where s is the coordinate along the path, so we can follow the path by
-    integrating this vector:
+    Contains information about the topology (e.g. position of X-points), and the regions
+    to be gridded (as an ``OrderedDict`` of :class:`EquilibriumRegion
+    <hypnotoad.core.equilibrium.EquilibriumRegion>` objects).
 
-    :math:`R(\\psi) = \\int_0^\\psi f_R`
-
-    and
-
-    :math:`Z(\\psi) = \\int_0^\\psi f_Z`
-
-    Derived classes must provide:
-
-    - self.psi: function which takes two arguments, {R,Z}, and returns the value of psi
-      at that position.
-    - self.f_R: function which takes two arguments, {R,Z}, and returns the R
-      component of the vector :math:`\\nabla\\psi/|\\nabla\\psi|^2`.
-    - self.f_Z: function which takes two arguments, {R,Z}, and returns the Z
-      component of the vector :math:`\\nabla\\psi/|\\nabla\\psi|^2`.
-    - self.Bp_R: function which takes two arguments, {R,Z}, and returns the R
-      component of the poloidal magnetic field.
-    - self.Bp_Z: function which takes two arguments, {R,Z}, and returns the Z
-      component of the poloidal magnetic field.
-    - self.x_points: list of Point2D objects giving the position of the X-points
-      ordered from primary X-point (nearest the core) outward
-    - self.psi_sep: values of psi on the separatrices ordered the same as self.x_points
-    - self.fpol: poloidal current function, takes one argument, psi, and returns fpol
-      (function such that B_toroidal = fpol/R)
-    - self.fpolprime: psi-derivative of fpol
-    - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a
-      bounding box for the gridding
-    - self.regions: OrderedDict of EquilibriumRegion objects that specify this
-      equilibrium
-    - self.wall: list of Point2D giving vertices of polygon representing the wall, in
-      anti-clockwise order; assumed to be closed so last element and first are taken to
-      be connected
+    Developers, see :ref:`developer/equilibrium:Equilibrium implementations`.
     """
 
     user_options_factory = OptionsFactory(

@@ -14,6 +14,7 @@ Welcome to hypnotoad's documentation!
    quickstart
    introduction-overview
    inputs
+   hypnotoad-classes
    grid-file
    tips-and-tricks
    nonorthogonal-tips

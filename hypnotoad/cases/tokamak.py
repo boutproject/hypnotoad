@@ -21,20 +21,14 @@ from ..utils.utils import with_default
 
 class TokamakEquilibrium(Equilibrium):
     """
-    Represents an axisymmetric tokamak equilibrium
+    Axisymmetric tokamak equilibrium
 
-    Data members
+    Implements :class:`Equilibrium <hypnotoad.core.equilibrium.Equilibrium>`.
 
-    - x_points: list of Point2D objects giving the position of the X-points ordered from
-      primary X-point (nearest the core) outward
-    - o_point: Point2D object for the magnetic O-point
-    - psi_sep: values of psi on the separatrices ordered the same as self.x_points
-    - Rmin, Rmax, Zmin, Zmax: positions of the corners of a bounding box for the
-      gridding
-    - regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
-    - wall: list of Point2D giving vertices of polygon representing the wall, in
-      anti-clockwise order; assumed to be closed so last element and first are taken to
-      be connected
+    Finds the central O-point of the equilibrium, and the X-points. Creates
+    :class:`EquilibriumRegion <hypnotoad.core.equilibrium.EquilibriumRegion>` objects
+    for the core (separate outer and inner for double null configurations) and divertor
+    legs.
     """
 
     # Tokamak-specific options and default values

@@ -6,6 +6,9 @@ What's new
 
 ### Breaking changes
 
+- Renamed command line programs to make the style consistent. All now use '-'
+  as a separator, not '\_' (#142)\
+  By [John Omotani](https://github.com/johnomotani)
 - Change how initial spacing of points on separatrix for nonorthogonal grids is
   calculated (this spacing is used to construct the underlying orthogonal
   grid). Now use weights that are just

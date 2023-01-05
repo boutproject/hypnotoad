@@ -376,8 +376,8 @@ def closest_approach(point, a, b):
     point, a, and b are all 2-element arrays
 
     Algorithm from:
-    https://monkeyproofsolutions.nl/wordpress/
-       how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
+    https://monkeyproofsolutions.nl/wordpress/\
+    how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
     """
     point = numpy.asarray(point)
     a = numpy.asarray(a)
@@ -863,7 +863,9 @@ class FineContour:
 
     def interpSSperp(self, vec, kind="linear"):
         """
-        Returns:
+        Returns
+        -------
+
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
            from the distance perpendicular to vec.
            's_perp' is modified to be a monotonically increasing function along the
@@ -1612,7 +1614,9 @@ class PsiContour:
 
     def interpSSperp(self, vec, *, psi):
         """
-        Returns:
+        Returns
+        -------
+
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
            from the distance perpendicular to vec.
            's_perp' is modified to be a monotonically increasing function along the
@@ -1642,6 +1646,7 @@ class PsiContour:
     ):
         """
         Interpolate onto set of npoints points, then refine positions.
+
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
         which replaces the uniform interval 's' with 's=sfunc(s)'.
         'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
@@ -1650,8 +1655,8 @@ class PsiContour:
         refine=False is passed, the result should be refined before it is used.
         Returns a new PsiContour.
 
-        Note: '*,' in the arguments list forces the following arguments to be passed as
-        keyword, not positional, arguments
+        Note: ``*,`` in the arguments list forces the following arguments to be passed
+        as keyword, not positional, arguments
         """
         if width is None:
             width = self.user_options.refine_width
@@ -2568,8 +2573,7 @@ class EquilibriumRegion(PsiContour):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
     def getRegridded(self, radialIndex, *, psi, **kwargs):
-        """
-        """
+        """ """
         for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
             # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its
@@ -3165,15 +3169,15 @@ class EquilibriumRegion(PsiContour):
         In the first case it is harder to guarantee that sprime is always positive. Here
         is one attempt::
 
-            # Define a function, l(iN), proportional to something like 1/iN that goes through
-            # d_lower at 0 and 0 at N/N_norm
+            # Define a function, l(iN), proportional to something like 1/iN that goes
+            # through d_lower at 0 and 0 at N/N_norm
                 l(iN) = l1/(iN + l2) - l3 with l1, l2, l3 > 0
                 l(0) = d_lower
                      = l1/l2 - l3
                 l(N/N_norm) = 0
                             = l1/(N/N_norm + l2) - l3
-              If we parameterise the family of these functions by l1, we can solve for l2, l3
-              as
+              If we parameterise the family of these functions by l1, we can solve for
+              l2, l3 as
                 d_lower = l1/l2 - l1/(N/N_norm + l2)
                 d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2
                                                    = l1*N/N_norm
@@ -3183,8 +3187,8 @@ class EquilibriumRegion(PsiContour):
                      ) / (2*d_lower)
               taking the positive sign so that l2 > 0
                 l3 = l1/l2 - d_lower
-            # Define another function, r(iN), proportional to something like -1/iN that goes
-              through 0 at 0 and d_upper at N/N_norm
+            # Define another function, r(iN), proportional to something like -1/iN that
+            # goes through 0 at 0 and d_upper at N/N_norm
                 r(iN) = r1/(r2 + N/N_norm - iN) - r3 where r1, r2, r3 > 0
                 r(0) = 0 = r1/(r2 + N/N_norm) - r3
                 r(N/N_norm) = d_upper = r1/r2 - r3
@@ -3197,9 +3201,9 @@ class EquilibriumRegion(PsiContour):
                 r3 = r1/r2 - d_upper
             # Let
                 sprime(iN) = l(iN) + r(iN).
-              We have two free parameters, l1 and r1, but only one constraint that the
-              integral should be L, so arbitrarily choose l1=r1 to reduce to one free
-              parameter.
+            # We have two free parameters, l1 and r1, but only one constraint that the
+            # integral should be L, so arbitrarily choose l1=r1 to reduce to one free
+            # parameter.
             # Impose the constraint.
                 int(diN l) = int(diN l1/(iN + l2) - l3)
                            = [l1*ln(iN + l2) - l3*iN]_{0}^{N/N_norm}
@@ -3212,9 +3216,9 @@ class EquilibriumRegion(PsiContour):
                     + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm
                   = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
                     + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm.
-              This is a horrible equation with logs in and l1 both inside and outside logs,
-              probably can't solve by hand, but should have a unique solution and be a
-              monotonic function of l1, so solve numerically.
+              This is a horrible equation with logs in and l1 both inside and outside
+              logs, probably can't solve by hand, but should have a unique solution and
+              be a monotonic function of l1, so solve numerically.
 
         In the first case we have ::
 
@@ -3351,10 +3355,11 @@ class EquilibriumRegion(PsiContour):
 
             sN(0) = 0
             sN(N/N_norm) = L
-            ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0 (if a_lower not None, else no
-                                                               sqrt(iN) term)
-            ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm (if a_upper is
-                                                  not None, else no sqrt(N/N_norm - iN) term)
+            ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0
+                        (if a_lower not None, else no sqrt(iN) term)
+            ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm
+                               (if a_upper is not None, else no sqrt(N/N_norm - iN)
+                                term)
 
         By default a_lower=b_lower and a_upper=b_upper, unless both are specified
         explicitly

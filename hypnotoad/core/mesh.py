@@ -3016,6 +3016,7 @@ class Mesh:
         markers=None,
         ax=None,
         plot_types="scatter",
+        legend=True,
         **kwargs,
     ):
         from matplotlib import pyplot
@@ -3107,8 +3108,10 @@ class Mesh:
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
                     ax.plot(R.T, Z.T, linestyle="--", c=c)
-        l = ax.legend()
-        l.set_draggable(True)
+
+        if legend:
+            l = ax.legend()
+            l.set_draggable(True)
 
         return fig, ax
 

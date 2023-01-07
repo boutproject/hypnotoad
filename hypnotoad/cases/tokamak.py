@@ -723,7 +723,7 @@ class TokamakEquilibrium(Equilibrium):
             *(
                 (psi, xpoint)
                 for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if self._psi_to_psinorm(psi) < self.user_options.psinorm_sol
+                if self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol)
             )
         )
 

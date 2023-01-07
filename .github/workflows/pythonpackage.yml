@@ -97,8 +97,8 @@ jobs:
         ./tokamak_example.py --no-plot udn
         ./tokamak_example.py --no-plot udn2
         cd ../torpex-xpoint
-        hypnotoad_torpex --noplot torpex-coils.yaml
-        hypnotoad_torpex --noplot torpex-coils-nonorth.yaml
+        hypnotoad-torpex --noplot torpex-coils.yaml
+        hypnotoad-torpex --noplot torpex-coils-nonorth.yaml
 
 
   flake8:

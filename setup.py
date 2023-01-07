@@ -38,9 +38,9 @@ setuptools.setup(
     python_requires=">=3.6",
     entry_points={
         "console_scripts": [
-            "hypnotoad_circular = hypnotoad.scripts.hypnotoad_circular:main",
-            "hypnotoad_geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
-            "hypnotoad_torpex = hypnotoad.scripts.hypnotoad_torpex:main",
+            "hypnotoad-circular = hypnotoad.scripts.hypnotoad_circular:main",
+            "hypnotoad-geqdsk = hypnotoad.scripts.hypnotoad_geqdsk:main",
+            "hypnotoad-torpex = hypnotoad.scripts.hypnotoad_torpex:main",
             "hypnotoad-plot-equilibrium = "
             "hypnotoad.scripts.hypnotoad_plot_equilibrium:main",
             "hypnotoad-plot-grid-cells = "

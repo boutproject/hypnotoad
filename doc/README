@@ -1,11 +1,11 @@
 To build the documentation, you will need sphinx and several extensions.
 Install with pip by running
 ```
-$ pip install --user sphinx myst-parser sphinx-rtd-theme texttable
+$ pip install --user sphinx myst-parser sphinx-argparse sphinx-rtd-theme texttable
 ```
 or with conda
 ```
-$ conda install sphinx myst-parser sphinx-rtd-theme texttable
+$ conda install sphinx myst-parser sphinx-argparse sphinx-rtd-theme texttable
 ```
 
 To build the documentation in html format, run

@@ -1,4 +1,18 @@
 Plotting utilities
 ==================
 
-Use sphinx-argparse to document hypnotoad-plot-equilibrium and hypnotoad-plot-grid-cells?
+``hypnotoad-plot-equilibrum``
+-----------------------------
+
+.. argparse::
+   :module: hypnotoad.scripts.hypnotoad_plot_equilibrium
+   :func: get_arg_parser
+   :prog: hypnotoad-plot-equilibrium
+
+``hypnotoad-plot-grid-cells``
+-----------------------------
+
+.. argparse::
+   :module: hypnotoad.scripts.hypnotoad_plot_grid_cells
+   :func: get_arg_parser
+   :prog: hypnotoad-plot-grid-cells

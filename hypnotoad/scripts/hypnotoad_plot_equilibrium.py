@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
 
-def main():
+def get_arg_parser():
     from argparse import ArgumentParser
 
-    parser = ArgumentParser("Plot the equilibrium stored in a geqdsk file")
+    parser = ArgumentParser(
+        description="""
+        Plot the equilibrium stored in a geqdsk file
+        """
+    )
     parser.add_argument(
         "equilibrium_file", help="Path to equilibrium file in geqdsk format"
     )
@@ -85,7 +89,12 @@ def main():
         default=None,
         help="Name for output file. Suffix determines file format",
     )
-    args = parser.parse_args()
+
+    return parser
+
+
+def main():
+    args = get_arg_parser().parse_args()
 
     from ..cases import tokamak
     from matplotlib import pyplot as plt

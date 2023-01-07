@@ -17,6 +17,14 @@ options`.
 Nonorthogonal options can also be used, but are unlikely to be helpful as any
 limiter present is orthogonal to the flux surfaces.
 
+``hypnotoad-circular``
+++++++++++++++++++++++
+
+.. argparse::
+   :module: hypnotoad.scripts.hypnotoad_circular
+   :func: get_arg_parser
+   :prog: hypnotoad-circular
+
 TORPEX X-point
 --------------
 
@@ -32,3 +40,11 @@ values set from those two).
 
 Nonorthogonal options can also be used:
 :ref:`_temp/nonorthogonal-options:Nonorthogonal options`.
+
+``hypnotoad-torpex``
+++++++++++++++++++++
+
+.. argparse::
+   :module: hypnotoad.scripts.hypnotoad_torpex
+   :func: get_arg_parser
+   :prog: hypnotoad-torpex

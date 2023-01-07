@@ -30,6 +30,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
+    "sphinxarg.ext",
 ]
 
 # templates_path = ['_templates']

@@ -8,8 +8,13 @@ from netCDF4 import Dataset
 from pathlib import Path
 
 
-def main():
-    parser = AP("Recreate input files from a hypnotoad grid file")
+def get_arg_parser():
+    parser = AP(
+        description="""
+        Recreate input files that were used to create the grid from a hypnotoad grid
+        file
+        """
+    )
     parser.add_argument("grid_file", type=str)
     parser.add_argument(
         "-g",
@@ -19,7 +24,12 @@ def main():
         help="Name for recreated gfile. Defaults to name of original gfile.",
     )
     parser.add_argument("-y", "--yaml-out", type=str, default="hypnotoad.yaml")
-    args = parser.parse_args()
+
+    return parser
+
+
+def main():
+    args = get_arg_parser().parse_args()
 
     with Dataset(args.grid_file, "r") as gridfile:
         gfile_name = args.gfile_out

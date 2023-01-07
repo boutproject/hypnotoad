@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def main():
+def get_arg_parser():
     from argparse import ArgumentParser
 
     parser = ArgumentParser(
@@ -53,7 +53,12 @@ def main():
         default=False,
         help="Skip showing the plot in a window?",
     )
-    args = parser.parse_args()
+
+    return parser
+
+
+def main():
+    args = get_arg_parser().parse_args()
     gridfile = args.gridfile
     mxg = args.mxg
     branch_cuts = args.branch_cuts

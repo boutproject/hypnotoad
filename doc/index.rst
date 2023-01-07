@@ -7,22 +7,15 @@ Welcome to hypnotoad's documentation!
 =====================================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   :titlesonly:
    :numbered:
-   :caption: Contents:
 
    quickstart
    introduction-overview
    inputs
    hypnotoad-classes
-   topology
-   point-refinement
-   finecontour
-   spacing-functions
-   radial-grid
-   orthogonal-grid
-   nonorthogonal-grid
-   geometry
+   grid-generation
    grid-file
    tips-and-tricks
    nonorthogonal-tips

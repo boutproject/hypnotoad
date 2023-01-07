@@ -41,6 +41,9 @@ source_suffix = {
 }
 
 autosectionlabel_prefix_document = True
+# Setting the autosectionlabel_maxdepth avoids warnings about repeated labels due to
+# subsections with the same heading
+autosectionlabel_maxdepth = 2
 
 
 # -- Options for HTML output -------------------------------------------------

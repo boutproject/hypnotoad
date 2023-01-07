@@ -9,7 +9,7 @@ Welcome to hypnotoad's documentation!
 .. toctree::
    :maxdepth: 2
    :titlesonly:
-   :numbered:
+   :numbered: 2
 
    quickstart
    introduction-overview

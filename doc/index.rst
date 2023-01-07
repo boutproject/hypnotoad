@@ -15,9 +15,19 @@ Welcome to hypnotoad's documentation!
    introduction-overview
    inputs
    hypnotoad-classes
+   topology
+   point-refinement
+   finecontour
+   spacing-functions
+   radial-grid
+   orthogonal-grid
+   nonorthogonal-grid
+   geometry
    grid-file
    tips-and-tricks
    nonorthogonal-tips
+   plotting-utilities
+   provenance-tracking
    _apidoc/modules
    other-configurations
    developer/developer

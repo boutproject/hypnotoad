@@ -651,8 +651,38 @@ class FineContour:
 
     def equaliseSpacing(self, *, psi, reallocate=False):
         """
-        Adjust the positions of points in this FineContour so they have a constant
-        distance between them.
+        Adjust the positions of points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` so they have a constant distance
+        between them.
+
+        Algorithm:
+
+        1. Refine all points using :meth:`refine()
+           <hypnotoad.core.equilibrium.FineContour.refine>`.
+        2. Calculate the poloidal distances along the :class:`FineContour
+           <hypnotoad.core.equilibrium.FineContour>`, and the spacings between adjacent
+           points.
+        3. Check if the spacings are constant, with an absolute tolerance given by the
+           ``finecontour_atol`` setting. If so, stop iterating.
+        4. Create an interpolation function for the R and Z positions of this
+           :class:`FineContour <hypnotoad.core.equilibrium.FineContour>` as a function
+           of poloidal distance, using :meth:`interpFunction()
+           <hypnotoad.core.equilibrium.FineContour.interpFunction>`.
+        5. Create a new set of points using the interpolation functions, with a uniform
+           grid of poloidal distances as input.
+        6. If the iteration count is greater than 8 and
+           ``finecontour_overdamping_factor`` is not 1.0, 'overdamp' the iteration by
+           setting the new points as a sum of the new interpolated values (weighted by
+           ``finecontour_overdamping_factor``) and the old values (weighted by
+           ``(1-finecontour_overdamping_factor)``).
+        7. Return to 1.
+
+        As the interpolation is very accurate when the new points are very close to the
+        old points (Taylor expansion around the old points is accurate because the
+        displacement is small), this iteration usually converges fairly quickly.
+
+        If this method produces errors, setting ``finecontour_diagnose = True`` will
+        produce some more output which may help diagnose them.
         """
 
         self.refine(psi=psi, skip_endpoints=True)
@@ -816,6 +846,12 @@ class FineContour:
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
     def refine(self, *, psi, skip_endpoints=False, **kwargs):
+        """
+        Refine the points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` by calling
+        :meth:`PsiContour.refinePoiint()
+        <hypnotoad.core.equilibrium.PsiContour.refinePoint>` for each of them.
+        """
         # Includes unused **kwargs so we can pass the method to ParallelMap.__call__()
 
         # Define inner method so we can pass to func_timeout.func_timeout

@@ -1277,7 +1277,7 @@ class PsiContour:
 
     def refinePointNewton(self, p, tangent, *, psi, width, atol):
         """Use Newton iteration to refine point.
-        This should converge quickly if the original point is sufficiently close
+        This should converge quickly if the original point is sufficiently close.
         """
 
         def f(s):
@@ -1311,8 +1311,15 @@ class PsiContour:
             fprev = fnext
 
     def refinePointLinesearch(self, p, tangent, *, psi, width, atol):
-        """Refines the location of a point p, using a line search method
-        along the tangent vector
+        """Refine the location of a point p, using a line search method.
+
+        A line of length ``width`` is constructed perpendicular to the ``tangent``
+        direction, and ``scipy.optimize.brentq`` is used to search the line for the
+        point where :math:`\\psi` takes its nominal value. If the search fails (for
+        example because :math:`\\psi` is not monotonically varying along the line), it
+        is retried recursively, using half the width each time.
+
+        Usually robust, but can be slow.
         """
 
         def f(R, Z):
@@ -1376,13 +1383,22 @@ class PsiContour:
                 )
 
     def refinePointIntegrate(self, p, tangent, *, psi, width, atol):
-        """Integrates across flux surfaces from p
+        """Integrates across flux surfaces from ``p``
 
         Integrates this:
-        dR/dpsi = dpsi/dR / ((dpsi/dZ)**2 + (dpsi/dR)**2)
-        dZ/dpsi = dpsi/dZ / ((dpsi/dZ)**2 + (dpsi/dR)**2)
 
-        Note: This is the method used in the original Hypnotoad
+        .. math::
+            \\begin{eqnarray}
+            \\frac{dR}{d\\psi} &=& \\frac{d\\psi}{dR}
+                                   \\frac{1}{((d\\psi/dZ)^2 + (d\\psi/dR)^2)} \\\\
+            \\frac{dZ}{d\\psi} &=& \\frac{d\\psi}{dZ}
+                                   \\frac{1}{((d\\psi/dZ)^2 + (d\\psi/dR)^2)}
+            \\end{eqnarray}
+
+        Usually quick but does not respect ``atol``, so final result may not be as
+        accurate as desired.
+
+        Note: This is the method used in the original IDL Hypnotoad
         """
 
         def func(psival, position, eps=1e-10):

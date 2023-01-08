@@ -9,6 +9,7 @@ The subsections here describe the steps in the grid generation process.
    topology
    point-refinement
    finecontour
+   poloidal-distance
    spacing-functions
    radial-grid
    orthogonal-grid

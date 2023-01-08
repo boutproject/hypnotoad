@@ -821,6 +821,14 @@ class FineContour:
         return self.distance[self.endInd] - self.distance[self.startInd]
 
     def calcDistance(self, *, reallocate=False):
+        """
+        Calculate poloidal distance from the start of this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>`.
+
+        Distance is calculated as a cumulative sum of the straight-line distances
+        between each point. This calculation has a low order of accuracy, so the number
+        of points ``finecontour_Nfine`` should be chosen to be large.
+        """
         if self.distance is None or reallocate:
             self.distance = numpy.zeros(self.positions.shape[0])
         deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
@@ -969,8 +977,15 @@ class FineContour:
 
     def getDistance(self, p):
         """
-        Return the distance of a point along the contour.
-        Assume p is a point on the contour so has the correct psi-value.
+        Find the poloidal distance from the start of this contour of a point ``p``.
+
+        Assume ``p`` is a point on the contour so has the correct psi-value.
+
+        Result is calculated as the weighted mean of the poloidal distances of the two
+        nearest points on the :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` (weighted by the relative distance
+        from ``p`` to each :class:`FineContour <hypnotoad.core.equilibrium.FineContour>`
+        point).
         """
         p = p.as_ndarray()
 

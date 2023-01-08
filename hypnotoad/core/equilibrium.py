@@ -2885,9 +2885,8 @@ class EquilibriumRegion(PsiContour):
         #   - otherwise fixed spacing perpendicular to vec_lower at the end of the
         #     contour
         # * Tends to orthogonal spacing far from the ends, unless sfunc_orthogonal is
-        #   None, in which case it sets points so that if combineSfuncs is called again
-        #   on the same contour, but with sfunc_orthogonal=contour.contourSfunc() then
-        #   the same spacing is given
+        #   None, in which case combines the lower and upper spacing with weights that
+        #   vary like cos(i*pi/2/index_length)**2 and sin(i*pi/2/index_length)**2.
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,

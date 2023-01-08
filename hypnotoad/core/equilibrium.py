@@ -4434,7 +4434,7 @@ class Equilibrium:
 
         return result
 
-    def getPolynomialGridFunc(
+    def getSmoothMonotonicGridFunc(
         self, n, lower, upper, *, grad_lower=None, grad_upper=None
     ):
         """

@@ -1487,7 +1487,7 @@ class TokamakEquilibrium(Equilibrium):
         for name, segment in segments.items():
             segment_with_psival = segment.copy()
 
-            psi_func = self.getPolynomialGridFunc(
+            psi_func = self.getSmoothMonotonicGridFunc(
                 segment["nx"],
                 segment["psi_start"],
                 segment["psi_end"],

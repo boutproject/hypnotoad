@@ -39,6 +39,8 @@ What's new
   is actually shown in error message pop-up when incorrect type is passed
   (#134)\
   By [John Omotani](https://github.com/johnomotani)
+- Fix potential error in check of X-point `psi` vs. `psinorm_sol` (#143)\
+  By [John Omotani](https://github.com/johnomotani)
 
 ### New features
 

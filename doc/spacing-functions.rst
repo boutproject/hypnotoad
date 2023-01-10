@@ -63,6 +63,8 @@ The radial spacing functions also make the second derivative vanish
 that the grid spacing varies smoothly across the boundary, see
 :ref:`radial-grid:Radial grid`.
 
+.. _monotonic-requirement:
+
 The spacing function must be monotonic within the range of indices where it is
 used. Otherwise the grid would double back on itself (to put it another way,
 some of the grid spacings would be negative), which makes no sense. Some of the

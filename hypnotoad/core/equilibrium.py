@@ -4440,12 +4440,19 @@ class Equilibrium:
         """
         A function with value 'lower' at 0 and 'upper' at n, used to non-uniformly place
         grid point values in index space.
+
         Optionally matches the gradient grad_lower at the lower end and grad_upper at the
         upper end.
+
         If the gradient is specified, the second derivative is set to zero, to ensure
         that the derivative of the grid spacing is zero, and so the grid spacing will be
         smooth across boundaries.
-        Function is guaranteed to be monotonic.
+
+        Function is guaranteed to be monotonic - see comments in the code for the
+        algorithm in different cases. Note that at the parameter values where one case
+        flips to another, the spacing functions in both cases coincide so the returned
+        result should never have a jump when the input parameters are changed by a small
+        amount.
         """
         if grad_lower is not None and (upper - lower) * grad_lower < 0:
             raise ValueError(

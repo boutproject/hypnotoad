@@ -7,10 +7,6 @@ The subsections here describe the steps in the grid generation process.
    :maxdepth: 1
 
    topology
-   point-refinement
-   finecontour
-   poloidal-distance
-   spacing-functions
    radial-grid
    orthogonal-grid
    nonorthogonal-grid

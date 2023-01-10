@@ -15,6 +15,7 @@ Welcome to hypnotoad's documentation!
    introduction-overview
    inputs
    hypnotoad-classes
+   algorithms
    grid-generation
    grid-file
    tips-and-tricks

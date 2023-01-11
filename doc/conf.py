@@ -78,18 +78,9 @@ def reformat_Texttable(tt_string):
     sphinx renders the ReStructuredText, the entry actually covers multiple lines.
     """
     tt_lines = tt_string.split("\n")
-    blank_line = tt_lines[0].replace("+", "|").replace("-", " ")
     result = ""
-    is_first = True
     for line in tt_lines:
-        if line[0] == "+":
-            result = result + line + "\n"
-            is_first = True
-        else:
-            if not is_first:
-                result = result + blank_line + "\n"
-            result = result + line + "\n"
-            is_first = False
+        result = result + "   " + line + "\n"
     return result
 
 
@@ -104,6 +95,7 @@ def create_options_rst(filename, title, options_factory):
         f.write(f"{title}\n{'='*len(title)}\n\n")
         tt = options_factory.get_help_table(as_Texttable=True)
         tt.set_cols_width([62, 80, 20])
+        f.write(".. table::\n   :widths: 20 75 5\n\n")
         f.write(reformat_Texttable(tt.draw()))
 
 

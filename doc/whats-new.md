@@ -44,6 +44,8 @@ Release history
 
 ### New features
 
+- Create a manual for hypnotoad (#145)\
+  By [John Omotani](https://github.com/johnomotani)
 - Convenience script for making a plot of an equilibrium from a geqdsk file (#139)\
   By [John Omotani](https://github.com/johnomotani)
 - If an `int` (or other `Number`) literal is passed to a float-type option, it

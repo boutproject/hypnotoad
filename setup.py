@@ -34,7 +34,7 @@ setuptools.setup(
         "Qt.py~=1.2",
     ],
     extras_require={"gui-pyside2": ["pyside2~=5.13"], "gui-PyQt5": ["PyQt5~=5.12"]},
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     entry_points={
         "console_scripts": [
             "hypnotoad-circular = hypnotoad.scripts.hypnotoad_circular:main",

@@ -1,8 +1,8 @@
 Release history
 ===============
 
-0.5.0 (unreleased)
-------------------
+0.5.0 (12th January 2023)
+-------------------------
 
 ### Breaking changes
 

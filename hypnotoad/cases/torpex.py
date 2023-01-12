@@ -591,7 +591,7 @@ class TORPEXMagneticField(Equilibrium):
             )
 
         # lower PF
-        lower_psi_func = self.getPolynomialGridFunc(
+        lower_psi_func = self.getSmoothMonotonicGridFunc(
             self.user_options.nx_core,
             self.user_options.psi_pf_lower,
             self.psi_sep[0],
@@ -600,7 +600,7 @@ class TORPEXMagneticField(Equilibrium):
         lower_psi_vals = self.make1dGrid(self.user_options.nx_core, lower_psi_func)
 
         # upper PF
-        upper_psi_func = self.getPolynomialGridFunc(
+        upper_psi_func = self.getSmoothMonotonicGridFunc(
             self.user_options.nx_core,
             self.user_options.psi_pf_upper,
             self.psi_sep[0],
@@ -609,7 +609,7 @@ class TORPEXMagneticField(Equilibrium):
         upper_psi_vals = self.make1dGrid(self.user_options.nx_core, upper_psi_func)
 
         # inner SOL
-        inner_psi_func = self.getPolynomialGridFunc(
+        inner_psi_func = self.getSmoothMonotonicGridFunc(
             self.user_options.nx_sol,
             self.psi_sep[0],
             self.user_options.psi_sol_inner,
@@ -618,7 +618,7 @@ class TORPEXMagneticField(Equilibrium):
         inner_psi_vals = self.make1dGrid(self.user_options.nx_sol, inner_psi_func)
 
         # outer SOL
-        outer_psi_func = self.getPolynomialGridFunc(
+        outer_psi_func = self.getSmoothMonotonicGridFunc(
             self.user_options.nx_sol,
             self.psi_sep[0],
             self.user_options.psi_sol,

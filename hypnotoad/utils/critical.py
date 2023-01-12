@@ -39,14 +39,19 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
     """
     Find critical points
 
-    Inputs
-    ------
+    Parameters
+    ----------
 
-    R - R(nr, nz) 2D array of major radii
-    Z - Z(nr, nz) 2D array of heights
-    psi - psi(nr, nz) 2D array of psi values
-    atol - tolerance for refining position of X-points
-    maxits - maximum number of iterations for refinement of X-points
+    R : np.ndarray
+        R(nr, nz) 2D array of major radii
+    Z : np.ndarray
+        Z(nr, nz) 2D array of heights
+    psi : np.ndarray
+        psi(nr, nz) 2D array of psi values
+    atol : float
+        tolerance for refining position of X-points
+    maxits : int
+        maximum number of iterations for refinement of X-points
 
     Returns
     -------

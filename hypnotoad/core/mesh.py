@@ -55,10 +55,19 @@ from ..__version__ import get_versions
 
 class MeshRegion:
     """
-    A simple rectangular region of a Mesh, that connects to one other region (or has a
-    boundary) on each edge.
-    Note that these regions include cell face and boundary points, so there are
-    (2nx+1)*(2ny+1) points for an nx*ny grid.
+    Collection of :class:`PsiContour <hypnotoad.core.equilibrium.PsiContour>` objects
+    representing a logically rectangular sub-region of the grid.
+
+    Each side of the ``MeshRegion`` is either a grid boundary or connects to one other
+    ``MeshRegion``. The ``MeshRegion`` includes points on the boundary, whose positions
+    are shared with the boundary points of the neighbouring ``MeshRegion``, if there is
+    one.
+
+    Includes methods for calculating R-Z positions, magnetic field, and geometric
+    quantities (for the standard BOUT++ locally field aligned coordinate system) on the
+    points in the ``MeshRegion``.
+
+    Developers, see :ref:`developer/meshregion:MeshRegion notes`.
     """
 
     user_options_factory = OptionsFactory(
@@ -1272,9 +1281,9 @@ class MeshRegion:
             )
 
     def calcHy(self):
-        # hy = |Grad(theta)|
-        # hy = dtheta/ds at constant psi, phi when psi and theta are orthogonal
-        # approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
+        # hy = 1/|Grad(theta)|
+        # hy = 1/(dtheta/ds) at constant psi, phi when psi and theta are orthogonal
+        # dtheta/ds \approx dtheta/sqrt((R(j+1/2)-R(j-1/2))**2 + (Z(j+1/2)-Z(j-1/2)**2)
         if not self.user_options.orthogonal:
             warnings.warn("need to check that this is correct for non-orthogonal grids")
 
@@ -2496,7 +2505,7 @@ def regrid_contours(
 
 class Mesh:
     """
-    Mesh represented by a collection of connected MeshRegion objects
+    Collection of MeshRegion objects representing the entire grid.
     """
 
     user_options_factory = OptionsFactory(
@@ -3016,6 +3025,7 @@ class Mesh:
         markers=None,
         ax=None,
         plot_types="scatter",
+        legend=True,
         **kwargs,
     ):
         from matplotlib import pyplot
@@ -3107,8 +3117,10 @@ class Mesh:
                     Z[:, 1::2] = region.Zxy.xlow
                     Z[:, ::2] = region.Zxy.corners
                     ax.plot(R.T, Z.T, linestyle="--", c=c)
-        l = ax.legend()
-        l.set_draggable(True)
+
+        if legend:
+            l = ax.legend()
+            l.set_draggable(True)
 
         return fig, ax
 
@@ -3197,37 +3209,15 @@ def followPerpendicular(
 
 class BoutMesh(Mesh):
     """
-    Mesh quantities to be written to a grid file for BOUT++
+    Implementation of :class:`Mesh <hypnotoad.core.mesh.Mesh>` for BOUT++ grids.
 
-    Requires that the MeshRegion members fit together into a global logically-rectangular
-    Mesh, with the topology assumed by BOUT++ (allowing complexity up to
-    disconnected-double-null).
+    Handles writing of the grid file in the format expected by BOUT++, including
+    creation of global arrays collected from the sub-regions contained in the
+    :class:`MeshRegion <hypnotoad.core.mesh.MeshRegion>` objects.
 
-    For compatibility with BOUT++, the regions in the OrderedDict equilibrium.regions
-    must be in the order: inner_lower_divertor, inner_core, inner_upper_divertor,
-    outer_upper_divertor, outer_core, outer_lower_divertor. This ensures the correct
-    positioning in the global logically rectangular grid. Regions are allowed to not be
-    present (if they would have size 0).
-
-    Poloidal coordinates
-    --------------------
-    BoutMesh writes three poloidal coordinates to the grid file:
-    - `y-coord` increments by `dy` between points and starts from zero at the beginning
-      of the global grid. `y` includes boundary cells and is single-valued (at a given
-      radial position) everywhere on the global grid. `y` has branch cuts adjacent to
-      both X-points in the core, and adjacent to the X-point in the PFRs.
-    - `theta` increments by `dy` between points and goes from 0 to 2pi in the core
-      region. The lower inner divertor leg has negative values. The lower outer divertor
-      leg has values >2pi. The upper inner leg (if it exists) has values increasing
-      continuously from those in the inner SOL (these will overlap values in the outer
-      core region). The outer upper leg (if it exists) has values continuous with those
-      in the outer SOL (these will overlap values in the inner core region).
-    - `chi` is a straight-field line poloidal coordinate proportional to the toroidal
-      angle (i.e. to zShift). It goes from 0 to 2pi in the core, and is undefined on open
-      field lines.
-    Note: these coordinates are defined/created in BoutMesh because they require a global
-    mesh, which is not required in Mesh where everything is defined only in terms of
-    MeshRegions.
+    ``BoutMesh`` requires that the MeshRegion members fit together into a global
+    logically-rectangular Mesh, with one of the topologies supported by BOUT++ (slab,
+    limiter, single null, connected double null, or disconnected double null).
     """
 
     user_options_factory = Mesh.user_options_factory.add(

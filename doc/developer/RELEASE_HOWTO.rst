@@ -3,7 +3,7 @@ Release process
 
 1. Pick the new version number, e.g. 0.1.2, for the next release (bumping
    major, minor, or patch version according to semantic versioning)
-1. Ensure doc/whats-new.md is updated with the number of the version to be
+2. Ensure doc/whats-new.md is updated with the number of the version to be
    released.
 3. Create a new tag and release with the 'Create a new release' link on the
    home page. Name the new release according to 2., e.g. 0.1.2 with no prefix.

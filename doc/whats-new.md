@@ -1,6 +1,15 @@
 Release history
 ===============
 
+0.5.1 (unreleased)
+------------------
+
+### New features
+
+- Command line utility to get flux surfaces from a geqdsk file and save them to
+  NetCDF (#156)\
+  By [John Omotani](https://github.com/johnomotani)
+
 0.5.0 (12th January 2023)
 -------------------------
 

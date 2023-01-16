@@ -20,7 +20,7 @@ Welcome to hypnotoad's documentation!
    grid-file
    tips-and-tricks
    nonorthogonal-tips
-   plotting-utilities
+   utilities
    provenance-tracking
    _apidoc/modules
    other-configurations

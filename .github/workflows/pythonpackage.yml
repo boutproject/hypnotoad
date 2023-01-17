@@ -101,6 +101,51 @@ jobs:
         hypnotoad-torpex --noplot torpex-coils-nonorth.yaml
 
 
+  utilities:
+    # Check that various command line utilities provided by hypnotoad keep
+    # running without errors. Correctness of output is not tested!
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: always()
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        lfs: true
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install xbout
+        pip install -e .
+    - name: Utilities
+      run: |
+        cd integrated_tests/grid_files
+        hypnotoad-plot-equilibrium --no-show --output test-single-null.pdf test_single-null.eqdsk
+        hypnotoad-plot-equilibrium --no-show --wall --separatrix --psi-labels --color-contours --highlight-region 0.99 1.01 --highlight-color blue test_single-null.eqdsk
+        hypnotoad-plot-equilibrium --no-show --wall --separatrix --psi-labels --color-contours --highlight-region 0.99 1.01 --highlight-color blue test_connected-double-null.eqdsk
+        hypnotoad-plot-equilibrium --no-show --wall --separatrix --psi-labels --color-contours --highlight-region 0.99 1.01 --highlight-color blue test_disconnected-double-null.eqdsk
+        echo "psinorm_core: 0.99" > test.yml
+        echo "psinorm_sol: 1.01" >> test.yml
+        hypnotoad-get-flux-surfaces test_single-null.eqdsk test.yml
+        hypnotoad-get-flux-surfaces --output test1.nc --save-plot test.png test_single-null.eqdsk test.yml
+        hypnotoad-get-flux-surfaces --output test2.nc --save-plot test.pdf test_connected-double-null.eqdsk test.yml
+        # modify input file so that we actually detect the disconnection within the grid
+        echo "nx_inter_sep: 2" >> test.yml
+        hypnotoad-get-flux-surfaces --output test3.nc --save-plot test.pdf test_disconnected-double-null.eqdsk test.yml
+        cd ../connected_doublenull_orthogonal
+        hypnotoad-plot-grid-cells --no-show --save-as test.svg expected_orthogonal.grd.nc
+        hypnotoad-plot-grid-cells --no-show --mxg 3 --branch-cuts --separatrix --targets expected_orthogonal.grd.nc
+        hypnotoad-recreate-inputs -g test1.eqdsk expected_orthogonal.grd.nc
+        hypnotoad-recreate-inputs -g test2.eqdsk -y test.yml expected_orthogonal.grd.nc
+
+
   flake8:
 
     runs-on: ubuntu-latest

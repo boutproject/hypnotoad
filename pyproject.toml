@@ -79,12 +79,14 @@ tag_prefix = ""
 parentdir_prefix = "hypnotoad-"
 
 [tool.black]
-exclude = [
-  "hypnotoad/gui/hypnotoad_mainWindow.py",
-  "versioneer.py",
-  "hypnotoad/__version__.py",
-  "hypnotoad/gui/hypnotoad_preferences.py",
-]
+exclude = '''
+(
+  versioneer.py
+  | hypnotoad/gui/hypnotoad_mainWindow.py
+  | hypnotoad/__version__.py
+  | hypnotoad/gui/hypnotoad_preferences.py
+)
+'''
 
 [tool.pytest.ini_options]
 testpaths = ["hypnotoad/test_suite"]

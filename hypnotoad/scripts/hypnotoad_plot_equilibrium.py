@@ -79,10 +79,10 @@ def get_arg_parser():
         help="Color to use for region highlighted by `--hilight-region`",
     )
     parser.add_argument(
-        "--show",
+        "--no-show",
         action="store_false",
         default=True,
-        help="Show plot in interactive window",
+        help="Do not show plot in interactive window",
     )
     parser.add_argument(
         "--output",
@@ -99,8 +99,15 @@ def main():
     from ..cases import tokamak
     from matplotlib import pyplot as plt
 
-    with open(args.equilibrium_file, "rt") as fh:
-        eq = tokamak.read_geqdsk(fh)
+    try:
+        with open(args.equilibrium_file, "rt") as fh:
+            eq = tokamak.read_geqdsk(fh)
+    except ValueError:
+        # Maybe it was a disconnected double null? Need to tell hypnotoad
+        # nx_inter_sep>0 for disconnected case
+        settings = {"nx_inter_sep": 2}
+        with open(args.equilibrium_file, "rt") as fh:
+            eq = tokamak.read_geqdsk(fh, settings=settings)
 
     # Work out sensible aspect ratio for figure
     figwidth = 4.0
@@ -138,7 +145,7 @@ def main():
     if args.output is not None:
         plt.savefig(args.output, bbox_inches="tight")
 
-    if args.show:
+    if args.no_show:
         plt.show()
 
 

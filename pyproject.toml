@@ -59,6 +59,7 @@ hypnotoad-torpex = "hypnotoad.scripts.hypnotoad_torpex:main"
 hypnotoad-plot-equilibrium = "hypnotoad.scripts.hypnotoad_plot_equilibrium:main"
 hypnotoad-plot-grid-cells = "hypnotoad.scripts.hypnotoad_plot_grid_cells:main"
 hypnotoad-recreate-inputs = "hypnotoad.scripts.hypnotoad_recreate_inputs:main"
+hypnotoad-get-flux-surfaces = "hypnotoad.scripts.hypnotoad_get_flux_surfaces:main"
 
 [project.gui-scripts]
 hypnotoad-gui = "hypnotoad.gui:main"

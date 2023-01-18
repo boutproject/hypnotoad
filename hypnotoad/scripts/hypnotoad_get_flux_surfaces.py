@@ -19,7 +19,9 @@ def get_arg_parser():
 
         Flux surfaces are saved as a dimension ``(N,2)`` array where ``N`` is the number
         of points used to represent the flux surface. ``N`` will vary depending which
-        region (core, SOL, PFR, etc.) the surface belongs to.
+        region (core, SOL, PFR, etc.) the surface belongs to. All flux surfaces are
+        saved into the `flux surfaces` group in the output file. The wall contour is
+        also saved, as the variable `wall` in the root group.
 
         Options that can be set in the input file to control outputs of this script:
 
@@ -240,6 +242,7 @@ def main():
     # Create 'dimension' whose first entry represents the R-coordinate of a point, and
     # second dimension the Z-coordinate
     output_file.createDimension("coordinate", 2)
+    flux_surfaces_group = output_file.createGroup("flux surfaces")
 
     if plot or plot_filename is not None:
         fig, ax = plt.subplots()
@@ -286,12 +289,12 @@ def main():
         name = get_connected_region_name(
             region_name, region.radialIndex, len(connected_regions)
         )
-        this_x = f"{name} x"
-        this_y = f"{name} y"
+        this_x = f"{name} radial"
+        this_y = f"{name} poloidal"
         output_file.createDimension(this_x, nx)
         output_file.createDimension(this_y, ny_total)
-        output_file.createVariable(name, float, (this_x, this_y, "coordinate"))
-        output_file[name][...] = positions
+        flux_surfaces_group.createVariable(name, float, (this_x, this_y, "coordinate"))
+        flux_surfaces_group[name][...] = positions
 
         if plot or plot_filename is not None:
             props = next(plot_properties)
@@ -301,8 +304,8 @@ def main():
 
     # Add wall contour to output file
     n_wall = len(eq.wall)
-    output_file.createDimension("wall_index", n_wall)
-    output_file.createVariable("wall", float, ("wall_index", "coordinate"))
+    output_file.createDimension("wall index", n_wall)
+    output_file.createVariable("wall", float, ("wall index", "coordinate"))
     output_file["wall"][...] = [[p.R, p.Z] for p in eq.wall]
 
     output_file.close()

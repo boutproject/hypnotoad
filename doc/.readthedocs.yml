@@ -10,4 +10,7 @@ sphinx:
 
 python:
   install:
+    # Install doc-building requirements (sphinx, etc.)
     - requirements: docs/requirements.txt
+    # Install hypnotoad
+    - path: .

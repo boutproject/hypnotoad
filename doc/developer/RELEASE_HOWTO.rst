@@ -13,7 +13,15 @@ Release process
    PyPi.
 6. Approve the automatic PR from conda-forge to release the new version on
    conda.
-7. Make a new Zenodo entry for the new version on
+7. Automatic Zenodo integration with the Github repo has been activated. For
+   the next version after 0.5.1, the Zenodo entry should be automatically
+   created. Check that the automatic version links to the same record as the
+   [manually created ones](https://doi.org/10.5281/zenodo.6360326) and that the
+   metadata updated during the manual process was updated correctly.
+
+   The 'manual' process was:
+
+   Make a new Zenodo entry for the new version on
    https://doi.org/10.5281/zenodo.6360326.  
 
    i. Upload the .tar.gz from the GitHub release.  

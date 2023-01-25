@@ -1016,18 +1016,23 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
-    def plot(self, *args, psi=None, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, axis=None, **kwargs):
+        """
+        Plot this FineContour
+        """
         from matplotlib import pyplot
+
+        if axis is None:
+            axis = pyplot.axes(aspect="equal")
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
-        if plotPsi:
-            if psi is None:
-                raise ValueError("Must pass psi kwarg when plotPsi=True")
+        if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+            axis.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        axis.plot(Rpoints, Zpoints, *args, **kwargs)
+        return axis
 
 
 class PsiContour:
@@ -1150,8 +1155,16 @@ class PsiContour:
             self._reset_cached()
             self._extend_upper = val
 
-    def get_fine_contour(self, *, psi):
+    def get_fine_contour(self, *, psi=None):
+        """
+        Get the FineContour associated with this PsiContour
+
+        If the fine contour has not been created yet then the poloidal
+        flux `psi` is needed. If not provided then a ValueError will be raised.
+        """
         if self._fine_contour is None:
+            if psi is None:
+                raise ValueError("Poloidal flux psi needed to create FineContour")
             self._fine_contour = FineContour(self, dict(self.user_options), psi=psi)
             # Ensure that the fine contour is long enough
             self.checkFineContourExtend(psi=psi)
@@ -1932,16 +1945,23 @@ class PsiContour:
                 if self.endInd < 0:
                     self.endInd -= 1
 
-    def plot(self, *args, psi, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, axis=None, **kwargs):
+        """
+        Plot this PsiContour. If given 2D psi then plot contour.
+        """
         from matplotlib import pyplot
+
+        if axis is None:
+            axis = pyplot.axes(aspect="equal")
 
         Rpoints = [p.R for p in self]
         Zpoints = [p.Z for p in self]
-        if plotPsi:
+        if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+            axis.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        axis.plot(Rpoints, Zpoints, *args, **kwargs)
+        return axis
 
 
 class EquilibriumRegion(PsiContour):

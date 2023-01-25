@@ -2568,10 +2568,14 @@ class Mesh:
 
             hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            retval, self.git_diff = shell_safe(
-                "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
-            )
-            self.git_diff = self.git_diff.strip()
+            try:
+                retval, self.git_diff = shell_safe(
+                    "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
+                )
+                self.git_diff = self.git_diff.strip()
+            except RuntimeError:
+                # Could not run git or get the diff
+                self.git_diff = "unknown"
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}

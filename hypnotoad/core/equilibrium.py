@@ -1016,23 +1016,23 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
-    def plot(self, *args, psi=None, axis=None, **kwargs):
+    def plot(self, *args, psi=None, ax=None, **kwargs):
         """
         Plot this FineContour
         """
         from matplotlib import pyplot
 
-        if axis is None:
-            axis = pyplot.axes(aspect="equal")
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
         if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            axis.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        axis.plot(Rpoints, Zpoints, *args, **kwargs)
-        return axis
+            ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        ax.plot(Rpoints, Zpoints, *args, **kwargs)
+        return ax
 
 
 class PsiContour:
@@ -1945,23 +1945,23 @@ class PsiContour:
                 if self.endInd < 0:
                     self.endInd -= 1
 
-    def plot(self, *args, psi=None, axis=None, **kwargs):
+    def plot(self, *args, psi=None, ax=None, **kwargs):
         """
         Plot this PsiContour. If given 2D psi then plot contour.
         """
         from matplotlib import pyplot
 
-        if axis is None:
-            axis = pyplot.axes(aspect="equal")
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
 
         Rpoints = [p.R for p in self]
         Zpoints = [p.Z for p in self]
         if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            axis.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        axis.plot(Rpoints, Zpoints, *args, **kwargs)
-        return axis
+            ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        ax.plot(Rpoints, Zpoints, *args, **kwargs)
+        return ax
 
 
 class EquilibriumRegion(PsiContour):

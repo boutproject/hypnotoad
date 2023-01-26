@@ -1,11 +1,23 @@
-What's new
-==========
+Release history
+===============
 
-0.5.0 (unreleased)
-------------------
+0.5.1 (18th January 2023)
+-------------------------
+
+### New features
+
+- Command line utility to get flux surfaces from a geqdsk file and save them to
+  NetCDF (#156)\
+  By [John Omotani](https://github.com/johnomotani)
+
+0.5.0 (12th January 2023)
+-------------------------
 
 ### Breaking changes
 
+- Renamed command line programs to make the style consistent. All now use '-'
+  as a separator, not '\_' (#142)\
+  By [John Omotani](https://github.com/johnomotani)
 - Change how initial spacing of points on separatrix for nonorthogonal grids is
   calculated (this spacing is used to construct the underlying orthogonal
   grid). Now use weights that are just
@@ -36,17 +48,21 @@ What's new
   is actually shown in error message pop-up when incorrect type is passed
   (#134)\
   By [John Omotani](https://github.com/johnomotani)
+- Fix potential error in check of X-point `psi` vs. `psinorm_sol` (#143)\
+  By [John Omotani](https://github.com/johnomotani)
 
 ### New features
 
+- Create a manual for hypnotoad (#145)\
+  By [John Omotani](https://github.com/johnomotani)
 - Convenience script for making a plot of an equilibrium from a geqdsk file (#139)\
   By [John Omotani](https://github.com/johnomotani)
 - If an `int` (or other `Number`) literal is passed to a float-type option, it
   is converted implicitly instead of causing an error. (#134)\
   By [John Omotani](https://github.com/johnomotani)
 
-0.4.4
------
+0.4.4 (26th October 2022)
+-------------------------
 
 ### Bug fixes
 
@@ -66,8 +82,8 @@ What's new
   `xbout` to plot the grid cells from the newly added corner positions (#118)\
   By [John Omotani](https://github.com/johnomotani)
 
-0.4.3
------
+0.4.3 (25th December 2021)
+--------------------------
 
 ### Bug fixes
 

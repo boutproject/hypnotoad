@@ -279,10 +279,12 @@ class CircularEquilibrium(Equilibrium):
         """
         d2psi/dr2 as a function of r
 
-        d2psi/dr2 = d/dr(B0 r / (sqrt(1 - r**2 / R0**2) q))
-                  = B0 / (sqrt(1 - r**2 / R0**2) q)
-                    + B0 r**2 / (R0**2 (1 - r**2 / R0**2)**1.5 q)
-                    - B0 r dq/dr / (sqrt(1 - r**2 / R0**2) q**2)
+        ::
+
+            d2psi/dr2 = d/dr(B0 r / (sqrt(1 - r**2 / R0**2) q))
+                      = B0 / (sqrt(1 - r**2 / R0**2) q)
+                        + B0 r**2 / (R0**2 (1 - r**2 / R0**2)**1.5 q)
+                        - B0 r dq/dr / (sqrt(1 - r**2 / R0**2) q**2)
         """
         if not hasattr(self, "_d2psidr2_r"):
             R0 = self.user_options.R0
@@ -413,7 +415,7 @@ class CircularEquilibrium(Equilibrium):
 
     def f_R(self, R, Z):
         """
-        R component of the vector Grad(psi)/|Grad(psi)|**2.
+        R component of the vector :math:`\\nabla\\psi/|\\nabla\\psi|^2`.
         This is in the minor radius direction for concentric, circular flux surface
         geometry.
         """
@@ -423,7 +425,7 @@ class CircularEquilibrium(Equilibrium):
 
     def f_Z(self, R, Z):
         """
-        Z component of the vector Grad(psi)/|Grad(psi)|**2.
+        Z component of the vector :math:`\\nabla\\psi/|\\nabla\\psi|^2`.
         This is in the minor radius direction for concentric, circular flux surface
         geometry.
         """

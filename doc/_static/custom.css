@@ -1,0 +1,20 @@
+.wy-nav-content {
+  max-width: none;
+}
+p {
+  margin: 15px 0
+}
+
+
+/* fixes for table width, copying https://github.com/OpenShot/openshot-qt/pull/1272 */
+/* override table width restrictions */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
+.wy-table-responsive {
+    margin-bottom: 24px;
+    max-width: 100%;
+    overflow: visible;
+}
+/* end fixes for table width */

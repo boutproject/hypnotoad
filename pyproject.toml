@@ -1,9 +1,93 @@
+[build-system]
+requires = [
+    "setuptools >= 65",
+    "wheel >= 0.29.0",
+    "versioneer[toml]",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypnotoad"
+description = "Grid generator for BOUT++"
+readme = "README.md"
+authors = [
+    {name = "John Omotani", email = "john.omotani@ukaea.uk"},
+    {name = "Ben Dudson"},
+    {name = "BOUT++ team"}
+]
+license = {file = "LICENCE"}
+dynamic = ["version"]
+keywords = ["gyrokinetics", "analysis", "plasma", "research"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+]
+
+requires-python = ">=3.8"
+dependencies = [
+    "boututils~=0.1.7",
+    "dill~=0.3,!=0.3.5,!=0.3.5.1",
+    "func_timeout~=4.3",
+    "matplotlib~=3.2",
+    "netCDF4~=1.5",
+    "numpy~=1.18",
+    "optionsfactory~=1.0.11",
+    "PyYAML>=5.1",
+    "scipy~=1.6",
+    "Qt.py~=1.2",
+]
+
+[project.optional-dependencies]
+gui-pyside = ["pyside2~=5.13"]
+gui-PyQt5 = ["PyQt5~=5.12"]
+docs = [
+    "sphinx~=5.3.0",
+    "myst-parser~=0.18.1",
+    "sphinx-argparse~=0.3.1",
+    "sphinx-rtd-theme~=1.1.1",
+    "texttable~=1.6.7",
+]
+tests = [
+    "pytest >= 3.3.0",
+]
+
+[project.scripts]
+hypnotoad-circular = "hypnotoad.scripts.hypnotoad_circular:main"
+hypnotoad-geqdsk = "hypnotoad.scripts.hypnotoad_geqdsk:main"
+hypnotoad-torpex = "hypnotoad.scripts.hypnotoad_torpex:main"
+hypnotoad-plot-equilibrium = "hypnotoad.scripts.hypnotoad_plot_equilibrium:main"
+hypnotoad-plot-grid-cells = "hypnotoad.scripts.hypnotoad_plot_grid_cells:main"
+hypnotoad-recreate-inputs = "hypnotoad.scripts.hypnotoad_recreate_inputs:main"
+hypnotoad-get-flux-surfaces = "hypnotoad.scripts.hypnotoad_get_flux_surfaces:main"
+
+[project.gui-scripts]
+hypnotoad-gui = "hypnotoad.gui:main"
+
+[project.urls]
+Source = "https://github.com/boutproject/hypnotoad"
+Tracker = "https://github.com/boutproject/hypnotoad/issues"
+Documentation = "https://hypnotoad.readthedocs.io/en/latest/"
+
+[tool.setuptools.packages.find]
+include = ["hypnotoad*"]
+
+[tool.versioneer]
+VCS = "git"
+versionfile_source = "hypnotoad/__version__.py"
+versionfile_build = "hypnotoad/__version__.py"
+tag_prefix = ""
+parentdir_prefix = "hypnotoad-"
+
 [tool.black]
 exclude = '''
 (
-  hypnotoad/gui/hypnotoad_mainWindow.py
-  | versioneer.py
+  versioneer.py
+  | hypnotoad/gui/hypnotoad_mainWindow.py
   | hypnotoad/__version__.py
   | hypnotoad/gui/hypnotoad_preferences.py
 )
 '''
+
+[tool.pytest.ini_options]
+testpaths = ["hypnotoad/test_suite"]

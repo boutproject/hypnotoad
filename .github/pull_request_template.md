@@ -5,4 +5,5 @@ Feel free to remove any of the check-list items that aren't relevant to your PR.
 
 - [ ] Closes #xxxx
 - [ ] Tests added
+- [ ] Udated manual
 - [ ] Updated `doc/whats-new.md` with a summary of the changes

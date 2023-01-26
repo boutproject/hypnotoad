@@ -376,8 +376,8 @@ def closest_approach(point, a, b):
     point, a, and b are all 2-element arrays
 
     Algorithm from:
-    https://monkeyproofsolutions.nl/wordpress/
-       how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
+    https://monkeyproofsolutions.nl/wordpress/\
+    how-to-calculate-the-shortest-distance-between-a-point-and-a-line/
     """
     point = numpy.asarray(point)
     a = numpy.asarray(a)
@@ -406,8 +406,19 @@ def closest_approach(point, a, b):
 
 class FineContour:
     """
-    Used to give a high-resolution representation of a contour.
-    Points in FineContour are uniformly spaced in poloidal distance along the contour.
+    High-resolution representation of a contour of constant :math:`\\psi`.
+
+    Each ``FineContour`` belongs to a ``PsiContour`` and provides a high resolution
+    representation of the contour, which does not depend on the grid settings: points in
+    a FineContour are uniformly spaced in poloidal distance along the contour; and the
+    number of points is set by the ``finecontour_Nfine`` setting, which should be
+    significantly higher than the number of points in the y-direction in any region of
+    the grid.
+
+    The ``FineContour`` provides a robust calculation of the poloidal distance along a
+    contour, and provides accurate interpolation functions so that points belonging to
+    the parent ``PsiContour`` can be placed at specified poloidal locations along the
+    contour.
     """
 
     user_options_factory = OptionsFactory(
@@ -640,8 +651,38 @@ class FineContour:
 
     def equaliseSpacing(self, *, psi, reallocate=False):
         """
-        Adjust the positions of points in this FineContour so they have a constant
-        distance between them.
+        Adjust the positions of points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` so they have a constant distance
+        between them.
+
+        Algorithm:
+
+        1. Refine all points using :meth:`refine()
+           <hypnotoad.core.equilibrium.FineContour.refine>`.
+        2. Calculate the poloidal distances along the :class:`FineContour
+           <hypnotoad.core.equilibrium.FineContour>`, and the spacings between adjacent
+           points.
+        3. Check if the spacings are constant, with an absolute tolerance given by the
+           ``finecontour_atol`` setting. If so, stop iterating.
+        4. Create an interpolation function for the R and Z positions of this
+           :class:`FineContour <hypnotoad.core.equilibrium.FineContour>` as a function
+           of poloidal distance, using :meth:`interpFunction()
+           <hypnotoad.core.equilibrium.FineContour.interpFunction>`.
+        5. Create a new set of points using the interpolation functions, with a uniform
+           grid of poloidal distances as input.
+        6. If the iteration count is greater than 8 and
+           ``finecontour_overdamping_factor`` is not 1.0, 'overdamp' the iteration by
+           setting the new points as a sum of the new interpolated values (weighted by
+           ``finecontour_overdamping_factor``) and the old values (weighted by
+           ``(1-finecontour_overdamping_factor)``).
+        7. Return to 1.
+
+        As the interpolation is very accurate when the new points are very close to the
+        old points (Taylor expansion around the old points is accurate because the
+        displacement is small), this iteration usually converges fairly quickly.
+
+        If this method produces errors, setting ``finecontour_diagnose = True`` will
+        produce some more output which may help diagnose them.
         """
 
         self.refine(psi=psi, skip_endpoints=True)
@@ -780,6 +821,14 @@ class FineContour:
         return self.distance[self.endInd] - self.distance[self.startInd]
 
     def calcDistance(self, *, reallocate=False):
+        """
+        Calculate poloidal distance from the start of this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>`.
+
+        Distance is calculated as a cumulative sum of the straight-line distances
+        between each point. This calculation has a low order of accuracy, so the number
+        of points ``finecontour_Nfine`` should be chosen to be large.
+        """
         if self.distance is None or reallocate:
             self.distance = numpy.zeros(self.positions.shape[0])
         deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
@@ -805,6 +854,12 @@ class FineContour:
         return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
 
     def refine(self, *, psi, skip_endpoints=False, **kwargs):
+        """
+        Refine the points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` by calling
+        :meth:`PsiContour.refinePoiint()
+        <hypnotoad.core.equilibrium.PsiContour.refinePoint>` for each of them.
+        """
         # Includes unused **kwargs so we can pass the method to ParallelMap.__call__()
 
         # Define inner method so we can pass to func_timeout.func_timeout
@@ -863,7 +918,9 @@ class FineContour:
 
     def interpSSperp(self, vec, kind="linear"):
         """
-        Returns:
+        Returns
+        -------
+
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
            from the distance perpendicular to vec.
            's_perp' is modified to be a monotonically increasing function along the
@@ -920,8 +977,15 @@ class FineContour:
 
     def getDistance(self, p):
         """
-        Return the distance of a point along the contour.
-        Assume p is a point on the contour so has the correct psi-value.
+        Find the poloidal distance from the start of this contour of a point ``p``.
+
+        Assume ``p`` is a point on the contour so has the correct psi-value.
+
+        Result is calculated as the weighted mean of the poloidal distances of the two
+        nearest points on the :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` (weighted by the relative distance
+        from ``p`` to each :class:`FineContour <hypnotoad.core.equilibrium.FineContour>`
+        point).
         """
         p = p.as_ndarray()
 
@@ -968,9 +1032,11 @@ class FineContour:
 
 class PsiContour:
     """
-    Represents a contour as a collection of points.
-    Includes methods for interpolation.
-    Mostly behaves like a list
+    A piece of a flux surface (on the R-Z plane), i.e. a contour at constant poloidal
+    magnetic flux function :math:`\\psi`.
+
+    Contains a set of points lying on the contour. These will represent points belonging
+    to the generated grid.
     """
 
     user_options_factory = OptionsFactory(
@@ -1262,7 +1328,7 @@ class PsiContour:
 
     def refinePointNewton(self, p, tangent, *, psi, width, atol):
         """Use Newton iteration to refine point.
-        This should converge quickly if the original point is sufficiently close
+        This should converge quickly if the original point is sufficiently close.
         """
 
         def f(s):
@@ -1296,8 +1362,15 @@ class PsiContour:
             fprev = fnext
 
     def refinePointLinesearch(self, p, tangent, *, psi, width, atol):
-        """Refines the location of a point p, using a line search method
-        along the tangent vector
+        """Refine the location of a point p, using a line search method.
+
+        A line of length ``width`` is constructed perpendicular to the ``tangent``
+        direction, and ``scipy.optimize.brentq`` is used to search the line for the
+        point where :math:`\\psi` takes its nominal value. If the search fails (for
+        example because :math:`\\psi` is not monotonically varying along the line), it
+        is retried recursively, using half the width each time.
+
+        Usually robust, but can be slow.
         """
 
         def f(R, Z):
@@ -1361,13 +1434,22 @@ class PsiContour:
                 )
 
     def refinePointIntegrate(self, p, tangent, *, psi, width, atol):
-        """Integrates across flux surfaces from p
+        """Integrates across flux surfaces from ``p``
 
         Integrates this:
-        dR/dpsi = dpsi/dR / ((dpsi/dZ)**2 + (dpsi/dR)**2)
-        dZ/dpsi = dpsi/dZ / ((dpsi/dZ)**2 + (dpsi/dR)**2)
 
-        Note: This is the method used in the original Hypnotoad
+        .. math::
+            \\begin{eqnarray}
+            \\frac{dR}{d\\psi} &=& \\frac{d\\psi}{dR}
+                                   \\frac{1}{((d\\psi/dZ)^2 + (d\\psi/dR)^2)} \\\\
+            \\frac{dZ}{d\\psi} &=& \\frac{d\\psi}{dZ}
+                                   \\frac{1}{((d\\psi/dZ)^2 + (d\\psi/dR)^2)}
+            \\end{eqnarray}
+
+        Usually quick but does not respect ``atol``, so final result may not be as
+        accurate as desired.
+
+        Note: This is the method used in the original IDL Hypnotoad
         """
 
         def func(psival, position, eps=1e-10):
@@ -1612,7 +1694,9 @@ class PsiContour:
 
     def interpSSperp(self, vec, *, psi):
         """
-        Returns:
+        Returns
+        -------
+
         1. a function s(s_perp) for interpolating the poloidal distance along the contour
            from the distance perpendicular to vec.
            's_perp' is modified to be a monotonically increasing function along the
@@ -1642,6 +1726,7 @@ class PsiContour:
     ):
         """
         Interpolate onto set of npoints points, then refine positions.
+
         By default points are uniformly spaced, this can be changed by passing 'sfunc'
         which replaces the uniform interval 's' with 's=sfunc(s)'.
         'extend_lower' and 'extend_upper' extend the contour past its existing ends by a
@@ -1650,8 +1735,8 @@ class PsiContour:
         refine=False is passed, the result should be refined before it is used.
         Returns a new PsiContour.
 
-        Note: '*,' in the arguments list forces the following arguments to be passed as
-        keyword, not positional, arguments
+        Note: ``*,`` in the arguments list forces the following arguments to be passed
+        as keyword, not positional, arguments
         """
         if width is None:
             width = self.user_options.refine_width
@@ -1861,10 +1946,17 @@ class PsiContour:
 
 class EquilibriumRegion(PsiContour):
     """
-    Specialization of PsiContour for representing an equilibrium segment, which is a
-    poloidal segment based around a contour (normally a segment of a separatrix).
-    Includes members giving the connections to other regions and to list the X-points at
-    the boundaries where the contour starts or ends.
+    One part of the poloidal split of the equilibrium into distinct regions.
+
+    Inherits from PsiContour as it represents a line on the R-Z plane, normally a
+    part of a separatrix). In diverted tokamak configurations one or both ends are at an
+    X-point.
+
+    Contains the connections to other ``EquilibriumRegion`` objects of different radial
+    segments of the region.
+
+    Used as the starting point to generate the ``PsiContours`` that eventually fill the
+    region as part of ``MeshRegion`` objects.
     """
 
     user_options_factory = OptionsFactory(
@@ -2568,6 +2660,7 @@ class EquilibriumRegion(PsiContour):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
     def getRegridded(self, radialIndex, *, psi, **kwargs):
+        """ """
         for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
             # EquilibriumRegion.getRegridded. EquilibriumRegion.getRegridded knows its
@@ -2792,9 +2885,8 @@ class EquilibriumRegion(PsiContour):
         #   - otherwise fixed spacing perpendicular to vec_lower at the end of the
         #     contour
         # * Tends to orthogonal spacing far from the ends, unless sfunc_orthogonal is
-        #   None, in which case it sets points so that if combineSfuncs is called again
-        #   on the same contour, but with sfunc_orthogonal=contour.contourSfunc() then
-        #   the same spacing is given
+        #   None, in which case combines the lower and upper spacing with weights that
+        #   vary like cos(i*pi/2/index_length)**2 and sin(i*pi/2/index_length)**2.
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,
@@ -3131,84 +3223,98 @@ class EquilibriumRegion(PsiContour):
         with sprime(0) = d_lower and sprime(N/N_norm) = d_upper, and
         \\int(diN sprime) = L
 
-        If we chose a linear function
+        If we chose a linear function ::
+
           sprime = a*iN + b
-        then we would have
+
+        then we would have ::
+
           sprime(0) = d_lower = b
           sprime(N/N_norm) = d_upper = a*N/N_norm + b
                          a = (d_upper - b)*N_norm/N
                            = (d_upper - d_lower)*N_norm/N,
-        and so
+
+        and so ::
+
           \\int(diN sprime) = 1/2*a*(N/N_norm)^2 + b*N/N_norm
                            = 1/2*(d_upper - d_lower)*N/N_norm + d_lower*N/N_norm
                            = 1/2*(d_upper + d_lower)*N/N_norm.
-        We need
+
+        We need ::
+
           \\int(diN sprime) = L
-        so if
+
+        so if ::
+
           L < 1/2*(d_upper + d_lower)*N/N_norm
+
         sprime has to be a concave function (curves below a straight line) and otherwise
         sprime has to be a convex function (bulges above a straight line).
         In the second case sprime is always going to be positive, and we can use a
         quadratic function for sprime (so sN will be a cubic).
         In the first case it is harder to guarantee that sprime is always positive. Here
-        is one attempt:
-        # Define a function, l(iN), proportional to something like 1/iN that goes through
-        # d_lower at 0 and 0 at N/N_norm
-            l(iN) = l1/(iN + l2) - l3 with l1, l2, l3 > 0
-            l(0) = d_lower
-                 = l1/l2 - l3
-            l(N/N_norm) = 0
-                        = l1/(N/N_norm + l2) - l3
-          If we parameterise the family of these functions by l1, we can solve for l2, l3
-          as
-            d_lower = l1/l2 - l1/(N/N_norm + l2)
-            d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2
-                                               = l1*N/N_norm
-            l2 = (-d_lower*N/N_norm
-                  + sqrt(d_lower^2*(N/N_norm)^2
-                  + 4*d_lower*l1*N/N_norm)
-                 ) / (2*d_lower)
-          taking the positive sign so that l2 > 0
-            l3 = l1/l2 - d_lower
-        # Define another function, r(iN), proportional to something like -1/iN that goes
-          through 0 at 0 and d_upper at N/N_norm
-            r(iN) = r1/(r2 + N/N_norm - iN) - r3 where r1, r2, r3 > 0
-            r(0) = 0 = r1/(r2 + N/N_norm) - r3
-            r(N/N_norm) = d_upper = r1/r2 - r3
-          (these are identical to equations above for l1, l2, l3 but with l->r and
-          d_lower->d_upper)
-            r2 = (-d_upper*N/N_norm
-                  + sqrt(d_upper^2*(N/N_norm)^2
-                  + 4*d_upper*r1*N/N_norm)
-                 ) / (2*d_upper)
-            r3 = r1/r2 - d_upper
-        # Let
-            sprime(iN) = l(iN) + r(iN).
-          We have two free parameters, l1 and r1, but only one constraint that the
-          integral should be L, so arbitrarily choose l1=r1 to reduce to one free
-          parameter.
-        # Impose the constraint.
-            int(diN l) = int(diN l1/(iN + l2) - l3)
-                       = [l1*ln(iN + l2) - l3*iN]_{0}^{N/N_norm}
-                       = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
-            int(diN r) = int(diN r1/(r2 + N/N_norm - iN) - r3)
-                       = [-r1*ln(r2 + N/N_norm - iN) - r3*iN]_{0}^{N/N_norm}
-                       = r1*ln(1 + N/(N_norm*r2) - r3*N/N_norm)
-            L = int(diN l) + int(diN r)
-              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
-                + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm
-              = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
-                + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm.
-          This is a horrible equation with logs in and l1 both inside and outside logs,
-          probably can't solve by hand, but should have a unique solution and be a
-          monotonic function of l1, so solve numerically.
+        is one attempt::
 
-        In the first case we have
+            # Define a function, l(iN), proportional to something like 1/iN that goes
+            # through d_lower at 0 and 0 at N/N_norm
+                l(iN) = l1/(iN + l2) - l3 with l1, l2, l3 > 0
+                l(0) = d_lower
+                     = l1/l2 - l3
+                l(N/N_norm) = 0
+                            = l1/(N/N_norm + l2) - l3
+              If we parameterise the family of these functions by l1, we can solve for
+              l2, l3 as
+                d_lower = l1/l2 - l1/(N/N_norm + l2)
+                d_lower*N/N_norm*l2 + d_lower*l2^2 = l1*N/N_norm + l1*l2 - l1*l2
+                                                   = l1*N/N_norm
+                l2 = (-d_lower*N/N_norm
+                      + sqrt(d_lower^2*(N/N_norm)^2
+                      + 4*d_lower*l1*N/N_norm)
+                     ) / (2*d_lower)
+              taking the positive sign so that l2 > 0
+                l3 = l1/l2 - d_lower
+            # Define another function, r(iN), proportional to something like -1/iN that
+            # goes through 0 at 0 and d_upper at N/N_norm
+                r(iN) = r1/(r2 + N/N_norm - iN) - r3 where r1, r2, r3 > 0
+                r(0) = 0 = r1/(r2 + N/N_norm) - r3
+                r(N/N_norm) = d_upper = r1/r2 - r3
+              (these are identical to equations above for l1, l2, l3 but with l->r and
+              d_lower->d_upper)
+                r2 = (-d_upper*N/N_norm
+                      + sqrt(d_upper^2*(N/N_norm)^2
+                      + 4*d_upper*r1*N/N_norm)
+                     ) / (2*d_upper)
+                r3 = r1/r2 - d_upper
+            # Let
+                sprime(iN) = l(iN) + r(iN).
+            # We have two free parameters, l1 and r1, but only one constraint that the
+            # integral should be L, so arbitrarily choose l1=r1 to reduce to one free
+            # parameter.
+            # Impose the constraint.
+                int(diN l) = int(diN l1/(iN + l2) - l3)
+                           = [l1*ln(iN + l2) - l3*iN]_{0}^{N/N_norm}
+                           = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+                int(diN r) = int(diN r1/(r2 + N/N_norm - iN) - r3)
+                           = [-r1*ln(r2 + N/N_norm - iN) - r3*iN]_{0}^{N/N_norm}
+                           = r1*ln(1 + N/(N_norm*r2) - r3*N/N_norm)
+                L = int(diN l) + int(diN r)
+                  = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+                    + r1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm
+                  = l1*ln(N/(N_norm*l2) + 1) - l3*N/N_norm
+                    + l1*ln(N/(N_norm*r2) + 1) - r3*N/N_norm.
+              This is a horrible equation with logs in and l1 both inside and outside
+              logs, probably can't solve by hand, but should have a unique solution and
+              be a monotonic function of l1, so solve numerically.
+
+        In the first case we have ::
+
           s(iN) = a*iN^2 + b*iN + c
           s(0) = d_lower = c
           s(N/N_norm) = d_upper = a*(N/N_norm)^2 + b*N/N_norm + d_lower
                     b = (d_upper - d_lower)*N_norm/N - a*N/N_norm
-        The constraint on the integral gives
+
+        The constraint on the integral gives ::
+
           L = int(diN s) = int(diN (a*iN^2 + b*iN + c))
             = 1/3*a*(N/N_norm)^3 + 1/2*b*(N/N_norm)^2 + c*N/N_norm
             = 1/3*a*(N/N_norm)^3 + 1/2*(d_upper - d_lower)*N/N_norm
@@ -3331,16 +3437,18 @@ class EquilibriumRegion(PsiContour):
         Return a function s(i) giving poloidal distance as a function of index-number.
         Construct s(i)=sN(iN) as a function of the normalized iN = i/N_norm so that it
         has the same form when resolution is changed. The total Ny in the grid might be a
-        good choice for N_norm.
-        sN(0) = 0
-        sN(N/N_norm) = L
-        ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0 (if a_lower not None, else no
-                                                           sqrt(iN) term)
-        ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm (if a_upper is
-                                              not None, else no sqrt(N/N_norm - iN) term)
+        good choice for N_norm::
 
-        By default a_lower=b_lower and a_upper=b_upper, unless both are
-        specified explicitly
+            sN(0) = 0
+            sN(N/N_norm) = L
+            ds/diN(0) ~ a_lower/sqrt(iN)+b_lower at iN=0
+                        (if a_lower not None, else no sqrt(iN) term)
+            ds/diN(N/N_norm) ~ a_upper/sqrt(N/N_norm-iN)+b_upper at iN=N_norm
+                               (if a_upper is not None, else no sqrt(N/N_norm - iN)
+                                term)
+
+        By default a_lower=b_lower and a_upper=b_upper, unless both are specified
+        explicitly
         """
         if b_lower is None and b_upper is None:
             if a_lower is not None:
@@ -3669,43 +3777,17 @@ class EquilibriumRegion(PsiContour):
 
 class Equilibrium:
     """
-    Base class to provide an interface to an interpolating function for the flux function
-    psi that defines the magnetic equilibrium, along with some useful methods.
+    The magnetic equilibrium and topology.
 
-    psi is the magnetic flux function.
+    Provides functions (usually created by interpolating) that give the poloidal
+    magnetic flux function :math:`\\psi`, components of the magnetic field, etc. at any
+    point.
 
-    f_R and f_Z are the components of a vector Grad(psi)/|Grad(psi)|**2. This vector
-    points along a path perpendicular to psi-contours, and its value is ds/dpsi where s
-    is the coordinate along the path, so we can follow the path by integrating this
-    vector:
-    R(psi) = \\int_0^\\psi f_R
-    and
-    Z(psi) = \\int_0^\\psi f_Z
+    Contains information about the topology (e.g. position of X-points), and the regions
+    to be gridded (as an ``OrderedDict`` of :class:`EquilibriumRegion
+    <hypnotoad.core.equilibrium.EquilibriumRegion>` objects).
 
-    Derived classes must provide:
-      - self.psi: function which takes two arguments, {R,Z}, and returns the value of psi
-        at that position.
-      - self.f_R: function which takes two arguments, {R,Z}, and returns the R
-        component of the vector Grad(psi)/|Grad(psi)|**2.
-      - self.f_Z: function which takes two arguments, {R,Z}, and returns the Z
-        component of the vector Grad(psi)/|Grad(psi)|**2.
-      - self.Bp_R: function which takes two arguments, {R,Z}, and returns the R
-        component of the poloidal magnetic field.
-      - self.Bp_Z: function which takes two arguments, {R,Z}, and returns the Z
-        component of the poloidal magnetic field.
-      - self.x_points: list of Point2D objects giving the position of the X-points
-        ordered from primary X-point (nearest the core) outward
-      - self.psi_sep: values of psi on the separatrices ordered the same as self.x_points
-      - self.fpol: poloidal current function, takes one argument, psi, and returns fpol
-        (function such that B_toroidal = fpol/R)
-      - self.fpolprime: psi-derivative of fpol
-      - self.Rmin, self.Rmax, self.Zmin, self.Zmax: positions of the corners of a
-        bounding box for the gridding
-      - self.regions: OrderedDict of EquilibriumRegion objects that specify this
-        equilibrium
-      - self.wall: list of Point2D giving vertices of polygon representing the wall, in
-        anti-clockwise order; assumed to be closed so last element and first are taken to
-        be connected
+    Developers, see :ref:`developer/equilibrium:Equilibrium implementations`.
     """
 
     user_options_factory = OptionsFactory(
@@ -4352,18 +4434,25 @@ class Equilibrium:
 
         return result
 
-    def getPolynomialGridFunc(
+    def getSmoothMonotonicGridFunc(
         self, n, lower, upper, *, grad_lower=None, grad_upper=None
     ):
         """
         A function with value 'lower' at 0 and 'upper' at n, used to non-uniformly place
         grid point values in index space.
+
         Optionally matches the gradient grad_lower at the lower end and grad_upper at the
         upper end.
+
         If the gradient is specified, the second derivative is set to zero, to ensure
         that the derivative of the grid spacing is zero, and so the grid spacing will be
         smooth across boundaries.
-        Function is guaranteed to be monotonic.
+
+        Function is guaranteed to be monotonic - see comments in the code for the
+        algorithm in different cases. Note that at the parameter values where one case
+        flips to another, the spacing functions in both cases coincide so the returned
+        result should never have a jump when the input parameters are changed by a small
+        amount.
         """
         if grad_lower is not None and (upper - lower) * grad_lower < 0:
             raise ValueError(

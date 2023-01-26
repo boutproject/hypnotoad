@@ -21,19 +21,14 @@ from ..utils.utils import with_default
 
 class TokamakEquilibrium(Equilibrium):
     """
-    Represents an axisymmetric tokamak equilibrium
+    Axisymmetric tokamak equilibrium
 
-    Data members
-    - x_points: list of Point2D objects giving the position of the X-points ordered
-                from primary X-point (nearest the core) outward
-    - o_point: Point2D object for the magnetic O-point
-    - psi_sep: values of psi on the separatrices ordered the same as self.x_points
-    - Rmin, Rmax, Zmin, Zmax: positions of the corners of a bounding
-                              box for the gridding
-    - regions: OrderedDict of EquilibriumRegion objects that specify this equilibrium
-    - wall: list of Point2D giving vertices of polygon representing the wall, in
-            anti-clockwise order; assumed to be closed so last element and first are
-            taken to be connected
+    Implements :class:`Equilibrium <hypnotoad.core.equilibrium.Equilibrium>`.
+
+    Finds the central O-point of the equilibrium, and the X-points. Creates
+    :class:`EquilibriumRegion <hypnotoad.core.equilibrium.EquilibriumRegion>` objects
+    for the core (separate outer and inner for double null configurations) and divertor
+    legs.
     """
 
     # Tokamak-specific options and default values
@@ -664,6 +659,7 @@ class TokamakEquilibrium(Equilibrium):
         make_regions is set to False.
 
         The main steps in doing this are:
+
         1. Set defaults if not already set by user
         2. Identify whether single or double null
         3. Describe the leg and core regions, depending on the topology
@@ -675,17 +671,10 @@ class TokamakEquilibrium(Equilibrium):
            (self.createRegionObjects).
         7. Connect regions together
 
-        Inputs
-        ------
+        Modifies:
 
-        Keywords set options in user_options. Note that not all options
-        will have any effect, because they were already used in __init__.
-
-        Modifies
-        --------
-
-        - self.user_options    Sets default values if not set by user
-        - self.regions         OrderedDict of EquilibriumRegion objects
+        * self.user_options - Sets default values if not set by user
+        * self.regions - OrderedDict of EquilibriumRegion objects
 
         """
         if self.psi_axis is None:
@@ -723,7 +712,7 @@ class TokamakEquilibrium(Equilibrium):
             *(
                 (psi, xpoint)
                 for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if self._psi_to_psinorm(psi) < self.user_options.psinorm_sol
+                if self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol)
             )
         )
 
@@ -1373,20 +1362,22 @@ class TokamakEquilibrium(Equilibrium):
         (core region), find a set of points between the X-points.
         The result is returned as a dict of regions (like leg regions)
 
-        Inputs
-        ------
+        Parameters
+        ----------
+        core_regions : dict
+            A dictionary containing definitions of core regions.
+            Keys are:
 
-        core_regions  A dictionary containing definitions of core regions.
-                      Keys are:
-                        segments   A list of segment names
-                        ny         Number of poloidal (y) points
-                        kind       A string e.g. "wall.X"
-                        xpoints_at_start    A list of Point2D objects or None
-                        xpoints_at_end      A list of Point2D objects or None
-                        psi_at_start    Poloidal flux at the start of the line
-                        psi_at_end      Poloidal flux at the end of the line
+              * segments - A list of segment names
+              * ny - Number of poloidal (y) points
+              * kind - A string e.g. "wall.X"
+              * xpoints_at_start - A list of Point2D objects or None
+              * xpoints_at_end - A list of Point2D objects or None
+              * psi_at_start - Poloidal flux at the start of the line
+              * psi_at_end - Poloidal flux at the end of the line
 
-        npoints   number of points in each core region
+        npoints : int
+            number of points in each core region
 
         Returns
         -------
@@ -1473,15 +1464,17 @@ class TokamakEquilibrium(Equilibrium):
         """
         Grids radial segments
 
-        Input
-        -----
+        Parameters
+        ----------
 
-        segments   A dict of segments, each of which is a dictionary containing
-                      nx    Number of points in psi (x)
-                      psi_start   The poloidal flux at the start of the segment
-                      psi_end     The poloidal flux at the end of the segment
-                      grad_start [optional]  Cell spacing at the start
-                      grad_end   [optional] Cell spacing at the end
+        segments : dict
+            A dict of segments, each of which is a dictionary containing:
+
+              * nx - Number of points in psi (x)
+              * psi_start - The poloidal flux at the start of the segment
+              * psi_end - The poloidal flux at the end of the segment
+              * grad_start - [optional]  Cell spacing at the start
+              * grad_end - [optional] Cell spacing at the end
 
         The input is not modified
 
@@ -1494,7 +1487,7 @@ class TokamakEquilibrium(Equilibrium):
         for name, segment in segments.items():
             segment_with_psival = segment.copy()
 
-            psi_func = self.getPolynomialGridFunc(
+            psi_func = self.getSmoothMonotonicGridFunc(
                 segment["nx"],
                 segment["psi_start"],
                 segment["psi_end"],
@@ -1522,13 +1515,17 @@ class TokamakEquilibrium(Equilibrium):
         - 'outer_upper_divertor'
         - 'outer_lower_divertor'
 
-        Inputs
-        ------
+        Parameters
+        ----------
 
-        all_regions   Dictionary containing specification for each region
-        segments      Dictionary of radial segment definitions
-                        nx            Number of radial cells
-                        psi_vals      1D array of psi values, length 2*nx+1
+        all_regions : dict
+            Dictionary containing specification for each region
+        segments : dict
+            Dictionary of radial segment definitions
+            Keys are:
+
+              * nx - Number of radial cells
+              * psi_vals - 1D array of psi values, length 2*nx+1
 
         Returns
         -------
@@ -1669,16 +1666,19 @@ def read_geqdsk(
     Read geqdsk formatted data from a file object, returning
     a TokamakEquilibrium object
 
-    Inputs
-    ------
-    filehandle   A file handle to read
-    settings     dict passed to TokamakEquilibrium
-    nonorthogonal_settings  dict passed to TokamakEquilibrium
+    Parameters
+    ----------
+    filehandle : file handle
+        A file handle to read
+    settings : dict
+        dict passed to TokamakEquilibrium
+    nonorthogonal_settings : dict
+        dict passed to TokamakEquilibrium
 
-    Options
-    -------
-    reverse_current = bool  Changes the sign of poloidal flux psi
-    extrapolate_profiles = bool   Extrapolate pressure using exponential
+    Options used:
+
+    * ``reverse_current = bool`` - Changes the sign of poloidal flux psi
+    * ``extrapolate_profiles = bool`` - Extrapolate pressure using exponential
     """
 
     if settings is None:

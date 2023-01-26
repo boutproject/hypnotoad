@@ -6,6 +6,9 @@ Release history
 
 ### New features
 
+- `PsiContour.plot()` and `FineContour.plot()` can be called with an `ax`
+  argument, and passing `psi` is optional (#163)\
+  By [Ben Dudson](https://github.com/bendudson)
 - Command line utility to get flux surfaces from a geqdsk file and save them to
   NetCDF (#156)\
   By [John Omotani](https://github.com/johnomotani)

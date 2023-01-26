@@ -347,14 +347,14 @@ class MeshRegion:
         # should the contour intersect a wall at the upper end?
         upper_wall = self.connections["upper"] is None
 
+        # Note: parallel_map will pass additional keywords to the function,
+        #       including `equilibrium` and `psi`.
         map_result = self.parallel_map(
             _find_intersection,
             enumerate(self.contours),
             lower_wall=lower_wall,
             upper_wall=upper_wall,
             max_extend=max_extend,
-            atol=self.atol,
-            refine_width=self.user_options.refine_width,
         )
 
         self.contours = [x[0] for x in map_result]
@@ -2250,20 +2250,25 @@ def _find_intersection(
     i_contour,
     contour,
     *,
-    psi,
     equilibrium,
     lower_wall,
     upper_wall,
     max_extend,
-    atol,
-    refine_width,
+    psi=None,
     **kwargs,
 ):
+    """
+    i_contour    Index of contour. Only used for diagnostic output
+    """
     print(
         f"finding wall intersections: {i_contour + 1}",
         end="\r",
         flush=True,
     )
+
+    if psi is None:
+        # Get the poloidal flux from the equilibrium
+        psi = equilibrium.psi
 
     # point where contour intersects the lower wall
     lower_intersect = None

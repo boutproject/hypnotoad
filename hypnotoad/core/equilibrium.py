@@ -1044,8 +1044,11 @@ class FineContour:
                     distance, self.distance[-1]
                 )
             )
-        # Divide-and-conquer
+
         def find_point(distance, first, last):
+            """
+            Find point using divide-and-conquer
+            """
             if last == first + 1:
                 # Between these two points
                 d1 = self.distance[first]  # Should be <= distance
@@ -1284,10 +1287,11 @@ class PsiContour:
         # Calculate actual shifts for all points
         new_points = []
         new_distances = []
-        end = self.endInd + 1 if self.endInd != -1 else len(d)
+        end = self.endInd + 1 if self.endInd != -1 else len(self.points)
         last_distance = -1.0  # Keep track of last point position, so they don't cross
         for index, point in enumerate(self.points[self.startInd : end]):
-            # Calculate shift in position, scaled and offset to take into account FineContour limits
+            # Calculate shift in position, scaled and offset
+            # to take into account FineContour limits
             shift = shift_function(index / (self.endInd - self.startInd + 1))
             current_distance = fine_contour.getDistance(point)
             new_distance = (

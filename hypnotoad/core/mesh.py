@@ -2370,7 +2370,7 @@ def _find_intersection(
 
     if upper_wall:
         if lower_wall:
-            starti = len(contour // 2)
+            starti = len(contour) // 2
         else:
             starti = 0
 

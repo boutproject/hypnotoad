@@ -2573,9 +2573,18 @@ class Mesh:
 
             hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            retval, self.git_diff = shell_safe(
-                "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
-            )
+            try:
+                retval, self.git_diff = shell_safe(
+                    "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
+                )
+            except RuntimeError as e:
+                raise RuntimeError(
+                    "`git diff` failed. It is recommended to do an editable install "
+                    "using `pip --user -e .` when developing. If you did a "
+                    "non-editable install, this error can occur if the repo was "
+                    "'dirty' when installed.\n\nThe error message was:\n" + str(e)
+                )
+
             self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh

@@ -4,6 +4,12 @@ Release history
 0.5.1 (18th January 2023)
 -------------------------
 
+### Bug fixes
+
+- Document that editable installs are recommended for developers in manual and
+  exception message (#167)\
+  By [John Omotani](https://github.com/johnomotani)
+
 ### New features
 
 - `PsiContour.plot()` and `FineContour.plot()` can be called with an `ax`

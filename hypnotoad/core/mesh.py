@@ -379,7 +379,7 @@ class MeshRegion:
                 upper_intersect,
             ) = intersect_info
             # now add points on the wall(s) to the contour
-            if lower_wall:
+            if lower_wall and lower_intersect is not None:
                 # need to construct a new sfunc which gives distance from the wall, not
                 # the distance from the original startInd
 
@@ -447,7 +447,7 @@ class MeshRegion:
                     self.sfunc_orthogonal_list[i],
                 )
 
-            if upper_wall:
+            if upper_wall and upper_intersect is not None:
                 # now make upper_intersect_index the index where the point at the wall is
                 # check whether one of the points is close to the wall point and remove
                 # if it is - use a pretty loose check because points apart from the
@@ -2258,6 +2258,10 @@ def _find_intersection(
     **kwargs,
 ):
     """
+    Find intersection of given contour with the wall
+    Note: The intersection may be None if no intersection is found
+    e.g. if the contour is entirely outside the wall
+
     i_contour    Index of contour. Only used for diagnostic output
     """
     print(
@@ -2301,7 +2305,7 @@ def _find_intersection(
         count = 0
         distance = contour.get_distance(psi=psi)
         ds_extend = distance[1] - distance[0]
-        while coarse_lower_intersect is None:
+        while (coarse_lower_intersect is None) and (count < max_extend):
             # contour has not yet intersected with wall, so make it longer and
             # try again
             contour.temporaryExtend(psi=psi, extend_lower=1, ds_lower=ds_extend)
@@ -2309,64 +2313,51 @@ def _find_intersection(
                 contour[1], contour[0]
             )
             count += 1
-            if count >= max_extend:
-                print("Contour intersection failed")
+        # coarse_lower_intersect may be None if no intersection was found
 
-                import matplotlib.pyplot as plt
-
-                contour.plot(color="b", psi=equilibrium.psi)
-
-                plt.plot(
-                    [contour[0].R, contour[1].R],
-                    [contour[0].Z, contour[1].Z],
-                    color="r",
-                    linewidth=3,
-                )
-
-                equilibrium.plotWall()
-
-                plt.show()
-                raise RuntimeError("extended contour too far without finding wall")
-        # refine lower_intersect by finding the intersection from FineContour
-        # points
-        #
-        # first find nearest FineContour points
+        # Refine contour, creating FineContour points
         fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_lower_intersect)
-        i_fine = numpy.searchsorted(fine_contour.distance, d)
-        # Intersection should be between i_fine-1 and i_fine, but check
-        # intervals on either side if necessary
-        lower_intersect = equilibrium.wallIntersection(
-            Point2D(*fine_contour.positions[i_fine - 1]),
-            Point2D(*fine_contour.positions[i_fine]),
-        )
-        if lower_intersect is None:
+
+        if coarse_lower_intersect is not None:
+            # Found an intersection.
+            # Refine lower_intersect by finding the intersection from FineContour
+            # points
+
+            d = fine_contour.getDistance(coarse_lower_intersect)
+            i_fine = numpy.searchsorted(fine_contour.distance, d)
+            # Intersection should be between i_fine-1 and i_fine, but check
+            # intervals on either side if necessary
             lower_intersect = equilibrium.wallIntersection(
-                Point2D(*fine_contour.positions[i_fine - 2]),
                 Point2D(*fine_contour.positions[i_fine - 1]),
-            )
-            if lower_intersect is not None:
-                i_fine = i_fine - 1
-        if lower_intersect is None:
-            lower_intersect = equilibrium.wallIntersection(
                 Point2D(*fine_contour.positions[i_fine]),
-                Point2D(*fine_contour.positions[i_fine + 1]),
             )
-            if lower_intersect is not None:
-                i_fine = i_fine + 1
-        if lower_intersect is None:
-            raise ValueError(
-                "Did not find lower_intersect from fine_contour, even though "
-                "intersection was found on contour."
+            if lower_intersect is None:
+                lower_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine - 2]),
+                    Point2D(*fine_contour.positions[i_fine - 1]),
+                )
+                if lower_intersect is not None:
+                    i_fine = i_fine - 1
+            if lower_intersect is None:
+                lower_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine]),
+                    Point2D(*fine_contour.positions[i_fine + 1]),
+                )
+                if lower_intersect is not None:
+                    i_fine = i_fine + 1
+            if lower_intersect is None:
+                raise ValueError(
+                    "Did not find lower_intersect from fine_contour, even though "
+                    "intersection was found on contour."
+                )
+            # Further refine, to ensure wall point is at correct psi
+            lower_intersect = contour.refinePoint(
+                lower_intersect,
+                Point2D(
+                    *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
+                ),
+                psi=psi,
             )
-        # Further refine, to ensure wall point is at correct psi
-        lower_intersect = contour.refinePoint(
-            lower_intersect,
-            Point2D(
-                *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
-            ),
-            psi=psi,
-        )
 
     if upper_wall:
         if lower_wall:
@@ -2387,7 +2378,7 @@ def _find_intersection(
         count = 0
         distance = contour.get_distance(psi=psi)
         ds_extend = distance[-1] - distance[-2]
-        while coarse_upper_intersect is None:
+        while (coarse_upper_intersect is None) and (count < max_extend):
             # contour has not yet intersected with wall, so make it longer and
             # try again
             contour.temporaryExtend(psi=psi, extend_upper=1, ds_upper=ds_extend)
@@ -2395,64 +2386,49 @@ def _find_intersection(
                 contour[-2], contour[-1]
             )
             count += 1
-            if count >= max_extend:
-                print("Contour intersection failed")
 
-                import matplotlib.pyplot as plt
-
-                plt.plot([p.R for p in contour], [p.Z for p in contour], color="b")
-
-                plt.plot(
-                    [contour[-2].R, contour[-1].R],
-                    [contour[-2].Z, contour[-1].Z],
-                    color="r",
-                    linewidth=3,
-                )
-
-                equilibrium.plotWall(color="k")
-
-                plt.show()
-                raise RuntimeError("extended contour too far without finding wall")
-        # refine upper_intersect by finding the intersection from FineContour
-        # points
-        #
-        # first find nearest FineContour points
         fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_upper_intersect)
-        i_fine = numpy.searchsorted(fine_contour.distance, d)
-        # Intersection should be between i_fine-1 and i_fine, but check
-        # intervals on either side if necessary
-        upper_intersect = equilibrium.wallIntersection(
-            Point2D(*fine_contour.positions[i_fine - 1]),
-            Point2D(*fine_contour.positions[i_fine]),
-        )
-        if upper_intersect is None:
+
+        if coarse_upper_intersect is not None:
+            # refine upper_intersect by finding the intersection from FineContour
+            # points
+            #
+            # first find nearest FineContour points
+            d = fine_contour.getDistance(coarse_upper_intersect)
+            i_fine = numpy.searchsorted(fine_contour.distance, d)
+            # Intersection should be between i_fine-1 and i_fine, but check
+            # intervals on either side if necessary
             upper_intersect = equilibrium.wallIntersection(
-                Point2D(*fine_contour.positions[i_fine - 2]),
                 Point2D(*fine_contour.positions[i_fine - 1]),
-            )
-            if upper_intersect is not None:
-                i_fine = i_fine - 1
-        if upper_intersect is None:
-            upper_intersect = equilibrium.wallIntersection(
                 Point2D(*fine_contour.positions[i_fine]),
-                Point2D(*fine_contour.positions[i_fine + 1]),
             )
-            if upper_intersect is not None:
-                i_fine = i_fine + 1
-        if upper_intersect is None:
-            raise ValueError(
-                "Did not find upper_intersect from fine_contour, even though "
-                "intersection was found on contour."
+            if upper_intersect is None:
+                upper_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine - 2]),
+                    Point2D(*fine_contour.positions[i_fine - 1]),
+                )
+                if upper_intersect is not None:
+                    i_fine = i_fine - 1
+            if upper_intersect is None:
+                upper_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine]),
+                    Point2D(*fine_contour.positions[i_fine + 1]),
+                )
+                if upper_intersect is not None:
+                    i_fine = i_fine + 1
+            if upper_intersect is None:
+                raise ValueError(
+                    "Did not find upper_intersect from fine_contour, even though "
+                    "intersection was found on contour."
+                )
+            # Further refine, to ensure wall point is at correct psi
+            upper_intersect = contour.refinePoint(
+                upper_intersect,
+                Point2D(
+                    *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
+                ),
+                psi=psi,
             )
-        # Further refine, to ensure wall point is at correct psi
-        upper_intersect = contour.refinePoint(
-            upper_intersect,
-            Point2D(
-                *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
-            ),
-            psi=psi,
-        )
 
     # Create FineContour for result, so that this is done in parallel
     contour.get_fine_contour(psi=psi)

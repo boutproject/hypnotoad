@@ -141,6 +141,18 @@ class Point2D:
     def as_ndarray(self):
         return numpy.array((self.R, self.Z))
 
+    def plot(self, *args, ax=None, **kwargs):
+        """
+        Plot this Point2D
+        """
+        from matplotlib import pyplot
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
+
+        ax.plot([self.R], [self.Z], *args, **kwargs)
+        return ax
+
 
 def calc_distance(p1, p2):
     d = p2 - p1

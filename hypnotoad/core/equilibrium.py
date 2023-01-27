@@ -510,6 +510,7 @@ class FineContour:
         self.parentContour = parentContour
         self.user_options = self.user_options_factory.create(settings)
         self.distance = None
+        self.wall_intersections = (None, None)
         Nfine = self.user_options.finecontour_Nfine
 
         endInd = self.parentContour.endInd
@@ -829,7 +830,7 @@ class FineContour:
                 pyplot.legend()
                 pyplot.show()
 
-    def totalDistance(self):
+    def totalDistance(self) -> float:
         """
         Distance along FineContour from startInd to endInd
 
@@ -992,7 +993,7 @@ class FineContour:
 
         return s_of_sperp, s_perp_total
 
-    def getDistance(self, p):
+    def getDistance(self, p: Point2D) -> float:
         """
         Find the poloidal distance from the start of this contour of a point ``p``.
 
@@ -1032,6 +1033,36 @@ class FineContour:
         r = d2 / (d1 + d2)
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
+
+    def getPoint(self, distance: float) -> Point2D:
+        """
+        Return a Point2D at the given distance along the FineContour
+        """
+        if (distance < 0.0) or (distance > self.distance[-1]):
+            raise ValueError(
+                "distance {} is outside range [0, {}]".format(
+                    distance, self.distance[-1]
+                )
+            )
+        # Divide-and-conquer
+        def find_point(distance, first, last):
+            if last == first + 1:
+                # Between these two points
+                d1 = self.distance[first]  # Should be <= distance
+                d2 = self.distance[last]  # Should be >= distance
+                pos = (d2 - distance) / (d2 - d1) * self.positions[first] + (
+                    distance - d1
+                ) / (d2 - d1) * self.positions[last]
+                return Point2D(*pos)
+            # Somewhere between these two points
+            half = first + (last - first) // 2
+            if distance <= self.distance[half]:
+                return find_point(distance, first, half)
+            else:
+                return find_point(distance, half, last)
+
+        last = self.endInd if self.endInd > 0 else len(self.distance) + self.endInd
+        return find_point(distance, self.startInd, last)
 
     def plot(self, *args, psi=None, ax=None, **kwargs):
         """
@@ -1093,8 +1124,8 @@ class FineContour:
         Extends the FineContour if necessary.
         """
         if not (lower_wall or upper_wall):
-            self._wall_intersections = (None, None)
-            return self._wall_intersections  # No intersections
+            self.wall_intersections = (None, None)
+            return self.wall_intersections  # No intersections
 
         # Find any intersections
         lower_intersection, upper_intersection = self.findWallIntersections(
@@ -1121,8 +1152,8 @@ class FineContour:
                 )
                 count += 1
 
-        self._wall_intersections = (lower_intersection, upper_intersection)
-        return self._wall_intersections
+        self.wall_intersections = (lower_intersection, upper_intersection)
+        return self.wall_intersections
 
 
 class PsiContour:
@@ -1193,6 +1224,99 @@ class PsiContour:
         # startInd and endInd.
         self._extend_lower = 0
         self._extend_upper = 0
+
+    def map(self, equilibrium, shift_function):
+        """
+        Create a new PsiContour with points shifted.
+        Does not modify this PsiContour, but may extend the FineContour
+
+        # Inputs
+
+        shift_function(ypos) - A distance shift function
+                   ypos => a normalised coordinate between 0 and 1
+                   returns a distance shift in meters
+
+        # Returns
+
+        A new PsiContour object that shares the same FineContour
+        """
+        fine_contour = self.get_fine_contour()
+
+        # Calculate distance shift of lowest point
+        lower_shift = shift_function(0.0)
+
+        # Ensure that FineContour extends far enough
+        count = 0
+        while (
+            fine_contour.getDistance(self.points[self.startInd]) + lower_shift < 0.0
+        ) and (count < 10):
+            # Extend lower end of the FineContour
+            count += 1
+
+        # Lower shift that can be applied, given limits on FineContour
+        lower_distance = fine_contour.getDistance(self.points[self.startInd])
+        lower_shift_actual = max([-lower_distance, lower_shift])
+
+        # Shift of uppermost point
+        upper_shift = shift_function(1.0)
+
+        # Extend FineContour if needed
+        count = 0
+        while (
+            fine_contour.getDistance(self.points[self.endInd]) + upper_shift
+            > fine_contour.distance[-1]
+        ) and (count < 10):
+            # Extend upper end of the FineContour
+            count += 1
+
+        # Limit on actual shift that can be applied
+        upper_distance = fine_contour.getDistance(self.points[self.endInd])
+        upper_shift_actual = min(
+            [fine_contour.distance[-1] - upper_distance, upper_shift]
+        )
+
+        # Linear scaling of distance shifts, given limits on upper and lower shifts
+        total_distance = upper_distance - lower_distance  # Distance before mapping
+        distance_scale = (total_distance + upper_shift_actual - lower_shift_actual) / (
+            total_distance + upper_shift - lower_shift
+        )
+
+        # Calculate actual shifts for all points
+        new_points = []
+        new_distances = []
+        end = self.endInd + 1 if self.endInd != -1 else len(d)
+        last_distance = -1.0  # Keep track of last point position, so they don't cross
+        for index, point in enumerate(self.points[self.startInd : end]):
+            # Calculate shift in position, scaled and offset to take into account FineContour limits
+            shift = shift_function(index / (self.endInd - self.startInd + 1))
+            current_distance = fine_contour.getDistance(point)
+            new_distance = (
+                lower_distance
+                + lower_shift_actual
+                + distance_scale
+                * (current_distance - lower_distance + shift - lower_shift)
+            )
+            if new_distance < last_distance:
+                # Crossing over last point => limit shift
+                new_distance = last_distance + 1e-3
+            last_distance = new_distance
+
+            new_distances.append(new_distance)
+            new_points.append(fine_contour.getPoint(new_distance))
+
+        # Create a new PsiContour
+        new_contour = PsiContour(
+            points=new_points,
+            psival=self.psival,
+            settings=self.user_options,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
+        )
+        # Share FineContour
+        new_contour._fine_contour = fine_contour
+        # Already calculated distances
+        new_contour._distance = numpy.array(new_distances)
+        return new_contour
 
     def _reset_cached(self):
         # Reset all cached objects/values because the contour has been changed
@@ -1269,9 +1393,7 @@ class PsiContour:
             # Only check that points between startInd and endInd are monotonic
             end = self.endInd + 1 if self.endInd != -1 else len(d)
             if not numpy.all(
-                d[(self.startInd + 1) : end]
-                - d[self.startInd : self.endInd]
-                >= 0.0
+                d[(self.startInd + 1) : end] - d[self.startInd : self.endInd] >= 0.0
             ):
                 print("\nPsiContour distance", self._distance)
                 print("\nFineContour distance", fine_contour.distance)

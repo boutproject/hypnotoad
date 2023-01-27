@@ -522,13 +522,6 @@ class MeshRegion:
                 p_out = c_out[c_out.endInd]
             return [p_out.R - p_in.R, p_out.Z - p_in.Z]
 
-        # surface_vecs_lower = [
-        #    surface_vec(i, c, True) for i, c in enumerate(self.contours)
-        # ]
-        # surface_vecs_upper = [
-        #    surface_vec(i, c, False) for i, c in enumerate(self.contours)
-        # ]
-
         def get_sfunc(i_contour, contour, sfunc_orthogonal):
             surface_vec_lower = surface_vec(i_contour, contour, True)
             surface_vec_upper = surface_vec(i_contour, contour, False)

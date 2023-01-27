@@ -830,6 +830,11 @@ class FineContour:
                 pyplot.show()
 
     def totalDistance(self):
+        """
+        Distance along FineContour from startInd to endInd
+
+        Note: Not total distance along FineContour
+        """
         return self.distance[self.endInd] - self.distance[self.startInd]
 
     def calcDistance(self, *, reallocate=False):
@@ -1045,6 +1050,73 @@ class FineContour:
             ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         ax.plot(Rpoints, Zpoints, *args, **kwargs)
         return ax
+
+    def findWallIntersections(self, equilibrium, lower_wall=True, upper_wall=True):
+        """
+        Find intersections with equilibrium wall. Doesn't modify this FineContour.
+
+        Returns pair of intersections (lower, upper)
+        Each is either None or an (R, Z, index) tuple
+        """
+
+        def find_intersection(start_i, end_i):
+            """
+            Divide-and-conquer algorithm to find intersection
+            """
+            intersection = equilibrium.wallIntersection(
+                Point2D(*self.positions[start_i]),
+                Point2D(*self.positions[end_i])
+            )
+            if intersection is None:
+                return None # No intersection
+
+            if end_i == start_i + 1:
+                # Intersection between these indices
+                return intersection
+
+            # Half-way index
+            half_i = start_i + (end_i - start_i) // 2
+            # Recursion, finding the intersection that's not None
+            return find_intersection(start_i, half_i) or find_intersection(half_i, end_i)
+
+        half_i = len(self.positions) // 2
+        lower = find_intersection(0, half_i) if lower_wall else None
+        upper = find_intersection(half_i, len(self.positions) - 1) if upper_wall else None
+        return (lower, upper)
+
+    def setWallIntersections(self, equilibrium, lower_wall=True, upper_wall=True):
+        """
+        Set wall intersections with given equilibrium's wall.
+        Extends the FineContour if necessary.
+        """
+        if not (lower_wall or upper_wall):
+            self._wall_intersections = (None, None)
+            return self._wall_intersections # No intersections
+
+        # Find any intersections
+        lower_intersection, upper_intersection = self.findWallIntersections(
+            equilibrium, lower_wall=lower_wall, upper_wall=upper_wall)
+
+        if lower_wall and (lower_intersection is None):
+            # Expecting a lower intersection but didn't find one
+            count = 0
+            while (lower_intersection is None) and count < 10:
+                self.extend(psi = equilibrium.psi, extend_lower = 10)
+                lower_intersection, _ = self.findWallIntersections(
+                    equilibrium, lower_wall=True, upper_wall=False)
+                count += 1
+
+        if upper_wall and (upper_intersection is None):
+            # Expecting an upper intersection but didn't find one
+            count = 0
+            while (upper_intersection is None) and count < 10:
+                self.extend(psi = equilibrium.psi, extend_upper = 10)
+                _, upper_intersection = self.findWallIntersections(
+                    equilibrium, lower_wall=False, upper_wall=True)
+                count += 1
+
+        self._wall_intersections = (lower_intersection, upper_intersection)
+        return self._wall_intersections
 
 
 class PsiContour:

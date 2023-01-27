@@ -2998,6 +2998,44 @@ class Mesh:
         l = pyplot.legend()
         l.set_draggable(True)
 
+    def plotCells(self, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        for region in self.regions.values():
+            c = next(colors)
+            label = region.myID
+            pyplot.plot(
+                region.Rxy.centre,
+                region.Zxy.centre,
+                c=c,
+                linestyle='None',
+                marker='o'
+            )
+            for i in range(region.nx + 1):
+                pyplot.plot(
+                    region.Rxy.corners[i, :],
+                    region.Zxy.corners[i, :],
+                    c=c,
+                    label=label,
+                    **kwargs,
+                )
+                label = None
+            label = region.myID
+            for j in range(region.ny + 1):
+                pyplot.plot(
+                    region.Rxy.corners[:, j],
+                    region.Zxy.corners[:, j],
+                    c=c,
+                    label=None,
+                    **kwargs,
+                )
+                label = None
+        l = pyplot.legend()
+        l.set_draggable(True)
+
     def plotPoints(
         self,
         xlow=False,

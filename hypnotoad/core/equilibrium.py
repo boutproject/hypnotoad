@@ -1186,17 +1186,22 @@ class PsiContour:
         if self._distance is None:
             fine_contour = self.get_fine_contour(psi=psi)
             self._distance = [fine_contour.getDistance(p) for p in self]
+            for i in range(0, self.startInd):
+                self._distance[i] = self._distance[self.startInd]
+            for i in range(self.endInd + 1, len(self._distance)):
+                self._distance[i] = self._distance[self.endInd]
             d = numpy.array(self._distance)
-            if not numpy.all(d[1:] - d[:-1] > 0.0):
+
+            if not numpy.all(d[(self.startInd + 1):(self.endInd + 1)] - d[self.startInd:self.endInd] > 0.0):
                 print("\nPsiContour distance", self._distance)
                 print("\nFineContour distance", fine_contour.distance)
                 print("\nPsiContour points", self)
 
                 import matplotlib.pyplot as plt
 
-                self.plot(marker="o", color="k", psi=psi)
+                ax = self.plot(marker="o", color="k", psi=psi)
 
-                fine_contour.plot(marker="x", color="r")
+                fine_contour.plot(marker="x", color="r", ax=ax)
 
                 plt.show()
 
@@ -1667,12 +1672,12 @@ class PsiContour:
         if reference_ind < 0:
             reference_ind += len(self)
 
-        npoints = (len(self) - 1 - reference_ind) + 4
-
         distance = [0.0]
         for i in range(reference_ind - 3, len(self) - 1):
             distance.append(distance[-1] + calc_distance(self[i + 1], self[i]))
         distance = numpy.array(numpy.float64(distance)) - distance[3]
+
+        npoints = len(distance)
 
         R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))

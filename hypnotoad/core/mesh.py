@@ -2354,7 +2354,10 @@ def _find_intersection(
             lower_intersect = contour.refinePoint(
                 lower_intersect,
                 Point2D(
-                    *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
+                    *(
+                        fine_contour.positions[i_fine]
+                        - fine_contour.positions[i_fine - 1]
+                    )
                 ),
                 psi=psi,
             )
@@ -2425,7 +2428,10 @@ def _find_intersection(
             upper_intersect = contour.refinePoint(
                 upper_intersect,
                 Point2D(
-                    *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
+                    *(
+                        fine_contour.positions[i_fine]
+                        - fine_contour.positions[i_fine - 1]
+                    )
                 ),
                 psi=psi,
             )
@@ -3008,11 +3014,7 @@ class Mesh:
             c = next(colors)
             label = region.myID
             pyplot.plot(
-                region.Rxy.centre,
-                region.Zxy.centre,
-                c=c,
-                linestyle='None',
-                marker='o'
+                region.Rxy.centre, region.Zxy.centre, c=c, linestyle="None", marker="o"
             )
             for i in range(region.nx + 1):
                 pyplot.plot(

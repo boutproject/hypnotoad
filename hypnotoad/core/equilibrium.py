@@ -1264,13 +1264,15 @@ class PsiContour:
         if self._distance is None:
             fine_contour = self.get_fine_contour(psi=psi)
             self._distance = [fine_contour.getDistance(p) for p in self]
-            for i in range(0, self.startInd):
-                self._distance[i] = self._distance[self.startInd]
-            for i in range(self.endInd + 1, len(self._distance)):
-                self._distance[i] = self._distance[self.endInd]
             d = numpy.array(self._distance)
 
-            if not numpy.all(d[1:] - d[:-1] > 0.0):
+            # Only check that points between startInd and endInd are monotonic
+            end = self.endInd + 1 if self.endInd != -1 else len(d)
+            if not numpy.all(
+                d[(self.startInd + 1) : end]
+                - d[self.startInd : self.endInd]
+                >= 0.0
+            ):
                 print("\nPsiContour distance", self._distance)
                 print("\nFineContour distance", fine_contour.distance)
                 print("\nPsiContour points", self)

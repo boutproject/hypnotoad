@@ -1270,11 +1270,7 @@ class PsiContour:
                 self._distance[i] = self._distance[self.endInd]
             d = numpy.array(self._distance)
 
-            if not numpy.all(
-                d[(self.startInd + 1) : (self.endInd + 1)]
-                - d[self.startInd : self.endInd]
-                > 0.0
-            ):
+            if not numpy.all(d[1:] - d[:-1] > 0.0):
                 print("\nPsiContour distance", self._distance)
                 print("\nFineContour distance", fine_contour.distance)
                 print("\nPsiContour points", self)

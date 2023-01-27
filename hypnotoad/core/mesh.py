@@ -729,6 +729,62 @@ class MeshRegion:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
 
+    def plotGridLines(self, ax=None, c="k", label=None, **kwargs):
+        """
+        Plot grid lines through cell centers
+        """
+        if ax is None:
+            from matplotlib import pyplot
+
+            ax = pyplot.axes(aspect="equal")
+
+        for i in range(self.nx):
+            ax.plot(
+                self.Rxy.centre[i, :],
+                self.Zxy.centre[i, :],
+                c=c,
+                label=label,
+                **kwargs,
+            )
+            label = None
+        for j in range(self.ny):
+            ax.plot(
+                self.Rxy.centre[:, j],
+                self.Zxy.centre[:, j],
+                c=c,
+                label=None,
+                **kwargs,
+            )
+        return ax
+
+    def plotCells(self, ax=None, c="k", label=None, **kwargs):
+        if ax is None:
+            from matplotlib import pyplot
+
+            ax = pyplot.axes(aspect="equal")
+
+        # Plot cell centre points
+        ax.plot(self.Rxy.centre, self.Zxy.centre, c=c, linestyle="None", marker="o")
+
+        for i in range(self.nx + 1):
+            ax.plot(
+                self.Rxy.corners[i, :],
+                self.Zxy.corners[i, :],
+                c=c,
+                label=label,
+                **kwargs,
+            )
+            label = None
+        for j in range(self.ny + 1):
+            ax.plot(
+                self.Rxy.corners[:, j],
+                self.Zxy.corners[:, j],
+                c=c,
+                label=None,
+                **kwargs,
+            )
+        return ax
+
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
         # neighbour. They should be close, but aren't guaranteed to be identical already
@@ -2973,70 +3029,33 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridLines(self, **kwargs):
+    def plotGridLines(self, ax=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
-        for region in self.regions.values():
-            c = next(colors)
+        for region, c in zip(self.regions.values(), colors):
             label = region.myID
-            for i in range(region.nx):
-                pyplot.plot(
-                    region.Rxy.centre[i, :],
-                    region.Zxy.centre[i, :],
-                    c=c,
-                    label=label,
-                    **kwargs,
-                )
-                label = None
-            label = region.myID
-            for j in range(region.ny):
-                pyplot.plot(
-                    region.Rxy.centre[:, j],
-                    region.Zxy.centre[:, j],
-                    c=c,
-                    label=None,
-                    **kwargs,
-                )
-                label = None
-        l = pyplot.legend()
-        l.set_draggable(True)
+            region.plotGridLines(c=c, label=label, ax=ax)
+        pyplot.legend().set_draggable(True)
+        return ax
 
-    def plotCells(self, **kwargs):
+    def plotCells(self, ax=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
-        for region in self.regions.values():
-            c = next(colors)
+        for region, c in zip(self.regions.values(), colors):
             label = region.myID
-            pyplot.plot(
-                region.Rxy.centre, region.Zxy.centre, c=c, linestyle="None", marker="o"
-            )
-            for i in range(region.nx + 1):
-                pyplot.plot(
-                    region.Rxy.corners[i, :],
-                    region.Zxy.corners[i, :],
-                    c=c,
-                    label=label,
-                    **kwargs,
-                )
-                label = None
-            label = region.myID
-            for j in range(region.ny + 1):
-                pyplot.plot(
-                    region.Rxy.corners[:, j],
-                    region.Zxy.corners[:, j],
-                    c=c,
-                    label=None,
-                    **kwargs,
-                )
-                label = None
-        l = pyplot.legend()
-        l.set_draggable(True)
+            region.plotCells(c=c, label=label, ax=ax)
+        pyplot.legend().set_draggable(True)
+        return ax
 
     def plotPoints(
         self,

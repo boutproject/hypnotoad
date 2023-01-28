@@ -145,8 +145,12 @@ class MeshRegion:
         radialIndex,
         settings,
         parallel_map,
+        contours=None,
     ):
-
+        """
+        If contours are given then they are assumed to correspond to
+        flux surfaces in this equilibriumRegion.
+        """
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
@@ -195,147 +199,159 @@ class MeshRegion:
         # Create ParallelMap object for parallelising loops
         self.parallel_map = parallel_map
 
-        # get points in this region
-        self.contours = []
-        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            # region is inside separatrix, so need to follow line from the last psi_val
-            # to the first
-            temp_psi_vals = self.psi_vals[::-1]
+        if contours is not None:
+            # Contours already calculated
+            self.contours = contours
+
         else:
-            temp_psi_vals = self.psi_vals
+            # get points in this region
+            self.contours = []
+            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+                # region is inside separatrix, so need to follow line
+                # from the last psi_val to the first
+                temp_psi_vals = self.psi_vals[::-1]
+            else:
+                temp_psi_vals = self.psi_vals
 
-        # Make vector along grad(psi) at start of equilibriumRegion Here we assume that
-        # the equilibriumRegion at a separatrix at the beginning and end, but not
-        # necessarily in between.  This is to handle disconnected double null
-        start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
-        start_psi = self.equilibriumRegion.psi(*start_point)
+            # Make vector along grad(psi) at start of equilibriumRegion.
+            # Here we assume that the equilibriumRegion at a separatrix
+            # at the beginning and end, but not necessarily in between.
+            # This is to handle disconnected double null
+            start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
+            start_psi = self.equilibriumRegion.psi(*start_point)
 
-        # set sign of step in psi towards this region from primary separatrix at start of
-        # region
-        if temp_psi_vals[-1] - start_psi > 0:
-            start_psi_sep_plus_delta = (
-                start_psi
-                + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-        else:
-            start_psi_sep_plus_delta = (
-                start_psi
-                - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-
-        vec_points = followPerpendicular(
-            0,
-            start_point,
-            start_psi,
-            f_R=self.meshParent.equilibrium.f_R,
-            f_Z=self.meshParent.equilibrium.f_Z,
-            psivals=[start_psi, start_psi_sep_plus_delta],
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        self.equilibriumRegion.gradPsiSurfaceAtStart = (
-            vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
-        )
-
-        # Make vector along grad(psi) at end of equilibriumRegion
-        end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
-        end_psi = self.equilibriumRegion.psi(*end_point)
-
-        # set sign of step in psi towards this region from primary separatrix at end of
-        # region
-        if temp_psi_vals[-1] - end_psi > 0:
-            end_psi_sep_plus_delta = (
-                end_psi + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-        else:
-            end_psi_sep_plus_delta = (
-                end_psi - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-
-        vec_points = followPerpendicular(
-            -1,
-            end_point,
-            end_psi,
-            f_R=self.meshParent.equilibrium.f_R,
-            f_Z=self.meshParent.equilibrium.f_Z,
-            psivals=[end_psi, end_psi_sep_plus_delta],
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        self.equilibriumRegion.gradPsiSurfaceAtEnd = (
-            vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
-        )
-
-        # Calculate the angles for perp_d_lower/perp_d_upper corresponding to
-        # d_lower/d_upper on the separatrix contour
-        # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
-        # because then the vector will not change when the grid resolution changes
-        fine_contour = self.equilibriumRegion.get_fine_contour(
-            psi=self.equilibriumRegion.psi
-        )
-        if self.equilibriumRegion.wallSurfaceAtStart is None:
-            # lower end
-            unit_vec_separatrix = (
-                fine_contour.positions[fine_contour.startInd + 1, :]
-                - fine_contour.positions[fine_contour.startInd, :]
-            )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
-            unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
-            cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude
-            # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(1.0 - cos_angle**2)
-        if self.equilibriumRegion.wallSurfaceAtEnd is None:
-            # upper end
-            unit_vec_separatrix = (
-                fine_contour.positions[fine_contour.endInd - 1, :]
-                - fine_contour.positions[fine_contour.endInd, :]
-            )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
-            unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
-            cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude
-            # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle**2)
-
-        perp_points_list = self.parallel_map(
-            followPerpendicular,
-            zip(
-                range(len(self.equilibriumRegion)),
-                self.equilibriumRegion,
-                [self.equilibriumRegion.psi(*p) for p in self.equilibriumRegion],
-            ),
-            psivals=temp_psi_vals,
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            for perp_points in perp_points_list:
-                perp_points.reverse()
-
-        for i, point in enumerate(perp_points_list[0]):
-            self.contours.append(
-                self.equilibriumRegion.newContourFromSelf(
-                    points=[point], psival=self.psi_vals[i]
+            # set sign of step in psi towards this region from primary
+            # separatrix at start of region
+            if temp_psi_vals[-1] - start_psi > 0:
+                start_psi_sep_plus_delta = (
+                    start_psi
+                    + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
                 )
+            else:
+                start_psi_sep_plus_delta = (
+                    start_psi
+                    - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+
+            vec_points = followPerpendicular(
+                0,
+                start_point,
+                start_psi,
+                f_R=self.meshParent.equilibrium.f_R,
+                f_Z=self.meshParent.equilibrium.f_Z,
+                psivals=[start_psi, start_psi_sep_plus_delta],
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
             )
-            self.contours[i].global_xind = self.globalXInd(i)
-        for perp_points in perp_points_list[1:]:
-            for i, point in enumerate(perp_points):
-                self.contours[i].append(point)
+            self.equilibriumRegion.gradPsiSurfaceAtStart = (
+                vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
+            )
 
-        # refine the contours to make sure they are at exactly the right psi-value
-        self.contours = self.parallel_map(
-            PsiContour.refine,
-            ((c,) for c in self.contours),
-            width=self.user_options.refine_width,
-        )
+            # Make vector along grad(psi) at end of equilibriumRegion
+            end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
+            end_psi = self.equilibriumRegion.psi(*end_point)
 
-        if not self.user_options.orthogonal:
-            self.addPointAtWallToContours()
-            self.distributePointsNonorthogonal()
+            # set sign of step in psi towards this region from primary
+            # separatrix at end of region
+            if temp_psi_vals[-1] - end_psi > 0:
+                end_psi_sep_plus_delta = (
+                    end_psi
+                    + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+            else:
+                end_psi_sep_plus_delta = (
+                    end_psi
+                    - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+
+            vec_points = followPerpendicular(
+                -1,
+                end_point,
+                end_psi,
+                f_R=self.meshParent.equilibrium.f_R,
+                f_Z=self.meshParent.equilibrium.f_Z,
+                psivals=[end_psi, end_psi_sep_plus_delta],
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
+            )
+            self.equilibriumRegion.gradPsiSurfaceAtEnd = (
+                vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
+            )
+
+            # Calculate the angles for perp_d_lower/perp_d_upper corresponding to
+            # d_lower/d_upper on the separatrix contour
+            # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
+            # because then the vector will not change when the grid resolution changes
+            fine_contour = self.equilibriumRegion.get_fine_contour(
+                psi=self.equilibriumRegion.psi
+            )
+            if self.equilibriumRegion.wallSurfaceAtStart is None:
+                # lower end
+                unit_vec_separatrix = (
+                    fine_contour.positions[fine_contour.startInd + 1, :]
+                    - fine_contour.positions[fine_contour.startInd, :]
+                )
+                unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
+                unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
+                unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
+                cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
+                # this gives abs(sin_angle), but that's OK because we only want
+                # the magnitude to calculate perp_d
+                self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(
+                    1.0 - cos_angle**2
+                )
+            if self.equilibriumRegion.wallSurfaceAtEnd is None:
+                # upper end
+                unit_vec_separatrix = (
+                    fine_contour.positions[fine_contour.endInd - 1, :]
+                    - fine_contour.positions[fine_contour.endInd, :]
+                )
+                unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
+                unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
+                unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
+                cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
+                # this gives abs(sin_angle), but that's OK because we only want
+                # the magnitude to calculate perp_d
+                self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(
+                    1.0 - cos_angle**2
+                )
+
+            perp_points_list = self.parallel_map(
+                followPerpendicular,
+                zip(
+                    range(len(self.equilibriumRegion)),
+                    self.equilibriumRegion,
+                    [self.equilibriumRegion.psi(*p) for p in self.equilibriumRegion],
+                ),
+                psivals=temp_psi_vals,
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
+            )
+            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+                for perp_points in perp_points_list:
+                    perp_points.reverse()
+
+            for i, point in enumerate(perp_points_list[0]):
+                self.contours.append(
+                    self.equilibriumRegion.newContourFromSelf(
+                        points=[point], psival=self.psi_vals[i]
+                    )
+                )
+                self.contours[i].global_xind = self.globalXInd(i)
+            for perp_points in perp_points_list[1:]:
+                for i, point in enumerate(perp_points):
+                    self.contours[i].append(point)
+
+            # refine the contours to make sure they are at exactly the right psi-value
+            self.contours = self.parallel_map(
+                PsiContour.refine,
+                ((c,) for c in self.contours),
+                width=self.user_options.refine_width,
+            )
+
+            if not self.user_options.orthogonal:
+                self.addPointAtWallToContours()
+                self.distributePointsNonorthogonal()
 
     def addPointAtWallToContours(self):
         # maximum number of times to extend the contour when it has not yet hit the wall

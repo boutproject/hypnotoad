@@ -784,6 +784,8 @@ class MeshRegion:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
 
+        return self
+
     def plotGridLines(self, ax=None, c="k", label=None, **kwargs):
         """
         Plot grid lines through cell centers

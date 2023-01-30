@@ -1296,7 +1296,8 @@ class PsiContour:
         for index, point in enumerate(self.points[self.startInd : end]):
             # Calculate shift in position, scaled and offset
             # to take into account FineContour limits
-            shift = shift_function(index / (self.endInd - self.startInd + 1))
+            ypos = index / (self.endInd - self.startInd)
+            shift = shift_function(ypos)
             current_distance = fine_contour.getDistance(point)
             new_distance = (
                 lower_distance
@@ -1305,8 +1306,9 @@ class PsiContour:
                 * (current_distance - lower_distance + shift - lower_shift)
             )
             if new_distance < last_distance:
-                # Crossing over last point => limit shift
-                new_distance = last_distance + 1e-3
+                # Crossing over last point => limit shift, but don't allow
+                # location to exceed end of FineContour
+                new_distance = min([last_distance + 1e-3, fine_contour.distance[-1]])
             last_distance = new_distance
 
             new_distances.append(new_distance)

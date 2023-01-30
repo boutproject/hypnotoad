@@ -1038,12 +1038,16 @@ class FineContour:
         """
         Return a Point2D at the given distance along the FineContour
         """
-        if (distance < 0.0) or (distance > self.distance[-1]):
+        if (distance < -1e-12) or (distance > self.distance[-1] + 1e-12):
             raise ValueError(
                 "distance {} is outside range [0, {}]".format(
                     distance, self.distance[-1]
                 )
             )
+        elif distance < 0.0:
+            distance = 0.0
+        elif distance > self.distance[-1]:
+            distance = self.distance[-1]
 
         def find_point(distance, first, last):
             """
@@ -1243,7 +1247,7 @@ class PsiContour:
 
         A new PsiContour object that shares the same FineContour
         """
-        fine_contour = self.get_fine_contour()
+        fine_contour = self.get_fine_contour(psi=equilibrium.psi)
 
         # Calculate distance shift of lowest point
         lower_shift = shift_function(0.0)

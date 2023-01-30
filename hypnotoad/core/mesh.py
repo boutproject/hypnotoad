@@ -2745,6 +2745,10 @@ class Mesh:
         shift_functions. Here this should be a dictionary of functions,
         one for each region.
 
+        Note: The first call to this function can be slow, as the FineContour objects
+        are created. Those FineContours are shared with all re-mapped meshes, so
+        subsequent map() calls are fast.
+
         Parameters
         ----------
         shift_functions : dict
@@ -2758,7 +2762,8 @@ class Mesh:
                 self.equilibrium, shift_functions[region_id]
             )
 
-        return Mesh(
+        # Create a new instance of this Mesh subclass
+        return self.__class__(
             self.equilibrium,
             self.user_options,
             regions=new_regions,
@@ -3390,9 +3395,9 @@ class BoutMesh(Mesh):
         ###########################
     )
 
-    def __init__(self, equilibrium, settings):
+    def __init__(self, equilibrium, settings, **kwargs):
 
-        super().__init__(equilibrium, settings)
+        super().__init__(equilibrium, settings, **kwargs)
 
         # nx, ny both include boundary guard cells
         eq_region0 = next(iter(self.equilibrium.regions.values()))

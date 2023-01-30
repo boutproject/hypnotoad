@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This script generates a BOUT++ grid file from a GEQDSK equilibrium,
 # and optionally a set of inputs in a YAML file
@@ -57,6 +57,7 @@ def main(*, add_noise=None):
             for opt in tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
         ]
         + [opt for opt in BoutMesh.user_options_factory.defaults]
+        + ["plot_regions", "plot_mesh", "plot_cells"]
     )
     unused_options = [opt for opt in options if opt not in possible_options]
     if unused_options != []:
@@ -119,6 +120,17 @@ def main(*, add_noise=None):
                 corners=options.get("plot_corners", True),
                 ax=ax,
             )
+            plt.show()
+        except Exception as err:
+            warnings.warn(str(err))
+
+    if options.get("plot_cells", False):
+        try:
+            import matplotlib.pyplot as plt
+
+            ax = eq.plotPotential(ncontours=40)
+            eq.plotWall(axis=ax)
+            mesh.plotCells(ax=ax, centres=False)
             plt.show()
         except Exception as err:
             warnings.warn(str(err))

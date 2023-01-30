@@ -812,14 +812,15 @@ class MeshRegion:
             )
         return ax
 
-    def plotCells(self, ax=None, c="k", label=None, **kwargs):
+    def plotCells(self, ax=None, c="k", label=None, centres=True, **kwargs):
         if ax is None:
             from matplotlib import pyplot
 
             ax = pyplot.axes(aspect="equal")
 
-        # Plot cell centre points
-        ax.plot(self.Rxy.centre, self.Zxy.centre, c=c, linestyle="None", marker="o")
+        if centres:
+            # Plot cell centre points
+            ax.plot(self.Rxy.centre, self.Zxy.centre, c=c, linestyle="None", marker="o")
 
         for i in range(self.nx + 1):
             ax.plot(
@@ -3176,7 +3177,7 @@ class Mesh:
 
         for region, c in zip(self.regions.values(), colors):
             label = region.myID
-            region.plotCells(c=c, label=label, ax=ax)
+            region.plotCells(c=c, label=label, ax=ax, **kwargs)
         pyplot.legend().set_draggable(True)
         return ax
 

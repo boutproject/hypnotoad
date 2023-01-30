@@ -2742,7 +2742,8 @@ class Mesh:
     def map(self, shift_functions):
         """
         Return a new Mesh, created by shifting points along flux surfaces using
-        shift_functions. Here this should be a dictionary of functions, one for each region.
+        shift_functions. Here this should be a dictionary of functions,
+        one for each region.
 
         Parameters
         ----------

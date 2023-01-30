@@ -353,6 +353,52 @@ class MeshRegion:
                 self.addPointAtWallToContours()
                 self.distributePointsNonorthogonal()
 
+    def map(self, equilibrium, shift_function, meshParent=None):
+        """
+        Create a new MeshRegion by mapping PsiContours with
+        the given shift_function.
+
+        This MeshRegion is not modified, but the PsiContour map
+        method is called, and that may extend/modify the underlying
+        FineContour objects.
+
+        # Inputs
+
+        shift_function(xpos, ypos) - A distance shift function
+                   xpos - A normalised radial coordinate between 0 and 1
+                   ypos - A normalised poloidal coordinate between 0 and 1
+
+        # Returns
+
+        A new MeshRegion that is the same as this one except:
+        - meshParent is the input argument
+        - contours are mapped using the given shift_function
+        """
+
+        # Map contours
+        new_contours = []
+        psi_first = self.contours[0].psival
+        psi_last = self.contours[-1].psival
+        for contour in self.contours:
+            # Calculate normalised radial flux coordinate from 0 to 1
+            x = (contour.psival - psi_first) / (psi_last - psi_first)
+            # Map to new contour
+            new_contour = contour.map(equilibrium, lambda y: shift_function(x, y))
+            new_contours.append(new_contour)
+
+        # Create a new MeshRegion that is similar to this one
+        # but has the new contours
+        return MeshRegion(
+            meshParent,
+            self.myID,
+            self.equilibriumRegion,
+            self.connections,
+            self.radialIndex,
+            self.user_options,
+            self.parallel_map,
+            contours=new_contours,
+        )
+
     def addPointAtWallToContours(self):
         # maximum number of times to extend the contour when it has not yet hit the wall
         max_extend = 100
@@ -2581,7 +2627,9 @@ class Mesh:
         ),
     )
 
-    def __init__(self, equilibrium, settings):
+    def __init__(
+        self, equilibrium, settings, regions=None, connections=None, parallel_map=None
+    ):
         """
         Parameters
         ----------
@@ -2590,6 +2638,13 @@ class Mesh:
         settings : dict
             Non-default values to use to generate the grid. Must be consistent with the
             ones that were used to create the equilibrium
+        regions : dict
+            Dictionary of MeshRegion objects that make up this Mesh
+            If not given then these will be created from the equilibrium regions
+        connections : dict
+            The connections between mesh regions
+        parallel_map : ParallelMap
+
         """
         self.equilibrium = equilibrium
 
@@ -2646,26 +2701,72 @@ class Mesh:
                 regionlist.append((reg_name, i))
                 self.region_lookup[(reg_name, i)] = region_number
 
-        # Get connections between regions
-        self.connections = {}
-        for region_id, (eq_reg, i) in enumerate(regionlist):
-            self.connections[region_id] = {}
-            region = equilibrium.regions[eq_reg]
-            c = region.connections[i]
-            for key, val in c.items():
-                if val is not None:
-                    self.connections[region_id][key] = self.region_lookup[val]
-                else:
-                    self.connections[region_id][key] = None
+        if connections is None:
+            # Get connections between regions
+            self.connections = {}
+            for region_id, (eq_reg, i) in enumerate(regionlist):
+                self.connections[region_id] = {}
+                region = equilibrium.regions[eq_reg]
+                c = region.connections[i]
+                for key, val in c.items():
+                    if val is not None:
+                        self.connections[region_id][key] = self.region_lookup[val]
+                    else:
+                        self.connections[region_id][key] = None
+        else:
+            self.connections = connections
 
-        parallel_map = ParallelMap(
-            self.user_options.number_of_processors,
-            equilibrium=self.equilibrium,
+        if regions is None:
+            # Create MeshRegions
+            if parallel_map is None:
+                parallel_map = ParallelMap(
+                    self.user_options.number_of_processors,
+                    equilibrium=self.equilibrium,
+                )
+
+            self.makeRegions(parallel_map)
+        else:
+            # Already created regions.
+            # Here we should probably check that the regions are consistent with the
+            # connections and region_lookup
+            self.regions = regions
+
+            # Update meshParent to point to this Mesh
+            for region_id, region in self.regions.items():
+                region.meshParent = self
+
+        # Group regions by X and Y connections
+        self.makeGroups()
+
+    def map(self, shift_functions):
+        """
+        Return a new Mesh, created by shifting points along flux surfaces using
+        shift_functions. Here this should be a dictionary of functions, one for each region.
+
+        Parameters
+        ----------
+        shift_functions : dict
+            Dictionary of region name -> function (x, y) -> shift
+            where x and y are in the range [0,1] and shift is the
+            poloidal distance shift in meters.
+        """
+        new_regions = {}
+        for region_id, region in self.regions.items():
+            new_regions[region_id] = region.map(
+                self.equilibrium, shift_functions[region_id]
+            )
+
+        return Mesh(
+            self.equilibrium,
+            self.user_options,
+            regions=new_regions,
+            connections=self.connections,
         )
 
-        self.makeRegions(parallel_map)
-
     def makeRegions(self, parallel_map):
+        """
+        Create self.regions, a dictionary of MeshRegion objects
+        """
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
@@ -2684,6 +2785,10 @@ class Mesh:
                     parallel_map,
                 )
 
+    def makeGroups(self):
+        """
+        Create x_groups and y_groups from regions
+        """
         # create groups that connect in x
         self.x_groups = []
         region_set = set(self.regions.values())

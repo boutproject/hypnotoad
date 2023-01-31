@@ -4016,7 +4016,26 @@ class MeshRegionMapper:
 
 
 class MeshMapper:
+    """
+    Generates re-mapped Mesh instances, applying distortions specified by a
+    list of parameters.
+    """
+
     def __init__(self, mesh, x_order=3, y_order=3):
+        """
+        Parameters
+        ----------
+
+        mesh : Mesh subclass
+            The Mesh to be mapped. This mesh will not be modified,
+            though the underlying FineContours may be modified.
+
+        x_order : int
+            Order of X polynomial used in each MeshRegion
+
+        y_order : int
+            Order of Y polynomial used in each MeshRegion
+        """
         self._mesh = mesh
 
         self._region_mappers = {}  # A mapper for each MeshRegion
@@ -4045,12 +4064,66 @@ class MeshMapper:
     def generate(self, params, **kwargs):
         """
         Generate a new Mesh, mapping each region using the combined params array
+
+        Parameters
+        ----------
+
+        params : list
+            A list or 1D array of floats, of length numParams()
+
+        Returns
+        -------
+
+        A new Mesh object, of the same class as the mesh passed to
+        the MeshMapper constructor.
         """
         assert len(params) == self.numParams()
         new_regions = {}
         for region_id, (mapper, pstart, pend) in self._region_mappers.items():
             # Pass each MeshRegionMapper its part of the params array
             new_regions[region_id] = mapper.generate(params[pstart:pend], **kwargs)
+
+        # Reconcile PsiContours that are shared between regions
+        # Mappers produce different shifts but must be consistent
+
+        psi = self._mesh.equilibrium.psi
+        for region_id, region in new_regions.items():
+            outer_id = region.connections["outer"]
+            if outer_id is not None:
+                outer = new_regions[outer_id]
+
+                region_contour = region.contours[-1]  # Last contour in this region
+                outer_contour = outer.contours[
+                    0
+                ]  # Should be the same as first contour in this region
+                fine_contour = region_contour.get_fine_contour(psi=psi)
+
+                # Average the PsiContour locations between the two regions,
+                # then share between both. Note: Cannot simply average point
+                # locations because those may not be on the same flux surface
+                outer_contour._distance = None
+                outer_contour._fine_contour = (
+                    fine_contour  # Ensure that distance is on the same FineContour
+                )
+                new_distances = [
+                    0.5 * (d1 + d2)
+                    for d1, d2 in zip(
+                        region_contour.get_distance(psi=psi),
+                        outer_contour.get_distance(psi=psi),
+                    )
+                ]
+                new_points = [fine_contour.getPoint(dist) for dist in new_distances]
+
+                new_contour = PsiContour(
+                    points=new_points,
+                    psival=region_contour.psival,
+                    settings=region_contour.user_options,
+                    Rrange=region_contour.Rrange,
+                    Zrange=region_contour.Zrange,
+                )
+                # Replace original contours with this average
+                region.contours[-1] = new_contour
+                outer.contours[0] = new_contour
 
         # Create a new instance of the Mesh subclass
         return self._mesh.__class__(

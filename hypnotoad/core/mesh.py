@@ -3008,6 +3008,14 @@ class Mesh:
             self.smoothnl("curl_bOverB_y")
             self.smoothnl("curl_bOverB_z")
 
+    def setWallIntersections(self, equilibrium):
+        """
+        Set wall intersections in underlying FineContours
+        """
+        for region_id, region in self.regions.items():
+            region.setWallIntersections(equilibrium)
+        return self
+
     def smoothnl(self, varname):
         """
         Smoothing algorithm copied from IDL hypnotoad
@@ -4092,19 +4100,19 @@ class MeshMapper:
             if outer_id is not None:
                 outer = new_regions[outer_id]
 
-                region_contour = region.contours[-1]  # Last contour in this region
-                outer_contour = outer.contours[
-                    0
-                ]  # Should be the same as first contour in this region
+                region_contour = region.contours[-1]
+                # Last contour in this region
+                # Should be the same as first contour in the outer region
+                outer_contour = outer.contours[0]
                 fine_contour = region_contour.get_fine_contour(psi=psi)
 
                 # Average the PsiContour locations between the two regions,
                 # then share between both. Note: Cannot simply average point
                 # locations because those may not be on the same flux surface
+
+                # Ensure that distance is on the same FineContour
                 outer_contour._distance = None
-                outer_contour._fine_contour = (
-                    fine_contour  # Ensure that distance is on the same FineContour
-                )
+                outer_contour._fine_contour = fine_contour
                 new_distances = [
                     0.5 * (d1 + d2)
                     for d1, d2 in zip(
@@ -4132,3 +4140,126 @@ class MeshMapper:
             regions=new_regions,
             connections=self._mesh.connections,
         )
+
+
+class MeshMeasure:
+    """
+    A type of object that implements a measure on a Mesh.
+
+    Subclasses must have a __call__ method taking a Mesh and returning
+    a float. This base class implements arithmetic methods for combining measures.
+
+    Note: The larger the measure the worse the grid. Optimisers will
+    typically aim to minimise this measure.
+
+    Usage
+    -----
+
+    Measures are first combined and then used to optimise a Mesh:
+
+    mesh2 = (MeshMeasure1() + MeshMeasure()).optimise(mesh)
+    """
+
+    def __call__(self, _mesh):
+        raise NotImplementedError("MeshMeasure.__call__ must be overridden by subclass")
+
+    def __add__(self, other):
+        class Add(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) + other(mesh)
+
+        return Add()
+
+    def __mul__(self, scalar):
+        class Mul(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) * scalar
+
+        return Mul()
+
+    def __rmul__(self, scalar):
+        class Rmul(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) * scalar
+
+        return Rmul()
+
+    def optimise(self, mesh, **kwargs):
+        """
+        Optimise a given mesh using this measure
+        """
+        from scipy.optimize import minimize
+
+        mapper = MeshMapper(mesh)
+        params = numpy.zeros(mapper.numParams())
+
+        # Define the function to be minimised
+        def func(p):
+            # Generate a new mesh
+            new_mesh = mapper.generate(p)
+            # Evaluate it
+            result = self(new_mesh)
+            print("OPTIMISE: measure: {}".format(result))
+            return result
+
+        # Call SciPy minimize
+        opt_res = minimize(func, params)
+        if opt_res.success:
+            # Return the optimised mesh
+            return mapper.generate(opt_res.x)
+        return None  # Failed
+
+
+class TestMeasure(MeshMeasure):
+    def __init__(self, val):
+        self._val = val
+
+    def __call__(self, mesh):
+        return self._val
+
+
+class BoundaryDistance(MeshMeasure):
+    """
+    Measure distance between mesh and boundary locations
+
+    Usage
+    -----
+
+    measure = BoundaryDistance(mesh)
+    mesh_opt = measure.optimise(mesh)
+
+    measure can be combined with other MeshMeasure subclasses
+    """
+
+    def __init__(self, mesh, norm=2):
+        # Set wall intersections in the FineContours
+        mesh.setWallIntersections(mesh.equilibrium)
+        self._norm = norm
+
+    def __call__(self, mesh):
+        result = 0.0
+        for region_id, region in mesh.regions.items():
+            if region.connections["lower"] is None:
+                # Boundaries on the lower edge
+                for contour in region.contours:
+                    fc = contour.get_fine_contour(psi=mesh.equilibrium.psi)
+                    wall_intersection = fc.wall_intersections[0]
+                    if wall_intersection is None:
+                        continue  # No intersection
+                    distance = fc.getDistance(wall_intersection) - fc.getDistance(
+                        contour.points[contour.startInd]
+                    )
+                    result += abs(distance) ** self._norm
+
+            if region.connections["upper"] is None:
+                # Boundaries on the upper edge
+                for contour in region.contours:
+                    fc = contour.get_fine_contour(psi=mesh.equilibrium.psi)
+                    wall_intersection = fc.wall_intersections[1]
+                    if wall_intersection is None:
+                        continue  # No intersection
+                    distance = fc.getDistance(wall_intersection) - fc.getDistance(
+                        contour.points[contour.endInd]
+                    )
+                    result += abs(distance) ** self._norm
+        return result

@@ -3939,3 +3939,123 @@ class BoutMesh(Mesh):
                 "Some variable has not been defined yet: have you called "
                 "Mesh.geometry()?"
             )
+
+
+class MeshRegionMapper:
+    """
+    Produces distorted versions of a given MeshRegion
+    Uses polynomial basis set in X and Y to describe a continuous mesh shift
+    """
+
+    # Basis set in range -1 <= x <= 1. Legendre polynomials:
+    polynomials = [
+        lambda x: 1,
+        lambda x: x,
+        lambda x: (3 * x**2 - 1) / 2,
+        lambda x: (5 * x**3 - 3 * x) / 2,
+        lambda x: (35 * x**4 - 30 * x**2 + 3) / 8,
+        lambda x: (63 * x**5 - 70 * x**3 + 15 * x) / 8,
+        lambda x: (231 * x**6 - 315 * x**4 + 105 * x**2 - 5) / 16,
+    ]
+
+    def __init__(self, equilibrium, region, x_order=3, y_order=3):
+        """ """
+        assert x_order > 0
+        assert y_order > 0
+        assert x_order < len(self.polynomials)
+        assert y_order < len(self.polynomials)
+        self._x_order = x_order
+        self._y_order = y_order
+        # Number of parameters includes a constant shift
+        self._nparams = (x_order + 1) * (y_order + 1)
+        self._region = region
+        self._equilibrium = equilibrium
+
+    def numParams(self) -> int:
+        """
+        Return the number of floating point parameters
+        """
+        return self._nparams
+
+    def generate(self, params, **kwargs):
+        """
+        Create a new MeshRegion by mapping with given params
+
+        Parameters
+        ----------
+
+        params : list
+             A list of float polynomial coefficients, of length numParams()
+
+        kwargs :
+             Any keyword arguments are passed to MeshRegion.map()
+
+        Returns
+        -------
+        A new MeshRegion object
+        """
+        assert len(params) == self.numParams()
+
+        # Create a shift function using these parameters
+        def shift_function(x, y):
+
+            x = 2 * x - 1  # Map [0,1] to [-1,1]
+            y = 2 * y - 1
+
+            result = 0.0
+            p = iter(params)
+            for i in range(self._x_order + 1):
+                x_val = self.polynomials[i](x)
+                for j in range(self._y_order + 1):
+                    y_val = self.polynomials[j](y)
+                    result += next(p) * x_val * y_val
+            return result
+
+        # Use shift_function to map the MeshRegion
+        return self._region.map(self._equilibrium, shift_function, **kwargs)
+
+
+class MeshMapper:
+    def __init__(self, mesh, x_order=3, y_order=3):
+        self._mesh = mesh
+
+        self._region_mappers = {}  # A mapper for each MeshRegion
+        self._nparams = 0  # Total number of parameters for all MeshRegions
+        for region_id, region in mesh.regions.items():
+            # Create a mapper for this region
+            mapper = MeshRegionMapper(
+                mesh.equilibrium, region, x_order=x_order, y_order=y_order
+            )
+            nparams = mapper.numParams()
+            # Store the mapper, start and end parameter indices
+            self._region_mappers[region_id] = (
+                mapper,
+                self._nparams,
+                self._nparams + nparams,
+            )
+            self._nparams += mapper.numParams()
+
+    def numParams(self) -> int:
+        """
+        Return the total number of mesh distortion parameters
+        summed over all regions
+        """
+        return self._nparams
+
+    def generate(self, params, **kwargs):
+        """
+        Generate a new Mesh, mapping each region using the combined params array
+        """
+        assert len(params) == self.numParams()
+        new_regions = {}
+        for region_id, (mapper, pstart, pend) in self._region_mappers.items():
+            # Pass each MeshRegionMapper its part of the params array
+            new_regions[region_id] = mapper.generate(params[pstart:pend], **kwargs)
+
+        # Create a new instance of the Mesh subclass
+        return self._mesh.__class__(
+            self._mesh.equilibrium,
+            self._mesh.user_options,
+            regions=new_regions,
+            connections=self._mesh.connections,
+        )

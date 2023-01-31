@@ -1308,7 +1308,11 @@ class PsiContour:
             if new_distance < last_distance:
                 # Crossing over last point => limit shift, but don't allow
                 # location to exceed end of FineContour
-                new_distance = min([last_distance + 1e-3, fine_contour.distance[-1]])
+                new_distance = last_distance + 1e-3
+            if new_distance > fine_contour.distance[-1]:
+                # Prevent points from leaving the end of the FineContour
+                new_distance = fine_contour.distance[-1]
+
             last_distance = new_distance
 
             new_distances.append(new_distance)

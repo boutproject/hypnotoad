@@ -667,13 +667,6 @@ class MeshRegion:
                     + "' for nonorthogonal poloidal spacing function"
                 )
 
-        # sfunc_list = [
-        #    get_sfunc(i, c, sfunc_orth)
-        #    for i, c, sfunc_orth in zip(
-        #        range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
-        #    )
-        # ]
-
         # regrid the contours (which all know where the wall is)
         for i, c, sfunc_orth in zip(
             range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
@@ -693,6 +686,89 @@ class MeshRegion:
             PsiContour.refine,
             ((c,) for c in self.contours),
         )
+
+    def setWallIntersections(self, equilibrium):
+        """
+        Calls each contour's setWallIntersections method
+        to set PsiContour.wall_intersections using the equilibrium wall location.
+        """
+        # should the contour intersect a wall at the lower end?
+        lower_wall = self.connections["lower"] is None
+
+        # should the contour intersect a wall at the upper end?
+        upper_wall = self.connections["upper"] is None
+
+        for contour in self.contours:
+            contour.get_fine_contour(psi=equilibrium.psi).setWallIntersections(
+                equilibrium, lower_wall=lower_wall, upper_wall=upper_wall
+            )
+
+        return self
+
+    def wallAlignShiftFunction(self):
+        """
+        Return a function that will shift points to be aligned to wall_intersections
+        """
+        # should the contour intersect a wall at the lower end?
+        lower_wall = self.connections["lower"] is None
+
+        # should the contour intersect a wall at the upper end?
+        upper_wall = self.connections["upper"] is None
+
+        if not (lower_wall or upper_wall):
+            # No wall intersections. No shift
+            return lambda x, y: 0.0
+
+        # Default no shift. Disable flake8 complaint
+        lower_shift_fn = lambda x: 0.0  # noqa: E731
+
+        if lower_wall:
+            x_vals = []
+            shift_vals = []
+            psi_first = self.contours[0].psival
+            psi_last = self.contours[-1].psival
+            for contour in self.contours:
+                # Calculate normalised radial flux coordinate from 0 to 1
+                x = (contour.psival - psi_first) / (psi_last - psi_first)
+
+                fc = contour.get_fine_contour()
+                wall_intersection = fc.wall_intersections[0]
+                if wall_intersection is not None:
+                    # Get shift between first point and wall
+                    wall_distance = fc.getDistance(wall_intersection)
+                    start_distance = fc.getDistance(contour.points[contour.startInd])
+                    x_vals.append(x)
+                    shift_vals.append(wall_distance - start_distance)
+            if len(shift_vals) > 0:
+                x_vals = [-1.0] + x_vals + [2.0]
+                shift_vals = [shift_vals[0]] + shift_vals + [shift_vals[-1]]
+                lower_shift_fn = interp1d(x_vals, shift_vals)
+
+        # Default no shift. Disable flake8 complaint
+        upper_shift_fn = lambda x: 0.0  # noqa: E731
+        if upper_wall:
+            x_vals = []
+            shift_vals = []
+            psi_first = self.contours[0].psival
+            psi_last = self.contours[-1].psival
+            for contour in self.contours:
+                # Calculate normalised radial flux coordinate from 0 to 1
+                x = (contour.psival - psi_first) / (psi_last - psi_first)
+
+                fc = contour.get_fine_contour()
+                wall_intersection = fc.wall_intersections[1]
+                if wall_intersection is not None:
+                    # Get shift between wall and last point
+                    wall_distance = fc.getDistance(wall_intersection)
+                    end_distance = fc.getDistance(contour.points[contour.endInd])
+                    x_vals.append(x)
+                    shift_vals.append(wall_distance - end_distance)
+            if len(shift_vals) > 0:
+                x_vals = [-1.0] + x_vals + [2.0]
+                shift_vals = [shift_vals[0]] + shift_vals + [shift_vals[-1]]
+                upper_shift_fn = interp1d(x_vals, shift_vals)
+        # Linear interpolation between lower and upper shift functions
+        return lambda x, y: y * upper_shift_fn(x) + (1.0 - y) * lower_shift_fn(x)
 
     def globalXInd(self, i):
         """

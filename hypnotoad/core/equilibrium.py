@@ -5160,8 +5160,19 @@ class Equilibrium:
 
         return axis
 
-    def plotWall(self, axis=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
+    def plotWall(self, ax=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
+        """
+        Plot the wall, by default as a solid black line.
+        If the axis is not given then a new figure is created.
+
+        Returns the plotting axis
+        """
         if self.wall:
+            if ax is None:
+                from matplotlib import pyplot
+
+                ax = pyplot.axes(aspect="equal")
+
             wall_R = [p.R for p in self.wall]
             wall_Z = [p.Z for p in self.wall]
 
@@ -5169,28 +5180,16 @@ class Equilibrium:
             wall_R.append(wall_R[0])
             wall_Z.append(wall_Z[0])
 
-            if axis is None:
-                from matplotlib import pyplot
+            ax.plot(
+                wall_R,
+                wall_Z,
+                color=color,
+                linestyle=linestyle,
+                linewidth=linewidth,
+                **kwargs,
+            )
 
-                axis = pyplot.plot(
-                    wall_R,
-                    wall_Z,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    **kwargs,
-                )
-            else:
-                axis.plot(
-                    wall_R,
-                    wall_Z,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    **kwargs,
-                )
-
-            return axis
+        return ax
 
     def plotSeparatrix(
         self,

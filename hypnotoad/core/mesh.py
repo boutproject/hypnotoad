@@ -2707,7 +2707,14 @@ class Mesh:
     )
 
     def __init__(
-        self, equilibrium, settings, regions=None, connections=None, parallel_map=None
+        self,
+        equilibrium,
+        settings=None,
+        user_options=None,
+        regions=None,
+        connections=None,
+        parallel_map=None,
+        versioning=True,
     ):
         """
         Parameters
@@ -2717,6 +2724,9 @@ class Mesh:
         settings : dict
             Non-default values to use to generate the grid. Must be consistent with the
             ones that were used to create the equilibrium
+        user_options : dict
+            If set, settings is ignored and this is used for user_options.
+            Skips checks. Note: Optimization feature.
         regions : dict
             Dictionary of MeshRegion objects that make up this Mesh
             If not given then these will be created from the equilibrium regions
@@ -2724,49 +2734,58 @@ class Mesh:
             The connections between mesh regions
         parallel_map : ParallelMap
 
+        versioning : bool
+            Record the version of the code, and git diff if dirty
+
         """
         self.equilibrium = equilibrium
 
-        self.user_options = self.user_options_factory.create(settings)
-        # Check settings didn't change since equilibrium was created
-        for key in self.equilibrium.user_options:
-            if (key in self.user_options) and (
-                self.equilibrium.user_options[key] != self.user_options[key]
-            ):
-                raise ValueError(
-                    f"Setting {key} has been changed since equilibrium was created."
-                    f"Re-create or re-load the equilibrium with the current settings."
-                )
+        if user_options is None:
+            if settings is None:
+                settings = {}
+            self.user_options = self.user_options_factory.create(settings)
+            # Check settings didn't change since equilibrium was created
+            for key in self.equilibrium.user_options:
+                if (key in self.user_options) and (
+                    self.equilibrium.user_options[key] != self.user_options[key]
+                ):
+                    raise ValueError(
+                        f"Setting {key} has been changed since equilibrium was created."
+                        f"Re-create or re-load the equilibrium"
+                        f"with the current settings."
+                    )
+            # Print the table of options
+            print(self.user_options.as_table(), flush=True)
+        else:
+            self.user_options = user_options
 
-        # Print the table of options
-        print(self.user_options.as_table(), flush=True)
+        if versioning:
+            versions = get_versions()
+            self.version = versions["version"]
+            self.git_hash = versions["full-revisionid"]
+            self.git_diff = None
 
-        versions = get_versions()
-        self.version = versions["version"]
-        self.git_hash = versions["full-revisionid"]
-        self.git_diff = None
+            if versions["dirty"]:
+                # There are changes from the last commit, get git diff
 
-        if versions["dirty"]:
-            # There are changes from the last commit, get git diff
+                from pathlib import Path
+                from hypnotoad.__init__ import __file__ as hypnotoad_init_file
 
-            from pathlib import Path
-            from hypnotoad.__init__ import __file__ as hypnotoad_init_file
+                hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            hypnotoad_path = Path(hypnotoad_init_file).parent
+                try:
+                    retval, self.git_diff = shell_safe(
+                        "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
+                    )
+                except RuntimeError as e:
+                    raise RuntimeError(
+                        "`git diff` failed. It is recommended to do an editable install "
+                        "using `pip --user -e .` when developing. If you did a "
+                        "non-editable install, this error can occur if the repo was "
+                        "'dirty' when installed.\n\nThe error message was:\n" + str(e)
+                    )
 
-            try:
-                retval, self.git_diff = shell_safe(
-                    "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
-                )
-            except RuntimeError as e:
-                raise RuntimeError(
-                    "`git diff` failed. It is recommended to do an editable install "
-                    "using `pip --user -e .` when developing. If you did a "
-                    "non-editable install, this error can occur if the repo was "
-                    "'dirty' when installed.\n\nThe error message was:\n" + str(e)
-                )
-
-            self.git_diff = self.git_diff.strip()
+                self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -4097,6 +4116,9 @@ class MeshMapper:
         params : list
             A list or 1D array of floats, of length numParams()
 
+        kwargs : dict
+            Other keywords are passed through to the Mesh constructor
+
         Returns
         -------
 
@@ -4107,7 +4129,7 @@ class MeshMapper:
         new_regions = {}
         for region_id, (mapper, pstart, pend) in self._region_mappers.items():
             # Pass each MeshRegionMapper its part of the params array
-            new_regions[region_id] = mapper.generate(params[pstart:pend], **kwargs)
+            new_regions[region_id] = mapper.generate(params[pstart:pend])
 
         # Reconcile PsiContours that are shared between regions
         # Mappers produce different shifts but must be consistent
@@ -4157,6 +4179,7 @@ class MeshMapper:
             self._mesh.user_options,
             regions=new_regions,
             connections=self._mesh.connections,
+            **kwargs,
         )
 
 
@@ -4213,8 +4236,12 @@ class MeshMeasure:
 
         # Define the function to be minimised
         def func(p):
-            # Generate a new mesh
-            new_mesh = mapper.generate(p)
+            # Generate a new mesh.
+            # Passing arguments to skip some parts of the Mesh constructor
+            # that are not needed in this optimisation loop
+            new_mesh = mapper.generate(
+                p, user_options=mesh.user_options, versioning=False
+            )
             # Evaluate it
             result = self(new_mesh)
             print("OPTIMISE: measure: {}".format(result))

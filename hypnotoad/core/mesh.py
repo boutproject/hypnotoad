@@ -3253,6 +3253,12 @@ class Mesh:
             ax = pyplot.axes(aspect="equal")
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
+
         for region, c in zip(self.regions.values(), colors):
             label = region.myID
             region.plotGridLines(c=c, label=label, ax=ax)
@@ -3266,6 +3272,12 @@ class Mesh:
         if ax is None:
             ax = pyplot.axes(aspect="equal")
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
 
         for region, c in zip(self.regions.values(), colors):
             label = region.myID
@@ -3309,6 +3321,12 @@ class Mesh:
             fig, ax = pyplot.subplots(1)
         else:
             fig = ax.figure
+
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
 
         for region in self.regions.values():
             c = next(colors)
@@ -4236,7 +4254,7 @@ class BoundaryDistance(MeshMeasure):
         mesh.setWallIntersections(mesh.equilibrium)
         self._norm = norm
 
-    def __call__(self, mesh):
+    def __call__(self, mesh) -> float:
         result = 0.0
         for region_id, region in mesh.regions.items():
             if region.connections["lower"] is None:
@@ -4262,4 +4280,37 @@ class BoundaryDistance(MeshMeasure):
                         contour.points[contour.endInd]
                     )
                     result += abs(distance) ** self._norm
+        return result
+
+
+class Orthogonality(MeshMeasure):
+    """
+    Measure the (non-)orthogonality of the mesh, by calculating the angle Beta
+    between coordinate lines. Returns a sum over the mesh of of tan(Beta) raised
+    to a given power.
+    """
+
+    def __init__(self, norm=2):
+        """
+        Parameters
+        ----------
+        norm : float
+            abs(tan(beta)) is raised to this power. Higher values
+            penalise the most non-orthogonal cell in the domain.
+        """
+        self._norm = norm
+
+    def __call__(self, mesh) -> float:
+        # Check that the Rxy and Zxy coordinates have been calculated
+        for region in mesh.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                mesh.calculateRZ()
+                break
+        # Calculate the angle beta between coordinate lines
+        result = 0.0
+        for region in mesh.regions.values():
+            # Calculate mesh angles
+            region.calcBeta()
+            result += numpy.sum(abs(region.tanBeta.centre) ** self._norm)
         return result

@@ -154,7 +154,8 @@ class MeshRegion:
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
-        print("creating region", myID, "-", self.name, flush=True)
+        if contours is None:
+            print("creating region", myID, "-", self.name, flush=True)
 
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
@@ -2970,7 +2971,6 @@ class Mesh:
         """
         Create arrays with R and Z values of all points in the grid
         """
-        print("Get RZ values", flush=True)
         for region in self.regions.values():
             region.fillRZ()
         for region in self.regions.values():
@@ -4225,13 +4225,13 @@ class MeshMeasure:
 
         return Rmul()
 
-    def optimise(self, mesh, **kwargs):
+    def optimise(self, mesh, x_order=3, y_order=3, **kwargs):
         """
         Optimise a given mesh using this measure
         """
         from scipy.optimize import minimize
 
-        mapper = MeshMapper(mesh)
+        mapper = MeshMapper(mesh, x_order=x_order, y_order=y_order)
         params = numpy.zeros(mapper.numParams())
 
         # Define the function to be minimised
@@ -4249,10 +4249,10 @@ class MeshMeasure:
 
         # Call SciPy minimize
         opt_res = minimize(func, params)
-        if opt_res.success:
-            # Return the optimised mesh
-            return mapper.generate(opt_res.x)
-        return None  # Failed
+        if not opt_res.success:
+            print("Optimisation failed")
+        # Return the optimised mesh
+        return (mapper.generate(opt_res.x), opt_res.x)
 
 
 class TestMeasure(MeshMeasure):

@@ -4169,6 +4169,9 @@ class MeshMapper:
                     Rrange=region_contour.Rrange,
                     Zrange=region_contour.Zrange,
                 )
+                # Already have fine_contour and distances so don't re-calculate
+                new_contour._fine_contour = fine_contour
+                new_contour._distance = new_distances
                 # Replace original contours with this average
                 region.contours[-1] = new_contour
                 outer.contours[0] = new_contour
@@ -4209,12 +4212,18 @@ class MeshMeasure:
             def __call__(self2, mesh):
                 return self(mesh) + other(mesh)
 
+            def __str__(self2):
+                return "(" + str(self) + " + " + str(other) + ")"
+
         return Add()
 
     def __mul__(self, scalar):
         class Mul(MeshMeasure):
             def __call__(self2, mesh):
                 return self(mesh) * scalar
+
+            def __str__(self2):
+                return str(scalar) + " * " + str(self)
 
         return Mul()
 
@@ -4223,13 +4232,22 @@ class MeshMeasure:
             def __call__(self2, mesh):
                 return self(mesh) * scalar
 
+            def __str__(self2):
+                return str(scalar) + " * " + str(self)
+
         return Rmul()
 
-    def optimise(self, mesh, x_order=3, y_order=3, **kwargs):
+    def optimise(self, mesh, x_order=3, y_order=3, method="default", **kwargs):
         """
         Optimise a given mesh using this measure
+
+        Parameters
+        ----------
+
+        method : str
+            Specify the method to use.
+
         """
-        from scipy.optimize import minimize
 
         mapper = MeshMapper(mesh, x_order=x_order, y_order=y_order)
         params = numpy.zeros(mapper.numParams())
@@ -4247,10 +4265,33 @@ class MeshMeasure:
             print("OPTIMISE: measure: {}".format(result))
             return result
 
-        # Call SciPy minimize
-        opt_res = minimize(func, params)
-        if not opt_res.success:
-            print("Optimisation failed")
+        # Call minimization function
+        if method == "gp":
+            # Gaussian Process minimization
+            from skopt import gp_minimize
+
+            opt_res = gp_minimize(
+                func, [(-0.1, 0.1)] * mapper.numParams(), x0=list(params)
+            )
+        elif method == "de":
+            # Differential evolution
+            from scipy.optimize import differential_evolution
+
+            opt_res = differential_evolution(
+                func, [(-0.1, 0.1)] * mapper.numParams(), x0=params
+            )
+        elif method == "da":
+            # Dual annealing
+            from scipy.optimize import dual_annealing
+
+            opt_res = dual_annealing(
+                func, [(-0.1, 0.1)] * mapper.numParams(), initial_temp=0.01, x0=params
+            )
+        else:
+            from scipy.optimize import minimize
+
+            opt_res = minimize(func, params, **kwargs)
+
         # Return the optimised mesh
         return (mapper.generate(opt_res.x), opt_res.x)
 
@@ -4280,6 +4321,9 @@ class BoundaryDistance(MeshMeasure):
         # Set wall intersections in the FineContours
         mesh.setWallIntersections(mesh.equilibrium)
         self._norm = norm
+
+    def __str__(self):
+        return "BoundaryMesh(norm={})".format(self._norm)
 
     def __call__(self, mesh) -> float:
         result = 0.0
@@ -4327,6 +4371,9 @@ class Orthogonality(MeshMeasure):
         """
         self._norm = norm
 
+    def __str__(self):
+        return "Orthogonality(norm={})".format(self._norm)
+
     def __call__(self, mesh) -> float:
         # Check that the Rxy and Zxy coordinates have been calculated
         for region in mesh.regions.values():
@@ -4341,3 +4388,53 @@ class Orthogonality(MeshMeasure):
             region.calcBeta()
             result += numpy.sum(abs(region.tanBeta.centre) ** self._norm)
         return result
+
+
+class PoloidalSpacing(MeshMeasure):
+    """
+    Measure variation in poloidal spacing of the mesh. Based on ratios of the distances
+    between cell centres in the poloidal direction.
+    """
+
+    def __str__(self):
+        return "PoloidalSpacing"
+
+    def __call__(self, mesh) -> float:
+        # Check that the Rxy and Zxy coordinates have been calculated
+        for region in mesh.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                mesh.calculateRZ()
+                break
+
+        npoints = 0
+        result = 0.0
+        for region in mesh.regions.values():
+            Rxy = region.Rxy.centre
+            Zxy = region.Zxy.centre
+            nx, ny = Rxy.shape
+
+            d1 = (Rxy[:, 2:] - Rxy[:, 1:-1]) ** 2 + (Zxy[:, 2:] - Zxy[:, 1:-1]) ** 2
+            d2 = (Rxy[:, 1:-1] - Rxy[:, :-2]) ** 2 + (Zxy[:, 1:-1] - Zxy[:, :-2]) ** 2
+            result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+            npoints += nx * (ny - 2)
+
+            upper = region.getNeighbour("upper")
+            if upper is not None:
+                u_Rxy = upper.Rxy.centre
+                u_Zxy = upper.Zxy.centre
+
+                d1 = (Rxy[:, -2] - Rxy[:, -1]) ** 2 + (Zxy[:, -2] - Zxy[:, -1]) ** 2
+                d2 = (Rxy[:, -1] - u_Rxy[:, 0]) ** 2 + (Zxy[:, -1] - u_Zxy[:, 0]) ** 2
+                result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+                npoints += nx
+
+            lower = region.getNeighbour("lower")
+            if lower is not None:
+                l_Rxy = lower.Rxy.centre
+                l_Zxy = lower.Zxy.centre
+                d1 = (Rxy[:, 0] - Rxy[:, 1]) ** 2 + (Zxy[:, 0] - Zxy[:, 1]) ** 2
+                d2 = (Rxy[:, 0] - l_Rxy[:, -1]) ** 2 + (Zxy[:, 0] - l_Zxy[:, -1]) ** 2
+                result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+                npoints += nx
+        return result / npoints

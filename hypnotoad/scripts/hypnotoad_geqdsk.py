@@ -58,6 +58,15 @@ def main(*, add_noise=None):
         ]
         + [opt for opt in BoutMesh.user_options_factory.defaults]
         + ["plot_regions", "plot_mesh", "plot_cells"]
+        + [
+            "optimise",
+            "optimise_boundary",
+            "optimise_poloidal",
+            "optimise_orthogonal",
+            "optimise_method",
+            "optimise_x_order",
+            "optimise_y_order",
+        ]
     )
     unused_options = [opt for opt in options if opt not in possible_options]
     if unused_options != []:
@@ -106,6 +115,39 @@ def main(*, add_noise=None):
     # Create the mesh
 
     mesh = BoutMesh(eq, options)
+
+    if options.get("optimise", False):
+        # Optimise the mesh by minimising a measure function
+        from hypnotoad.core.mesh import BoundaryDistance, Orthogonality, PoloidalSpacing
+
+        measures = []
+        opt_boundary = options.get("optimise_boundary", 1.0)
+        if opt_boundary is not None:
+            measures.append(opt_boundary * BoundaryDistance(mesh))
+
+        opt_poloidal = options.get("optimise_poloidal", 0.1)
+        if opt_poloidal is not None:
+            measures.append(opt_poloidal * PoloidalSpacing())
+
+        opt_orthogonal = options.get("optimise_orthogonal", 0.01)
+        if opt_orthogonal is not None:
+            measures.append(opt_orthogonal * Orthogonality())
+
+        if len(measures) == 0:
+            raise ValueError("No measures to optimise")
+
+        measure = measures[0]
+        for m in measures[1:]:
+            measure += m
+
+        opt_method = options.get("optimise_method", "default")
+        opt_x_order = options.get("optimise_x_order", 2)
+        opt_y_order = options.get("optimise_y_order", 2)
+
+        mesh, params = measure.optimise(
+            mesh, x_order=opt_x_order, y_order=opt_y_order, method=opt_method
+        )
+
     mesh.calculateRZ()
 
     if options.get("plot_mesh", False):

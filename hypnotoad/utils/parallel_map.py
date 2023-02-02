@@ -83,7 +83,7 @@ class ParallelMap:
                     psi=self.psi,
                     f_R=self.f_R,
                     f_Z=self.f_Z,
-                    **kwargs
+                    **kwargs,
                 )
                 for args in args_list
             ]

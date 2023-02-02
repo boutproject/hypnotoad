@@ -3519,7 +3519,6 @@ class BoutMesh(Mesh):
     )
 
     def __init__(self, equilibrium, settings, **kwargs):
-
         super().__init__(equilibrium, settings, **kwargs)
 
         # nx, ny both include boundary guard cells
@@ -4043,7 +4042,6 @@ class MeshRegionMapper:
 
         # Create a shift function using these parameters
         def shift_function(x, y):
-
             x = 2 * x - 1  # Map [0,1] to [-1,1]
             y = 2 * y - 1
 

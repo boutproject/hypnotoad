@@ -4253,7 +4253,10 @@ class MeshMeasure:
         params = numpy.zeros(mapper.numParams())
 
         # Define the function to be minimised
+        iterations = 0
+
         def func(p):
+            nonlocal iterations
             # Generate a new mesh.
             # Passing arguments to skip some parts of the Mesh constructor
             # that are not needed in this optimisation loop
@@ -4262,7 +4265,9 @@ class MeshMeasure:
             )
             # Evaluate it
             result = self(new_mesh)
-            print("OPTIMISE: measure: {}".format(result))
+            if iterations % 20 == 0:
+                print("Iteration {}  measure: {}".format(iterations, result))
+            iterations += 1
             return result
 
         # Call minimization function

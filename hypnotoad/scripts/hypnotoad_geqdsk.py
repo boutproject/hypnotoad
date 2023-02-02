@@ -171,8 +171,10 @@ def main(*, add_noise=None):
             import matplotlib.pyplot as plt
 
             ax = eq.plotPotential(ncontours=40)
-            eq.plotWall(axis=ax)
+            eq.plotWall(ax=ax)
             mesh.plotCells(ax=ax, centres=False)
+            plt.savefig("plot_cells.pdf")
+            plt.savefig("plot_cells.png")
             plt.show()
         except Exception as err:
             warnings.warn(str(err))

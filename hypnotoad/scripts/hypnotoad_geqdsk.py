@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This script generates a BOUT++ grid file from a GEQDSK equilibrium,
 # and optionally a set of inputs in a YAML file
@@ -57,7 +57,19 @@ def main(*, add_noise=None):
             for opt in tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
         ]
         + [opt for opt in BoutMesh.user_options_factory.defaults]
+        + ["plot_regions", "plot_mesh", "plot_cells"]
+        + [
+            "optimise",
+            "optimise_boundary",
+            "optimise_poloidal",
+            "optimise_orthogonal",
+            "optimise_method",
+            "optimise_x_order",
+            "optimise_y_order",
+            "optimise_maxiter",
+        ]
     )
+
     unused_options = [opt for opt in options if opt not in possible_options]
     if unused_options != []:
         raise ValueError(
@@ -105,6 +117,53 @@ def main(*, add_noise=None):
     # Create the mesh
 
     mesh = BoutMesh(eq, options)
+
+    if options.get("optimise", False):
+        # Optimise the mesh by minimising a measure function
+        from hypnotoad.core.mesh import BoundaryDistance, Orthogonality, PoloidalSpacing
+
+        measures = []
+        opt_boundary = options.get("optimise_boundary", 10.0)
+        if opt_boundary is not None:
+            measures.append(opt_boundary * BoundaryDistance(mesh))
+
+        opt_poloidal = options.get("optimise_poloidal", 1.0)
+        if opt_poloidal is not None:
+            measures.append(opt_poloidal * PoloidalSpacing())
+
+        opt_orthogonal = options.get("optimise_orthogonal", 0.001)
+        if opt_orthogonal is not None:
+            measures.append(opt_orthogonal * Orthogonality())
+
+        if len(measures) == 0:
+            raise ValueError("No measures to optimise")
+
+        measure = measures[0]
+        for m in measures[1:]:
+            measure += m
+
+        opt_method = options.get("optimise_method", "L-BFGS-B")
+        opt_x_order = options.get("optimise_x_order", 2)
+        opt_y_order = options.get("optimise_y_order", 2)
+
+        opt_options = {"disp": True}
+
+        opt_maxiter = options.get("optimise_maxiter", 20)
+        if opt_maxiter is not None:
+            # Set a maximum number of iterations
+            opt_options["maxiter"] = opt_maxiter
+        opt_ftol = options.get("optimise_ftol", 1e-4)
+        if opt_ftol is not None:
+            opt_options["ftol"] = opt_ftol
+
+        mesh, params = measure.optimise(
+            mesh,
+            x_order=opt_x_order,
+            y_order=opt_y_order,
+            method=opt_method,
+            options=opt_options,
+        )
+
     mesh.calculateRZ()
 
     if options.get("plot_mesh", False):
@@ -119,6 +178,19 @@ def main(*, add_noise=None):
                 corners=options.get("plot_corners", True),
                 ax=ax,
             )
+            plt.show()
+        except Exception as err:
+            warnings.warn(str(err))
+
+    if options.get("plot_cells", False):
+        try:
+            import matplotlib.pyplot as plt
+
+            ax = eq.plotPotential(ncontours=40)
+            eq.plotWall(ax=ax)
+            mesh.plotCells(ax=ax, centres=False)
+            plt.savefig("plot_cells.pdf")
+            plt.savefig("plot_cells.png")
             plt.show()
         except Exception as err:
             warnings.warn(str(err))

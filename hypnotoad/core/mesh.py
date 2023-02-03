@@ -145,12 +145,17 @@ class MeshRegion:
         radialIndex,
         settings,
         parallel_map,
+        contours=None,
     ):
-
+        """
+        If contours are given then they are assumed to correspond to
+        flux surfaces in this equilibriumRegion.
+        """
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
-        print("creating region", myID, "-", self.name, flush=True)
+        if contours is None:
+            print("creating region", myID, "-", self.name, flush=True)
 
         # the Mesh object that owns this MeshRegion
         self.meshParent = meshParent
@@ -195,147 +200,205 @@ class MeshRegion:
         # Create ParallelMap object for parallelising loops
         self.parallel_map = parallel_map
 
-        # get points in this region
-        self.contours = []
-        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            # region is inside separatrix, so need to follow line from the last psi_val
-            # to the first
-            temp_psi_vals = self.psi_vals[::-1]
+        if contours is not None:
+            # Contours already calculated
+            self.contours = contours
+
         else:
-            temp_psi_vals = self.psi_vals
+            # get points in this region
+            self.contours = []
+            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+                # region is inside separatrix, so need to follow line
+                # from the last psi_val to the first
+                temp_psi_vals = self.psi_vals[::-1]
+            else:
+                temp_psi_vals = self.psi_vals
 
-        # Make vector along grad(psi) at start of equilibriumRegion Here we assume that
-        # the equilibriumRegion at a separatrix at the beginning and end, but not
-        # necessarily in between.  This is to handle disconnected double null
-        start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
-        start_psi = self.equilibriumRegion.psi(*start_point)
+            # Make vector along grad(psi) at start of equilibriumRegion.
+            # Here we assume that the equilibriumRegion at a separatrix
+            # at the beginning and end, but not necessarily in between.
+            # This is to handle disconnected double null
+            start_point = self.equilibriumRegion[self.equilibriumRegion.startInd]
+            start_psi = self.equilibriumRegion.psi(*start_point)
 
-        # set sign of step in psi towards this region from primary separatrix at start of
-        # region
-        if temp_psi_vals[-1] - start_psi > 0:
-            start_psi_sep_plus_delta = (
-                start_psi
-                + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-        else:
-            start_psi_sep_plus_delta = (
-                start_psi
-                - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-
-        vec_points = followPerpendicular(
-            0,
-            start_point,
-            start_psi,
-            f_R=self.meshParent.equilibrium.f_R,
-            f_Z=self.meshParent.equilibrium.f_Z,
-            psivals=[start_psi, start_psi_sep_plus_delta],
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        self.equilibriumRegion.gradPsiSurfaceAtStart = (
-            vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
-        )
-
-        # Make vector along grad(psi) at end of equilibriumRegion
-        end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
-        end_psi = self.equilibriumRegion.psi(*end_point)
-
-        # set sign of step in psi towards this region from primary separatrix at end of
-        # region
-        if temp_psi_vals[-1] - end_psi > 0:
-            end_psi_sep_plus_delta = (
-                end_psi + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-        else:
-            end_psi_sep_plus_delta = (
-                end_psi - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
-            )
-
-        vec_points = followPerpendicular(
-            -1,
-            end_point,
-            end_psi,
-            f_R=self.meshParent.equilibrium.f_R,
-            f_Z=self.meshParent.equilibrium.f_Z,
-            psivals=[end_psi, end_psi_sep_plus_delta],
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        self.equilibriumRegion.gradPsiSurfaceAtEnd = (
-            vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
-        )
-
-        # Calculate the angles for perp_d_lower/perp_d_upper corresponding to
-        # d_lower/d_upper on the separatrix contour
-        # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
-        # because then the vector will not change when the grid resolution changes
-        fine_contour = self.equilibriumRegion.get_fine_contour(
-            psi=self.equilibriumRegion.psi
-        )
-        if self.equilibriumRegion.wallSurfaceAtStart is None:
-            # lower end
-            unit_vec_separatrix = (
-                fine_contour.positions[fine_contour.startInd + 1, :]
-                - fine_contour.positions[fine_contour.startInd, :]
-            )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
-            unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
-            cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude
-            # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(1.0 - cos_angle**2)
-        if self.equilibriumRegion.wallSurfaceAtEnd is None:
-            # upper end
-            unit_vec_separatrix = (
-                fine_contour.positions[fine_contour.endInd - 1, :]
-                - fine_contour.positions[fine_contour.endInd, :]
-            )
-            unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
-            unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
-            unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
-            cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
-            # this gives abs(sin_angle), but that's OK because we only want the magnitude
-            # to calculate perp_d
-            self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(1.0 - cos_angle**2)
-
-        perp_points_list = self.parallel_map(
-            followPerpendicular,
-            zip(
-                range(len(self.equilibriumRegion)),
-                self.equilibriumRegion,
-                [self.equilibriumRegion.psi(*p) for p in self.equilibriumRegion],
-            ),
-            psivals=temp_psi_vals,
-            rtol=self.user_options.follow_perpendicular_rtol,
-            atol=self.user_options.follow_perpendicular_atol,
-        )
-        if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
-            for perp_points in perp_points_list:
-                perp_points.reverse()
-
-        for i, point in enumerate(perp_points_list[0]):
-            self.contours.append(
-                self.equilibriumRegion.newContourFromSelf(
-                    points=[point], psival=self.psi_vals[i]
+            # set sign of step in psi towards this region from primary
+            # separatrix at start of region
+            if temp_psi_vals[-1] - start_psi > 0:
+                start_psi_sep_plus_delta = (
+                    start_psi
+                    + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
                 )
+            else:
+                start_psi_sep_plus_delta = (
+                    start_psi
+                    - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+
+            vec_points = followPerpendicular(
+                0,
+                start_point,
+                start_psi,
+                f_R=self.meshParent.equilibrium.f_R,
+                f_Z=self.meshParent.equilibrium.f_Z,
+                psivals=[start_psi, start_psi_sep_plus_delta],
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
             )
-            self.contours[i].global_xind = self.globalXInd(i)
-        for perp_points in perp_points_list[1:]:
-            for i, point in enumerate(perp_points):
-                self.contours[i].append(point)
+            self.equilibriumRegion.gradPsiSurfaceAtStart = (
+                vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
+            )
 
-        # refine the contours to make sure they are at exactly the right psi-value
-        self.contours = self.parallel_map(
-            PsiContour.refine,
-            ((c,) for c in self.contours),
-            width=self.user_options.refine_width,
+            # Make vector along grad(psi) at end of equilibriumRegion
+            end_point = self.equilibriumRegion[self.equilibriumRegion.endInd]
+            end_psi = self.equilibriumRegion.psi(*end_point)
+
+            # set sign of step in psi towards this region from primary
+            # separatrix at end of region
+            if temp_psi_vals[-1] - end_psi > 0:
+                end_psi_sep_plus_delta = (
+                    end_psi
+                    + self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+            else:
+                end_psi_sep_plus_delta = (
+                    end_psi
+                    - self.equilibriumRegion.equilibrium.poloidal_spacing_delta_psi
+                )
+
+            vec_points = followPerpendicular(
+                -1,
+                end_point,
+                end_psi,
+                f_R=self.meshParent.equilibrium.f_R,
+                f_Z=self.meshParent.equilibrium.f_Z,
+                psivals=[end_psi, end_psi_sep_plus_delta],
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
+            )
+            self.equilibriumRegion.gradPsiSurfaceAtEnd = (
+                vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
+            )
+
+            # Calculate the angles for perp_d_lower/perp_d_upper corresponding to
+            # d_lower/d_upper on the separatrix contour
+            # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
+            # because then the vector will not change when the grid resolution changes
+            fine_contour = self.equilibriumRegion.get_fine_contour(
+                psi=self.equilibriumRegion.psi
+            )
+            if self.equilibriumRegion.wallSurfaceAtStart is None:
+                # lower end
+                unit_vec_separatrix = (
+                    fine_contour.positions[fine_contour.startInd + 1, :]
+                    - fine_contour.positions[fine_contour.startInd, :]
+                )
+                unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
+                unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtStart
+                unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
+                cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
+                # this gives abs(sin_angle), but that's OK because we only want
+                # the magnitude to calculate perp_d
+                self.equilibriumRegion.sin_angle_at_start = numpy.sqrt(
+                    1.0 - cos_angle**2
+                )
+            if self.equilibriumRegion.wallSurfaceAtEnd is None:
+                # upper end
+                unit_vec_separatrix = (
+                    fine_contour.positions[fine_contour.endInd - 1, :]
+                    - fine_contour.positions[fine_contour.endInd, :]
+                )
+                unit_vec_separatrix /= numpy.sqrt(numpy.sum(unit_vec_separatrix**2))
+                unit_vec_surface = self.equilibriumRegion.gradPsiSurfaceAtEnd
+                unit_vec_surface /= numpy.sqrt(numpy.sum(unit_vec_surface**2))
+                cos_angle = numpy.sum(unit_vec_separatrix * unit_vec_surface)
+                # this gives abs(sin_angle), but that's OK because we only want
+                # the magnitude to calculate perp_d
+                self.equilibriumRegion.sin_angle_at_end = numpy.sqrt(
+                    1.0 - cos_angle**2
+                )
+
+            perp_points_list = self.parallel_map(
+                followPerpendicular,
+                zip(
+                    range(len(self.equilibriumRegion)),
+                    self.equilibriumRegion,
+                    [self.equilibriumRegion.psi(*p) for p in self.equilibriumRegion],
+                ),
+                psivals=temp_psi_vals,
+                rtol=self.user_options.follow_perpendicular_rtol,
+                atol=self.user_options.follow_perpendicular_atol,
+            )
+            if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
+                for perp_points in perp_points_list:
+                    perp_points.reverse()
+
+            for i, point in enumerate(perp_points_list[0]):
+                self.contours.append(
+                    self.equilibriumRegion.newContourFromSelf(
+                        points=[point], psival=self.psi_vals[i]
+                    )
+                )
+                self.contours[i].global_xind = self.globalXInd(i)
+            for perp_points in perp_points_list[1:]:
+                for i, point in enumerate(perp_points):
+                    self.contours[i].append(point)
+
+            # refine the contours to make sure they are at exactly the right psi-value
+            self.contours = self.parallel_map(
+                PsiContour.refine,
+                ((c,) for c in self.contours),
+                width=self.user_options.refine_width,
+            )
+
+            if not self.user_options.orthogonal:
+                self.addPointAtWallToContours()
+                self.distributePointsNonorthogonal()
+
+    def map(self, equilibrium, shift_function, meshParent=None):
+        """
+        Create a new MeshRegion by mapping PsiContours with
+        the given shift_function.
+
+        This MeshRegion is not modified, but the PsiContour map
+        method is called, and that may extend/modify the underlying
+        FineContour objects.
+
+        # Inputs
+
+        shift_function(xpos, ypos) - A distance shift function
+                   xpos - A normalised radial coordinate between 0 and 1
+                   ypos - A normalised poloidal coordinate between 0 and 1
+
+        # Returns
+
+        A new MeshRegion that is the same as this one except:
+        - meshParent is the input argument
+        - contours are mapped using the given shift_function
+        """
+
+        # Map contours
+        new_contours = []
+        psi_first = self.contours[0].psival
+        psi_last = self.contours[-1].psival
+        for contour in self.contours:
+            # Calculate normalised radial flux coordinate from 0 to 1
+            x = (contour.psival - psi_first) / (psi_last - psi_first)
+            # Map to new contour
+            new_contour = contour.map(equilibrium, lambda y: shift_function(x, y))
+            new_contours.append(new_contour)
+
+        # Create a new MeshRegion that is similar to this one
+        # but has the new contours
+        return MeshRegion(
+            meshParent,
+            self.myID,
+            self.equilibriumRegion,
+            self.connections,
+            self.radialIndex,
+            self.user_options,
+            self.parallel_map,
+            contours=new_contours,
         )
-
-        if not self.user_options.orthogonal:
-            self.addPointAtWallToContours()
-            self.distributePointsNonorthogonal()
 
     def addPointAtWallToContours(self):
         # maximum number of times to extend the contour when it has not yet hit the wall
@@ -379,7 +442,7 @@ class MeshRegion:
                 upper_intersect,
             ) = intersect_info
             # now add points on the wall(s) to the contour
-            if lower_wall:
+            if lower_wall and lower_intersect is not None:
                 # need to construct a new sfunc which gives distance from the wall, not
                 # the distance from the original startInd
 
@@ -447,7 +510,7 @@ class MeshRegion:
                     self.sfunc_orthogonal_list[i],
                 )
 
-            if upper_wall:
+            if upper_wall and upper_intersect is not None:
                 # now make upper_intersect_index the index where the point at the wall is
                 # check whether one of the points is close to the wall point and remove
                 # if it is - use a pretty loose check because points apart from the
@@ -521,13 +584,6 @@ class MeshRegion:
                 p_in = c_in[c_in.endInd]
                 p_out = c_out[c_out.endInd]
             return [p_out.R - p_in.R, p_out.Z - p_in.Z]
-
-        # surface_vecs_lower = [
-        #    surface_vec(i, c, True) for i, c in enumerate(self.contours)
-        # ]
-        # surface_vecs_upper = [
-        #    surface_vec(i, c, False) for i, c in enumerate(self.contours)
-        # ]
 
         def get_sfunc(i_contour, contour, sfunc_orthogonal):
             surface_vec_lower = surface_vec(i_contour, contour, True)
@@ -612,13 +668,6 @@ class MeshRegion:
                     + "' for nonorthogonal poloidal spacing function"
                 )
 
-        # sfunc_list = [
-        #    get_sfunc(i, c, sfunc_orth)
-        #    for i, c, sfunc_orth in zip(
-        #        range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
-        #    )
-        # ]
-
         # regrid the contours (which all know where the wall is)
         for i, c, sfunc_orth in zip(
             range(len(self.contours)), self.contours, self.sfunc_orthogonal_list
@@ -638,6 +687,89 @@ class MeshRegion:
             PsiContour.refine,
             ((c,) for c in self.contours),
         )
+
+    def setWallIntersections(self, equilibrium):
+        """
+        Calls each contour's setWallIntersections method
+        to set PsiContour.wall_intersections using the equilibrium wall location.
+        """
+        # should the contour intersect a wall at the lower end?
+        lower_wall = self.connections["lower"] is None
+
+        # should the contour intersect a wall at the upper end?
+        upper_wall = self.connections["upper"] is None
+
+        for contour in self.contours:
+            contour.get_fine_contour(psi=equilibrium.psi).setWallIntersections(
+                equilibrium, lower_wall=lower_wall, upper_wall=upper_wall
+            )
+
+        return self
+
+    def wallAlignShiftFunction(self):
+        """
+        Return a function that will shift points to be aligned to wall_intersections
+        """
+        # should the contour intersect a wall at the lower end?
+        lower_wall = self.connections["lower"] is None
+
+        # should the contour intersect a wall at the upper end?
+        upper_wall = self.connections["upper"] is None
+
+        if not (lower_wall or upper_wall):
+            # No wall intersections. No shift
+            return lambda x, y: 0.0
+
+        # Default no shift. Disable flake8 complaint
+        lower_shift_fn = lambda x: 0.0  # noqa: E731
+
+        if lower_wall:
+            x_vals = []
+            shift_vals = []
+            psi_first = self.contours[0].psival
+            psi_last = self.contours[-1].psival
+            for contour in self.contours:
+                # Calculate normalised radial flux coordinate from 0 to 1
+                x = (contour.psival - psi_first) / (psi_last - psi_first)
+
+                fc = contour.get_fine_contour()
+                wall_intersection = fc.wall_intersections[0]
+                if wall_intersection is not None:
+                    # Get shift between first point and wall
+                    wall_distance = fc.getDistance(wall_intersection)
+                    start_distance = fc.getDistance(contour.points[contour.startInd])
+                    x_vals.append(x)
+                    shift_vals.append(wall_distance - start_distance)
+            if len(shift_vals) > 0:
+                x_vals = [-1.0] + x_vals + [2.0]
+                shift_vals = [shift_vals[0]] + shift_vals + [shift_vals[-1]]
+                lower_shift_fn = interp1d(x_vals, shift_vals)
+
+        # Default no shift. Disable flake8 complaint
+        upper_shift_fn = lambda x: 0.0  # noqa: E731
+        if upper_wall:
+            x_vals = []
+            shift_vals = []
+            psi_first = self.contours[0].psival
+            psi_last = self.contours[-1].psival
+            for contour in self.contours:
+                # Calculate normalised radial flux coordinate from 0 to 1
+                x = (contour.psival - psi_first) / (psi_last - psi_first)
+
+                fc = contour.get_fine_contour()
+                wall_intersection = fc.wall_intersections[1]
+                if wall_intersection is not None:
+                    # Get shift between wall and last point
+                    wall_distance = fc.getDistance(wall_intersection)
+                    end_distance = fc.getDistance(contour.points[contour.endInd])
+                    x_vals.append(x)
+                    shift_vals.append(wall_distance - end_distance)
+            if len(shift_vals) > 0:
+                x_vals = [-1.0] + x_vals + [2.0]
+                shift_vals = [shift_vals[0]] + shift_vals + [shift_vals[-1]]
+                upper_shift_fn = interp1d(x_vals, shift_vals)
+        # Linear interpolation between lower and upper shift functions
+        return lambda x, y: y * upper_shift_fn(x) + (1.0 - y) * lower_shift_fn(x)
 
     def globalXInd(self, i):
         """
@@ -728,6 +860,65 @@ class MeshRegion:
         if xpoint is not None:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
+
+        return self
+
+    def plotGridLines(self, ax=None, c="k", label=None, **kwargs):
+        """
+        Plot grid lines through cell centers
+        """
+        if ax is None:
+            from matplotlib import pyplot
+
+            ax = pyplot.axes(aspect="equal")
+
+        for i in range(self.nx):
+            ax.plot(
+                self.Rxy.centre[i, :],
+                self.Zxy.centre[i, :],
+                c=c,
+                label=label,
+                **kwargs,
+            )
+            label = None
+        for j in range(self.ny):
+            ax.plot(
+                self.Rxy.centre[:, j],
+                self.Zxy.centre[:, j],
+                c=c,
+                label=None,
+                **kwargs,
+            )
+        return ax
+
+    def plotCells(self, ax=None, c="k", label=None, centres=True, **kwargs):
+        if ax is None:
+            from matplotlib import pyplot
+
+            ax = pyplot.axes(aspect="equal")
+
+        if centres:
+            # Plot cell centre points
+            ax.plot(self.Rxy.centre, self.Zxy.centre, c=c, linestyle="None", marker="o")
+
+        for i in range(self.nx + 1):
+            ax.plot(
+                self.Rxy.corners[i, :],
+                self.Zxy.corners[i, :],
+                c=c,
+                label=label,
+                **kwargs,
+            )
+            label = None
+        for j in range(self.ny + 1):
+            ax.plot(
+                self.Rxy.corners[:, j],
+                self.Zxy.corners[:, j],
+                c=c,
+                label=None,
+                **kwargs,
+            )
+        return ax
 
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
@@ -2258,6 +2449,10 @@ def _find_intersection(
     **kwargs,
 ):
     """
+    Find intersection of given contour with the wall
+    Note: The intersection may be None if no intersection is found
+    e.g. if the contour is entirely outside the wall
+
     i_contour    Index of contour. Only used for diagnostic output
     """
     print(
@@ -2301,7 +2496,7 @@ def _find_intersection(
         count = 0
         distance = contour.get_distance(psi=psi)
         ds_extend = distance[1] - distance[0]
-        while coarse_lower_intersect is None:
+        while (coarse_lower_intersect is None) and (count < max_extend):
             # contour has not yet intersected with wall, so make it longer and
             # try again
             contour.temporaryExtend(psi=psi, extend_lower=1, ds_lower=ds_extend)
@@ -2309,68 +2504,58 @@ def _find_intersection(
                 contour[1], contour[0]
             )
             count += 1
-            if count >= max_extend:
-                print("Contour intersection failed")
+        # coarse_lower_intersect may be None if no intersection was found
 
-                import matplotlib.pyplot as plt
-
-                contour.plot(color="b", psi=equilibrium.psi)
-
-                plt.plot(
-                    [contour[0].R, contour[1].R],
-                    [contour[0].Z, contour[1].Z],
-                    color="r",
-                    linewidth=3,
-                )
-
-                equilibrium.plotWall()
-
-                plt.show()
-                raise RuntimeError("extended contour too far without finding wall")
-        # refine lower_intersect by finding the intersection from FineContour
-        # points
-        #
-        # first find nearest FineContour points
+        # Refine contour, creating FineContour points
         fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_lower_intersect)
-        i_fine = numpy.searchsorted(fine_contour.distance, d)
-        # Intersection should be between i_fine-1 and i_fine, but check
-        # intervals on either side if necessary
-        lower_intersect = equilibrium.wallIntersection(
-            Point2D(*fine_contour.positions[i_fine - 1]),
-            Point2D(*fine_contour.positions[i_fine]),
-        )
-        if lower_intersect is None:
+
+        if coarse_lower_intersect is not None:
+            # Found an intersection.
+            # Refine lower_intersect by finding the intersection from FineContour
+            # points
+
+            d = fine_contour.getDistance(coarse_lower_intersect)
+            i_fine = numpy.searchsorted(fine_contour.distance, d)
+            # Intersection should be between i_fine-1 and i_fine, but check
+            # intervals on either side if necessary
             lower_intersect = equilibrium.wallIntersection(
-                Point2D(*fine_contour.positions[i_fine - 2]),
                 Point2D(*fine_contour.positions[i_fine - 1]),
-            )
-            if lower_intersect is not None:
-                i_fine = i_fine - 1
-        if lower_intersect is None:
-            lower_intersect = equilibrium.wallIntersection(
                 Point2D(*fine_contour.positions[i_fine]),
-                Point2D(*fine_contour.positions[i_fine + 1]),
             )
-            if lower_intersect is not None:
-                i_fine = i_fine + 1
-        if lower_intersect is None:
-            raise ValueError(
-                "Did not find lower_intersect from fine_contour, even though "
-                "intersection was found on contour."
+            if lower_intersect is None:
+                lower_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine - 2]),
+                    Point2D(*fine_contour.positions[i_fine - 1]),
+                )
+                if lower_intersect is not None:
+                    i_fine = i_fine - 1
+            if lower_intersect is None:
+                lower_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine]),
+                    Point2D(*fine_contour.positions[i_fine + 1]),
+                )
+                if lower_intersect is not None:
+                    i_fine = i_fine + 1
+            if lower_intersect is None:
+                raise ValueError(
+                    "Did not find lower_intersect from fine_contour, even though "
+                    "intersection was found on contour."
+                )
+            # Further refine, to ensure wall point is at correct psi
+            lower_intersect = contour.refinePoint(
+                lower_intersect,
+                Point2D(
+                    *(
+                        fine_contour.positions[i_fine]
+                        - fine_contour.positions[i_fine - 1]
+                    )
+                ),
+                psi=psi,
             )
-        # Further refine, to ensure wall point is at correct psi
-        lower_intersect = contour.refinePoint(
-            lower_intersect,
-            Point2D(
-                *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
-            ),
-            psi=psi,
-        )
 
     if upper_wall:
         if lower_wall:
-            starti = len(contour // 2)
+            starti = len(contour) // 2
         else:
             starti = 0
 
@@ -2387,7 +2572,7 @@ def _find_intersection(
         count = 0
         distance = contour.get_distance(psi=psi)
         ds_extend = distance[-1] - distance[-2]
-        while coarse_upper_intersect is None:
+        while (coarse_upper_intersect is None) and (count < max_extend):
             # contour has not yet intersected with wall, so make it longer and
             # try again
             contour.temporaryExtend(psi=psi, extend_upper=1, ds_upper=ds_extend)
@@ -2395,64 +2580,52 @@ def _find_intersection(
                 contour[-2], contour[-1]
             )
             count += 1
-            if count >= max_extend:
-                print("Contour intersection failed")
 
-                import matplotlib.pyplot as plt
-
-                plt.plot([p.R for p in contour], [p.Z for p in contour], color="b")
-
-                plt.plot(
-                    [contour[-2].R, contour[-1].R],
-                    [contour[-2].Z, contour[-1].Z],
-                    color="r",
-                    linewidth=3,
-                )
-
-                equilibrium.plotWall(color="k")
-
-                plt.show()
-                raise RuntimeError("extended contour too far without finding wall")
-        # refine upper_intersect by finding the intersection from FineContour
-        # points
-        #
-        # first find nearest FineContour points
         fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_upper_intersect)
-        i_fine = numpy.searchsorted(fine_contour.distance, d)
-        # Intersection should be between i_fine-1 and i_fine, but check
-        # intervals on either side if necessary
-        upper_intersect = equilibrium.wallIntersection(
-            Point2D(*fine_contour.positions[i_fine - 1]),
-            Point2D(*fine_contour.positions[i_fine]),
-        )
-        if upper_intersect is None:
+
+        if coarse_upper_intersect is not None:
+            # refine upper_intersect by finding the intersection from FineContour
+            # points
+            #
+            # first find nearest FineContour points
+            d = fine_contour.getDistance(coarse_upper_intersect)
+            i_fine = numpy.searchsorted(fine_contour.distance, d)
+            # Intersection should be between i_fine-1 and i_fine, but check
+            # intervals on either side if necessary
             upper_intersect = equilibrium.wallIntersection(
-                Point2D(*fine_contour.positions[i_fine - 2]),
                 Point2D(*fine_contour.positions[i_fine - 1]),
-            )
-            if upper_intersect is not None:
-                i_fine = i_fine - 1
-        if upper_intersect is None:
-            upper_intersect = equilibrium.wallIntersection(
                 Point2D(*fine_contour.positions[i_fine]),
-                Point2D(*fine_contour.positions[i_fine + 1]),
             )
-            if upper_intersect is not None:
-                i_fine = i_fine + 1
-        if upper_intersect is None:
-            raise ValueError(
-                "Did not find upper_intersect from fine_contour, even though "
-                "intersection was found on contour."
+            if upper_intersect is None:
+                upper_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine - 2]),
+                    Point2D(*fine_contour.positions[i_fine - 1]),
+                )
+                if upper_intersect is not None:
+                    i_fine = i_fine - 1
+            if upper_intersect is None:
+                upper_intersect = equilibrium.wallIntersection(
+                    Point2D(*fine_contour.positions[i_fine]),
+                    Point2D(*fine_contour.positions[i_fine + 1]),
+                )
+                if upper_intersect is not None:
+                    i_fine = i_fine + 1
+            if upper_intersect is None:
+                raise ValueError(
+                    "Did not find upper_intersect from fine_contour, even though "
+                    "intersection was found on contour."
+                )
+            # Further refine, to ensure wall point is at correct psi
+            upper_intersect = contour.refinePoint(
+                upper_intersect,
+                Point2D(
+                    *(
+                        fine_contour.positions[i_fine]
+                        - fine_contour.positions[i_fine - 1]
+                    )
+                ),
+                psi=psi,
             )
-        # Further refine, to ensure wall point is at correct psi
-        upper_intersect = contour.refinePoint(
-            upper_intersect,
-            Point2D(
-                *(fine_contour.positions[i_fine] - fine_contour.positions[i_fine - 1])
-            ),
-            psi=psi,
-        )
 
     # Create FineContour for result, so that this is done in parallel
     contour.get_fine_contour(psi=psi)
@@ -2534,7 +2707,16 @@ class Mesh:
         ),
     )
 
-    def __init__(self, equilibrium, settings):
+    def __init__(
+        self,
+        equilibrium,
+        settings=None,
+        user_options=None,
+        regions=None,
+        connections=None,
+        parallel_map=None,
+        versioning=True,
+    ):
         """
         Parameters
         ----------
@@ -2543,49 +2725,68 @@ class Mesh:
         settings : dict
             Non-default values to use to generate the grid. Must be consistent with the
             ones that were used to create the equilibrium
+        user_options : dict
+            If set, settings is ignored and this is used for user_options.
+            Skips checks. Note: Optimization feature.
+        regions : dict
+            Dictionary of MeshRegion objects that make up this Mesh
+            If not given then these will be created from the equilibrium regions
+        connections : dict
+            The connections between mesh regions
+        parallel_map : ParallelMap
+
+        versioning : bool
+            Record the version of the code, and git diff if dirty
+
         """
         self.equilibrium = equilibrium
 
-        self.user_options = self.user_options_factory.create(settings)
-        # Check settings didn't change since equilibrium was created
-        for key in self.equilibrium.user_options:
-            if (key in self.user_options) and (
-                self.equilibrium.user_options[key] != self.user_options[key]
-            ):
-                raise ValueError(
-                    f"Setting {key} has been changed since equilibrium was created."
-                    f"Re-create or re-load the equilibrium with the current settings."
-                )
+        if user_options is None:
+            if settings is None:
+                settings = {}
+            self.user_options = self.user_options_factory.create(settings)
+            # Check settings didn't change since equilibrium was created
+            for key in self.equilibrium.user_options:
+                if (key in self.user_options) and (
+                    self.equilibrium.user_options[key] != self.user_options[key]
+                ):
+                    raise ValueError(
+                        f"Setting {key} has been changed since equilibrium was created."
+                        f"Re-create or re-load the equilibrium"
+                        f"with the current settings."
+                    )
+            # Print the table of options
+            print(self.user_options.as_table(), flush=True)
+        else:
+            self.user_options = user_options
 
-        # Print the table of options
-        print(self.user_options.as_table(), flush=True)
+        if versioning:
+            versions = get_versions()
+            self.version = versions["version"]
+            self.git_hash = versions["full-revisionid"]
+            self.git_diff = None
 
-        versions = get_versions()
-        self.version = versions["version"]
-        self.git_hash = versions["full-revisionid"]
-        self.git_diff = None
+            if versions["dirty"]:
+                # There are changes from the last commit, get git diff
 
-        if versions["dirty"]:
-            # There are changes from the last commit, get git diff
+                from pathlib import Path
+                from hypnotoad.__init__ import __file__ as hypnotoad_init_file
 
-            from pathlib import Path
-            from hypnotoad.__init__ import __file__ as hypnotoad_init_file
+                hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            hypnotoad_path = Path(hypnotoad_init_file).parent
+                try:
+                    retval, self.git_diff = shell_safe(
+                        "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
+                    )
+                except RuntimeError as e:
+                    raise RuntimeError(
+                        "`git diff` failed. It is recommended to do an editable install "
+                        "using `pip --user -e .` when developing. If you did a "
+                        "non-editable install, this error can occur if the repo was "
+                        "'dirty' when installed.\n\nThe error message was:\n" + str(e)
+                    )
 
-            try:
-                retval, self.git_diff = shell_safe(
-                    "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
-                )
-            except RuntimeError as e:
-                raise RuntimeError(
-                    "`git diff` failed. It is recommended to do an editable install "
-                    "using `pip --user -e .` when developing. If you did a "
-                    "non-editable install, this error can occur if the repo was "
-                    "'dirty' when installed.\n\nThe error message was:\n" + str(e)
-                )
-
-            self.git_diff = self.git_diff.strip()
+                self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
         self.regions = {}
@@ -2599,26 +2800,78 @@ class Mesh:
                 regionlist.append((reg_name, i))
                 self.region_lookup[(reg_name, i)] = region_number
 
-        # Get connections between regions
-        self.connections = {}
-        for region_id, (eq_reg, i) in enumerate(regionlist):
-            self.connections[region_id] = {}
-            region = equilibrium.regions[eq_reg]
-            c = region.connections[i]
-            for key, val in c.items():
-                if val is not None:
-                    self.connections[region_id][key] = self.region_lookup[val]
-                else:
-                    self.connections[region_id][key] = None
+        if connections is None:
+            # Get connections between regions
+            self.connections = {}
+            for region_id, (eq_reg, i) in enumerate(regionlist):
+                self.connections[region_id] = {}
+                region = equilibrium.regions[eq_reg]
+                c = region.connections[i]
+                for key, val in c.items():
+                    if val is not None:
+                        self.connections[region_id][key] = self.region_lookup[val]
+                    else:
+                        self.connections[region_id][key] = None
+        else:
+            self.connections = connections
 
-        parallel_map = ParallelMap(
-            self.user_options.number_of_processors,
-            equilibrium=self.equilibrium,
+        if regions is None:
+            # Create MeshRegions
+            if parallel_map is None:
+                parallel_map = ParallelMap(
+                    self.user_options.number_of_processors,
+                    equilibrium=self.equilibrium,
+                )
+
+            self.makeRegions(parallel_map)
+        else:
+            # Already created regions.
+            # Here we should probably check that the regions are consistent with the
+            # connections and region_lookup
+            self.regions = regions
+
+            # Update meshParent to point to this Mesh
+            for region_id, region in self.regions.items():
+                region.meshParent = self
+
+        # Group regions by X and Y connections
+        self.makeGroups()
+
+    def map(self, shift_functions):
+        """
+        Return a new Mesh, created by shifting points along flux surfaces using
+        shift_functions. Here this should be a dictionary of functions,
+        one for each region.
+
+        Note: The first call to this function can be slow, as the FineContour objects
+        are created. Those FineContours are shared with all re-mapped meshes, so
+        subsequent map() calls are fast.
+
+        Parameters
+        ----------
+        shift_functions : dict
+            Dictionary of region name -> function (x, y) -> shift
+            where x and y are in the range [0,1] and shift is the
+            poloidal distance shift in meters.
+        """
+        new_regions = {}
+        for region_id, region in self.regions.items():
+            new_regions[region_id] = region.map(
+                self.equilibrium, shift_functions[region_id]
+            )
+
+        # Create a new instance of this Mesh subclass
+        return self.__class__(
+            self.equilibrium,
+            self.user_options,
+            regions=new_regions,
+            connections=self.connections,
         )
 
-        self.makeRegions(parallel_map)
-
     def makeRegions(self, parallel_map):
+        """
+        Create self.regions, a dictionary of MeshRegion objects
+        """
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
@@ -2637,6 +2890,10 @@ class Mesh:
                     parallel_map,
                 )
 
+    def makeGroups(self):
+        """
+        Create x_groups and y_groups from regions
+        """
         # create groups that connect in x
         self.x_groups = []
         region_set = set(self.regions.values())
@@ -2714,7 +2971,6 @@ class Mesh:
         """
         Create arrays with R and Z values of all points in the grid
         """
-        print("Get RZ values", flush=True)
         for region in self.regions.values():
             region.fillRZ()
         for region in self.regions.values():
@@ -2770,6 +3026,14 @@ class Mesh:
             self.smoothnl("curl_bOverB_x")
             self.smoothnl("curl_bOverB_y")
             self.smoothnl("curl_bOverB_z")
+
+    def setWallIntersections(self, equilibrium):
+        """
+        Set wall intersections in underlying FineContours
+        """
+        for region_id, region in self.regions.items():
+            region.setWallIntersections(equilibrium)
+        return self
 
     def smoothnl(self, varname):
         """
@@ -3000,36 +3264,45 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridLines(self, **kwargs):
+    def plotGridLines(self, ax=None, **kwargs):
         from matplotlib import pyplot
         from cycler import cycle
 
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
         for region in self.regions.values():
-            c = next(colors)
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
+
+        for region, c in zip(self.regions.values(), colors):
             label = region.myID
-            for i in range(region.nx):
-                pyplot.plot(
-                    region.Rxy.centre[i, :],
-                    region.Zxy.centre[i, :],
-                    c=c,
-                    label=label,
-                    **kwargs,
-                )
-                label = None
+            region.plotGridLines(c=c, label=label, ax=ax)
+        pyplot.legend().set_draggable(True)
+        return ax
+
+    def plotCells(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
+        colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
+
+        for region, c in zip(self.regions.values(), colors):
             label = region.myID
-            for j in range(region.ny):
-                pyplot.plot(
-                    region.Rxy.centre[:, j],
-                    region.Zxy.centre[:, j],
-                    c=c,
-                    label=None,
-                    **kwargs,
-                )
-                label = None
-        l = pyplot.legend()
-        l.set_draggable(True)
+            region.plotCells(c=c, label=label, ax=ax, **kwargs)
+        pyplot.legend().set_draggable(True)
+        return ax
 
     def plotPoints(
         self,
@@ -3067,6 +3340,12 @@ class Mesh:
             fig, ax = pyplot.subplots(1)
         else:
             fig = ax.figure
+
+        for region in self.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                self.calculateRZ()
+                break
 
         for region in self.regions.values():
             c = next(colors)
@@ -3239,9 +3518,8 @@ class BoutMesh(Mesh):
         ###########################
     )
 
-    def __init__(self, equilibrium, settings):
-
-        super().__init__(equilibrium, settings)
+    def __init__(self, equilibrium, settings, **kwargs):
+        super().__init__(equilibrium, settings, **kwargs)
 
         # nx, ny both include boundary guard cells
         eq_region0 = next(iter(self.equilibrium.regions.values()))
@@ -3705,3 +3983,461 @@ class BoutMesh(Mesh):
                 "Some variable has not been defined yet: have you called "
                 "Mesh.geometry()?"
             )
+
+
+class MeshRegionMapper:
+    """
+    Produces distorted versions of a given MeshRegion
+    Uses polynomial basis set in X and Y to describe a continuous mesh shift
+    """
+
+    # Basis set in range -1 <= x <= 1. Legendre polynomials:
+    polynomials = [
+        lambda x: 1,
+        lambda x: x,
+        lambda x: (3 * x**2 - 1) / 2,
+        lambda x: (5 * x**3 - 3 * x) / 2,
+        lambda x: (35 * x**4 - 30 * x**2 + 3) / 8,
+        lambda x: (63 * x**5 - 70 * x**3 + 15 * x) / 8,
+        lambda x: (231 * x**6 - 315 * x**4 + 105 * x**2 - 5) / 16,
+    ]
+
+    def __init__(self, equilibrium, region, x_order=3, y_order=3):
+        """ """
+        assert x_order > 0
+        assert y_order > 0
+        assert x_order < len(self.polynomials)
+        assert y_order < len(self.polynomials)
+        self._x_order = x_order
+        self._y_order = y_order
+        # Number of parameters includes a constant shift
+        self._nparams = (x_order + 1) * (y_order + 1)
+        self._region = region
+        self._equilibrium = equilibrium
+
+    def numParams(self) -> int:
+        """
+        Return the number of floating point parameters
+        """
+        return self._nparams
+
+    def generate(self, params, **kwargs):
+        """
+        Create a new MeshRegion by mapping with given params
+
+        Parameters
+        ----------
+
+        params : list
+             A list of float polynomial coefficients, of length numParams()
+
+        kwargs :
+             Any keyword arguments are passed to MeshRegion.map()
+
+        Returns
+        -------
+        A new MeshRegion object
+        """
+        assert len(params) == self.numParams()
+
+        # Create a shift function using these parameters
+        def shift_function(x, y):
+            x = 2 * x - 1  # Map [0,1] to [-1,1]
+            y = 2 * y - 1
+
+            result = 0.0
+            p = iter(params)
+            for i in range(self._x_order + 1):
+                x_val = self.polynomials[i](x)
+                for j in range(self._y_order + 1):
+                    y_val = self.polynomials[j](y)
+                    result += next(p) * x_val * y_val
+            return result
+
+        # Use shift_function to map the MeshRegion
+        return self._region.map(self._equilibrium, shift_function, **kwargs)
+
+
+class MeshMapper:
+    """
+    Generates re-mapped Mesh instances, applying distortions specified by a
+    list of parameters.
+    """
+
+    def __init__(self, mesh, x_order=3, y_order=3):
+        """
+        Parameters
+        ----------
+
+        mesh : Mesh subclass
+            The Mesh to be mapped. This mesh will not be modified,
+            though the underlying FineContours may be modified.
+
+        x_order : int
+            Order of X polynomial used in each MeshRegion
+
+        y_order : int
+            Order of Y polynomial used in each MeshRegion
+        """
+        self._mesh = mesh
+
+        self._region_mappers = {}  # A mapper for each MeshRegion
+        self._nparams = 0  # Total number of parameters for all MeshRegions
+        for region_id, region in mesh.regions.items():
+            # Create a mapper for this region
+            mapper = MeshRegionMapper(
+                mesh.equilibrium, region, x_order=x_order, y_order=y_order
+            )
+            nparams = mapper.numParams()
+            # Store the mapper, start and end parameter indices
+            self._region_mappers[region_id] = (
+                mapper,
+                self._nparams,
+                self._nparams + nparams,
+            )
+            self._nparams += mapper.numParams()
+
+    def numParams(self) -> int:
+        """
+        Return the total number of mesh distortion parameters
+        summed over all regions
+        """
+        return self._nparams
+
+    def generate(self, params, **kwargs):
+        """
+        Generate a new Mesh, mapping each region using the combined params array
+
+        Parameters
+        ----------
+
+        params : list
+            A list or 1D array of floats, of length numParams()
+
+        kwargs : dict
+            Other keywords are passed through to the Mesh constructor
+
+        Returns
+        -------
+
+        A new Mesh object, of the same class as the mesh passed to
+        the MeshMapper constructor.
+        """
+        assert len(params) == self.numParams()
+        new_regions = {}
+        for region_id, (mapper, pstart, pend) in self._region_mappers.items():
+            # Pass each MeshRegionMapper its part of the params array
+            new_regions[region_id] = mapper.generate(params[pstart:pend])
+
+        # Reconcile PsiContours that are shared between regions
+        # Mappers produce different shifts but must be consistent
+
+        psi = self._mesh.equilibrium.psi
+        for region_id, region in new_regions.items():
+            outer_id = region.connections["outer"]
+            if outer_id is not None:
+                outer = new_regions[outer_id]
+
+                region_contour = region.contours[-1]
+                # Last contour in this region
+                # Should be the same as first contour in the outer region
+                outer_contour = outer.contours[0]
+                fine_contour = region_contour.get_fine_contour(psi=psi)
+
+                # Average the PsiContour locations between the two regions,
+                # then share between both. Note: Cannot simply average point
+                # locations because those may not be on the same flux surface
+
+                # Ensure that distance is on the same FineContour
+                outer_contour._distance = None
+                outer_contour._fine_contour = fine_contour
+                new_distances = [
+                    0.5 * (d1 + d2)
+                    for d1, d2 in zip(
+                        region_contour.get_distance(psi=psi),
+                        outer_contour.get_distance(psi=psi),
+                    )
+                ]
+                new_points = [fine_contour.getPoint(dist) for dist in new_distances]
+
+                new_contour = PsiContour(
+                    points=new_points,
+                    psival=region_contour.psival,
+                    settings=region_contour.user_options,
+                    Rrange=region_contour.Rrange,
+                    Zrange=region_contour.Zrange,
+                )
+                # Already have fine_contour and distances so don't re-calculate
+                new_contour._fine_contour = fine_contour
+                new_contour._distance = new_distances
+                # Replace original contours with this average
+                region.contours[-1] = new_contour
+                outer.contours[0] = new_contour
+
+        # Create a new instance of the Mesh subclass
+        return self._mesh.__class__(
+            self._mesh.equilibrium,
+            self._mesh.user_options,
+            regions=new_regions,
+            connections=self._mesh.connections,
+            **kwargs,
+        )
+
+
+class MeshMeasure:
+    """
+    A type of object that implements a measure on a Mesh.
+
+    Subclasses must have a __call__ method taking a Mesh and returning
+    a float. This base class implements arithmetic methods for combining measures.
+
+    Note: The larger the measure the worse the grid. Optimisers will
+    typically aim to minimise this measure.
+
+    Usage
+    -----
+
+    Measures are first combined and then used to optimise a Mesh:
+
+    mesh2 = (MeshMeasure1() + MeshMeasure()).optimise(mesh)
+    """
+
+    def __call__(self, _mesh):
+        raise NotImplementedError("MeshMeasure.__call__ must be overridden by subclass")
+
+    def __add__(self, other):
+        class Add(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) + other(mesh)
+
+            def __str__(self2):
+                return "(" + str(self) + " + " + str(other) + ")"
+
+        return Add()
+
+    def __mul__(self, scalar):
+        class Mul(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) * scalar
+
+            def __str__(self2):
+                return str(scalar) + " * " + str(self)
+
+        return Mul()
+
+    def __rmul__(self, scalar):
+        class Rmul(MeshMeasure):
+            def __call__(self2, mesh):
+                return self(mesh) * scalar
+
+            def __str__(self2):
+                return str(scalar) + " * " + str(self)
+
+        return Rmul()
+
+    def optimise(self, mesh, x_order=3, y_order=3, method=None, **kwargs):
+        """
+        Optimise a given mesh using this measure
+
+        Parameters
+        ----------
+
+        method : str
+            Specify the method to use. None uses the default.
+
+        """
+
+        mapper = MeshMapper(mesh, x_order=x_order, y_order=y_order)
+        params = numpy.zeros(mapper.numParams())
+
+        # Define the function to be minimised
+        iterations = 0
+
+        def func(p):
+            nonlocal iterations
+            # Generate a new mesh.
+            # Passing arguments to skip some parts of the Mesh constructor
+            # that are not needed in this optimisation loop
+            new_mesh = mapper.generate(
+                p, user_options=mesh.user_options, versioning=False
+            )
+            # Evaluate it
+            result = self(new_mesh)
+            if iterations % 20 == 0:
+                print("Evaluation {}  measure: {}".format(iterations, result))
+            iterations += 1
+            return result
+
+        # Call minimization function
+        if method == "gp":
+            # Gaussian Process minimization
+            from skopt import gp_minimize
+
+            opt_res = gp_minimize(
+                func, [(-0.1, 0.1)] * mapper.numParams(), x0=list(params)
+            )
+        elif method == "de":
+            # Differential evolution
+            from scipy.optimize import differential_evolution
+
+            opt_res = differential_evolution(
+                func, [(-0.1, 0.1)] * mapper.numParams(), x0=params
+            )
+        elif method == "da":
+            # Dual annealing
+            from scipy.optimize import dual_annealing
+
+            opt_res = dual_annealing(
+                func, [(-0.1, 0.1)] * mapper.numParams(), initial_temp=0.01, x0=params
+            )
+        else:
+            from scipy.optimize import minimize
+
+            opt_res = minimize(func, params, method=method, **kwargs)
+
+        # Return the optimised mesh
+        return (mapper.generate(opt_res.x), opt_res.x)
+
+
+class TestMeasure(MeshMeasure):
+    def __init__(self, val):
+        self._val = val
+
+    def __call__(self, mesh):
+        return self._val
+
+
+class BoundaryDistance(MeshMeasure):
+    """
+    Measure distance between mesh and boundary locations
+
+    Usage
+    -----
+
+    measure = BoundaryDistance(mesh)
+    mesh_opt = measure.optimise(mesh)
+
+    measure can be combined with other MeshMeasure subclasses
+    """
+
+    def __init__(self, mesh, norm=2):
+        # Set wall intersections in the FineContours
+        mesh.setWallIntersections(mesh.equilibrium)
+        self._norm = norm
+
+    def __str__(self):
+        return "BoundaryMesh(norm={})".format(self._norm)
+
+    def __call__(self, mesh) -> float:
+        result = 0.0
+        for region_id, region in mesh.regions.items():
+            if region.connections["lower"] is None:
+                # Boundaries on the lower edge
+                for contour in region.contours:
+                    fc = contour.get_fine_contour(psi=mesh.equilibrium.psi)
+                    wall_intersection = fc.wall_intersections[0]
+                    if wall_intersection is None:
+                        continue  # No intersection
+                    distance = fc.getDistance(wall_intersection) - fc.getDistance(
+                        contour.points[contour.startInd]
+                    )
+                    result += abs(distance) ** self._norm
+
+            if region.connections["upper"] is None:
+                # Boundaries on the upper edge
+                for contour in region.contours:
+                    fc = contour.get_fine_contour(psi=mesh.equilibrium.psi)
+                    wall_intersection = fc.wall_intersections[1]
+                    if wall_intersection is None:
+                        continue  # No intersection
+                    distance = fc.getDistance(wall_intersection) - fc.getDistance(
+                        contour.points[contour.endInd]
+                    )
+                    result += abs(distance) ** self._norm
+        return result
+
+
+class Orthogonality(MeshMeasure):
+    """
+    Measure the (non-)orthogonality of the mesh, by calculating the angle Beta
+    between coordinate lines. Returns a sum over the mesh of of tan(Beta) raised
+    to a given power.
+    """
+
+    def __init__(self, norm=2):
+        """
+        Parameters
+        ----------
+        norm : float
+            abs(tan(beta)) is raised to this power. Higher values
+            penalise the most non-orthogonal cell in the domain.
+        """
+        self._norm = norm
+
+    def __str__(self):
+        return "Orthogonality(norm={})".format(self._norm)
+
+    def __call__(self, mesh) -> float:
+        # Check that the Rxy and Zxy coordinates have been calculated
+        for region in mesh.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                mesh.calculateRZ()
+                break
+        # Calculate the angle beta between coordinate lines
+        result = 0.0
+        for region in mesh.regions.values():
+            # Calculate mesh angles
+            region.calcBeta()
+            result += numpy.sum(abs(region.tanBeta.centre) ** self._norm)
+        return result
+
+
+class PoloidalSpacing(MeshMeasure):
+    """
+    Measure variation in poloidal spacing of the mesh. Based on ratios of the distances
+    between cell centres in the poloidal direction.
+    """
+
+    def __str__(self):
+        return "PoloidalSpacing"
+
+    def __call__(self, mesh) -> float:
+        # Check that the Rxy and Zxy coordinates have been calculated
+        for region in mesh.regions.values():
+            if not hasattr(region, "Rxy") or not hasattr(region, "Zxy"):
+                # R and Z arrays need calculating
+                mesh.calculateRZ()
+                break
+
+        npoints = 0
+        result = 0.0
+        for region in mesh.regions.values():
+            Rxy = region.Rxy.centre
+            Zxy = region.Zxy.centre
+            nx, ny = Rxy.shape
+
+            d1 = (Rxy[:, 2:] - Rxy[:, 1:-1]) ** 2 + (Zxy[:, 2:] - Zxy[:, 1:-1]) ** 2
+            d2 = (Rxy[:, 1:-1] - Rxy[:, :-2]) ** 2 + (Zxy[:, 1:-1] - Zxy[:, :-2]) ** 2
+            result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+            npoints += nx * (ny - 2)
+
+            upper = region.getNeighbour("upper")
+            if upper is not None:
+                u_Rxy = upper.Rxy.centre
+                u_Zxy = upper.Zxy.centre
+
+                d1 = (Rxy[:, -2] - Rxy[:, -1]) ** 2 + (Zxy[:, -2] - Zxy[:, -1]) ** 2
+                d2 = (Rxy[:, -1] - u_Rxy[:, 0]) ** 2 + (Zxy[:, -1] - u_Zxy[:, 0]) ** 2
+                result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+                npoints += nx
+
+            lower = region.getNeighbour("lower")
+            if lower is not None:
+                l_Rxy = lower.Rxy.centre
+                l_Zxy = lower.Zxy.centre
+                d1 = (Rxy[:, 0] - Rxy[:, 1]) ** 2 + (Zxy[:, 0] - Zxy[:, 1]) ** 2
+                d2 = (Rxy[:, 0] - l_Rxy[:, -1]) ** 2 + (Zxy[:, 0] - l_Zxy[:, -1]) ** 2
+                result += numpy.sum((abs(d1 - d2) + 1e-3) / (d1 + d2 + 1e-3))
+                npoints += nx
+        return result / npoints

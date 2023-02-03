@@ -31,7 +31,6 @@ from xbout.utils import _set_attrs_on_all_vars
 
 
 def check_missing_variables(ds1, ds2, *, ignore_ylow=False):
-
     variables = list(set(v for v in ds1).union(v for v in ds2))
 
     variables.sort()
@@ -132,7 +131,6 @@ def trim_yboundaries(ds):
 
 
 def plot_arrays(ds1, ds2, variables, *, atol, poloidal_plot, show_all):
-
     # Need to drop 'dimension coordinates' as xarray arithmetic operations by default
     # work on the intersection of two DataArrays, as determined by the dimension
     # coordinates, but the coordinates are not necessarily the same between the two grid

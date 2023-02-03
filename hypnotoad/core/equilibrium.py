@@ -141,6 +141,18 @@ class Point2D:
     def as_ndarray(self):
         return numpy.array((self.R, self.Z))
 
+    def plot(self, *args, ax=None, **kwargs):
+        """
+        Plot this Point2D
+        """
+        from matplotlib import pyplot
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
+
+        ax.plot([self.R], [self.Z], *args, **kwargs)
+        return ax
+
 
 def calc_distance(p1, p2):
     d = p2 - p1
@@ -498,6 +510,7 @@ class FineContour:
         self.parentContour = parentContour
         self.user_options = self.user_options_factory.create(settings)
         self.distance = None
+        self.wall_intersections = (None, None)
         Nfine = self.user_options.finecontour_Nfine
 
         endInd = self.parentContour.endInd
@@ -564,7 +577,6 @@ class FineContour:
         self.equaliseSpacing(psi=psi)
 
     def extend(self, *, psi, extend_lower=0, extend_upper=0):
-
         Nfine = self.user_options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
@@ -732,7 +744,6 @@ class FineContour:
         # endInd unchanged - makes iteration more stable.
         count = 1
         while ds_error > self.user_options.finecontour_atol:
-
             if (
                 self.user_options.finecontour_maxits
                 and count > self.user_options.finecontour_maxits
@@ -817,7 +828,12 @@ class FineContour:
                 pyplot.legend()
                 pyplot.show()
 
-    def totalDistance(self):
+    def totalDistance(self) -> float:
+        """
+        Distance along FineContour from startInd to endInd
+
+        Note: Not total distance along FineContour
+        """
         return self.distance[self.endInd] - self.distance[self.startInd]
 
     def calcDistance(self, *, reallocate=False):
@@ -975,7 +991,7 @@ class FineContour:
 
         return s_of_sperp, s_perp_total
 
-    def getDistance(self, p):
+    def getDistance(self, p: Point2D) -> float:
         """
         Find the poloidal distance from the start of this contour of a point ``p``.
 
@@ -1016,6 +1032,43 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
+    def getPoint(self, distance: float) -> Point2D:
+        """
+        Return a Point2D at the given distance along the FineContour
+        """
+        if (distance < -1e-12) or (distance > self.distance[-1] + 1e-12):
+            raise ValueError(
+                "distance {} is outside range [0, {}]".format(
+                    distance, self.distance[-1]
+                )
+            )
+        elif distance < 0.0:
+            distance = 0.0
+        elif distance > self.distance[-1]:
+            distance = self.distance[-1]
+
+        def find_point(distance, first, last):
+            """
+            Find point using divide-and-conquer
+            """
+            if last == first + 1:
+                # Between these two points
+                d1 = self.distance[first]  # Should be <= distance
+                d2 = self.distance[last]  # Should be >= distance
+                pos = (d2 - distance) / (d2 - d1) * self.positions[first] + (
+                    distance - d1
+                ) / (d2 - d1) * self.positions[last]
+                return Point2D(*pos)
+            # Somewhere between these two points
+            half = first + (last - first) // 2
+            if distance <= self.distance[half]:
+                return find_point(distance, first, half)
+            else:
+                return find_point(distance, half, last)
+
+        last = self.endInd if self.endInd > 0 else len(self.distance) + self.endInd
+        return find_point(distance, self.startInd, last)
+
     def plot(self, *args, psi=None, ax=None, **kwargs):
         """
         Plot this FineContour
@@ -1033,6 +1086,79 @@ class FineContour:
             ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
         ax.plot(Rpoints, Zpoints, *args, **kwargs)
         return ax
+
+    def findWallIntersections(self, equilibrium, lower_wall=True, upper_wall=True):
+        """
+        Find intersections with equilibrium wall. Doesn't modify this FineContour.
+
+        Returns pair of intersections (lower, upper)
+        Each is either None or an (R, Z, index) tuple
+        """
+
+        def find_intersection(start_i, end_i):
+            """
+            Divide-and-conquer algorithm to find intersection
+            """
+            intersection = equilibrium.wallIntersection(
+                Point2D(*self.positions[start_i]), Point2D(*self.positions[end_i])
+            )
+            if intersection is None:
+                return None  # No intersection
+
+            if end_i == start_i + 1:
+                # Intersection between these indices
+                return intersection
+
+            # Half-way index
+            half_i = start_i + (end_i - start_i) // 2
+            # Recursion, finding the intersection that's not None
+            return find_intersection(start_i, half_i) or find_intersection(
+                half_i, end_i
+            )
+
+        half_i = len(self.positions) // 2
+        lower = find_intersection(0, half_i) if lower_wall else None
+        upper = (
+            find_intersection(half_i, len(self.positions) - 1) if upper_wall else None
+        )
+        return (lower, upper)
+
+    def setWallIntersections(self, equilibrium, lower_wall=True, upper_wall=True):
+        """
+        Set wall intersections with given equilibrium's wall.
+        Extends the FineContour if necessary.
+        """
+        if not (lower_wall or upper_wall):
+            self.wall_intersections = (None, None)
+            return self.wall_intersections  # No intersections
+
+        # Find any intersections
+        lower_intersection, upper_intersection = self.findWallIntersections(
+            equilibrium, lower_wall=lower_wall, upper_wall=upper_wall
+        )
+
+        if lower_wall and (lower_intersection is None):
+            # Expecting a lower intersection but didn't find one
+            count = 0
+            while (lower_intersection is None) and count < 10:
+                self.extend(psi=equilibrium.psi, extend_lower=10)
+                lower_intersection, _ = self.findWallIntersections(
+                    equilibrium, lower_wall=True, upper_wall=False
+                )
+                count += 1
+
+        if upper_wall and (upper_intersection is None):
+            # Expecting an upper intersection but didn't find one
+            count = 0
+            while (upper_intersection is None) and count < 10:
+                self.extend(psi=equilibrium.psi, extend_upper=10)
+                _, upper_intersection = self.findWallIntersections(
+                    equilibrium, lower_wall=False, upper_wall=True
+                )
+                count += 1
+
+        self.wall_intersections = (lower_intersection, upper_intersection)
+        return self.wall_intersections
 
 
 class PsiContour:
@@ -1103,6 +1229,106 @@ class PsiContour:
         # startInd and endInd.
         self._extend_lower = 0
         self._extend_upper = 0
+
+    def map(self, equilibrium, shift_function):
+        """
+        Create a new PsiContour with points shifted.
+        Does not modify this PsiContour, but may extend the FineContour
+
+        # Inputs
+
+        shift_function(ypos) - A distance shift function
+                   ypos => a normalised coordinate between 0 and 1
+                   returns a distance shift in meters
+
+        # Returns
+
+        A new PsiContour object that shares the same FineContour
+        """
+        fine_contour = self.get_fine_contour(psi=equilibrium.psi)
+
+        # Calculate distance shift of lowest point
+        lower_shift = shift_function(0.0)
+
+        # Ensure that FineContour extends far enough
+        count = 0
+        while (
+            fine_contour.getDistance(self.points[self.startInd]) + lower_shift < 0.0
+        ) and (count < 10):
+            # Extend lower end of the FineContour
+            count += 1
+
+        # Lower shift that can be applied, given limits on FineContour
+        lower_distance = fine_contour.getDistance(self.points[self.startInd])
+        lower_shift_actual = max([-lower_distance, lower_shift])
+
+        # Shift of uppermost point
+        upper_shift = shift_function(1.0)
+
+        # Extend FineContour if needed
+        count = 0
+        while (
+            fine_contour.getDistance(self.points[self.endInd]) + upper_shift
+            > fine_contour.distance[-1]
+        ) and (count < 10):
+            # Extend upper end of the FineContour
+            count += 1
+
+        # Limit on actual shift that can be applied
+        upper_distance = fine_contour.getDistance(self.points[self.endInd])
+        upper_shift_actual = min(
+            [fine_contour.distance[-1] - upper_distance, upper_shift]
+        )
+
+        # Linear scaling of distance shifts, given limits on upper and lower shifts
+        total_distance = upper_distance - lower_distance  # Distance before mapping
+        distance_scale = (total_distance + upper_shift_actual - lower_shift_actual) / (
+            total_distance + upper_shift - lower_shift
+        )
+
+        # Calculate actual shifts for all points
+        new_points = []
+        new_distances = []
+        end = self.endInd + 1 if self.endInd != -1 else len(self.points)
+        last_distance = -1.0  # Keep track of last point position, so they don't cross
+        for index, point in enumerate(self.points[self.startInd : end]):
+            # Calculate shift in position, scaled and offset
+            # to take into account FineContour limits
+            ypos = index / (self.endInd - self.startInd)
+            shift = shift_function(ypos)
+            current_distance = fine_contour.getDistance(point)
+            new_distance = (
+                lower_distance
+                + lower_shift_actual
+                + distance_scale
+                * (current_distance - lower_distance + shift - lower_shift)
+            )
+            if new_distance < last_distance:
+                # Crossing over last point => limit shift, but don't allow
+                # location to exceed end of FineContour
+                new_distance = last_distance + 1e-3
+            if new_distance > fine_contour.distance[-1]:
+                # Prevent points from leaving the end of the FineContour
+                new_distance = fine_contour.distance[-1]
+
+            last_distance = new_distance
+
+            new_distances.append(new_distance)
+            new_points.append(fine_contour.getPoint(new_distance))
+
+        # Create a new PsiContour
+        new_contour = PsiContour(
+            points=new_points,
+            psival=self.psival,
+            settings=self.user_options,
+            Rrange=self.Rrange,
+            Zrange=self.Zrange,
+        )
+        # Share FineContour
+        new_contour._fine_contour = fine_contour
+        # Already calculated distances
+        new_contour._distance = numpy.array(new_distances)
+        return new_contour
 
     def _reset_cached(self):
         # Reset all cached objects/values because the contour has been changed
@@ -1175,16 +1401,21 @@ class PsiContour:
             fine_contour = self.get_fine_contour(psi=psi)
             self._distance = [fine_contour.getDistance(p) for p in self]
             d = numpy.array(self._distance)
-            if not numpy.all(d[1:] - d[:-1] > 0.0):
+
+            # Only check that points between startInd and endInd are monotonic
+            end = self.endInd + 1 if self.endInd != -1 else len(d)
+            if not numpy.all(
+                d[(self.startInd + 1) : end] - d[self.startInd : self.endInd] >= 0.0
+            ):
                 print("\nPsiContour distance", self._distance)
                 print("\nFineContour distance", fine_contour.distance)
                 print("\nPsiContour points", self)
 
                 import matplotlib.pyplot as plt
 
-                self.plot(marker="o", color="k", psi=psi)
+                ax = self.plot(marker="o", color="k", psi=psi)
 
-                fine_contour.plot(marker="x", color="r")
+                fine_contour.plot(marker="x", color="r", ax=ax)
 
                 plt.show()
 
@@ -1655,12 +1886,12 @@ class PsiContour:
         if reference_ind < 0:
             reference_ind += len(self)
 
-        npoints = (len(self) - 1 - reference_ind) + 4
-
         distance = [0.0]
         for i in range(reference_ind - 3, len(self) - 1):
             distance.append(distance[-1] + calc_distance(self[i + 1], self[i]))
         distance = numpy.array(numpy.float64(distance)) - distance[3]
+
+        npoints = len(distance)
 
         R = numpy.array(numpy.float64([p.R for p in self.points[-npoints:]]))
         Z = numpy.array(numpy.float64([p.Z for p in self.points[-npoints:]]))
@@ -1862,7 +2093,6 @@ class PsiContour:
                 (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
         else:
@@ -1882,7 +2112,6 @@ class PsiContour:
                 (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
         else:
@@ -2995,7 +3224,6 @@ class EquilibriumRegion(PsiContour):
             spacings["nonorthogonal_range_lower"] is not None
             and spacings["nonorthogonal_range_upper"] is not None
         ):
-
             if sfunc_orthogonal is None:
                 # Define new_sfunc in a sensible way to create the initial distribution
                 # of points on the separatrix that is then used to create the orthogonal
@@ -3082,7 +3310,6 @@ class EquilibriumRegion(PsiContour):
                     )
 
         elif spacings["nonorthogonal_range_lower"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -3114,7 +3341,6 @@ class EquilibriumRegion(PsiContour):
                     return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
 
         elif spacings["nonorthogonal_range_upper"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -4401,6 +4627,11 @@ class Equilibrium:
         intersects = find_intersections(self.closed_wallarray, p1, p2)
         if intersects is not None:
             intersect = Point2D(*intersects[0, :])
+
+            if intersects.shape[0] > 1:
+                print("WARNING: Multiple wall intersections")
+                return None
+
             if intersects.shape[0] > 2:
                 raise ValueError("too many intersections with wall")
             elif intersects.shape[0] > 1:
@@ -4410,14 +4641,13 @@ class Equilibrium:
                     and numpy.abs(intersect.Z - second_intersect.Z)
                     < intersect_tolerance
                 ):
-
                     print("Multiple intersections with the wall")
 
                     import matplotlib.pyplot as plt
 
                     plt.plot(
-                        [p.R for p in self.closed_wall],
-                        [p.Z for p in self.closed_wall],
+                        [p.R for p in self.closed_wallarray],
+                        [p.Z for p in self.closed_wallarray],
                         color="k",
                     )
 
@@ -4927,8 +5157,19 @@ class Equilibrium:
 
         return axis
 
-    def plotWall(self, axis=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
+    def plotWall(self, ax=None, *, color="k", linestyle="-", linewidth=2, **kwargs):
+        """
+        Plot the wall, by default as a solid black line.
+        If the axis is not given then a new figure is created.
+
+        Returns the plotting axis
+        """
         if self.wall:
+            if ax is None:
+                from matplotlib import pyplot
+
+                ax = pyplot.axes(aspect="equal")
+
             wall_R = [p.R for p in self.wall]
             wall_Z = [p.Z for p in self.wall]
 
@@ -4936,28 +5177,16 @@ class Equilibrium:
             wall_R.append(wall_R[0])
             wall_Z.append(wall_Z[0])
 
-            if axis is None:
-                from matplotlib import pyplot
+            ax.plot(
+                wall_R,
+                wall_Z,
+                color=color,
+                linestyle=linestyle,
+                linewidth=linewidth,
+                **kwargs,
+            )
 
-                axis = pyplot.plot(
-                    wall_R,
-                    wall_Z,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    **kwargs,
-                )
-            else:
-                axis.plot(
-                    wall_R,
-                    wall_Z,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    **kwargs,
-                )
-
-            return axis
+        return ax
 
     def plotSeparatrix(
         self,

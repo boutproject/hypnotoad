@@ -4235,7 +4235,7 @@ class MeshMeasure:
 
         return Rmul()
 
-    def optimise(self, mesh, x_order=3, y_order=3, method="default", **kwargs):
+    def optimise(self, mesh, x_order=3, y_order=3, method=None, **kwargs):
         """
         Optimise a given mesh using this measure
 
@@ -4243,7 +4243,7 @@ class MeshMeasure:
         ----------
 
         method : str
-            Specify the method to use.
+            Specify the method to use. None uses the default.
 
         """
 
@@ -4264,7 +4264,7 @@ class MeshMeasure:
             # Evaluate it
             result = self(new_mesh)
             if iterations % 20 == 0:
-                print("Iteration {}  measure: {}".format(iterations, result))
+                print("Evaluation {}  measure: {}".format(iterations, result))
             iterations += 1
             return result
 
@@ -4293,7 +4293,7 @@ class MeshMeasure:
         else:
             from scipy.optimize import minimize
 
-            opt_res = minimize(func, params, **kwargs)
+            opt_res = minimize(func, params, method=method, **kwargs)
 
         # Return the optimised mesh
         return (mapper.generate(opt_res.x), opt_res.x)

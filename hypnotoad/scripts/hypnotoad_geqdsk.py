@@ -66,8 +66,10 @@ def main(*, add_noise=None):
             "optimise_method",
             "optimise_x_order",
             "optimise_y_order",
+            "optimise_maxiter",
         ]
     )
+
     unused_options = [opt for opt in options if opt not in possible_options]
     if unused_options != []:
         raise ValueError(
@@ -121,15 +123,15 @@ def main(*, add_noise=None):
         from hypnotoad.core.mesh import BoundaryDistance, Orthogonality, PoloidalSpacing
 
         measures = []
-        opt_boundary = options.get("optimise_boundary", 1.0)
+        opt_boundary = options.get("optimise_boundary", 10.0)
         if opt_boundary is not None:
             measures.append(opt_boundary * BoundaryDistance(mesh))
 
-        opt_poloidal = options.get("optimise_poloidal", 0.1)
+        opt_poloidal = options.get("optimise_poloidal", 1.0)
         if opt_poloidal is not None:
             measures.append(opt_poloidal * PoloidalSpacing())
 
-        opt_orthogonal = options.get("optimise_orthogonal", 0.01)
+        opt_orthogonal = options.get("optimise_orthogonal", 0.001)
         if opt_orthogonal is not None:
             measures.append(opt_orthogonal * Orthogonality())
 
@@ -140,12 +142,26 @@ def main(*, add_noise=None):
         for m in measures[1:]:
             measure += m
 
-        opt_method = options.get("optimise_method", "default")
+        opt_method = options.get("optimise_method", "L-BFGS-B")
         opt_x_order = options.get("optimise_x_order", 2)
         opt_y_order = options.get("optimise_y_order", 2)
 
+        opt_options = {"disp": True}
+
+        opt_maxiter = options.get("optimise_maxiter", 20)
+        if opt_maxiter is not None:
+            # Set a maximum number of iterations
+            opt_options["maxiter"] = opt_maxiter
+        opt_ftol = options.get("optimise_ftol", 1e-4)
+        if opt_ftol is not None:
+            opt_options["ftol"] = opt_ftol
+
         mesh, params = measure.optimise(
-            mesh, x_order=opt_x_order, y_order=opt_y_order, method=opt_method
+            mesh,
+            x_order=opt_x_order,
+            y_order=opt_y_order,
+            method=opt_method,
+            options=opt_options,
         )
 
     mesh.calculateRZ()

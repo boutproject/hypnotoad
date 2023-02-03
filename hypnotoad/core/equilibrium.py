@@ -4627,6 +4627,11 @@ class Equilibrium:
         intersects = find_intersections(self.closed_wallarray, p1, p2)
         if intersects is not None:
             intersect = Point2D(*intersects[0, :])
+
+            if intersects.shape[0] > 1:
+                print("WARNING: Multiple wall intersections")
+                return None
+
             if intersects.shape[0] > 2:
                 raise ValueError("too many intersections with wall")
             elif intersects.shape[0] > 1:
@@ -4641,8 +4646,8 @@ class Equilibrium:
                     import matplotlib.pyplot as plt
 
                     plt.plot(
-                        [p.R for p in self.closed_wall],
-                        [p.Z for p in self.closed_wall],
+                        [p.R for p in self.closed_wallarray],
+                        [p.Z for p in self.closed_wallarray],
                         color="k",
                     )
 

@@ -3311,7 +3311,7 @@ class BoutMesh(Mesh):
         # Call geometry() method of base class
         super().geometry()
 
-        def addFromRegions(name):
+        def addFromRegions(name, *, all_corners=False):
             # Collect a 2d field from the regions
             self.fields_to_output.append(name)
             f = MultiLocationArray(self.nx, self.ny)
@@ -3334,6 +3334,17 @@ class BoutMesh(Mesh):
                     f.corners[self.region_indices[region.myID]] = f_region.corners[
                         :-1, :-1
                     ]
+                if all_corners:
+                    if f_region._corners_array is not None:
+                        f.lower_right_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[1:, :-1]
+                        f.upper_right_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[1:, 1:]
+                        f.upper_left_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[:-1, 1:]
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "Field2D"
@@ -3369,8 +3380,8 @@ class BoutMesh(Mesh):
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "ArrayX"
 
-        addFromRegions("Rxy")
-        addFromRegions("Zxy")
+        addFromRegions("Rxy", all_corners=True)
+        addFromRegions("Zxy", all_corners=True)
         addFromRegions("psixy")
         addFromRegions("dx")
         addFromRegions("dy")
@@ -3435,6 +3446,18 @@ class BoutMesh(Mesh):
         f.write(
             name + "_corners",
             BoutArray(array.corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_lower_right_corners",
+            BoutArray(array.lower_right_corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_upper_right_corners",
+            BoutArray(array.upper_right_corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_upper_left_corners",
+            BoutArray(array.upper_left_corners[:-1, :-1], attributes=array.attributes),
         )
 
     def writeArrayXDirection(self, name, array, f):

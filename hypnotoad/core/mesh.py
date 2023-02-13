@@ -146,7 +146,6 @@ class MeshRegion:
         settings,
         parallel_map,
     ):
-
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
@@ -3240,7 +3239,6 @@ class BoutMesh(Mesh):
     )
 
     def __init__(self, equilibrium, settings):
-
         super().__init__(equilibrium, settings)
 
         # nx, ny both include boundary guard cells

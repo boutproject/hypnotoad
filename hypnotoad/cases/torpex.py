@@ -141,7 +141,6 @@ class TORPEXMagneticField(Equilibrium):
     )
 
     def __init__(self, equilibOptions, meshOptions):
-
         # Set up options read from user input
         self.user_options = self.user_options_factory.create(meshOptions)
 

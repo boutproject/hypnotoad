@@ -564,7 +564,6 @@ class FineContour:
         self.equaliseSpacing(psi=psi)
 
     def extend(self, *, psi, extend_lower=0, extend_upper=0):
-
         Nfine = self.user_options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
@@ -732,7 +731,6 @@ class FineContour:
         # endInd unchanged - makes iteration more stable.
         count = 1
         while ds_error > self.user_options.finecontour_atol:
-
             if (
                 self.user_options.finecontour_maxits
                 and count > self.user_options.finecontour_maxits
@@ -1862,7 +1860,6 @@ class PsiContour:
                 (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
         else:
@@ -1882,7 +1879,6 @@ class PsiContour:
                 (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
         else:
@@ -2995,7 +2991,6 @@ class EquilibriumRegion(PsiContour):
             spacings["nonorthogonal_range_lower"] is not None
             and spacings["nonorthogonal_range_upper"] is not None
         ):
-
             if sfunc_orthogonal is None:
                 # Define new_sfunc in a sensible way to create the initial distribution
                 # of points on the separatrix that is then used to create the orthogonal
@@ -3082,7 +3077,6 @@ class EquilibriumRegion(PsiContour):
                     )
 
         elif spacings["nonorthogonal_range_lower"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -3114,7 +3108,6 @@ class EquilibriumRegion(PsiContour):
                     return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
 
         elif spacings["nonorthogonal_range_upper"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -4410,7 +4403,6 @@ class Equilibrium:
                     and numpy.abs(intersect.Z - second_intersect.Z)
                     < intersect_tolerance
                 ):
-
                     print("Multiple intersections with the wall")
 
                     import matplotlib.pyplot as plt

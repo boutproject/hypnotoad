@@ -12,6 +12,8 @@ Release history
 
 ### New features
 
+- Save R,Z locations for all four corners of each cell (#168)\
+  By [John Omotani](https://github.com/johnomotani)
 - `PsiContour.plot()` and `FineContour.plot()` can be called with an `ax`
   argument, and passing `psi` is optional (#163)\
   By [Ben Dudson](https://github.com/bendudson)

@@ -23,7 +23,6 @@ else:
 
 class MatplotlibWidget:
     def __init__(self, parent):
-
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setParent(parent)

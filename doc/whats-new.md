@@ -1,7 +1,7 @@
 Release history
 ===============
 
-0.5.1 (18th January 2023)
+0.5.2 (13th March 2023)
 -------------------------
 
 ### Bug fixes
@@ -17,6 +17,12 @@ Release history
 - `PsiContour.plot()` and `FineContour.plot()` can be called with an `ax`
   argument, and passing `psi` is optional (#163)\
   By [Ben Dudson](https://github.com/bendudson)
+
+0.5.1 (18th January 2023)
+-------------------------
+
+### New features
+
 - Command line utility to get flux surfaces from a geqdsk file and save them to
   NetCDF (#156)\
   By [John Omotani](https://github.com/johnomotani)

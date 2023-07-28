@@ -477,7 +477,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_grid()
 
-        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
+        self.nonorthogonal_box.setChecked(not self.options.get("orthogonal", True))
 
     def run(self):
         """Run Hypnotoad and generate the grid"""
@@ -506,8 +506,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
-        self.regrid_button.setEnabled(not self.options["orthogonal"])
-        self.action_Regrid.setEnabled(not self.options["orthogonal"])
+        self.regrid_button.setEnabled(not self.options.get("orthogonal", True))
+        self.action_Regrid.setEnabled(not self.options.get("orthogonal", True))
 
     def set_nonorthogonal(self, state):
         state = bool(state)

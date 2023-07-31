@@ -387,7 +387,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_file_line_edit.setText(filename)
         self.filename = filename
         self.read_options()
-        self.nonorthogonal_box.setChecked(not self.options.get("orthogonal", True))
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def read_options(self):
         """Read the options file"""
@@ -400,7 +400,11 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         if options_filename:
             with open(options_filename, "r") as f:
-                self.options = yaml.safe_load(f)
+                file_options = yaml.safe_load(f)
+            # Ensure that all default options keys are in self.options
+            # Note: update mutates dict, returns None
+            self.options = DEFAULT_OPTIONS.copy()
+            self.options.update(file_options)
 
         possible_options = (
             [opt for opt in tokamak.TokamakEquilibrium.user_options_factory.defaults]
@@ -477,7 +481,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.plot_grid()
 
-        self.nonorthogonal_box.setChecked(not self.options.get("orthogonal", True))
+        self.nonorthogonal_box.setChecked(not self.options["orthogonal"])
 
     def run(self):
         """Run Hypnotoad and generate the grid"""
@@ -506,8 +510,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_grid()
 
         self.write_grid_button.setEnabled(True)
-        self.regrid_button.setEnabled(not self.options.get("orthogonal", True))
-        self.action_Regrid.setEnabled(not self.options.get("orthogonal", True))
+        self.regrid_button.setEnabled(not self.options["orthogonal"])
+        self.action_Regrid.setEnabled(not self.options["orthogonal"])
 
     def set_nonorthogonal(self, state):
         state = bool(state)

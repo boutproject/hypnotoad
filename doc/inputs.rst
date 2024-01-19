@@ -49,7 +49,8 @@ Relevant options will be described in the following sections. A complete list
 of the options for both orthogonal and nonorthogonal grids is here:
 :ref:`_temp/options:Tokamak options`. Options that only apply to nonorthogonal
 grids are listed here: :ref:`_temp/nonorthogonal-options:Nonorthogonal
-options`.
+options`. Some other options used to set tolerances, etc. for the grid
+generation process are here: :ref:`_temp/mesh-options:Mesh options`.
 
 All the settings used for grid generation are saved (with all defaults
 evaluated) in YAML format in the grid file for provenance tracking. They can be

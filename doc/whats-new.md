@@ -1,6 +1,23 @@
 Release history
 ===============
 
+0.5.2 (13th March 2023)
+-------------------------
+
+### Bug fixes
+
+- Document that editable installs are recommended for developers in manual and
+  exception message (#167)\
+  By [John Omotani](https://github.com/johnomotani)
+
+### New features
+
+- Save R,Z locations for all four corners of each cell (#168)\
+  By [John Omotani](https://github.com/johnomotani)
+- `PsiContour.plot()` and `FineContour.plot()` can be called with an `ax`
+  argument, and passing `psi` is optional (#163)\
+  By [Ben Dudson](https://github.com/bendudson)
+
 0.5.1 (18th January 2023)
 -------------------------
 

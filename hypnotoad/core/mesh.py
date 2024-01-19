@@ -146,7 +146,6 @@ class MeshRegion:
         settings,
         parallel_map,
     ):
-
         self.user_options = self.user_options_factory.create(settings)
 
         self.name = equilibriumRegion.name + "(" + str(radialIndex) + ")"
@@ -347,14 +346,14 @@ class MeshRegion:
         # should the contour intersect a wall at the upper end?
         upper_wall = self.connections["upper"] is None
 
+        # Note: parallel_map will pass additional keywords to the function,
+        #       including `equilibrium` and `psi`.
         map_result = self.parallel_map(
             _find_intersection,
             enumerate(self.contours),
             lower_wall=lower_wall,
             upper_wall=upper_wall,
             max_extend=max_extend,
-            atol=self.atol,
-            refine_width=self.user_options.refine_width,
         )
 
         self.contours = [x[0] for x in map_result]
@@ -2250,20 +2249,25 @@ def _find_intersection(
     i_contour,
     contour,
     *,
-    psi,
     equilibrium,
     lower_wall,
     upper_wall,
     max_extend,
-    atol,
-    refine_width,
+    psi=None,
     **kwargs,
 ):
+    """
+    i_contour    Index of contour. Only used for diagnostic output
+    """
     print(
         f"finding wall intersections: {i_contour + 1}",
         end="\r",
         flush=True,
     )
+
+    if psi is None:
+        # Get the poloidal flux from the equilibrium
+        psi = equilibrium.psi
 
     # point where contour intersects the lower wall
     lower_intersect = None
@@ -2568,9 +2572,18 @@ class Mesh:
 
             hypnotoad_path = Path(hypnotoad_init_file).parent
 
-            retval, self.git_diff = shell_safe(
-                "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
-            )
+            try:
+                retval, self.git_diff = shell_safe(
+                    "cd " + str(hypnotoad_path) + "&& git diff", pipe=True
+                )
+            except RuntimeError as e:
+                raise RuntimeError(
+                    "`git diff` failed. It is recommended to do an editable install "
+                    "using `pip --user -e .` when developing. If you did a "
+                    "non-editable install, this error can occur if the repo was "
+                    "'dirty' when installed.\n\nThe error message was:\n" + str(e)
+                )
+
             self.git_diff = self.git_diff.strip()
 
         # Generate MeshRegion object for each section of the mesh
@@ -3226,7 +3239,6 @@ class BoutMesh(Mesh):
     )
 
     def __init__(self, equilibrium, settings):
-
         super().__init__(equilibrium, settings)
 
         # nx, ny both include boundary guard cells
@@ -3297,7 +3309,7 @@ class BoutMesh(Mesh):
         # Call geometry() method of base class
         super().geometry()
 
-        def addFromRegions(name):
+        def addFromRegions(name, *, all_corners=False):
             # Collect a 2d field from the regions
             self.fields_to_output.append(name)
             f = MultiLocationArray(self.nx, self.ny)
@@ -3320,6 +3332,17 @@ class BoutMesh(Mesh):
                     f.corners[self.region_indices[region.myID]] = f_region.corners[
                         :-1, :-1
                     ]
+                if all_corners:
+                    if f_region._corners_array is not None:
+                        f.lower_right_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[1:, :-1]
+                        f.upper_right_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[1:, 1:]
+                        f.upper_left_corners[
+                            self.region_indices[region.myID]
+                        ] = f_region.corners[:-1, 1:]
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "Field2D"
@@ -3355,8 +3378,8 @@ class BoutMesh(Mesh):
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "ArrayX"
 
-        addFromRegions("Rxy")
-        addFromRegions("Zxy")
+        addFromRegions("Rxy", all_corners=True)
+        addFromRegions("Zxy", all_corners=True)
         addFromRegions("psixy")
         addFromRegions("dx")
         addFromRegions("dy")
@@ -3421,6 +3444,18 @@ class BoutMesh(Mesh):
         f.write(
             name + "_corners",
             BoutArray(array.corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_lower_right_corners",
+            BoutArray(array.lower_right_corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_upper_right_corners",
+            BoutArray(array.upper_right_corners[:-1, :-1], attributes=array.attributes),
+        )
+        f.write(
+            name + "_upper_left_corners",
+            BoutArray(array.upper_left_corners[:-1, :-1], attributes=array.attributes),
         )
 
     def writeArrayXDirection(self, name, array, f):

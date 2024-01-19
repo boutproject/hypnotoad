@@ -99,7 +99,6 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
                 and (Bp2[i, j] < Bp2[i, j + 1])
                 and (Bp2[i, j] < Bp2[i, j - 1])
             ):
-
                 # Found local minimum
 
                 R0 = R[i, j]
@@ -112,7 +111,6 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
 
                 count = 0
                 while True:
-
                     Br = -f(R1, Z1, dy=1, grid=False) / R1
                     Bz = f(R1, Z1, dx=1, grid=False) / R1
 

@@ -38,6 +38,11 @@ class TokamakEquilibrium(Equilibrium):
             doc="Reverse the sign of the poloidal field",
             value_type=bool,
         ),
+        psi_divide_twopi=WithMeta(
+            False,
+            doc="Divide poloidal flux, and so poloidal field, by 2pi",
+            value_type=bool,
+        ),
         extrapolate_profiles=WithMeta(
             False,
             doc=(
@@ -363,6 +368,16 @@ class TokamakEquilibrium(Equilibrium):
             warnings.warn("Reversing the sign of the poloidal field")
             psi2D *= -1.0
             psi1D *= -1.0
+
+        if self.user_options.psi_divide_twopi:
+            warnings.warn("Dividing poloidal flux by 2pi")
+            twopi = 2 * np.pi
+            psi2D /= twopi
+            psi1D /= twopi
+            if psi_axis_gfile is not None:
+                psi_axis_gfile /= twopi
+            if psi_bdry_gfile is not None:
+                psi_bdry_gfile /= twopi
 
         if self.user_options.reverse_Bt:
             warnings.warn("Reversing the sign of the toroidal field")
@@ -1679,6 +1694,7 @@ def read_geqdsk(
 
     * ``reverse_current = bool`` - Changes the sign of poloidal flux psi
     * ``extrapolate_profiles = bool`` - Extrapolate pressure using exponential
+    * ``psi_divide_twopi = bool`` - Divide poloidal flux, and so poloidal field, by 2pi
     """
 
     if settings is None:

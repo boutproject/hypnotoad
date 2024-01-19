@@ -564,7 +564,6 @@ class FineContour:
         self.equaliseSpacing(psi=psi)
 
     def extend(self, *, psi, extend_lower=0, extend_upper=0):
-
         Nfine = self.user_options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
@@ -732,7 +731,6 @@ class FineContour:
         # endInd unchanged - makes iteration more stable.
         count = 1
         while ds_error > self.user_options.finecontour_atol:
-
             if (
                 self.user_options.finecontour_maxits
                 and count > self.user_options.finecontour_maxits
@@ -1016,18 +1014,23 @@ class FineContour:
 
         return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
 
-    def plot(self, *args, psi=None, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, ax=None, **kwargs):
+        """
+        Plot this FineContour
+        """
         from matplotlib import pyplot
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
-        if plotPsi:
-            if psi is None:
-                raise ValueError("Must pass psi kwarg when plotPsi=True")
+        if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+            ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        ax.plot(Rpoints, Zpoints, *args, **kwargs)
+        return ax
 
 
 class PsiContour:
@@ -1150,8 +1153,16 @@ class PsiContour:
             self._reset_cached()
             self._extend_upper = val
 
-    def get_fine_contour(self, *, psi):
+    def get_fine_contour(self, *, psi=None):
+        """
+        Get the FineContour associated with this PsiContour
+
+        If the fine contour has not been created yet then the poloidal
+        flux `psi` is needed. If not provided then a ValueError will be raised.
+        """
         if self._fine_contour is None:
+            if psi is None:
+                raise ValueError("Poloidal flux psi needed to create FineContour")
             self._fine_contour = FineContour(self, dict(self.user_options), psi=psi)
             # Ensure that the fine contour is long enough
             self.checkFineContourExtend(psi=psi)
@@ -1849,7 +1860,6 @@ class PsiContour:
                 (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
         else:
@@ -1869,7 +1879,6 @@ class PsiContour:
                 (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
             )
         ):
-
             ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
         else:
@@ -1932,16 +1941,23 @@ class PsiContour:
                 if self.endInd < 0:
                     self.endInd -= 1
 
-    def plot(self, *args, psi, plotPsi=False, **kwargs):
+    def plot(self, *args, psi=None, ax=None, **kwargs):
+        """
+        Plot this PsiContour. If given 2D psi then plot contour.
+        """
         from matplotlib import pyplot
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
 
         Rpoints = [p.R for p in self]
         Zpoints = [p.Z for p in self]
-        if plotPsi:
+        if psi is not None:
             R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
             Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
-            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
-        pyplot.plot(Rpoints, Zpoints, *args, **kwargs)
+            ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        ax.plot(Rpoints, Zpoints, *args, **kwargs)
+        return ax
 
 
 class EquilibriumRegion(PsiContour):
@@ -2975,7 +2991,6 @@ class EquilibriumRegion(PsiContour):
             spacings["nonorthogonal_range_lower"] is not None
             and spacings["nonorthogonal_range_upper"] is not None
         ):
-
             if sfunc_orthogonal is None:
                 # Define new_sfunc in a sensible way to create the initial distribution
                 # of points on the separatrix that is then used to create the orthogonal
@@ -3062,7 +3077,6 @@ class EquilibriumRegion(PsiContour):
                     )
 
         elif spacings["nonorthogonal_range_lower"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -3094,7 +3108,6 @@ class EquilibriumRegion(PsiContour):
                     return (weight_lower) * sfixed_lower + (1.0 - weight_lower) * sorth
 
         elif spacings["nonorthogonal_range_upper"] is not None:
-
             if sfunc_orthogonal is None:
                 # Fix spacing so that if we call combineSfuncs again for this contour
                 # with sfunc_orthogonal from self.contourSfunc() then we get the same
@@ -4390,7 +4403,6 @@ class Equilibrium:
                     and numpy.abs(intersect.Z - second_intersect.Z)
                     < intersect_tolerance
                 ):
-
                     print("Multiple intersections with the wall")
 
                     import matplotlib.pyplot as plt

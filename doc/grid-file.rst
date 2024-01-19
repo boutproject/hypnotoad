@@ -154,6 +154,15 @@ Spatial positions
      - Major radius and height of the lower-left corner of each grid cell. Not
        needed by BOUT++, but may be useful for post-processing.
 
+   * - ``Rxy_lower_right_corners``, ``Zxy_lower_right_corners``,
+       ``Rxy_upper_right_corners``, ``Zxy_upper_right_corners``,
+       ``Rxy_upper_left_corners``, ``Zxy_upper_left_corners``
+
+     - Major radius and height of the other three corners of each grid cell.
+       Mostly redundant information with ``Rxy_corners`` and ``Zxy_corners``,
+       but may make handling branch cuts and upper/outer boundaries more
+       convenient. Not needed by BOUT++, but may be useful for post-processing.
+
 Grid spacings
 +++++++++++++
 

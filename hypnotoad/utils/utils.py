@@ -21,7 +21,6 @@ import sys
 
 
 def with_default(value, default):
-
     if value is not None:
         return value
 

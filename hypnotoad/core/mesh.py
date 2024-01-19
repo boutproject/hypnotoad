@@ -111,6 +111,11 @@ class MeshRegion:
             value_type=int,
             check_all=is_non_negative,
         ),
+        follow_perpendicular_recover=WithMeta(
+            False,
+            doc="Recover from follow_perpendicular failures? This will generate points that don't follow flux surfaces",
+            value_type=bool,
+        ),
         geometry_rtol=WithMeta(
             1.0e-10,
             doc=(
@@ -238,6 +243,7 @@ class MeshRegion:
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
             maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         self.equilibriumRegion.gradPsiSurfaceAtStart = (
             vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
@@ -268,6 +274,7 @@ class MeshRegion:
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
             maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         self.equilibriumRegion.gradPsiSurfaceAtEnd = (
             vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
@@ -318,6 +325,7 @@ class MeshRegion:
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
             maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             for perp_points in perp_points_list:
@@ -3164,16 +3172,21 @@ def followPerpendicular(
     rtol=2.0e-8,
     atol=1.0e-8,
     maxits: int = 1000,
+    recover: bool = False,
     **kwargs,
 ):
-    """
-    Follow a line perpendicular to Bp from point p0 until psi_target is reached.
+    """Follow a line perpendicular to Bp from point p0 until psi_target is reached.
 
     # Arguments
 
     maxits : int
         Maximum number of iterations to be taken. If exceeded then the range
         of psi will be truncated.
+
+    recover : bool
+        Recover from failures by changing the psivals of
+        the grid points.  This will result in an incorrect grid, but
+        is useful when adjusting settings.
 
     """
     if i is not None:
@@ -3200,6 +3213,7 @@ def followPerpendicular(
             rtol=rtol,
             atol=atol,
             maxits=maxits,
+            recover=recover,
         )[::-1] + followPerpendicular(
             None,
             p0,
@@ -3210,6 +3224,7 @@ def followPerpendicular(
             rtol=rtol,
             atol=atol,
             maxits=maxits,
+            recover=recover,
         )
 
     if abs(psivals[-1] - psi0) < abs(psivals[0] - psi0):
@@ -3224,12 +3239,18 @@ def followPerpendicular(
             rtol=rtol,
             atol=atol,
             maxits=maxits,
+            recover=recover,
         )[::-1]
     psivals = psivals.copy()
 
     class MaxIterException(Exception):
         def __init__(self, maxits, psi):
-            super().__init__(f"Max iterations {maxits} reached at psi = {psi}")
+            super().__init__(
+                f"Max iterations {maxits} reached at psi = {psi}\n"
+                "  To recover from this and generate a grid anyway, "
+                "set follow_perpendicular_recover to True.\n"
+                "  The resulting grid will not align to flux surfaces."
+            )
             self.psi = psi
 
     call_counter = 0
@@ -3270,19 +3291,29 @@ def followPerpendicular(
             vectorized=True,
         )
     except MaxIterException as e:
-        print("followPerpendicular failed: ", psirange, psivals, e.psi)
-        new_psivals = numpy.linspace(psi0, e.psi, len(psivals) + 1, endpoint=False)[1:]
-        return followPerpendicular(
-            None,
-            p0,
-            psi0,
-            f_R=f_R,
-            f_Z=f_Z,
-            psivals=new_psivals,
-            rtol=rtol,
-            atol=atol,
-            maxits=maxits,
-        )
+        print(f"followPerpendicular failed at psi = {e.psi}")
+        if recover:
+            print(
+                "  WARNING: Recovering by changing psi values.\n"
+                "    The resulting grid will not align to flux surfaces."
+            )
+            new_psivals = numpy.linspace(psi0, e.psi, len(psivals) + 1, endpoint=False)[
+                1:
+            ]
+            return followPerpendicular(
+                None,
+                p0,
+                psi0,
+                f_R=f_R,
+                f_Z=f_Z,
+                psivals=new_psivals,
+                rtol=rtol,
+                atol=atol,
+                maxits=maxits,
+                recover=recover,
+            )
+        else:
+            raise e
 
     except ValueError:
         print(psirange, psivals)

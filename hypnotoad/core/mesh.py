@@ -113,7 +113,10 @@ class MeshRegion:
         ),
         follow_perpendicular_recover=WithMeta(
             False,
-            doc="Recover from follow_perpendicular failures? This will generate points that don't follow flux surfaces",
+            doc=(
+                "Recover from follow_perpendicular failures? "
+                "This will generate points that don't follow flux surfaces"
+            ),
             value_type=bool,
         ),
         geometry_rtol=WithMeta(

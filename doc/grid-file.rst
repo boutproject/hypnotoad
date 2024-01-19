@@ -54,13 +54,23 @@ Equilibrium parameters
 
    * - ``Bt_axis``
 
+     -
+
    * - ``psi_axis``
+
+     -
 
    * - ``psi_bdry``
 
+     -
+
    * - ``psi_axis_gfile``
 
+     -
+
    * - ``psi_bdry_gfile``
+
+     -
 
 Other options
 +++++++++++++
@@ -69,6 +79,8 @@ Other options
    :widths: 30 70
 
    * - ``curvature_type``
+
+     -
 
 1D arrays
 ---------
@@ -231,7 +243,11 @@ Coordinate related variables
 
    * - ``hy``, ``hthe``
 
+     -
+
    * - ``dphidy``
+
+     -
 
 Metric coefficients
 +++++++++++++++++++
@@ -240,11 +256,17 @@ Metric coefficients
    :widths: 30 70
 
    * - ``g11``, ``g22``, ``g33``, ``g12``, ``g13``, ``g23``
+
+     -  Contravariant components of the metric tensor.
+
         Note ``g12`` and ``g13`` vanish for orthogonal coordinates (although
         ``g13`` would be non-zero for globally field-aligned coordinates, which
         are not supported by hypnotoad).
 
    * - ``g_11``, ``g_22``, ``g_33``, ``g_12``, ``g_13``, ``g_23``
+
+     -  Covariant components of the metric tensor.
+
         Note ``g_12`` and ``g_13`` vanish for orthogonal coordinates (although
         they would both be non-zero for globally field-aligned coordinates,
         which are not supported by hypnotoad).

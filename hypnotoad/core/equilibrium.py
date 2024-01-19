@@ -2010,7 +2010,7 @@ class EquilibriumRegion(PsiContour):
         target_all_poloidal_spacing_length=WithMeta(
             lambda options: None if options.orthogonal else 1.0,
             doc=(
-                "Spacing at the wall end of a region (used for orthogonal grids)"
+                "Spacing at the wall end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, int, NoneType],

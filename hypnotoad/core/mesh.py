@@ -106,7 +106,7 @@ class MeshRegion:
             check_all=is_non_negative,
         ),
         follow_perpendicular_maxits=WithMeta(
-            1000,
+            10000,
             doc="Maximum iterations when following perpendicular gradients",
             value_type=int,
             check_all=is_non_negative,

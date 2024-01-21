@@ -2010,7 +2010,7 @@ class EquilibriumRegion(PsiContour):
         target_all_poloidal_spacing_length=WithMeta(
             lambda options: None if options.orthogonal else 1.0,
             doc=(
-                "Spacing at the wall end of a region (used for orthogonal grids)"
+                "Spacing at the wall end of a region (used for orthogonal grids). "
                 "Use None to not constrain the spacing."
             ),
             value_type=[float, int, NoneType],
@@ -3941,6 +3941,10 @@ class Equilibrium:
         return handler
 
     def magneticFunctionsFromGrid(self, R, Z, psiRZ, option):
+        Rmin = min(R)
+        Rmax = max(R)
+        Zmin = min(Z)
+        Zmax = max(Z)
         if option == "spline":
             self.psi_func = interpolate.RectBivariateSpline(R, Z, psiRZ)
 
@@ -3957,6 +3961,8 @@ class Equilibrium:
             @Equilibrium.handleMultiLocationArray
             def f_R(self, R, Z):
                 """returns the R component of the vector Grad(psi)/|Grad(psi)|**2."""
+                R = numpy.clip(R, Rmin, Rmax)
+                Z = numpy.clip(Z, Zmin, Zmax)
                 dpsidR = self.psi_func(R, Z, dx=1, grid=False)
                 dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
                 return dpsidR / (dpsidR**2 + dpsidZ**2)
@@ -3966,6 +3972,8 @@ class Equilibrium:
             @Equilibrium.handleMultiLocationArray
             def f_Z(self, R, Z):
                 """returns the Z component of the vector Grad(psi)/|Grad(psi)|**2."""
+                R = numpy.clip(R, Rmin, Rmax)
+                Z = numpy.clip(Z, Zmin, Zmax)
                 dpsidR = self.psi_func(R, Z, dx=1, grid=False)
                 dpsidZ = self.psi_func(R, Z, dy=1, grid=False)
                 return dpsidZ / (dpsidR**2 + dpsidZ**2)

@@ -721,15 +721,34 @@ class TokamakEquilibrium(Equilibrium):
             np.abs((self.psi_core - self.psi_sol) / 20.0),
         )
 
+        # Separate R and Z arrays for wall location
+        Rws = [p.R for p in self.wall]
+        Zws = [p.Z for p in self.wall]
+        # Point (Rc, Zc) inside the wall. Could use e.g. magnetic axis
+        Rc = 0.5 * (min(Rws) + max(Rws))
+        Zc = 0.5 * (min(Zws) + max(Zws))
+
+        def inside_wall(point: Point2D):
+            # If outside wall then a line from the middle of the
+            # bounding wall to the point will intersect. Note: Complex
+            # walls may cross multiple times.
+            return not polygons.intersect([Rc, point.R], [Zc, point.Z], Rws, Zws)
+
         # Filter out the X-points not in range.
         # Keep only those with normalised psi < psinorm_sol
+        # and where X-points are inside the wall
         self.psi_sep, self.x_points = zip(
             *(
                 (psi, xpoint)
                 for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol)
+                if (self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol))
+                and inside_wall(xpoint)
             )
         )
+        for psi in self.psi_sep:
+            print(
+                f"Found X-point at psi = {psi}, psi_norm = {self._psi_to_psinorm(psi)}"
+            )
 
         # Check that there are only one or two left
         if not (0 < len(self.x_points) <= 2):

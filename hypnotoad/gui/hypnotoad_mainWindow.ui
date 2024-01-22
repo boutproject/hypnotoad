@@ -165,8 +165,22 @@
     <addaction name="action_Regrid"/>
     <addaction name="action_Write_grid"/>
    </widget>
+   <widget class="QMenu" name="menu_View">
+    <property name="title">
+     <string>&amp;View</string>
+    </property>
+    <addaction name="action_Flux"/>
+    <addaction name="action_Wall"/>
+    <addaction name="action_Centers"/>
+    <addaction name="action_Corners"/>
+    <addaction name="action_Xlow"/>
+    <addaction name="action_Ylow"/>
+    <addaction name="action_Edges"/>
+    <addaction name="action_Legend"/>
+   </widget>
    <addaction name="menu_File"/>
    <addaction name="menu_Mesh"/>
+   <addaction name="menu_View"/>
    <addaction name="menu_Help"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -335,6 +349,113 @@
    </property>
    <property name="toolTip">
     <string>Regrid non-orthogonal mesh</string>
+   </property>
+  </action>
+
+  <action name="action_Flux">
+   <property name="text">
+    <string>Poloidal flux</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot poloidal flux?</string>
+   </property>
+  </action>
+  <action name="action_Wall">
+   <property name="text">
+    <string>Wall</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot wall?</string>
+   </property>
+  </action>
+  <action name="action_Centers">
+   <property name="text">
+    <string>Cell centers</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot cell centers?</string>
+   </property>
+  </action>
+  <action name="action_Corners">
+   <property name="text">
+    <string>Cell corners</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot cell corners?</string>
+   </property>
+  </action>
+  <action name="action_Xlow">
+   <property name="text">
+    <string>Cell Xlow</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot cell Xlow locations?</string>
+   </property>
+  </action>
+  <action name="action_Ylow">
+   <property name="text">
+    <string>Cell Ylow</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot cell Ylow locations?</string>
+   </property>
+  </action>
+  <action name="action_Edges">
+   <property name="text">
+    <string>Cell edges</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot cell edges?</string>
+   </property>
+  </action>
+  <action name="action_Legend">
+   <property name="text">
+    <string>Legend</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot legend?</string>
    </property>
   </action>
  </widget>

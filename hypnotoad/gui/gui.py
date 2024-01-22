@@ -56,6 +56,7 @@ DEFAULT_GUI_OPTIONS = {
     "plot_ylow": True,
     "plot_corners": True,
     "save_full_yaml": False,
+    "plot_legend": True,
 }
 
 
@@ -118,11 +119,31 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_About, self.help_about)
         set_triggered(self.action_Preferences, self.open_preferences)
 
+        # View updates trigger a re-plotting
+        def trigger_replot():
+            """
+            Update settings and replot grid
+            """
+            self.updateGuiOptionsFromMenu()
+            # Re-plot, keeping plot limits
+            self.plot_grid(keep_limits=True)
+
+        set_triggered(self.action_Flux, trigger_replot)
+        set_triggered(self.action_Wall, trigger_replot)
+        set_triggered(self.action_Centers, trigger_replot)
+        set_triggered(self.action_Corners, trigger_replot)
+        set_triggered(self.action_Xlow, trigger_replot)
+        set_triggered(self.action_Ylow, trigger_replot)
+        set_triggered(self.action_Edges, trigger_replot)
+        set_triggered(self.action_Legend, trigger_replot)
+
         self.action_Quit.triggered.connect(self.close)
 
         self.options = DEFAULT_OPTIONS
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
+
+        self.updateMenuFromGuiOptions()
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
@@ -143,6 +164,24 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.connect(self.options_form_changed)
         self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
+
+    def updateMenuFromGuiOptions(self):
+        """
+        Updates menu items from gui_options
+        """
+        self.action_Xlow.setChecked(self.gui_options["plot_xlow"])
+        self.action_Ylow.setChecked(self.gui_options["plot_ylow"])
+        self.action_Corners.setChecked(self.gui_options["plot_corners"])
+        self.action_Legend.setChecked(self.gui_options["plot_legend"])
+
+    def updateGuiOptionsFromMenu(self):
+        """
+        Update gui_options settings from menu
+        """
+        self.gui_options["plot_xlow"] = self.action_Xlow.isChecked()
+        self.gui_options["plot_ylow"] = self.action_Ylow.isChecked()
+        self.gui_options["plot_corners"] = self.action_Corners.isChecked()
+        self.gui_options["plot_legend"] = self.action_Legend.isChecked()
 
     def close(self):
         # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
@@ -581,11 +620,21 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.mesh.writeGridfile(filename)
 
     def plot_grid(self, *, keep_limits=False):
+        """
+        Re-plot the grid and equilibrium
+        """
+
+        if keep_limits:
+            xlim = self.plot_widget.axes.get_xlim()
+            ylim = self.plot_widget.axes.get_ylim()
+
         self.plot_widget.clear(keep_limits=keep_limits)
 
         if hasattr(self, "eq"):
-            self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-            self.eq.plotWall(axis=self.plot_widget.axes)
+            if self.action_Flux.isChecked():
+                self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+            if self.action_Wall.isChecked():
+                self.eq.plotWall(axis=self.plot_widget.axes)
 
         if hasattr(self, "mesh"):
             # mesh exists, so plot the grid points
@@ -604,6 +653,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     marker="o",
                 )
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
+
+        if keep_limits:
+            self.plot_widget.axes.set_xlim(xlim)
+            self.plot_widget.axes.set_ylim(ylim)
+
+        if not self.gui_options["plot_legend"]:
+            self.plot_widget.axes.legend().set_visible(False)
 
         self.plot_widget.canvas.draw()
 
@@ -635,6 +691,8 @@ class Preferences(QDialog, Ui_Preferences):
         self.parent.gui_options[
             "save_full_yaml"
         ] = self.saveFullYamlCheckBox.isChecked()
+
+        self.parent.updateMenuFromGuiOptions()
 
         self.parent.plot_grid()
 

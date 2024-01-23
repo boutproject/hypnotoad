@@ -140,6 +140,9 @@ class Ui_Hypnotoad(object):
         self.action_Ylow.setObjectName("action_Ylow")
         self.action_Ylow.setCheckable(True)
         self.action_Ylow.setChecked(True)
+        self.action_Lines = QAction(Hypnotoad)
+        self.action_Lines.setObjectName("action_Lines")
+        self.action_Lines.setCheckable(True)
         self.action_Edges = QAction(Hypnotoad)
         self.action_Edges.setObjectName("action_Edges")
         self.action_Edges.setCheckable(True)
@@ -293,6 +296,7 @@ class Ui_Hypnotoad(object):
         self.menu_View.addAction(self.action_Corners)
         self.menu_View.addAction(self.action_Xlow)
         self.menu_View.addAction(self.action_Ylow)
+        self.menu_View.addAction(self.action_Lines)
         self.menu_View.addAction(self.action_Edges)
         self.menu_View.addAction(self.action_Legend)
         self.toolBar.addAction(self.action_New)
@@ -424,6 +428,14 @@ class Ui_Hypnotoad(object):
         # if QT_CONFIG(tooltip)
         self.action_Ylow.setToolTip(
             QCoreApplication.translate("Hypnotoad", "Plot cell Ylow locations?", None)
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.action_Lines.setText(
+            QCoreApplication.translate("Hypnotoad", "Grid lines", None)
+        )
+        # if QT_CONFIG(tooltip)
+        self.action_Lines.setToolTip(
+            QCoreApplication.translate("Hypnotoad", "Plot grid lines?", None)
         )
         # endif // QT_CONFIG(tooltip)
         self.action_Edges.setText(

@@ -3019,17 +3019,59 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridLines(self, **kwargs):
+    def plotGridCellEdges(self, ax=None, **kwargs):
+        """
+        Plot lines between cell corners
+        """
         from matplotlib import pyplot
         from cycler import cycle
 
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
+        if ax is None:
+            fig, ax = pyplot.subplots(1)
+        else:
+            fig = ax.figure
+
+        for region in self.regions.values():
+            c = next(colors)
+            label = region.myID
+            for i in range(region.nx + 1):
+                ax.plot(
+                    region.Rxy.corners[i, :],
+                    region.Zxy.corners[i, :],
+                    c=c,
+                    label=label,
+                    **kwargs,
+                )
+                label = None
+            label = region.myID
+            for j in range(region.ny + 1):
+                ax.plot(
+                    region.Rxy.corners[:, j],
+                    region.Zxy.corners[:, j],
+                    c=c,
+                    label=None,
+                    **kwargs,
+                )
+                label = None
+
+    def plotGridLines(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        if ax is None:
+            fig, ax = pyplot.subplots(1)
+        else:
+            fig = ax.figure
+
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
             for i in range(region.nx):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[i, :],
                     region.Zxy.centre[i, :],
                     c=c,
@@ -3039,7 +3081,7 @@ class Mesh:
                 label = None
             label = region.myID
             for j in range(region.ny):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[:, j],
                     region.Zxy.centre[:, j],
                     c=c,
@@ -3047,11 +3089,12 @@ class Mesh:
                     **kwargs,
                 )
                 label = None
-        l = pyplot.legend()
+        l = fig.legend()
         l.set_draggable(True)
 
     def plotPoints(
         self,
+        centers=True,
         xlow=False,
         ylow=False,
         corners=False,
@@ -3092,14 +3135,15 @@ class Mesh:
 
             if "scatter" in plot_types:
                 m = iter(markers)
-                ax.scatter(
-                    region.Rxy.centre,
-                    region.Zxy.centre,
-                    marker=next(m),
-                    c=c,
-                    label=region.myID,
-                    **kwargs,
-                )
+                if centers:
+                    ax.scatter(
+                        region.Rxy.centre,
+                        region.Zxy.centre,
+                        marker=next(m),
+                        c=c,
+                        label=region.myID,
+                        **kwargs,
+                    )
                 if xlow:
                     ax.scatter(
                         region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs

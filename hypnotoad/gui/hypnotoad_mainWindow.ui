@@ -175,6 +175,7 @@
     <addaction name="action_Corners"/>
     <addaction name="action_Xlow"/>
     <addaction name="action_Ylow"/>
+    <addaction name="action_Lines"/>
     <addaction name="action_Edges"/>
     <addaction name="action_Legend"/>
    </widget>
@@ -434,6 +435,17 @@
    </property>
    <property name="toolTip">
     <string>Plot cell Ylow locations?</string>
+   </property>
+  </action>
+  <action name="action_Lines">
+   <property name="text">
+    <string>Grid lines</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot grid lines?</string>
    </property>
   </action>
   <action name="action_Edges">

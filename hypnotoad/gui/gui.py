@@ -52,11 +52,14 @@ DEFAULT_OPTIONS = {
 
 DEFAULT_GUI_OPTIONS = {
     "grid_file": "bout.grd.nc",
+    "plot_centers": True,
     "plot_xlow": True,
     "plot_ylow": True,
     "plot_corners": True,
     "save_full_yaml": False,
     "plot_legend": True,
+    "plot_gridlines": False,
+    "plot_celledges": False,
 }
 
 
@@ -134,6 +137,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_Corners, trigger_replot)
         set_triggered(self.action_Xlow, trigger_replot)
         set_triggered(self.action_Ylow, trigger_replot)
+        set_triggered(self.action_Lines, trigger_replot)
         set_triggered(self.action_Edges, trigger_replot)
         set_triggered(self.action_Legend, trigger_replot)
 
@@ -169,19 +173,25 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
         Updates menu items from gui_options
         """
+        self.action_Centers.setChecked(self.gui_options["plot_centers"])
         self.action_Xlow.setChecked(self.gui_options["plot_xlow"])
         self.action_Ylow.setChecked(self.gui_options["plot_ylow"])
         self.action_Corners.setChecked(self.gui_options["plot_corners"])
         self.action_Legend.setChecked(self.gui_options["plot_legend"])
+        self.action_Lines.setChecked(self.gui_options["plot_gridlines"])
+        self.action_Edges.setChecked(self.gui_options["plot_celledges"])
 
     def updateGuiOptionsFromMenu(self):
         """
         Update gui_options settings from menu
         """
+        self.gui_options["plot_centers"] = self.action_Centers.isChecked()
         self.gui_options["plot_xlow"] = self.action_Xlow.isChecked()
         self.gui_options["plot_ylow"] = self.action_Ylow.isChecked()
         self.gui_options["plot_corners"] = self.action_Corners.isChecked()
         self.gui_options["plot_legend"] = self.action_Legend.isChecked()
+        self.gui_options["plot_gridlines"] = self.action_Lines.isChecked()
+        self.gui_options["plot_celledges"] = self.action_Edges.isChecked()
 
     def close(self):
         # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
@@ -639,11 +649,19 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         if hasattr(self, "mesh"):
             # mesh exists, so plot the grid points
             self.mesh.plotPoints(
+                centers=self.gui_options["plot_centers"],
                 xlow=self.gui_options["plot_xlow"],
                 ylow=self.gui_options["plot_ylow"],
                 corners=self.gui_options["plot_corners"],
                 ax=self.plot_widget.axes,
             )
+
+            if self.gui_options["plot_gridlines"]:
+                self.mesh.plotGridLines(ax=self.plot_widget.axes)
+
+            if self.gui_options["plot_celledges"]:
+                self.mesh.plotGridCellEdges(ax=self.plot_widget.axes)
+
         elif hasattr(self, "eq"):
             # no mesh, but do have equilibrium, so plot separatrices
             for region in self.eq.regions.values():

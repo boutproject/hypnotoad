@@ -178,6 +178,8 @@
     <addaction name="action_Lines"/>
     <addaction name="action_Edges"/>
     <addaction name="action_Legend"/>
+    <addaction name="action_Penalty"/>
+    <addaction name="action_Clear"/>
    </widget>
    <addaction name="menu_File"/>
    <addaction name="menu_Mesh"/>
@@ -468,6 +470,25 @@
    </property>
    <property name="toolTip">
     <string>Plot legend?</string>
+   </property>
+  </action>
+  <action name="action_Penalty">
+   <property name="text">
+    <string>Penalty mask</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="toolTip">
+    <string>Plot penalty mask?</string>
+   </property>
+  </action>
+  <action name="action_Clear">
+   <property name="text">
+    <string>Clear plot</string>
+   </property>
+   <property name="toolTip">
+    <string>Clear grid plot</string>
    </property>
   </action>
  </widget>

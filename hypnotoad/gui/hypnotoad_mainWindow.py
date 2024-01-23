@@ -149,6 +149,11 @@ class Ui_Hypnotoad(object):
         self.action_Legend = QAction(Hypnotoad)
         self.action_Legend.setObjectName("action_Legend")
         self.action_Legend.setCheckable(True)
+        self.action_Penalty = QAction(Hypnotoad)
+        self.action_Penalty.setObjectName("action_Penalty")
+        self.action_Penalty.setCheckable(True)
+        self.action_Clear = QAction(Hypnotoad)
+        self.action_Clear.setObjectName("action_Clear")
         self.centralwidget = QWidget(Hypnotoad)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
@@ -299,6 +304,8 @@ class Ui_Hypnotoad(object):
         self.menu_View.addAction(self.action_Lines)
         self.menu_View.addAction(self.action_Edges)
         self.menu_View.addAction(self.action_Legend)
+        self.menu_View.addAction(self.action_Penalty)
+        self.menu_View.addAction(self.action_Clear)
         self.toolBar.addAction(self.action_New)
         self.toolBar.addAction(self.action_Open)
         self.toolBar.addAction(self.action_Save)
@@ -452,6 +459,22 @@ class Ui_Hypnotoad(object):
         # if QT_CONFIG(tooltip)
         self.action_Legend.setToolTip(
             QCoreApplication.translate("Hypnotoad", "Plot legend?", None)
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.action_Penalty.setText(
+            QCoreApplication.translate("Hypnotoad", "Penalty mask", None)
+        )
+        # if QT_CONFIG(tooltip)
+        self.action_Penalty.setToolTip(
+            QCoreApplication.translate("Hypnotoad", "Plot penalty mask?", None)
+        )
+        # endif // QT_CONFIG(tooltip)
+        self.action_Clear.setText(
+            QCoreApplication.translate("Hypnotoad", "Clear plot", None)
+        )
+        # if QT_CONFIG(tooltip)
+        self.action_Clear.setToolTip(
+            QCoreApplication.translate("Hypnotoad", "Clear grid plot", None)
         )
         # endif // QT_CONFIG(tooltip)
         ___qtablewidgetitem = self.options_form.horizontalHeaderItem(0)

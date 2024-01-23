@@ -42,6 +42,7 @@ from boututils.run_wrapper import shell_safe
 
 from .equilibrium import (
     calc_distance,
+    find_intersections,
     Equilibrium,
     EquilibriumRegion,
     Point2D,
@@ -747,6 +748,56 @@ class MeshRegion:
         if xpoint is not None:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
+
+    def calcPenaltyMask(self, equilibrium):
+        """
+        Uses self.Rxy and self.Zxy to calculate which cells are outside the wall.
+
+        Assumes that self.Rxy and self.Zxy have already been calculated by
+        self.fillRZ()
+
+        Sets and returns a penalty_mask 2D array.
+        """
+        self.penalty_mask = numpy.zeros((self.nx, self.ny))
+
+        # A point inside the wall.
+        p0 = Point2D(
+            (equilibrium.Rmax + equilibrium.Rmin) / 2,
+            (equilibrium.Zmax + equilibrium.Zmin) / 2,
+        )
+
+        for i in range(self.nx):
+            for j in range(self.ny):
+                # Check if cell Y edges are outside the wall
+                p1 = Point2D(self.Rxy.ylow[i, j], self.Zxy.ylow[i, j])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p1)
+                p1_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                p2 = Point2D(self.Rxy.ylow[i, j + 1], self.Zxy.ylow[i, j + 1])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p2)
+                p2_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                if p1_outside and p2_outside:
+                    # Both ends of the cell are outside the wall
+                    self.penalty_mask[i, j] = 1.0
+                elif p1_outside or p2_outside:
+                    # Cell crosses the wall
+                    intersects = find_intersections(
+                        equilibrium.closed_wallarray, p1, p2
+                    )
+                    if intersects is None:
+                        # Something odd going on
+                        continue
+                    pi = Point2D(
+                        intersects[0, 0], intersects[0, 1]
+                    )  # Intersection point
+                    self.penalty_mask[i, j] = calc_distance(
+                        p1 if p1_outside else p2, pi
+                    ) / calc_distance(p1, p2)
 
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
@@ -2738,6 +2789,8 @@ class Mesh:
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
+        for region in self.regions.values():
+            region.calcPenaltyMask(self.equilibrium)
 
     def geometry(self):
         """
@@ -3029,9 +3082,7 @@ class Mesh:
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
         if ax is None:
-            fig, ax = pyplot.subplots(1)
-        else:
-            fig = ax.figure
+            _, ax = pyplot.subplots(1)
 
         for region in self.regions.values():
             c = next(colors)
@@ -3055,6 +3106,35 @@ class Mesh:
                     **kwargs,
                 )
                 label = None
+
+    def plotPenaltyMask(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+
+        if ax is None:
+            _, ax = pyplot.subplots(1)
+
+        for region in self.regions.values():
+            for i in range(region.nx):
+                for j in range(region.ny):
+                    penalty = region.penalty_mask[i, j]
+                    if penalty > 0.01:
+                        # Add a polygon
+                        ax.fill(
+                            [
+                                region.Rxy.corners[i, j],
+                                region.Rxy.corners[i, j + 1],
+                                region.Rxy.corners[i + 1, j + 1],
+                                region.Rxy.corners[i + 1, j],
+                            ],
+                            [
+                                region.Zxy.corners[i, j],
+                                region.Zxy.corners[i, j + 1],
+                                region.Zxy.corners[i + 1, j + 1],
+                                region.Zxy.corners[i + 1, j],
+                            ],
+                            "k",
+                            alpha=penalty,
+                        )
 
     def plotGridLines(self, ax=None, **kwargs):
         from matplotlib import pyplot
@@ -3580,6 +3660,19 @@ class BoutMesh(Mesh):
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
 
+        # Penalty mask
+        self.penalty_mask = BoutArray(
+            numpy.zeros((self.nx, self.ny)),
+            attributes={
+                "bout_type": "Field2D",
+                "description": (
+                    "1 if cell is entirely outside wall, " "0 if entirely inside wall"
+                ),
+            },
+        )
+        for region in self.regions.values():
+            self.penalty_mask[self.region_indices[region.myID]] = region.penalty_mask
+
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(
@@ -3637,6 +3730,9 @@ class BoutMesh(Mesh):
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
+
+            # penalty_mask is defined for each cell
+            f.write("penalty_mask", self.penalty_mask)
 
             # write corner positions, as these may be useful for plotting, etc.
             for name in ["Rxy", "Zxy"]:

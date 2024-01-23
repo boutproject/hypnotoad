@@ -52,6 +52,8 @@ DEFAULT_OPTIONS = {
 
 DEFAULT_GUI_OPTIONS = {
     "grid_file": "bout.grd.nc",
+    "plot_flux": True,
+    "plot_wall": True,
     "plot_centers": True,
     "plot_xlow": True,
     "plot_ylow": True,
@@ -60,6 +62,7 @@ DEFAULT_GUI_OPTIONS = {
     "plot_legend": True,
     "plot_gridlines": False,
     "plot_celledges": False,
+    "plot_penalty": False,
 }
 
 
@@ -140,6 +143,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_Lines, trigger_replot)
         set_triggered(self.action_Edges, trigger_replot)
         set_triggered(self.action_Legend, trigger_replot)
+        set_triggered(self.action_Penalty, trigger_replot)
+        set_triggered(self.action_Clear, self.clearPlot)
 
         self.action_Quit.triggered.connect(self.close)
 
@@ -173,6 +178,8 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """
         Updates menu items from gui_options
         """
+        self.action_Flux.setChecked(self.gui_options["plot_flux"])
+        self.action_Wall.setChecked(self.gui_options["plot_wall"])
         self.action_Centers.setChecked(self.gui_options["plot_centers"])
         self.action_Xlow.setChecked(self.gui_options["plot_xlow"])
         self.action_Ylow.setChecked(self.gui_options["plot_ylow"])
@@ -180,11 +187,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.action_Legend.setChecked(self.gui_options["plot_legend"])
         self.action_Lines.setChecked(self.gui_options["plot_gridlines"])
         self.action_Edges.setChecked(self.gui_options["plot_celledges"])
+        self.action_Penalty.setChecked(self.gui_options["plot_penalty"])
 
     def updateGuiOptionsFromMenu(self):
         """
         Update gui_options settings from menu
         """
+        self.gui_options["plot_flux"] = self.action_Flux.isChecked()
+        self.gui_options["plot_wall"] = self.action_Wall.isChecked()
         self.gui_options["plot_centers"] = self.action_Centers.isChecked()
         self.gui_options["plot_xlow"] = self.action_Xlow.isChecked()
         self.gui_options["plot_ylow"] = self.action_Ylow.isChecked()
@@ -192,6 +202,24 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.gui_options["plot_legend"] = self.action_Legend.isChecked()
         self.gui_options["plot_gridlines"] = self.action_Lines.isChecked()
         self.gui_options["plot_celledges"] = self.action_Edges.isChecked()
+        self.gui_options["plot_penalty"] = self.action_Penalty.isChecked()
+
+    def clearPlot(self):
+        """
+        Clear the grid plot
+        """
+        self.gui_options["plot_flux"] = False
+        self.gui_options["plot_wall"] = False
+        self.gui_options["plot_centers"] = False
+        self.gui_options["plot_xlow"] = False
+        self.gui_options["plot_ylow"] = False
+        self.gui_options["plot_corners"] = False
+        self.gui_options["plot_legend"] = False
+        self.gui_options["plot_gridlines"] = False
+        self.gui_options["plot_celledges"] = False
+        self.gui_options["plot_penalty"] = False
+        self.updateMenuFromGuiOptions()
+        self.plot_grid(keep_limits=True)
 
     def close(self):
         # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
@@ -629,9 +657,14 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.mesh.writeGridfile(filename)
 
-    def plot_grid(self, *, keep_limits=False):
+    def plot_grid(self, *, keep_limits: bool = False):
         """
         Re-plot the grid and equilibrium
+
+        # Arguments
+
+        keep_limits: bool
+            Keep the axis limits of the plot unchanged?
         """
 
         if keep_limits:
@@ -641,9 +674,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.plot_widget.clear(keep_limits=keep_limits)
 
         if hasattr(self, "eq"):
-            if self.action_Flux.isChecked():
+            if self.gui_options["plot_flux"]:
                 self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-            if self.action_Wall.isChecked():
+            if self.gui_options["plot_wall"]:
                 self.eq.plotWall(axis=self.plot_widget.axes)
 
         if hasattr(self, "mesh"):
@@ -661,6 +694,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
             if self.gui_options["plot_celledges"]:
                 self.mesh.plotGridCellEdges(ax=self.plot_widget.axes)
+
+            if self.gui_options["plot_penalty"]:
+                self.mesh.plotPenaltyMask(ax=self.plot_widget.axes)
 
         elif hasattr(self, "eq"):
             # no mesh, but do have equilibrium, so plot separatrices

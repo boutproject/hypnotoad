@@ -1,6 +1,20 @@
 Release history
 ===============
 
+### Bug fixes
+
+
+### New features
+
+- Radial grid line construction can recover from failure and generate
+  a rough grid to help visual inspection when option
+  `follow_perpendicular_recover` is set to True
+- A `View` menu enables the grid plot to be customised, with cell edges, corners,
+  grid lines and other components.
+- `penalty_mask` is calculated and written to the grid file, based on intersection
+  of the grid with the wall. This enables immersed boundary conditions.
+- Wall coordinates are written to output grid as `closed_wall_R` and `closed_wall_Z`
+
 0.5.2 (13th March 2023)
 -------------------------
 

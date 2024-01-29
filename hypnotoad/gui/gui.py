@@ -742,9 +742,9 @@ class Preferences(QDialog, Ui_Preferences):
         self.parent.gui_options["plot_xlow"] = self.plotXlowCheckBox.isChecked()
         self.parent.gui_options["plot_ylow"] = self.plotYlowCheckBox.isChecked()
         self.parent.gui_options["plot_corners"] = self.plotCornersCheckBox.isChecked()
-        self.parent.gui_options[
-            "save_full_yaml"
-        ] = self.saveFullYamlCheckBox.isChecked()
+        self.parent.gui_options["save_full_yaml"] = (
+            self.saveFullYamlCheckBox.isChecked()
+        )
 
         self.parent.updateMenuFromGuiOptions()
 

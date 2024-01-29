@@ -460,11 +460,11 @@ class MeshRegion:
                 # along the contour where the grid would be orthogonal need to
                 # correct sfunc_orthogonal for the distance between the point at
                 # the lower wall and the original start-point
-                self.sfunc_orthogonal_list[
-                    i
-                ] = correct_sfunc_orthogonal_and_set_startInd(
-                    contour,
-                    self.sfunc_orthogonal_list[i],
+                self.sfunc_orthogonal_list[i] = (
+                    correct_sfunc_orthogonal_and_set_startInd(
+                        contour,
+                        self.sfunc_orthogonal_list[i],
+                    )
                 )
 
             if upper_wall:
@@ -1699,18 +1699,18 @@ class MeshRegion:
                 next_region.poloidal_distance = MultiLocationArray(
                     next_region.nx, next_region.ny
                 )
-                next_region.poloidal_distance.centre[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.ylow[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.xlow[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.corners[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.centre[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.ylow[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.xlow[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.corners[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
                 region = next_region
 
         # Save total poloidal distance in core
@@ -2895,12 +2895,12 @@ class Mesh:
                     marky[region_name].centre[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
                         markx[region.connections["outer"]].centre[0, 1:-1] = this_markx[
                             -1, :
@@ -2909,12 +2909,12 @@ class Mesh:
                             -1, :
                         ]
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
                         markx[region.connections["upper"]].centre[1:-1, 0] = this_markx[
                             :, -1
@@ -3022,33 +3022,33 @@ class Mesh:
                     marky[region_name].corners[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
-                        markx[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_markx[-1, :]
-                        marky[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_marky[-1, :]
+                        markx[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_markx[-1, :]
+                        )
+                        marky[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_marky[-1, :]
+                        )
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
-                        markx[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_markx[:, -1]
-                        marky[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_marky[:, -1]
+                        markx[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_markx[:, -1]
+                        )
+                        marky[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_marky[:, -1]
+                        )
 
             changes = []
             tmp = {}
@@ -3522,9 +3522,9 @@ class BoutMesh(Mesh):
         self.region_indices = {}
         for reg_name in self.equilibrium.regions:
             for i in range(len(x_regions)):
-                self.region_indices[
-                    self.region_lookup[(reg_name, i)]
-                ] = numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                self.region_indices[self.region_lookup[(reg_name, i)]] = (
+                    numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                )
 
         # constant spacing in y for now
         if self.ny_core > 0:
@@ -3563,15 +3563,15 @@ class BoutMesh(Mesh):
                     ]
                 if all_corners:
                     if f_region._corners_array is not None:
-                        f.lower_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, :-1]
-                        f.upper_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, 1:]
-                        f.upper_left_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[:-1, 1:]
+                        f.lower_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, :-1]
+                        )
+                        f.upper_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, 1:]
+                        )
+                        f.upper_left_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[:-1, 1:]
+                        )
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "Field2D"

@@ -8,7 +8,7 @@ Release history
 
 - Radial grid line construction can recover from failure and generate
   a rough grid to help visual inspection when option
-  `follow_perpendicular_recover` is set to True
+  `follow_perpendicular_recover` is set to True (#175)
 - A `View` menu enables the grid plot to be customised, with cell edges, corners,
   grid lines and other components.
 - `penalty_mask` is calculated and written to the grid file, based on intersection

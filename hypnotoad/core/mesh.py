@@ -42,6 +42,7 @@ from boututils.run_wrapper import shell_safe
 
 from .equilibrium import (
     calc_distance,
+    find_intersections,
     Equilibrium,
     EquilibriumRegion,
     Point2D,
@@ -459,11 +460,11 @@ class MeshRegion:
                 # along the contour where the grid would be orthogonal need to
                 # correct sfunc_orthogonal for the distance between the point at
                 # the lower wall and the original start-point
-                self.sfunc_orthogonal_list[
-                    i
-                ] = correct_sfunc_orthogonal_and_set_startInd(
-                    contour,
-                    self.sfunc_orthogonal_list[i],
+                self.sfunc_orthogonal_list[i] = (
+                    correct_sfunc_orthogonal_and_set_startInd(
+                        contour,
+                        self.sfunc_orthogonal_list[i],
+                    )
                 )
 
             if upper_wall:
@@ -747,6 +748,56 @@ class MeshRegion:
         if xpoint is not None:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
+
+    def calcPenaltyMask(self, equilibrium):
+        """
+        Uses self.Rxy and self.Zxy to calculate which cells are outside the wall.
+
+        Assumes that self.Rxy and self.Zxy have already been calculated by
+        self.fillRZ()
+
+        Sets and returns a penalty_mask 2D array.
+        """
+        self.penalty_mask = numpy.zeros((self.nx, self.ny))
+
+        # A point inside the wall.
+        p0 = Point2D(
+            (equilibrium.Rmax + equilibrium.Rmin) / 2,
+            (equilibrium.Zmax + equilibrium.Zmin) / 2,
+        )
+
+        for i in range(self.nx):
+            for j in range(self.ny):
+                # Check if cell Y edges are outside the wall
+                p1 = Point2D(self.Rxy.ylow[i, j], self.Zxy.ylow[i, j])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p1)
+                p1_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                p2 = Point2D(self.Rxy.ylow[i, j + 1], self.Zxy.ylow[i, j + 1])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p2)
+                p2_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                if p1_outside and p2_outside:
+                    # Both ends of the cell are outside the wall
+                    self.penalty_mask[i, j] = 1.0
+                elif p1_outside or p2_outside:
+                    # Cell crosses the wall
+                    intersects = find_intersections(
+                        equilibrium.closed_wallarray, p1, p2
+                    )
+                    if intersects is None:
+                        # Something odd going on
+                        continue
+                    pi = Point2D(
+                        intersects[0, 0], intersects[0, 1]
+                    )  # Intersection point
+                    self.penalty_mask[i, j] = calc_distance(
+                        p1 if p1_outside else p2, pi
+                    ) / calc_distance(p1, p2)
 
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
@@ -1648,18 +1699,18 @@ class MeshRegion:
                 next_region.poloidal_distance = MultiLocationArray(
                     next_region.nx, next_region.ny
                 )
-                next_region.poloidal_distance.centre[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.ylow[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.xlow[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.corners[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.centre[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.ylow[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.xlow[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.corners[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
                 region = next_region
 
         # Save total poloidal distance in core
@@ -2738,6 +2789,8 @@ class Mesh:
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
+        for region in self.regions.values():
+            region.calcPenaltyMask(self.equilibrium)
 
     def geometry(self):
         """
@@ -2842,12 +2895,12 @@ class Mesh:
                     marky[region_name].centre[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
                         markx[region.connections["outer"]].centre[0, 1:-1] = this_markx[
                             -1, :
@@ -2856,12 +2909,12 @@ class Mesh:
                             -1, :
                         ]
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
                         markx[region.connections["upper"]].centre[1:-1, 0] = this_markx[
                             :, -1
@@ -2969,33 +3022,33 @@ class Mesh:
                     marky[region_name].corners[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
-                        markx[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_markx[-1, :]
-                        marky[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_marky[-1, :]
+                        markx[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_markx[-1, :]
+                        )
+                        marky[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_marky[-1, :]
+                        )
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
-                        markx[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_markx[:, -1]
-                        marky[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_marky[:, -1]
+                        markx[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_markx[:, -1]
+                        )
+                        marky[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_marky[:, -1]
+                        )
 
             changes = []
             tmp = {}
@@ -3019,17 +3072,86 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridLines(self, **kwargs):
+    def plotGridCellEdges(self, ax=None, **kwargs):
+        """
+        Plot lines between cell corners
+        """
         from matplotlib import pyplot
         from cycler import cycle
 
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
+        if ax is None:
+            _, ax = pyplot.subplots(1)
+
+        for region in self.regions.values():
+            c = next(colors)
+            label = region.myID
+            for i in range(region.nx + 1):
+                ax.plot(
+                    region.Rxy.corners[i, :],
+                    region.Zxy.corners[i, :],
+                    c=c,
+                    label=label,
+                    **kwargs,
+                )
+                label = None
+            label = region.myID
+            for j in range(region.ny + 1):
+                ax.plot(
+                    region.Rxy.corners[:, j],
+                    region.Zxy.corners[:, j],
+                    c=c,
+                    label=None,
+                    **kwargs,
+                )
+                label = None
+
+    def plotPenaltyMask(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+
+        if ax is None:
+            _, ax = pyplot.subplots(1)
+
+        for region in self.regions.values():
+            for i in range(region.nx):
+                for j in range(region.ny):
+                    penalty = region.penalty_mask[i, j]
+                    if penalty > 0.01:
+                        # Add a polygon
+                        ax.fill(
+                            [
+                                region.Rxy.corners[i, j],
+                                region.Rxy.corners[i, j + 1],
+                                region.Rxy.corners[i + 1, j + 1],
+                                region.Rxy.corners[i + 1, j],
+                            ],
+                            [
+                                region.Zxy.corners[i, j],
+                                region.Zxy.corners[i, j + 1],
+                                region.Zxy.corners[i + 1, j + 1],
+                                region.Zxy.corners[i + 1, j],
+                            ],
+                            "k",
+                            alpha=penalty,
+                        )
+
+    def plotGridLines(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        if ax is None:
+            fig, ax = pyplot.subplots(1)
+        else:
+            fig = ax.figure
+
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
             for i in range(region.nx):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[i, :],
                     region.Zxy.centre[i, :],
                     c=c,
@@ -3039,7 +3161,7 @@ class Mesh:
                 label = None
             label = region.myID
             for j in range(region.ny):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[:, j],
                     region.Zxy.centre[:, j],
                     c=c,
@@ -3047,11 +3169,12 @@ class Mesh:
                     **kwargs,
                 )
                 label = None
-        l = pyplot.legend()
+        l = fig.legend()
         l.set_draggable(True)
 
     def plotPoints(
         self,
+        centers=True,
         xlow=False,
         ylow=False,
         corners=False,
@@ -3092,14 +3215,15 @@ class Mesh:
 
             if "scatter" in plot_types:
                 m = iter(markers)
-                ax.scatter(
-                    region.Rxy.centre,
-                    region.Zxy.centre,
-                    marker=next(m),
-                    c=c,
-                    label=region.myID,
-                    **kwargs,
-                )
+                if centers:
+                    ax.scatter(
+                        region.Rxy.centre,
+                        region.Zxy.centre,
+                        marker=next(m),
+                        c=c,
+                        label=region.myID,
+                        **kwargs,
+                    )
                 if xlow:
                     ax.scatter(
                         region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
@@ -3398,9 +3522,9 @@ class BoutMesh(Mesh):
         self.region_indices = {}
         for reg_name in self.equilibrium.regions:
             for i in range(len(x_regions)):
-                self.region_indices[
-                    self.region_lookup[(reg_name, i)]
-                ] = numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                self.region_indices[self.region_lookup[(reg_name, i)]] = (
+                    numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                )
 
         # constant spacing in y for now
         if self.ny_core > 0:
@@ -3439,15 +3563,15 @@ class BoutMesh(Mesh):
                     ]
                 if all_corners:
                     if f_region._corners_array is not None:
-                        f.lower_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, :-1]
-                        f.upper_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, 1:]
-                        f.upper_left_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[:-1, 1:]
+                        f.lower_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, :-1]
+                        )
+                        f.upper_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, 1:]
+                        )
+                        f.upper_left_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[:-1, 1:]
+                        )
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "Field2D"
@@ -3536,6 +3660,19 @@ class BoutMesh(Mesh):
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
 
+        # Penalty mask
+        self.penalty_mask = BoutArray(
+            numpy.zeros((self.nx, self.ny)),
+            attributes={
+                "bout_type": "Field2D",
+                "description": (
+                    "1 if cell is entirely outside wall, " "0 if entirely inside wall"
+                ),
+            },
+        )
+        for region in self.regions.values():
+            self.penalty_mask[self.region_indices[region.myID]] = region.penalty_mask
+
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(
@@ -3590,9 +3727,16 @@ class BoutMesh(Mesh):
             if hasattr(self.equilibrium, "psi_bdry_gfile"):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
 
+            if hasattr(self.equilibrium, "closed_wallarray"):
+                f.write("closed_wall_R", self.equilibrium.closed_wallarray[:, 0])
+                f.write("closed_wall_Z", self.equilibrium.closed_wallarray[:, 1])
+
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
+
+            # penalty_mask is defined for each cell
+            f.write("penalty_mask", self.penalty_mask)
 
             # write corner positions, as these may be useful for plotting, etc.
             for name in ["Rxy", "Zxy"]:

@@ -138,6 +138,27 @@ BoutMesh writes three poloidal coordinates to the grid file:
        full poloidal turn around a closed flux surface. Not calculated on open
        flux surfaces.
 
+Wall location
++++++++++++++
+
+If a wall is defined in the equilibrium then the coordinates of the
+closed wall is saved:
+
+.. list-table::
+   :widths: 30 70
+
+   * - ``closed_wall_R``
+
+     - Major radius locations [in meters] of points on the wall. This
+       array forms a closed loop so the last element is the same as
+       the first.
+
+   * - ``closed_wall_Z``
+
+     - Height locations [in meters] of points on the wall, the same
+       number of points as ``closed_wall_R``. This array forms a
+       closed loop so the last element is the same as the first.
+
 2D arrays
 ---------
 
@@ -210,6 +231,21 @@ Magnetic field quantities
    * - ``Bxy``
 
      - Total magnetic field.
+
+Boundary quantities
++++++++++++++++++++
+
+.. list-table::
+   :widths: 30 70
+
+   * - ``penalty_mask``
+
+     - A 2D mask indicating whether a cell is inside or outside the
+       wall. It's value is 1 for cells entirely outside the wall; 0
+       for cells entirely inside the wall. Cells that cross the wall
+       are given a penalty proportional to the fraction of the cell
+       poloidal length that is inside the wall.
+
 
 Integral quantities
 +++++++++++++++++++

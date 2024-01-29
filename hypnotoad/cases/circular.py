@@ -293,9 +293,7 @@ class CircularEquilibrium(Equilibrium):
             def func(x):
                 return (
                     B0 / (np.sqrt(1.0 - x**2 / R0**2) * self.q(x))
-                    + B0
-                    * x**2
-                    / (R0**2 * (1.0 - x**2 / R0**2) ** 1.5 * self.q(x))
+                    + B0 * x**2 / (R0**2 * (1.0 - x**2 / R0**2) ** 1.5 * self.q(x))
                     - B0
                     * x
                     * self.dqdr(x)
@@ -326,10 +324,7 @@ class CircularEquilibrium(Equilibrium):
 
                 def func(x):
                     return (
-                        B0
-                        * R0**2
-                        / coef_array[0]
-                        * (1.0 - np.sqrt(1.0 - x**2 / R0**2))
+                        B0 * R0**2 / coef_array[0] * (1.0 - np.sqrt(1.0 - x**2 / R0**2))
                     )
 
                 self._psi_r = func
@@ -346,8 +341,7 @@ class CircularEquilibrium(Equilibrium):
                                 * (
                                     -1.0
                                     + np.sqrt(
-                                        (a1 * (-(x**2) + R0**2))
-                                        / (a0 + a1 * R0**2)
+                                        (a1 * (-(x**2) + R0**2)) / (a0 + a1 * R0**2)
                                     )
                                 )
                             )
@@ -356,8 +350,7 @@ class CircularEquilibrium(Equilibrium):
                                 * (
                                     1.0
                                     + np.sqrt(
-                                        (a1 * (-(x**2) + R0**2))
-                                        / (a0 + a1 * R0**2)
+                                        (a1 * (-(x**2) + R0**2)) / (a0 + a1 * R0**2)
                                     )
                                 )
                             )

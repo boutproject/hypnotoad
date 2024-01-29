@@ -4792,10 +4792,7 @@ class Equilibrium:
                             * numpy.pi
                             * CosInt_m_j1
                             * numpy.sin(b * numpy.pi / n)
-                            + b**2
-                            * numpy.pi
-                            * numpy.cos(b * numpy.pi / n)
-                            * SinInt_b_n
+                            + b**2 * numpy.pi * numpy.cos(b * numpy.pi / n) * SinInt_b_n
                             - b
                             * j1(i)
                             * numpy.pi
@@ -4812,14 +4809,8 @@ class Equilibrium:
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_b_n
-                            + n**2
-                            * numpy.pi
-                            * numpy.cos(b * numpy.pi / n)
-                            * SinInt_b_n
-                            - b**2
-                            * numpy.pi
-                            * numpy.cos(b * numpy.pi / n)
-                            * SinInt_j1
+                            + n**2 * numpy.pi * numpy.cos(b * numpy.pi / n) * SinInt_b_n
+                            - b**2 * numpy.pi * numpy.cos(b * numpy.pi / n) * SinInt_j1
                             + b
                             * j1(i)
                             * numpy.pi
@@ -4836,10 +4827,7 @@ class Equilibrium:
                             * numpy.pi
                             * numpy.cos(b * numpy.pi / n)
                             * SinInt_j1
-                            - n**2
-                            * numpy.pi
-                            * numpy.cos(b * numpy.pi / n)
-                            * SinInt_j1
+                            - n**2 * numpy.pi * numpy.cos(b * numpy.pi / n) * SinInt_j1
                         )
                         + grad_upper / 2 * j2(i) * (b + n) / (b + j2(i))
                         - grad_upper

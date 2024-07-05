@@ -902,6 +902,25 @@ class MeshRegion:
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
+        if hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pprime"
+        ) and hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "fprime"
+        ):
+            # Calculate parallel current density from p' and f'
+
+            pprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].pprime(self.psixy)
+            fprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].fprime(self.psixy)
+
+            mu0 = 4e-7 * numpy.pi
+            self.Jpar0 = (
+                self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
+            )
+
     def geometry2(self):
         """
         Continuation of geometry1(), but needs neighbours to have calculated Bp so called
@@ -3657,8 +3676,11 @@ class BoutMesh(Mesh):
         addFromRegions("bxcvy")
         addFromRegions("bxcvz")
 
-        if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
+        if hasattr(next(iter(self.regions.values())), "pressure"):
             addFromRegions("pressure")
+
+        if hasattr(next(iter(self.regions.values())), "Jpar0"):
+            addFromRegions("Jpar0")
 
         # Penalty mask
         self.penalty_mask = BoutArray(

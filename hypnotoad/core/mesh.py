@@ -908,6 +908,8 @@ class MeshRegion:
             self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "fprime"
         ):
             # Calculate parallel current density from p' and f'
+            # Note: COCOS +1 convention is assumed
+            # so mu0 * Jpar = -B f' - mu0 p' f / B
 
             pprime = self.meshParent.equilibrium.regions[
                 self.equilibriumRegion.name
@@ -917,7 +919,7 @@ class MeshRegion:
             ].fprime(self.psixy)
 
             mu0 = 4e-7 * numpy.pi
-            self.Jpar0 = (
+            self.Jpar0 = -(
                 self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
             )
 

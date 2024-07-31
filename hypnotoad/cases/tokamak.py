@@ -1715,8 +1715,11 @@ class TokamakEquilibrium(Equilibrium):
         """psi-derivative of fpol
         Note: Zero outside core."""
         fprime = self.fprime_spl(psi * self.f_psi_sign)
-        psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
-        fprime[psinorm > 1.0] = 0.0
+        try:
+            psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
+            fprime[psinorm > 1.0] = 0.0
+        except:
+            pass
         return fprime
 
     @Equilibrium.handleMultiLocationArray
@@ -1733,8 +1736,11 @@ class TokamakEquilibrium(Equilibrium):
         if self.pprime_spl is None:
             return None
         pprime = self.pprime_spl(psi * self.f_psi_sign)
-        psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
-        pprime[psinorm > 1.0] = 0.0
+        try:
+            psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
+            pprime[psinorm > 1.0] = 0.0
+        except:
+            pass
         return pprime
 
     @property

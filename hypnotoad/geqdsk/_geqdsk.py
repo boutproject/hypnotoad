@@ -22,6 +22,7 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import date
 from numpy import zeros, pi
+import numpy as np
 
 from ._fileutils import f2s, ChunkOutput, write_1d, write_2d, next_value
 
@@ -47,6 +48,11 @@ def write(data, fh, label=None, shot=None, time=None):
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux
+
+      ffprime       1D array of f(psi) * f'(psi). If not present
+                    then this is calculated from fpol
+      pprime        1D array of p'(psi). If not present then
+                    this is calculated from pres
 
     fh - file handle
 
@@ -134,11 +140,25 @@ def write(data, fh, label=None, shot=None, time=None):
     if "ffprime" in data:
         write_1d(data["ffprime"], co)
     else:
-        write_1d(workk, co)
+        psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
+        from scipy import interpolate
+
+        fprime_spl = interpolate.InterpolatedUnivariateSpline(
+            psi1D, data["fpol"]
+        ).derivative()
+        ffprime = data["fpol"] * fprime_spl(psi1D)
+        write_1d(ffprime, co)
+
     if "pprime" in data:
         write_1d(data["pprime"], co)
     else:
-        write_1d(workk, co)
+        psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
+        from scipy import interpolate
+
+        pprime_spl = interpolate.InterpolatedUnivariateSpline(
+            psi1D, data["pres"]
+        ).derivative()
+        write_1d(pprime_spl(psi1D), co)
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)

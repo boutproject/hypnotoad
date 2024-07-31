@@ -506,6 +506,8 @@ class TokamakEquilibrium(Equilibrium):
 
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")
+            self.psi_bdry = psi_bdry_gfile
+            self.psi_bdry_gfile = psi_bdry_gfile
         else:
             self.psi_bdry = xpoints[0][2]  # Psi on primary X-point
             self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
@@ -1715,11 +1717,9 @@ class TokamakEquilibrium(Equilibrium):
         """psi-derivative of fpol
         Note: Zero outside core."""
         fprime = self.fprime_spl(psi * self.f_psi_sign)
-        try:
+        if self.psi_bdry is not None:
             psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
             fprime[psinorm > 1.0] = 0.0
-        except:
-            pass
         return fprime
 
     @Equilibrium.handleMultiLocationArray
@@ -1736,11 +1736,9 @@ class TokamakEquilibrium(Equilibrium):
         if self.pprime_spl is None:
             return None
         pprime = self.pprime_spl(psi * self.f_psi_sign)
-        try:
+        if self.psi_bdry is not None:
             psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
             pprime[psinorm > 1.0] = 0.0
-        except:
-            pass
         return pprime
 
     @property

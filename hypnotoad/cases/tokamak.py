@@ -434,7 +434,17 @@ class TokamakEquilibrium(Equilibrium):
             # ext=3 specifies that boundary values are used outside range
 
             # Spline representing the derivative of f
-            self.fprime_spl = self.f_spl.derivative()
+            if fprime is not None:
+                self.fprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    psi1D * self.f_psi_sign, fprime, ext=3
+                )
+            else:
+                # fprime is derivative with respect to psi rather than
+                # increasing radial label psi*f_psi_sign
+                fpol_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
+                psi1D * self.f_psi_sign, fpol1D * self.f_psi_sign, ext=3
+                )
+                self.fprime_spl = fpol_f_psi_sign_spl.derivative()
         else:
             self.f_spl = lambda psi: 0.0
             self.fprime_spl = lambda psi: 0.0

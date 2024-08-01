@@ -22,6 +22,9 @@ expected_different_vars = [
     "penalty_mask",
     "closed_wall_R",
     "closed_wall_Z",
+    "Jpar0",
+    "Jpar0_xlow",
+    "Jpar0_ylow",
 ]
 
 

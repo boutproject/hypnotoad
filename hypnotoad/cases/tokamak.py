@@ -421,28 +421,30 @@ class TokamakEquilibrium(Equilibrium):
         )
 
         self.f_psi_sign = 1.0
+
+        # Note: radial label must be increasing
+        if psi1D[-1] < psi1D[0]:
+            self.f_psi_sign = -1.0
+        xcoord = self.f_psi_sign* psi1D
+
         if len(fpol1D) > 0:
             # Spline for interpolation of f = R*Bt
-
-            # Note: psi1D must be increasing
-            if psi1D[-1] < psi1D[0]:
-                self.f_psi_sign = -1.0
-
+            
             self.f_spl = interpolate.InterpolatedUnivariateSpline(
-                psi1D * self.f_psi_sign, fpol1D, ext=3
+                xcoord, fpol1D, ext=3
             )
             # ext=3 specifies that boundary values are used outside range
 
             # Spline representing the derivative of f
             if fprime is not None:
                 self.fprime_spl = interpolate.InterpolatedUnivariateSpline(
-                    psi1D * self.f_psi_sign, fprime, ext=3
+                    xcoord, fprime, ext=3
                 )
             else:
                 # fprime is derivative with respect to psi rather than
                 # increasing radial label psi*f_psi_sign
                 fpol_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
-                psi1D * self.f_psi_sign, fpol1D * self.f_psi_sign, ext=3
+                    xcoord, fpol1D * self.f_psi_sign, ext=3
                 )
                 self.fprime_spl = fpol_f_psi_sign_spl.derivative()
         else:
@@ -452,7 +454,7 @@ class TokamakEquilibrium(Equilibrium):
         # Optional pressure profile
         if pressure is not None:
             self.p_spl = interpolate.InterpolatedUnivariateSpline(
-                psi1D * self.f_psi_sign, pressure, ext=3
+                xcoord, pressure, ext=3
             )
         else:
             # If no pressure, then not output to grid file

@@ -416,7 +416,10 @@ class TokamakEquilibrium(Equilibrium):
                 
                 # fpol constant in SOL
                 fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
-
+                
+                if fprime is not None:
+                    fprime = np.concatenate([fprime, np.full(psiSOL.shape, 0.0)])
+                
                 if pressure is not None:
                     # Use an exponential decay for the pressure, based on
                     # the value and gradient at the plasma edge
@@ -432,11 +435,13 @@ class TokamakEquilibrium(Equilibrium):
             R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
         )
 
-        self.f_psi_sign = 1.0
 
         # Note: radial label must be increasing
         if psi1D[-1] < psi1D[0]:
             self.f_psi_sign = -1.0
+        else:
+            self.f_psi_sign = 1.0
+            
         xcoord = self.f_psi_sign* psi1D
 
         if len(fpol1D) > 0:
@@ -453,8 +458,8 @@ class TokamakEquilibrium(Equilibrium):
                     xcoord, fprime, ext=3
                 )
             else:
-                # fprime is derivative with respect to psi rather than
-                # increasing radial label xcoord
+                # fprime is derivative of fpol with respect to psi
+                # rather than increasing radial label xcoord
                 fpol_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
                     xcoord, fpol1D * self.f_psi_sign, ext=3
                 )
@@ -468,10 +473,24 @@ class TokamakEquilibrium(Equilibrium):
             self.p_spl = interpolate.InterpolatedUnivariateSpline(
                 xcoord, pressure, ext=3
             )
+            if pprime is not None:
+                self.pprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, pprime, ext=3
+                )
+            else:
+                # pprime is derivative of pressure with respect to psi
+                # rather than increasing radial label xcoord
+
+                pressure_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, pressure * self.f_psi_sign, ext=3
+                )
+                self.pprime_spl = pressure_f_psi_sign_spl.derivative()
+                
         else:
             # If no pressure, then not output to grid file
             self.p_spl = None
-
+            self.pprime_spl = None
+            
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing="ij")
         opoints, xpoints = critical.find_critical(

@@ -317,6 +317,8 @@ class TokamakEquilibrium(Equilibrium):
         psi1D,
         fpol1D,
         pressure=None,
+        fprime=None,
+        pprime=None,
         wall=None,
         psi_axis_gfile=None,
         psi_bdry_gfile=None,
@@ -340,7 +342,9 @@ class TokamakEquilibrium(Equilibrium):
         --------
 
         pressure[nf] = 1D array of pressure as a function of psi1D [Pa]
-
+        fprime[nf] = 1D array of df / dpsi
+        pprime[nf] = 1D array of dp / dpsi . If set then pressure must also be set.
+        
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
                The wall is closed, so the last point connects to the first.
@@ -362,6 +366,9 @@ class TokamakEquilibrium(Equilibrium):
 
         """
 
+        if pprime is not None:
+            assert pressure is not None
+            
         self.user_options = self.user_options_factory.create(settings)
 
         if self.user_options.reverse_current:

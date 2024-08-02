@@ -139,9 +139,15 @@ def write(data, fh, label=None, shot=None, time=None):
         psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
         from scipy import interpolate
 
-        fprime_spl = interpolate.InterpolatedUnivariateSpline(
-            psi1D, data["fpol"]
-        ).derivative()
+        sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
+        # spline fitting requires increasing X axis, so reverse if needed
+
+        fprime_spl = (
+            sign
+            * interpolate.InterpolatedUnivariateSpline(
+                sign * psi1D, data["fpol"]
+            ).derivative()
+        )
         ffprime = data["fpol"] * fprime_spl(psi1D)
         write_1d(ffprime, co)
 
@@ -151,9 +157,13 @@ def write(data, fh, label=None, shot=None, time=None):
         psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
         from scipy import interpolate
 
-        pprime_spl = interpolate.InterpolatedUnivariateSpline(
-            psi1D, data["pres"]
-        ).derivative()
+        sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
+        pprime_spl = (
+            sign
+            * interpolate.InterpolatedUnivariateSpline(
+                sign * psi1D, data["pres"]
+            ).derivative()
+        )
         write_1d(pprime_spl(psi1D), co)
 
     write_2d(data["psi"], co)

@@ -195,6 +195,8 @@ def read(fh, cocos=1):
 
       fpol          1D array of f(psi)=R*Bt  [meter-Tesla]
       pres          1D array of p(psi) [Pascals]
+      ffprime       1D array of ff'(psi)
+      pprime        1D array of p'(psi) 
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux

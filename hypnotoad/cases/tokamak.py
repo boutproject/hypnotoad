@@ -1794,6 +1794,8 @@ def read_geqdsk(
 
     pressure = data["pres"]
     fpol = data["fpol"]
+    fprime = data["ffprime"] / fpol
+    pprime = data["pprime"]
 
     result = TokamakEquilibrium(
         R1D,
@@ -1804,6 +1806,8 @@ def read_geqdsk(
         psi_bdry_gfile=psi_bdry_gfile,
         psi_axis_gfile=psi_axis_gfile,
         pressure=pressure,
+        fprime=fprime,
+        pprime=pprime,
         wall=wall,
         make_regions=make_regions,
         settings=settings,

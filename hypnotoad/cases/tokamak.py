@@ -455,7 +455,7 @@ class TokamakEquilibrium(Equilibrium):
             # Spline representing the derivative of f
             if fprime is not None:
                 self.fprime_spl = interpolate.InterpolatedUnivariateSpline(
-                    xcoord, fprime, ext=3
+                    xcoord, fprime, ext=1
                 )
             else:
                 # fprime is derivative of fpol with respect to psi
@@ -475,7 +475,7 @@ class TokamakEquilibrium(Equilibrium):
             )
             if pprime is not None:
                 self.pprime_spl = interpolate.InterpolatedUnivariateSpline(
-                    xcoord, pprime, ext=3
+                    xcoord, pprime, ext=1
                 )
             else:
                 # pprime is derivative of pressure with respect to psi
@@ -1664,9 +1664,14 @@ class TokamakEquilibrium(Equilibrium):
                     eqreg.pressure = lambda psi: self.pressure(
                         leg_psi + sign * abs(psi - leg_psi)
                     )
+                    # Set pprime and fprime to zero so Jpar0 = 0
+                    eqreg.pprime = lambda psi: 0.0
+                    eqreg.fprime = lambda psi: 0.0
                 else:
-                    # Core region, so use the core pressure
+                    # Core region, so use the core profiles
                     eqreg.pressure = self.pressure
+                    eqreg.pprime = self.pprime
+                    eqreg.fprime = self.fpolprime
 
             region_objects[name] = eqreg
         # The region objects need to be sorted, so that the

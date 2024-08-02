@@ -1735,6 +1735,13 @@ class TokamakEquilibrium(Equilibrium):
             return None
         return self.p_spl(psi * self.f_psi_sign)
 
+    @Equilibrium.handleMultiLocationArray
+    def pprime(self, psi):
+        """psi-derivative of plasma pressure"""
+        if self.pprime_spl is None:
+            return None
+        return self.pprime_spl(psi * self.f_psi_sign)
+    
     @property
     def Bt_axis(self):
         """Calculate toroidal field on axis"""

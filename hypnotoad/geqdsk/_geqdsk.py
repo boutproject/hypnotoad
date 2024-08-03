@@ -22,6 +22,8 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import date
 from numpy import zeros, pi
+import numpy as np
+import scipy as sp
 
 from ._fileutils import f2s, ChunkOutput, write_1d, write_2d, next_value
 
@@ -131,14 +133,36 @@ def write(data, fh, label=None, shot=None, time=None):
 
     write_1d(data["fpol"], co)
     write_1d(data["pres"], co)
+
     if "ffprime" in data:
         write_1d(data["ffprime"], co)
     else:
-        write_1d(workk, co)
+        psi_axis = data["simagx"]
+        psi_bdry = data["sibdry"]
+        fpol = data["fpol"]
+        
+        sign_dpsi = np.sign(psi_bdry-psi_axis)
+        xcrd = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
+        fprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
+            xrd, fpol*sign_dpsi).derivative()
+        ffprime = fpol*fprime_spl(xrcd)
+        
+        write_1d(ffprime,co)
+        
+        
     if "pprime" in data:
         write_1d(data["pprime"], co)
     else:
-        write_1d(workk, co)
+        psi_axis = data["simagx"]
+        psi_bdry = data["sibdry"]
+
+        sign_dpsi = np.sign(psi_bdry-psi_axis)
+        xcrd  = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
+
+        pprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
+            xrd, data["pres"]*sign_dpsi).derivative()
+        write_1d(pprime(xcrd),co)
+  
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)

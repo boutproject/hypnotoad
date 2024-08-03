@@ -22,6 +22,7 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import date
 from numpy import zeros, pi
+import numpy as np
 
 from ._fileutils import f2s, ChunkOutput, write_1d, write_2d, next_value
 
@@ -47,6 +48,11 @@ def write(data, fh, label=None, shot=None, time=None):
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux
+
+      ffprime       1D array of f(psi) * f'(psi). If not present
+                    then this is calculated from fpol
+      pprime        1D array of p'(psi). If not present then
+                    this is calculated from pres
 
     fh - file handle
 
@@ -120,11 +126,7 @@ def write(data, fh, label=None, shot=None, time=None):
         f2s(data["zmagx"]) + f2s(0.0) + f2s(data["sibdry"]) + f2s(0.0) + f2s(0.0) + "\n"
     )
 
-    # SCENE has actual ff' and p' data so can use that
     # fill arrays
-    # Lukas Kripner (16/10/2018): uncommenting this, since you left there
-    # check for data existence bellow. This seems to as safer variant.
-    workk = zeros([nx])
 
     # Write arrays
     co = ChunkOutput(fh)
@@ -134,11 +136,29 @@ def write(data, fh, label=None, shot=None, time=None):
     if "ffprime" in data:
         write_1d(data["ffprime"], co)
     else:
-        write_1d(workk, co)
+        psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
+        from scipy import interpolate
+
+        sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
+        # spline fitting requires increasing X axis, so reverse if needed
+
+        fprime_spl = interpolate.InterpolatedUnivariateSpline(
+            sign * psi1D, sign * data["fpol"]
+        ).derivative()
+        ffprime = data["fpol"] * fprime_spl(sign * psi1D)
+        write_1d(ffprime, co)
+
     if "pprime" in data:
         write_1d(data["pprime"], co)
     else:
-        write_1d(workk, co)
+        psi1D = np.linspace(data["simagx"], data["sibdry"], nx)
+        from scipy import interpolate
+
+        sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
+        pprime_spl = interpolate.InterpolatedUnivariateSpline(
+            sign * psi1D, sign * data["pres"]
+        ).derivative()
+        write_1d(pprime_spl(sign * psi1D), co)
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)
@@ -195,6 +215,8 @@ def read(fh, cocos=1):
 
       fpol          1D array of f(psi)=R*Bt  [meter-Tesla]
       pres          1D array of p(psi) [Pascals]
+      ffprime       1D array of ff'(psi)
+      pprime        1D array of p'(psi)
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux

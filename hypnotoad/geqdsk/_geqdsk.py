@@ -142,13 +142,10 @@ def write(data, fh, label=None, shot=None, time=None):
         sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
         # spline fitting requires increasing X axis, so reverse if needed
 
-        fprime_spl = (
-            sign
-            * interpolate.InterpolatedUnivariateSpline(
-                sign * psi1D, data["fpol"]
-            ).derivative()
-        )
-        ffprime = data["fpol"] * fprime_spl(psi1D)
+        fprime_spl = interpolate.InterpolatedUnivariateSpline(
+            sign * psi1D, sign * data["fpol"]
+        ).derivative()
+        ffprime = data["fpol"] * fprime_spl(sign * psi1D)
         write_1d(ffprime, co)
 
     if "pprime" in data:
@@ -158,13 +155,10 @@ def write(data, fh, label=None, shot=None, time=None):
         from scipy import interpolate
 
         sign = -1.0 if psi1D[1] < psi1D[0] else 1.0
-        pprime_spl = (
-            sign
-            * interpolate.InterpolatedUnivariateSpline(
-                sign * psi1D, data["pres"]
-            ).derivative()
-        )
-        write_1d(pprime_spl(psi1D), co)
+        pprime_spl = interpolate.InterpolatedUnivariateSpline(
+            sign * psi1D, sign * data["pres"]
+        ).derivative()
+        write_1d(pprime_spl(sign * psi1D), co)
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)

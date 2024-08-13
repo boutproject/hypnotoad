@@ -416,7 +416,7 @@ class TokamakEquilibrium(Equilibrium):
 
                 # fpol constant in SOL
                 fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
-                
+
                 if fprime is not None:
                     fprime = np.concatenate([fprime, np.full(psiSOL.shape, 0.0)])
 
@@ -425,7 +425,7 @@ class TokamakEquilibrium(Equilibrium):
                     # the value and gradient at the plasma edge
                     p_lcfs = pressure[-1]
                     # p_SOL = p_lcfs * exp( (psi - psi_lcfs) * dpdpsi / p_lcfs)
-                    p_SOL = p_lcfs * np.exp((psiSOL-psi_lcfs) * dpdpsi / p_lcfs)
+                    p_SOL = p_lcfs * np.exp((psiSOL - psi_lcfs) * dpdpsi / p_lcfs)
                     pressure = np.concatenate([pressure, p_SOL])
 
                     if pprime is not None:

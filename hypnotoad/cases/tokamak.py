@@ -413,24 +413,24 @@ class TokamakEquilibrium(Equilibrium):
                 psi_lcfs = psi1D[-1]
                 psiSOL = np.linspace(psi_lcfs, psi_outer, 50)[1:]
                 psi1D = np.concatenate([psi1D, psiSOL])
-                
+
                 # fpol constant in SOL
                 fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
                 
                 if fprime is not None:
                     fprime = np.concatenate([fprime, np.full(psiSOL.shape, 0.0)])
-                
+
                 if pressure is not None:
                     # Use an exponential decay for the pressure, based on
                     # the value and gradient at the plasma edge
                     p_lcfs = pressure[-1]
                     # p_SOL = p_lcfs * exp( (psi - psi_lcfs) * dpdpsi / p_lcfs)
-                    p_SOL = p_lcfs * np.exp((psiSOL-psi_lcfs)* dpdpsi / p_lcfs)
-                    pressure = np.concatenate([pressure,p_SOL])
+                    p_SOL = p_lcfs * np.exp((psiSOL-psi_lcfs) * dpdpsi / p_lcfs)
+                    pressure = np.concatenate([pressure, p_SOL])
 
                     if pprime is not None:
                         pprime = np.concatenate([pprime, dpdpsi * p_SOL / p_lcfs])
-                    
+
         self.magneticFunctionsFromGrid(
             R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
         )

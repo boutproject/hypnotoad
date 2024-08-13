@@ -144,8 +144,8 @@ def write(data, fh, label=None, shot=None, time=None):
         sign_dpsi = np.sign(psi_bdry-psi_axis)
         xcrd = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
         fprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
-            xrd, fpol*sign_dpsi).derivative()
-        ffprime = fpol*fprime_spl(xrcd)
+            xcrd, fpol*sign_dpsi).derivative()
+        ffprime = fpol*fprime_spl(xcrd)
         
         write_1d(ffprime,co)
         

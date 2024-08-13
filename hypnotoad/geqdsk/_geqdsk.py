@@ -126,7 +126,7 @@ def write(data, fh, label=None, shot=None, time=None):
     # fill arrays
     # Lukas Kripner (16/10/2018): uncommenting this, since you left there
     # check for data existence bellow. This seems to as safer variant.
-    #workk = zeros([nx])
+    # workk = zeros([nx])
 
     # Write arrays
     co = ChunkOutput(fh)
@@ -141,7 +141,7 @@ def write(data, fh, label=None, shot=None, time=None):
         psi_bdry = data["sibdry"]
         fpol = data["fpol"]
 
-        sign_dpsi = np.sign(psi_bdry-psi_axis)
+        sign_dpsi = np.sign(psi_bdry - psi_axis)
         xcrd = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
         fprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
             xcrd, fpol * sign_dpsi).derivative()
@@ -154,8 +154,8 @@ def write(data, fh, label=None, shot=None, time=None):
         psi_axis = data["simagx"]
         psi_bdry = data["sibdry"]
 
-        sign_dpsi = np.sign(psi_bdry-psi_axis)
-        xcrd  = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
+        sign_dpsi = np.sign(psi_bdry - psi_axis)
+        xcrd = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
 
         pprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
             xcrd, data["pres"] * sign_dpsi).derivative()
@@ -217,7 +217,7 @@ def read(fh, cocos=1):
       fpol          1D array of f(psi)=R*Bt  [meter-Tesla]
       pres          1D array of p(psi) [Pascals]
       ffprime       1D array of ff'(psi)
-      pprime        1D array of p'(psi) 
+      pprime        1D array of p'(psi)
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux

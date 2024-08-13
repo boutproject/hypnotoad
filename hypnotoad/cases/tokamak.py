@@ -446,9 +446,7 @@ class TokamakEquilibrium(Equilibrium):
         if len(fpol1D) > 0:
 
             # Spline for interpolation of f = R*Bt
-            self.f_spl = interpolate.InterpolatedUnivariateSpline(
-                xcoord, fpol1D, ext=3
-            )
+            self.f_spl = interpolate.InterpolatedUnivariateSpline(xcoord, fpol1D, ext=3)
             # ext=3 specifies that boundary values are used outside range
 
             # Spline representing the derivative of f

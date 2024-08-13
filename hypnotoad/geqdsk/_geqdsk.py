@@ -126,7 +126,7 @@ def write(data, fh, label=None, shot=None, time=None):
     # fill arrays
     # Lukas Kripner (16/10/2018): uncommenting this, since you left there
     # check for data existence bellow. This seems to as safer variant.
-    workk = zeros([nx])
+    #workk = zeros([nx])
 
     # Write arrays
     co = ChunkOutput(fh)

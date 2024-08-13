@@ -344,7 +344,7 @@ class TokamakEquilibrium(Equilibrium):
         pressure[nf] = 1D array of pressure as a function of psi1D [Pa]
         fprime[nf] = 1D array of df / dpsi
         pprime[nf] = 1D array of dp / dpsi . If set then pressure must also be set.
-        
+
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
                The wall is closed, so the last point connects to the first.
@@ -368,7 +368,7 @@ class TokamakEquilibrium(Equilibrium):
 
         if pprime is not None:
             assert pressure is not None
-            
+
         self.user_options = self.user_options_factory.create(settings)
 
         if self.user_options.reverse_current:
@@ -429,24 +429,23 @@ class TokamakEquilibrium(Equilibrium):
                     pressure = np.concatenate([pressure,p_SOL])
 
                     if pprime is not None:
-                        pprime = np.concatenate([pprime, dpdpsi*p_SOL/p_lcfs])
+                        pprime = np.concatenate([pprime, dpdpsi * p_SOL / p_lcfs])
                     
         self.magneticFunctionsFromGrid(
             R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
         )
-
 
         # Note: radial label must be increasing
         if psi1D[-1] < psi1D[0]:
             self.f_psi_sign = -1.0
         else:
             self.f_psi_sign = 1.0
-            
-        xcoord = self.f_psi_sign* psi1D
+
+        xcoord = self.f_psi_sign * psi1D
 
         if len(fpol1D) > 0:
+
             # Spline for interpolation of f = R*Bt
-            
             self.f_spl = interpolate.InterpolatedUnivariateSpline(
                 xcoord, fpol1D, ext=3
             )
@@ -485,12 +484,12 @@ class TokamakEquilibrium(Equilibrium):
                     xcoord, pressure * self.f_psi_sign, ext=3
                 )
                 self.pprime_spl = pressure_f_psi_sign_spl.derivative()
-                
+
         else:
             # If no pressure, then not output to grid file
             self.p_spl = None
             self.pprime_spl = None
-            
+
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing="ij")
         opoints, xpoints = critical.find_critical(
@@ -1741,7 +1740,7 @@ class TokamakEquilibrium(Equilibrium):
         if self.pprime_spl is None:
             return None
         return self.pprime_spl(psi * self.f_psi_sign)
-    
+
     @property
     def Bt_axis(self):
         """Calculate toroidal field on axis"""

@@ -140,16 +140,14 @@ def write(data, fh, label=None, shot=None, time=None):
         psi_axis = data["simagx"]
         psi_bdry = data["sibdry"]
         fpol = data["fpol"]
-        
+
         sign_dpsi = np.sign(psi_bdry-psi_axis)
-        xcrd = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
+        xcrd = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
         fprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
-            xcrd, fpol*sign_dpsi).derivative()
-        ffprime = fpol*fprime_spl(xcrd)
-        
+            xcrd, fpol * sign_dpsi).derivative()
+        ffprime = fpol * fprime_spl(xcrd)
         write_1d(ffprime,co)
-        
-        
+
     if "pprime" in data:
         write_1d(data["pprime"], co)
     else:
@@ -157,12 +155,11 @@ def write(data, fh, label=None, shot=None, time=None):
         psi_bdry = data["sibdry"]
 
         sign_dpsi = np.sign(psi_bdry-psi_axis)
-        xcrd  = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
+        xcrd  = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
 
         pprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
-            xcrd, data["pres"]*sign_dpsi).derivative()
-        write_1d(pprime_spl(xcrd),co)
-  
+            xcrd, data["pres"] * sign_dpsi).derivative()
+        write_1d(pprime_spl(xcrd), co)
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)

@@ -160,7 +160,7 @@ def write(data, fh, label=None, shot=None, time=None):
         xcrd  = np.linspace(psi_axis,psi_bdry,nx)*sign_dpsi
 
         pprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
-            xrd, data["pres"]*sign_dpsi).derivative()
+            xcrd, data["pres"]*sign_dpsi).derivative()
         write_1d(pprime(xcrd),co)
   
 

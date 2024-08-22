@@ -3187,14 +3187,14 @@ class EquilibriumRegion(PsiContour):
                 spacings["nonorthogonal_range_lower_inner"],
                 spacings["nonorthogonal_range_lower"],
                 spacings["nonorthogonal_range_lower_outer"],
-                this_range_lower,
+                # this_range_lower,
             )
             print(
                 "check upper ranges",
                 spacings["nonorthogonal_range_upper_inner"],
                 spacings["nonorthogonal_range_upper"],
                 spacings["nonorthogonal_range_upper_outer"],
-                this_range_upper,
+                # this_range_upper,
             )
             raise
 

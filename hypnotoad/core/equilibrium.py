@@ -1697,8 +1697,11 @@ class PsiContour:
             i,
             [i <= 0.0, i >= thisEndInd - thisStartInd],
             [
-                0.0,
-                endDistance - startDistance,
+                lambda i: i * (distance[thisStartInd + 1] - distance[thisStartInd]),
+                lambda i: endDistance
+                - startDistance
+                + (i - thisEndInd + thisStartInd)
+                * (distance[thisEndInd] - distance[thisEndInd - 1]),
                 lambda i: interpS(i + thisStartInd) - startDistance,
             ],
         )

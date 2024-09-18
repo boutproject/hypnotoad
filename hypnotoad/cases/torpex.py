@@ -206,6 +206,9 @@ class TORPEXMagneticField(Equilibrium):
                         "direction of plasma current should be clockwise to be "
                         "consistent with sign of grad(psi)"
                     )
+
+            self.f_psi_sign = numpy.sign(psi_bndry - psi_axis)
+
             # index of a point close to the magnetic axis
             i_axis = numpy.searchsorted(R, R_axis)
             j_axis = numpy.searchsorted(Z, Z_axis)

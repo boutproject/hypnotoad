@@ -882,7 +882,7 @@ class MeshRegion:
             print(
                 "Poloidal field is in opposite direction to Grad(theta) -> Bp negative"
             )
-            self.Bpxy = -self.Bpxy
+            # self.Bpxy = -self.Bpxy
             if self.bpsign > 0.0:
                 raise ValueError(
                     "Sign of Bp should be negative? (note this check will raise an "

@@ -912,6 +912,9 @@ class MeshRegion:
             # (By default do _not_ do this)
             # Get rid of minimum in Bpxy.ylow field, because it can cause large spikes in
             # some metric coefficients, which may cause numerical problems in simulations
+            #
+            # note: capBpYlowXpoint assumes a positive definie Bp and doesnt work
+            #       with a negative definit Bp (H.Seto)
             self.capBpYlowXpoint()
 
         self.hy = self.calcHy()

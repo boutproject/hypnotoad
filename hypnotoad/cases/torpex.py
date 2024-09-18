@@ -162,6 +162,9 @@ class TORPEXMagneticField(Equilibrium):
             self.Rmax = float("inf")
             self.Zmin = -float("inf")
             self.Zmax = float("inf")
+
+            self.f_psi_sign = 1.0  # H.seto (dummy)
+
         elif "gfile" in equilibOptions:
             # load a g-file
             with open(equilibOptions["gfile"], "rt") as fh:
@@ -207,7 +210,7 @@ class TORPEXMagneticField(Equilibrium):
                         "consistent with sign of grad(psi)"
                     )
 
-            self.f_psi_sign = numpy.sign(psi_bndry - psi_axis)
+            self.f_psi_sign = numpy.sign(psi_bndry - psi_axis)  # H.seto (dummy)
 
             # index of a point close to the magnetic axis
             i_axis = numpy.searchsorted(R, R_axis)
@@ -298,7 +301,7 @@ class TORPEXMagneticField(Equilibrium):
                 )
             self.Bt_axis = Bt[ZindMid, RindMid]
 
-            self.f_psi_sign = numpy.sign(0.0 - psi[ZindMid, RindMid])  # H.seto
+            self.f_psi_sign = numpy.sign(0.0 - psi[ZindMid, RindMid])  # H.seto (dummy)
 
         else:
             raise ValueError("Failed to initialise psi function from inputs")

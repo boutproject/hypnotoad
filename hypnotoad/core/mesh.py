@@ -1,4 +1,4 @@
-# Copyright 2019 J.T. Omotani
+# CopyrigAht 2019 J.T. Omotani
 #
 # Contact John Omotani john.omotani@ukaea.uk
 #
@@ -1558,10 +1558,12 @@ class MeshRegion:
                         )
                         / R
                     )
-                    Bp = numpy.sqrt(
-                        self.meshParent.equilibrium.Bp_R(R, Z) ** 2
-                        + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
-                    )
+                    # Bp = numpy.sqrt(
+                    #    self.meshParent.equilibrium.Bp_R(R, Z) ** 2
+                    #    + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
+                    # )
+                    Bp = self.meshParent.equilibrium.Bpol(R, Z)
+                    
                     return Bt / (R * Bp)
 
                 integrand = integrand_func(

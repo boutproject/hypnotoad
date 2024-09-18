@@ -853,7 +853,7 @@ class MeshRegion:
 
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
-        self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
+        self.Bpxy = self.bpsign * numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
         self.calcPoloidalDistance()
 

@@ -297,6 +297,9 @@ class TORPEXMagneticField(Equilibrium):
                     f"{eqfile['Z'][0, 0][ZindMid, RindMid]}"
                 )
             self.Bt_axis = Bt[ZindMid, RindMid]
+
+            self.f_psi_sign = numpy.sign(0.0 - psi[ZindMid, RindMid])  # H.seto
+
         else:
             raise ValueError("Failed to initialise psi function from inputs")
 

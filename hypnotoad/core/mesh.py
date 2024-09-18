@@ -1563,7 +1563,7 @@ class MeshRegion:
                     #    + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
                     # )
                     Bp = self.meshParent.equilibrium.Bpol(R, Z)
-                    
+
                     return Bt / (R * Bp)
 
                 integrand = integrand_func(

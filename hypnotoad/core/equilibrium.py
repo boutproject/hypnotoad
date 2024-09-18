@@ -4045,8 +4045,8 @@ class Equilibrium:
         signed poloidal magnetic field as a function of R and Z
         added by H. Seto
         """
-        return self.f_psi_sign * numpy.sqrt(self.Bp_R(R, Z) **2 + self.Bp_Z(R, Z) ** 2)
-        
+        return self.f_psi_sign * numpy.sqrt(self.Bp_R(R, Z) ** 2 + self.Bp_Z(R, Z) ** 2)
+
     def B2(self, R, Z):
         """
         B^2 as a function of R and Z

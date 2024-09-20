@@ -902,6 +902,27 @@ class MeshRegion:
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
+        if hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pprime"
+        ) and hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "fprime"
+        ):
+            # Calculate parallel current density from p' and f'
+            # Note: COCOS +1 convention is assumed
+            # so mu0 * Jpar = -B f' - mu0 p' f / B
+
+            pprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].pprime(self.psixy)
+            fprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].fprime(self.psixy)
+
+            mu0 = 4e-7 * numpy.pi
+            self.Jpar0 = -(
+                self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
+            )
+
     def geometry2(self):
         """
         Continuation of geometry1(), but needs neighbours to have calculated Bp so called
@@ -1338,10 +1359,21 @@ class MeshRegion:
             self.bxcvy = self.Bxy / 2.0 * self.curl_bOverB_y
             self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
         elif self.user_options.curvature_type == "bxkappa":
-            raise ValueError("bxkappa form of curvature not implemented yet")
-            self.bxcvx = float("nan")
-            self.bxcvy = float("nan")
-            self.bxcvz = float("nan")
+
+            # bxkappa for cocos1-extension by H. Seto (QST)
+
+            bxcvu = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDX("#Bxy")
+            bxcvv = -self.DDX("#Btxy*#Rxy/#Bxy") / self.J
+            bxcvw = self.DDX(
+                "#Bxy*#hy/#Bpxy"
+            ) / self.J - self.Btxy * self.Rxy / self.J / self.Bxy * self.DDX(
+                "#Btxy*#hy/#Bpxy/#Rxy"
+            )
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
         else:
             raise ValueError(
                 "Unrecognized option '"
@@ -3660,6 +3692,9 @@ class BoutMesh(Mesh):
 
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
+
+        if hasattr(next(iter(self.regions.values())), "Jpar0"):
+            addFromRegions("Jpar0")
 
         # Penalty mask
         self.penalty_mask = BoutArray(

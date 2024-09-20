@@ -1029,7 +1029,7 @@ class MeshRegion:
             self.g13 = -self.I * self.g11
             self.g23 = -self.dphidy / self.hy**2
 
-            self.J = self.hy / self.Bpxy
+            self.J = self.hy / numpy.abs(self.Bpxy)
 
             self.g_11 = 1.0 / self.g11 + (self.I * self.Rxy) ** 2
             self.g_22 = self.hy**2 + (self.Rxy * self.dphidy) ** 2
@@ -1062,7 +1062,7 @@ class MeshRegion:
                 - self.Rxy * numpy.abs(self.Bpxy) * self.I * self.tanBeta / self.hy
             )
 
-            self.J = self.hy / self.Bpxy
+            self.J = self.hy / numpy.abs(self.Bpxy)
 
             self.g_11 = (
                 1.0 / (self.Rxy * self.Bpxy * self.cosBeta) ** 2

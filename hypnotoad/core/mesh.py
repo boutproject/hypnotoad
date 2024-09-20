@@ -1078,16 +1078,12 @@ class MeshRegion:
             self.g_23 = self.bpsign * self.dphidy * self.Rxy**2
 
         # check Jacobian is OK
-        Jcheck = (
-            self.bpsign
-            * 1.0
-            / numpy.sqrt(
-                self.g11 * self.g22 * self.g33
-                + 2.0 * self.g12 * self.g13 * self.g23
-                - self.g11 * self.g23**2
-                - self.g22 * self.g13**2
-                - self.g33 * self.g12**2
-            )
+        Jcheck = 1.0 / numpy.sqrt(
+            self.g11 * self.g22 * self.g33
+            + 2.0 * self.g12 * self.g13 * self.g23
+            - self.g11 * self.g23**2
+            - self.g22 * self.g13**2
+            - self.g33 * self.g12**2
         )
         # ignore grid points at X-points as J should diverge there (as Bp->0)
         if Jcheck._corners_array is not None:

@@ -36,6 +36,7 @@ dependencies = [
     "PyYAML>=5.1",
     "scipy~=1.6",
     "Qt.py~=1.2",
+    "freeqdsk>=0.5.0",
 ]
 
 [project.optional-dependencies]

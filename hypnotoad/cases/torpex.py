@@ -20,6 +20,7 @@
 from collections import OrderedDict
 import warnings
 
+from freeqdsk.geqdsk import read as geq_read
 import numpy
 from optionsfactory import WithMeta
 from optionsfactory.checks import is_positive
@@ -31,7 +32,6 @@ from ..core.equilibrium import (
     EquilibriumRegion,
     SolutionError,
 )
-from ..geqdsk._geqdsk import read as geq_read
 from ..utils.utils import with_default
 
 # type for manipulating information about magnetic field coils
@@ -688,7 +688,7 @@ def createMesh(filename):
 
 
 def createEqdsk(equilib, *, nR, Rmin, Rmax, nZ, Zmin, Zmax, filename="torpex_test.g"):
-    from ..geqdsk._geqdsk import write as geq_write
+    from freeqdsk.geqdsk import write as geq_write
 
     R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
     Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]

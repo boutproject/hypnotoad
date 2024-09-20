@@ -1719,7 +1719,7 @@ def read_geqdsk(
     if settings is None:
         settings = {}
 
-    from ..geqdsk._geqdsk import read as geq_read
+    from freeqdsk.geqdsk import read as geq_read
 
     data = geq_read(filehandle)
 

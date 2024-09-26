@@ -1363,7 +1363,7 @@ class MeshRegion:
 
             # bxkappa for cocos1-extension by H. Seto (QST)
 
-            bxcvu = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDX("#Bxy")
+            bxcvu = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
             bxcvv = -self.DDX("#Btxy*#Rxy/#Bxy") / self.J
             bxcvw = self.DDX(
                 "#Bxy*#hy/#Bpxy"

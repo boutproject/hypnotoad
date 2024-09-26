@@ -1034,6 +1034,7 @@ class MeshRegion:
             # derivatives. This means different (radial) regions can use different
             # locations for where zShift=0.
             self.I = MultiLocationArray(self.nx, self.ny).zero()
+            self.sinty = self.I
 
         # Here ShiftTorsion = d2phidxdy
         # Haven't checked this is exactly the quantity needed by BOUT++...
@@ -1361,7 +1362,7 @@ class MeshRegion:
         elif self.user_options.curvature_type == "bxkappa":
 
             # bxkappa for cocos1-extension by H. Seto (QST)
-
+            
             bxcvu = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDX("#Bxy")
             bxcvv = -self.DDX("#Btxy*#Rxy/#Bxy") / self.J
             bxcvw = self.DDX(
@@ -3664,8 +3665,9 @@ class BoutMesh(Mesh):
         # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
         # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
         # here. /JTO 19/5/2019
-        if not self.user_options.shiftedmetric:
-            addFromRegions("sinty")
+        # if not self.user_options.shiftedmetric:
+        #    addFromRegions("sinty")
+        addFromRegions("sinty")
         addFromRegions("g11")
         addFromRegions("g22")
         addFromRegions("g33")

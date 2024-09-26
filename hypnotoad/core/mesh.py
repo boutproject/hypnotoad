@@ -1362,7 +1362,7 @@ class MeshRegion:
         elif self.user_options.curvature_type == "bxkappa":
 
             # bxkappa for cocos1-extension by H. Seto (QST)
-            
+
             bxcvu = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDX("#Bxy")
             bxcvv = -self.DDX("#Btxy*#Rxy/#Bxy") / self.J
             bxcvw = self.DDX(

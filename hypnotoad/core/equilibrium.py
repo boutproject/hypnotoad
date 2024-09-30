@@ -4476,12 +4476,12 @@ class Equilibrium:
         """
         if grad_lower is not None and (upper - lower) * grad_lower < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_lower={grad_lower} have "
+                f"(upper-lower)={(upper - lower)} and grad_lower={grad_lower} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
         if grad_upper is not None and (upper - lower) * grad_upper < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_upper={grad_upper} have "
+                f"(upper-lower)={(upper - lower)} and grad_upper={grad_upper} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
 

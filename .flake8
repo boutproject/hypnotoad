@@ -12,6 +12,8 @@ ignore =
 exclude =
     hypnotoad/gui/hypnotoad_mainWindow.py,
     hypnotoad/gui/hypnotoad_preferences.py,
-    hypnotoad/gui/__init__.py
-    hypnotoad/__version__.py
-    versioneer.py
+    hypnotoad/gui/__init__.py,
+    hypnotoad/__version__.py,
+    versioneer.py,
+    build,
+    .venv

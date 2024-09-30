@@ -1,9 +1,9 @@
+from freeqdsk.geqdsk import write as geq_write
 import numpy as np
 from io import StringIO
 import pytest
 
 from hypnotoad.cases import tokamak
-from hypnotoad.geqdsk import _geqdsk
 
 
 @pytest.mark.parametrize("psi_interpolation_method", ["spline", "dct"])
@@ -146,7 +146,7 @@ def test_read_geqdsk(psi_interpolation_method):
 
     # Write to string
     output = StringIO()
-    _geqdsk.write(data, output)
+    geq_write(data, output)
 
     # Move to the beginning of the buffer
     output.seek(0)

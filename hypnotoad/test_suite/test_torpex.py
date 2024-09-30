@@ -53,7 +53,7 @@ class TestTORPEX:
         R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
         Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]
 
-        assert equilib.psi(R, Z) == pytest.approx(grid_equilib.psi(R, Z), rel=1.0e-9)
+        assert equilib.psi(R, Z) == pytest.approx(grid_equilib.psi(R, Z), rel=1.0e-8)
 
         import os
 

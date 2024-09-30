@@ -1716,54 +1716,34 @@ def read_geqdsk(
     * ``psi_divide_twopi = bool`` - Divide poloidal flux, and so poloidal field, by 2pi
     """
 
-    if settings is None:
-        settings = {}
-
-    from ..geqdsk._geqdsk import read as geq_read
+    from freeqdsk.geqdsk import read as geq_read
 
     data = geq_read(filehandle)
 
-    # Range of psi normalises psi derivatives
-    psi_bdry_gfile = data["sibdry"]
-    psi_axis_gfile = data["simagx"]
-
     # 1D grid on which fpol is defined. Goes from normalised psi 0 to 1
-    psi1D = np.linspace(psi_axis_gfile, psi_bdry_gfile, data["nx"], endpoint=True)
+    psi1D = np.linspace(data.psi_axis, data.psi_boundary, data.nx, endpoint=True)
 
-    R1D = np.linspace(
-        data["rleft"], data["rleft"] + data["rdim"], data["nx"], endpoint=True
-    )
+    R1D = np.linspace(data.rleft, data.rleft + data.rdim, data.nx, endpoint=True)
 
     Z1D = np.linspace(
-        data["zmid"] - 0.5 * data["zdim"],
-        data["zmid"] + 0.5 * data["zdim"],
-        data["ny"],
-        endpoint=True,
+        data.zmid - 0.5 * data.zdim, data.zmid + 0.5 * data.zdim, data.ny, endpoint=True
     )
 
-    psi2D = data["psi"]
-
     # Get the wall
-    if "rlim" in data and "zlim" in data:
-        wall = list(zip(data["rlim"], data["zlim"]))
-    else:
-        wall = None
-
-    pressure = data["pres"]
-    fpol = data["fpol"]
+    wall = list(zip(data.rlim, data.zlim)) if data.nlim > 0 else None
 
     result = TokamakEquilibrium(
         R1D,
         Z1D,
-        psi2D,
+        data.psi,
         psi1D,
-        fpol,
-        psi_bdry_gfile=psi_bdry_gfile,
-        psi_axis_gfile=psi_axis_gfile,
-        pressure=pressure,
+        fpol1D=data.fpol,
+        psi_bdry_gfile=data.psi_boundary,
+        psi_axis_gfile=data.psi_axis,
+        pressure=data.pressure,
         wall=wall,
         make_regions=make_regions,
-        settings=settings,
+        settings=settings or {},
         nonorthogonal_settings=nonorthogonal_settings,
     )
 

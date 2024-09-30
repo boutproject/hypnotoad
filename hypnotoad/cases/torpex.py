@@ -20,6 +20,7 @@
 from collections import OrderedDict
 import warnings
 
+from freeqdsk.geqdsk import read as geq_read
 import numpy
 from optionsfactory import WithMeta
 from optionsfactory.checks import is_positive
@@ -31,7 +32,6 @@ from ..core.equilibrium import (
     EquilibriumRegion,
     SolutionError,
 )
-from ..geqdsk._geqdsk import read as geq_read
 from ..utils.utils import with_default
 
 # type for manipulating information about magnetic field coils
@@ -167,33 +167,29 @@ class TORPEXMagneticField(Equilibrium):
             with open(equilibOptions["gfile"], "rt") as fh:
                 gfile = geq_read(fh)
 
-            R = numpy.linspace(
-                gfile["rleft"], gfile["rleft"] + gfile["rdim"], gfile["nx"]
-            )
+            R = numpy.linspace(gfile.rleft, gfile.rleft + gfile.rdim, gfile.nr)
             Z = numpy.linspace(
-                gfile["zmid"] - 0.5 * gfile["zdim"],
-                gfile["zmid"] + 0.5 * gfile["zdim"],
-                gfile["ny"],
+                gfile.zmid - 0.5 * gfile.zdim, gfile.zmid + 0.5 * gfile.zdim, gfile.nz
             )
             self.Rmin = R[0]
             self.Rmax = R[-1]
             self.Zmin = Z[0]
             self.Zmax = Z[-1]
-            psirz = gfile["psi"]
+            psirz = gfile.psi
 
             # check sign of psirz is consistent with signs of psi_axis, psi_bndry and
             # plasma current
-            psi_axis = gfile["simagx"]
-            R_axis = gfile["rmagx"]
-            Z_axis = gfile["zmagx"]
-            psi_bndry = gfile["sibdry"]
-            Ip = gfile["cpasma"]
+            psi_axis = gfile.psi_axis
+            R_axis = gfile.rmagx
+            Z_axis = gfile.zmagx
+            psi_bndry = gfile.psi_boundary
+
             if psi_axis < psi_bndry:
                 # psi increases outward radially, so Bp is clockwise in the poloidal
                 # plane (outward in major radius at the top of the torus, inward at the
                 # bottom).  This corresponds to plasma current in the anti-clockwise
                 # toroidal direction looking from above, so current should be positive
-                if Ip < 0.0:
+                if gfile.current < 0.0:
                     raise ValueError(
                         "direction of plasma current should be anti-clockwise to be "
                         "consistent with sign of grad(psi)"
@@ -201,7 +197,7 @@ class TORPEXMagneticField(Equilibrium):
             else:
                 # psi decreases outward radially, so current should be in the opposite
                 # direction
-                if Ip > 0.0:
+                if gfile.current > 0.0:
                     raise ValueError(
                         "direction of plasma current should be clockwise to be "
                         "consistent with sign of grad(psi)"
@@ -247,7 +243,7 @@ class TORPEXMagneticField(Equilibrium):
                 R, Z, psirz, self.user_options.psi_interpolation_method
             )
 
-            self.Bt_axis = gfile["bcentr"]
+            self.Bt_axis = gfile.bcentr
         elif "matfile" in equilibOptions:
             # Loading directly from the TORPEX-provided matlab file should be slightly
             # more accurate than going via a g-file because g-files don't save full
@@ -688,7 +684,7 @@ def createMesh(filename):
 
 
 def createEqdsk(equilib, *, nR, Rmin, Rmax, nZ, Zmin, Zmax, filename="torpex_test.g"):
-    from ..geqdsk._geqdsk import write as geq_write
+    from freeqdsk.geqdsk import write as geq_write
 
     R = numpy.linspace(Rmin, Rmax, nR)[numpy.newaxis, :]
     Z = numpy.linspace(Zmin, Zmax, nZ)[:, numpy.newaxis]

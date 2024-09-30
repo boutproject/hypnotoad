@@ -1744,10 +1744,7 @@ def read_geqdsk(
     psi2D = data["psi"]
 
     # Get the wall
-    if "rlim" in data and "zlim" in data:
-        wall = list(zip(data["rlim"], data["zlim"]))
-    else:
-        wall = None
+    wall = list(zip(data.rlim, data.zlim)) if data.nlim > 0 else None
 
     pressure = data["pres"]
     fpol = data["fpol"]

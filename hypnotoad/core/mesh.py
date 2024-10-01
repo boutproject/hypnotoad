@@ -1372,7 +1372,7 @@ class MeshRegion:
 
             coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
             bxcvu = curlxb0u
-            bxcvv = curlxb0w * coefv 
+            bxcvv = curlxb0w * coefv
             bxcvw = curlxb0w
 
             self.bxcvx = bxcvu

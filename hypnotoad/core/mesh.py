@@ -1367,26 +1367,8 @@ class MeshRegion:
             self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
 
         elif self.user_options.curvature_type == "bxkappa":
-
-            # b0 x kappa terms for cocos1-extension by H. Seto (QST)
-            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
-            curlxb0w = self.DDX(
-                "#Bxy*#hy/#Bpxy"
-            ) / self.J - self.Btxy * self.Rxy / self.J / self.Bxy * self.DDX(
-                "#Btxy*#hy/#Bpxy/#Rxy"
-            )
-
-            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
-            bxcvu = curlxb0u
-            bxcvv = curlxb0w * coefv
-            bxcvw = curlxb0w
-
-            self.bxcvx = bxcvu
-            self.bxcvy = bxcvv
-            self.bxcvz = bxcvw - self.I * bxcvu
-
-        elif self.user_options.curvature_type == "bxkappa2":
-
+            # b0 x kappa terms with pre-cancellation for cocos1-extension
+            # by H. Seto (QST)
             curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
             curlxb0w = self.bpsign * (
                 self.bpsign * self.Bpxy**2 / self.Bxy / self.J * self.DDX("#hy/#Bpxy")
@@ -1403,8 +1385,32 @@ class MeshRegion:
             self.bxcvy = bxcvv
             self.bxcvz = bxcvw - self.I * bxcvu
 
+
+        elif self.user_options.curvature_type == "bxkappa2":
+
+            # b0 x kappa terms for cocos1-extension by H. Seto (QST)
+            
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = self.DDX(
+                "#Bxy*#hy/#Bpxy"
+            ) / self.J - self.Btxy * self.Rxy / self.J / self.Bxy * self.DDX(
+                "#Btxy*#hy/#Bpxy/#Rxy"
+            )
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
         elif self.user_options.curvature_type == "bxkappa3":
 
+            # b0 x kappa terms with pprime for cocos1-extension
+            # by H. Seto (QST)
+            
             pprime = self.meshParent.equilibrium.regions[
                 self.equilibriumRegion.name
             ].pprime(self.psixy)

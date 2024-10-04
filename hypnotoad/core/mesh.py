@@ -82,7 +82,13 @@ class MeshRegion:
             "curl(b/B)",
             doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
-            allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
+            allowed=[
+                "curl(b/B)",
+                "curl(b/B) with x-y derivatives",
+                "bxkappa",
+                "bxkappa2",
+                "bxkappa3",
+            ],
         ),
         curvature_smoothing=WithMeta(
             None,
@@ -1084,7 +1090,7 @@ class MeshRegion:
                 - self.Rxy * numpy.abs(self.Bpxy) * self.I * self.tanBeta / self.hy
             )
 
-            self.J = self.hy / numpy.abs(self.Bpxy)
+            self.J = self.bpsign * self.hy / self.Bpxy
 
             self.g_11 = (
                 1.0 / (self.Rxy * self.Bpxy * self.cosBeta) ** 2
@@ -1359,16 +1365,53 @@ class MeshRegion:
             self.bxcvx = self.Bxy / 2.0 * self.curl_bOverB_x
             self.bxcvy = self.Bxy / 2.0 * self.curl_bOverB_y
             self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
+
         elif self.user_options.curvature_type == "bxkappa":
 
-            # bxkappa for cocos1-extension by H. Seto (QST)
-
+            # b0 x kappa terms for cocos1-extension by H. Seto (QST)
             curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
             curlxb0w = self.DDX(
                 "#Bxy*#hy/#Bpxy"
             ) / self.J - self.Btxy * self.Rxy / self.J / self.Bxy * self.DDX(
                 "#Btxy*#hy/#Bpxy/#Rxy"
             )
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
+        elif self.user_options.curvature_type == "bxkappa2":
+
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = self.bpsign * (
+                self.bpsign * self.Bpxy**2 / self.Bxy / self.J * self.DDX("#hy/#Bpxy")
+                + self.DDX("#Bxy")
+                - self.Btxy * self.Rxy / self.Bxy * self.DDX("#Btxy/#Rxy")
+            )
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
+        elif self.user_options.curvature_type == "bxkappa3":
+
+            pprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].pprime(self.psixy)
+
+            mu0 = 4e-7 * numpy.pi
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = -self.bpsign * (mu0 / self.Bxy * pprime + self.DDX("#Bxy"))
 
             coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
             bxcvu = curlxb0u

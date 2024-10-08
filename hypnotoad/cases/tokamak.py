@@ -317,6 +317,8 @@ class TokamakEquilibrium(Equilibrium):
         psi1D,
         fpol1D,
         pressure=None,
+        fprime=None,
+        pprime=None,
         wall=None,
         psi_axis_gfile=None,
         psi_bdry_gfile=None,
@@ -340,6 +342,8 @@ class TokamakEquilibrium(Equilibrium):
         --------
 
         pressure[nf] = 1D array of pressure as a function of psi1D [Pa]
+        fprime[nf] = 1D array of df / dpsi
+        pprime[nf] = 1D array of dp / dpsi . If set then pressure must also be set.
 
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
@@ -361,6 +365,9 @@ class TokamakEquilibrium(Equilibrium):
                options (self.nonorthogonal_options)
 
         """
+
+        if pprime is not None:
+            assert pressure is not None
 
         self.user_options = self.user_options_factory.create(settings)
 
@@ -403,38 +410,57 @@ class TokamakEquilibrium(Equilibrium):
             ):
                 # if psi_outer is not beyond the last point of psi1D, no need to extend
                 # Exclude first point since duplicates last point in core
-                psiSOL = np.linspace(psi1D[-1], psi_outer, 50)[1:]
+                psi_lcfs = psi1D[-1]
+                psiSOL = np.linspace(psi_lcfs, psi_outer, 50)[1:]
                 psi1D = np.concatenate([psi1D, psiSOL])
 
                 # fpol constant in SOL
                 fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
 
-            if pressure is not None:
-                # Use an exponential decay for the pressure, based on
-                # the value and gradient at the plasma edge
-                p0 = pressure[-1]
-                # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
-                pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
+                if fprime is not None:
+                    fprime = np.concatenate([fprime, np.full(psiSOL.shape, 0.0)])
+
+                if pressure is not None:
+                    # Use an exponential decay for the pressure, based on
+                    # the value and gradient at the plasma edge
+                    p_lcfs = pressure[-1]
+                    # p_SOL = p_lcfs * exp( (psi - psi_lcfs) * dpdpsi / p_lcfs)
+                    p_SOL = p_lcfs * np.exp((psiSOL - psi_lcfs) * dpdpsi / p_lcfs)
+                    pressure = np.concatenate([pressure, p_SOL])
+
+                    if pprime is not None:
+                        pprime = np.concatenate([pprime, dpdpsi * p_SOL / p_lcfs])
 
         self.magneticFunctionsFromGrid(
             R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
         )
 
-        self.f_psi_sign = 1.0
+        # Note: radial label must be increasing
+        if psi1D[-1] < psi1D[0]:
+            self.f_psi_sign = -1.0
+        else:
+            self.f_psi_sign = 1.0
+
+        xcoord = self.f_psi_sign * psi1D
+
         if len(fpol1D) > 0:
+
             # Spline for interpolation of f = R*Bt
-
-            # Note: psi1D must be increasing
-            if psi1D[-1] < psi1D[0]:
-                self.f_psi_sign = -1.0
-
-            self.f_spl = interpolate.InterpolatedUnivariateSpline(
-                psi1D * self.f_psi_sign, fpol1D, ext=3
-            )
+            self.f_spl = interpolate.InterpolatedUnivariateSpline(xcoord, fpol1D, ext=3)
             # ext=3 specifies that boundary values are used outside range
 
             # Spline representing the derivative of f
-            self.fprime_spl = self.f_spl.derivative()
+            if fprime is not None:
+                self.fprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, fprime, ext=1
+                )
+            else:
+                # fprime is derivative of fpol with respect to psi
+                # rather than increasing radial label xcoord
+                fpol_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, fpol1D * self.f_psi_sign, ext=3
+                )
+                self.fprime_spl = fpol_f_psi_sign_spl.derivative()
         else:
             self.f_spl = lambda psi: 0.0
             self.fprime_spl = lambda psi: 0.0
@@ -442,11 +468,25 @@ class TokamakEquilibrium(Equilibrium):
         # Optional pressure profile
         if pressure is not None:
             self.p_spl = interpolate.InterpolatedUnivariateSpline(
-                psi1D * self.f_psi_sign, pressure, ext=3
+                xcoord, pressure, ext=3
             )
+            if pprime is not None:
+                self.pprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, pprime, ext=1
+                )
+            else:
+                # pprime is derivative of pressure with respect to psi
+                # rather than increasing radial label xcoord
+
+                pressure_f_psi_sign_spl = interpolate.InterpolatedUnivariateSpline(
+                    xcoord, pressure * self.f_psi_sign, ext=3
+                )
+                self.pprime_spl = pressure_f_psi_sign_spl.derivative()
+
         else:
             # If no pressure, then not output to grid file
             self.p_spl = None
+            self.pprime_spl = None
 
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing="ij")
@@ -1621,9 +1661,14 @@ class TokamakEquilibrium(Equilibrium):
                     eqreg.pressure = lambda psi: self.pressure(
                         leg_psi + sign * abs(psi - leg_psi)
                     )
+                    # Set pprime and fprime to zero so Jpar0 = 0
+                    eqreg.pprime = lambda psi: 0.0
+                    eqreg.fprime = lambda psi: 0.0
                 else:
-                    # Core region, so use the core pressure
+                    # Core region, so use the core profiles
                     eqreg.pressure = self.pressure
+                    eqreg.pprime = self.pprime
+                    eqreg.fprime = self.fpolprime
 
             region_objects[name] = eqreg
         # The region objects need to be sorted, so that the
@@ -1686,6 +1731,13 @@ class TokamakEquilibrium(Equilibrium):
         if self.p_spl is None:
             return None
         return self.p_spl(psi * self.f_psi_sign)
+
+    @Equilibrium.handleMultiLocationArray
+    def pprime(self, psi):
+        """psi-derivative of plasma pressure"""
+        if self.pprime_spl is None:
+            return None
+        return self.pprime_spl(psi * self.f_psi_sign)
 
     @property
     def Bt_axis(self):
@@ -1751,6 +1803,8 @@ def read_geqdsk(
 
     pressure = data["pres"]
     fpol = data["fpol"]
+    fprime = data["ffprime"] / fpol
+    pprime = data["pprime"]
 
     result = TokamakEquilibrium(
         R1D,
@@ -1761,6 +1815,8 @@ def read_geqdsk(
         psi_bdry_gfile=psi_bdry_gfile,
         psi_axis_gfile=psi_axis_gfile,
         pressure=pressure,
+        fprime=fprime,
+        pprime=pprime,
         wall=wall,
         make_regions=make_regions,
         settings=settings,

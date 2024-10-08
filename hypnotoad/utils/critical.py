@@ -110,9 +110,8 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
 
                 count = 0
                 while True:
-                    Br = -f(R1, Z1, dy=1, grid=False) / R1
-                    Bz = f(R1, Z1, dx=1, grid=False) / R1
-
+                    Br = f(R1, Z1, dy=1, grid=False) / R1
+                    Bz = -f(R1, Z1, dx=1, grid=False) / R1
                     if Br**2 + Bz**2 < atol:
                         # Found a minimum. Classify as either
                         # O-point or X-point
@@ -181,10 +180,10 @@ def find_critical(R, Z, psi, atol, maxits, discard_xpoints=False):
                     # J = ( dBr/dR, dBr/dZ )
                     #     ( dBz/dR, dBz/dZ )
 
-                    J[0, 0] = -Br / R1 - f(R1, Z1, dy=1, dx=1)[0][0] / R1
-                    J[0, 1] = -f(R1, Z1, dy=2)[0][0] / R1
-                    J[1, 0] = -Bz / R1 + f(R1, Z1, dx=2) / R1
-                    J[1, 1] = f(R1, Z1, dx=1, dy=1)[0][0] / R1
+                    J[0, 0] = -Br / R1 + f(R1, Z1, dy=1, dx=1)[0][0] / R1
+                    J[0, 1] = f(R1, Z1, dy=2)[0][0] / R1
+                    J[1, 0] = -Bz / R1 - f(R1, Z1, dx=2) / R1
+                    J[1, 1] = -f(R1, Z1, dx=1, dy=1)[0][0] / R1
 
                     d = dot(inv(J), [Br, Bz])
 

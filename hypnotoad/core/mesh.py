@@ -1,4 +1,4 @@
-# Copyright 2019 J.T. Omotani
+# CopyrigAht 2019 J.T. Omotani
 #
 # Contact John Omotani john.omotani@ukaea.uk
 #
@@ -82,7 +82,13 @@ class MeshRegion:
             "curl(b/B)",
             doc="Expression used to calculate curvature operator 'bxcv'",
             value_type=str,
-            allowed=["curl(b/B)", "curl(b/B) with x-y derivatives", "bxkappa"],
+            allowed=[
+                "curl(b/B)",
+                "curl(b/B) with x-y derivatives",
+                "bxkappa",
+                "bxkappa2",
+                "bxkappa3",
+            ],
         ),
         curvature_smoothing=WithMeta(
             None,
@@ -833,9 +839,6 @@ class MeshRegion:
         """
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
-        self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dx.centre = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx.ylow = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
             # x-coordinate is -psixy so x always increases radially across grid
@@ -845,6 +848,11 @@ class MeshRegion:
             self.bpsign = 1.0
             self.xcoord = self.psixy
 
+        # dx must be positive definite
+        self.dx = MultiLocationArray(self.nx, self.ny)
+        self.dx.centre = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        self.dx.ylow = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+
         self.dy = MultiLocationArray(self.nx, self.ny)
         self.dy.centre = self.meshParent.dy_scalar
         self.dy.ylow = self.meshParent.dy_scalar
@@ -853,7 +861,7 @@ class MeshRegion:
 
         self.Brxy = self.meshParent.equilibrium.Bp_R(self.Rxy, self.Zxy)
         self.Bzxy = self.meshParent.equilibrium.Bp_Z(self.Rxy, self.Zxy)
-        self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
+        self.Bpxy = self.bpsign * numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
         self.calcPoloidalDistance()
 
@@ -882,7 +890,7 @@ class MeshRegion:
             print(
                 "Poloidal field is in opposite direction to Grad(theta) -> Bp negative"
             )
-            self.Bpxy = -self.Bpxy
+            # self.Bpxy = -self.Bpxy
             if self.bpsign > 0.0:
                 raise ValueError(
                     "Sign of Bp should be negative? (note this check will raise an "
@@ -902,6 +910,27 @@ class MeshRegion:
 
         self.Bxy = numpy.sqrt(self.Bpxy**2 + self.Btxy**2)
 
+        if hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pprime"
+        ) and hasattr(
+            self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "fprime"
+        ):
+            # Calculate parallel current density from p' and f'
+            # Note: COCOS +1 convention is assumed
+            # so mu0 * Jpar = -B f' - mu0 p' f / B
+
+            pprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].pprime(self.psixy)
+            fprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].fprime(self.psixy)
+
+            mu0 = 4e-7 * numpy.pi
+            self.Jpar0 = -(
+                self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
+            )
+
     def geometry2(self):
         """
         Continuation of geometry1(), but needs neighbours to have calculated Bp so called
@@ -912,6 +941,9 @@ class MeshRegion:
             # (By default do _not_ do this)
             # Get rid of minimum in Bpxy.ylow field, because it can cause large spikes in
             # some metric coefficients, which may cause numerical problems in simulations
+            #
+            # note: capBpYlowXpoint assumes a positive definie Bp and doesnt work
+            #       with a negative definit Bp (H.Seto)
             self.capBpYlowXpoint()
 
         self.hy = self.calcHy()
@@ -1010,6 +1042,7 @@ class MeshRegion:
             # derivatives. This means different (radial) regions can use different
             # locations for where zShift=0.
             self.I = MultiLocationArray(self.nx, self.ny).zero()
+            self.sinty = self.I
 
         # Here ShiftTorsion = d2phidxdy
         # Haven't checked this is exactly the quantity needed by BOUT++...
@@ -1026,7 +1059,7 @@ class MeshRegion:
             self.g13 = -self.I * self.g11
             self.g23 = -self.dphidy / self.hy**2
 
-            self.J = self.hy / self.Bpxy
+            self.J = self.hy / numpy.abs(self.Bpxy)
 
             self.g_11 = 1.0 / self.g11 + (self.I * self.Rxy) ** 2
             self.g_22 = self.hy**2 + (self.Rxy * self.dphidy) ** 2
@@ -1059,7 +1092,7 @@ class MeshRegion:
                 - self.Rxy * numpy.abs(self.Bpxy) * self.I * self.tanBeta / self.hy
             )
 
-            self.J = self.hy / self.Bpxy
+            self.J = self.bpsign * self.hy / self.Bpxy
 
             self.g_11 = (
                 1.0 / (self.Rxy * self.Bpxy * self.cosBeta) ** 2
@@ -1075,16 +1108,12 @@ class MeshRegion:
             self.g_23 = self.bpsign * self.dphidy * self.Rxy**2
 
         # check Jacobian is OK
-        Jcheck = (
-            self.bpsign
-            * 1.0
-            / numpy.sqrt(
-                self.g11 * self.g22 * self.g33
-                + 2.0 * self.g12 * self.g13 * self.g23
-                - self.g11 * self.g23**2
-                - self.g22 * self.g13**2
-                - self.g33 * self.g12**2
-            )
+        Jcheck = 1.0 / numpy.sqrt(
+            self.g11 * self.g22 * self.g33
+            + 2.0 * self.g12 * self.g13 * self.g23
+            - self.g11 * self.g23**2
+            - self.g22 * self.g13**2
+            - self.g33 * self.g12**2
         )
         # ignore grid points at X-points as J should diverge there (as Bp->0)
         if Jcheck._corners_array is not None:
@@ -1338,11 +1367,69 @@ class MeshRegion:
             self.bxcvx = self.Bxy / 2.0 * self.curl_bOverB_x
             self.bxcvy = self.Bxy / 2.0 * self.curl_bOverB_y
             self.bxcvz = self.Bxy / 2.0 * self.curl_bOverB_z
+
         elif self.user_options.curvature_type == "bxkappa":
-            raise ValueError("bxkappa form of curvature not implemented yet")
-            self.bxcvx = float("nan")
-            self.bxcvy = float("nan")
-            self.bxcvz = float("nan")
+            # b0 x kappa terms with pre-cancellation for cocos1-extension
+            # by H. Seto (QST)
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = self.bpsign * (
+                self.bpsign * self.Bpxy**2 / self.Bxy / self.J * self.DDX("#hy/#Bpxy")
+                + self.DDX("#Bxy")
+                - self.Btxy * self.Rxy / self.Bxy * self.DDX("#Btxy/#Rxy")
+            )
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
+
+        elif self.user_options.curvature_type == "bxkappa2":
+
+            # b0 x kappa terms for cocos1-extension by H. Seto (QST)
+            
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = self.DDX(
+                "#Bxy*#hy/#Bpxy"
+            ) / self.J - self.Btxy * self.Rxy / self.J / self.Bxy * self.DDX(
+                "#Btxy*#hy/#Bpxy/#Rxy"
+            )
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
+        elif self.user_options.curvature_type == "bxkappa3":
+
+            # b0 x kappa terms with pprime for cocos1-extension
+            # by H. Seto (QST)
+            
+            pprime = self.meshParent.equilibrium.regions[
+                self.equilibriumRegion.name
+            ].pprime(self.psixy)
+
+            mu0 = 4e-7 * numpy.pi
+            curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
+            curlxb0w = -self.bpsign * (mu0 / self.Bxy * pprime + self.DDX("#Bxy"))
+
+            coefv = -self.Btxy * self.Bpxy * self.Rxy / (self.hy * self.Bxy**2)
+            bxcvu = curlxb0u
+            bxcvv = curlxb0w * coefv
+            bxcvw = curlxb0w
+
+            self.bxcvx = bxcvu
+            self.bxcvy = bxcvv
+            self.bxcvz = bxcvw - self.I * bxcvu
+
         else:
             raise ValueError(
                 "Unrecognized option '"
@@ -1558,10 +1645,12 @@ class MeshRegion:
                         )
                         / R
                     )
-                    Bp = numpy.sqrt(
-                        self.meshParent.equilibrium.Bp_R(R, Z) ** 2
-                        + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
-                    )
+                    # Bp = numpy.sqrt(
+                    #    self.meshParent.equilibrium.Bp_R(R, Z) ** 2
+                    #    + self.meshParent.equilibrium.Bp_Z(R, Z) ** 2
+                    # )
+                    Bp = self.meshParent.equilibrium.Bpol(R, Z)
+
                     return Bt / (R * Bp)
 
                 integrand = integrand_func(
@@ -3631,8 +3720,9 @@ class BoutMesh(Mesh):
         # IntShiftTorsion should never be used. It is only for some 'BOUT-06 style
         # differencing'. IntShiftTorsion is not written by Hypnotoad1, so don't write
         # here. /JTO 19/5/2019
-        if not self.user_options.shiftedmetric:
-            addFromRegions("sinty")
+        # if not self.user_options.shiftedmetric:
+        #    addFromRegions("sinty")
+        addFromRegions("sinty")
         addFromRegions("g11")
         addFromRegions("g22")
         addFromRegions("g33")
@@ -3659,6 +3749,9 @@ class BoutMesh(Mesh):
 
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
+
+        if hasattr(next(iter(self.regions.values())), "Jpar0"):
+            addFromRegions("Jpar0")
 
         # Penalty mask
         self.penalty_mask = BoutArray(

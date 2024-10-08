@@ -124,6 +124,8 @@ class CircularEquilibrium(Equilibrium):
             # Core-only geometry: add connection so domain is periodic in y
             self.makeConnection("circular", 0, "circular", 0)
 
+        self.f_psi_sign = np.sign(self.psi_r(1.0) - self.psi_r(0.0))
+
     def makeRegion(self):
         """
         Create the EquilibriumRegion to build the grid around

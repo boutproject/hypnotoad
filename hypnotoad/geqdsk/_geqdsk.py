@@ -22,6 +22,8 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import date
 from numpy import zeros, pi
+import numpy as np
+import scipy as sp
 
 from ._fileutils import f2s, ChunkOutput, write_1d, write_2d, next_value
 
@@ -124,21 +126,42 @@ def write(data, fh, label=None, shot=None, time=None):
     # fill arrays
     # Lukas Kripner (16/10/2018): uncommenting this, since you left there
     # check for data existence bellow. This seems to as safer variant.
-    workk = zeros([nx])
+    # workk = zeros([nx])
 
     # Write arrays
     co = ChunkOutput(fh)
 
     write_1d(data["fpol"], co)
     write_1d(data["pres"], co)
+
     if "ffprime" in data:
         write_1d(data["ffprime"], co)
     else:
-        write_1d(workk, co)
+        psi_axis = data["simagx"]
+        psi_bdry = data["sibdry"]
+        fpol = data["fpol"]
+
+        sign_dpsi = np.sign(psi_bdry - psi_axis)
+        xcrd = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
+        fprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
+            xcrd, fpol * sign_dpsi
+        ).derivative()
+        ffprime = fpol * fprime_spl(xcrd)
+        write_1d(ffprime, co)
+
     if "pprime" in data:
         write_1d(data["pprime"], co)
     else:
-        write_1d(workk, co)
+        psi_axis = data["simagx"]
+        psi_bdry = data["sibdry"]
+
+        sign_dpsi = np.sign(psi_bdry - psi_axis)
+        xcrd = np.linspace(psi_axis, psi_bdry, nx) * sign_dpsi
+
+        pprime_spl = sp.interpolate.InterpolatedUnivariateSpline(
+            xcrd, data["pres"] * sign_dpsi
+        ).derivative()
+        write_1d(pprime_spl(xcrd), co)
 
     write_2d(data["psi"], co)
     write_1d(data["qpsi"], co)
@@ -195,6 +218,8 @@ def read(fh, cocos=1):
 
       fpol          1D array of f(psi)=R*Bt  [meter-Tesla]
       pres          1D array of p(psi) [Pascals]
+      ffprime       1D array of ff'(psi)
+      pprime        1D array of p'(psi)
       qpsi          1D array of q(psi)
 
       psi           2D array (nx,ny) of poloidal flux

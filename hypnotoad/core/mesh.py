@@ -839,9 +839,6 @@ class MeshRegion:
         """
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
-        self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dx.centre = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx.ylow = (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         if self.psi_vals[0] > self.psi_vals[-1]:
             # x-coordinate is -psixy so x always increases radially across grid
@@ -850,6 +847,11 @@ class MeshRegion:
         else:
             self.bpsign = 1.0
             self.xcoord = self.psixy
+
+        # dx must be positive definite
+        self.dx = MultiLocationArray(self.nx, self.ny)
+        self.dx.centre = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        self.dx.ylow = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
 
         self.dy = MultiLocationArray(self.nx, self.ny)
         self.dy.centre = self.meshParent.dy_scalar

@@ -523,16 +523,22 @@ class TokamakEquilibrium(Equilibrium):
 
         self.equilibOptions = {}
 
-        super().__init__(nonorthogonal_settings)
+        try:
+            super().__init__(nonorthogonal_settings)
 
-        # Print the table of options
-        print(self.user_options.as_table(), flush=True)
-        if not self.user_options.orthogonal:
-            print(self.nonorthogonal_options.as_table(), flush=True)
+            # Print the table of options
+            print(self.user_options.as_table(), flush=True)
+            if not self.user_options.orthogonal:
+                print(self.nonorthogonal_options.as_table(), flush=True)
 
-        if make_regions:
-            # Create self.regions
-            self.makeRegions()
+            if make_regions:
+                # Create self.regions
+                self.makeRegions()
+        except Exception:
+            # Some error occured, but still useful to return partially set up object,
+            # so, for example, the equilibrium data can be plotted
+            self.regions = {}
+            raise
 
     def findLegs(self, xpoint, radius=0.01, step=0.01):
         """Find the divertor legs coming from a given X-point
@@ -1752,20 +1758,9 @@ def read_geqdsk(
     pressure = data["pres"]
     fpol = data["fpol"]
 
-    result = TokamakEquilibrium(
-        R1D,
-        Z1D,
-        psi2D,
-        psi1D,
-        fpol,
-        psi_bdry_gfile=psi_bdry_gfile,
-        psi_axis_gfile=psi_axis_gfile,
-        pressure=pressure,
-        wall=wall,
-        make_regions=make_regions,
-        settings=settings,
-        nonorthogonal_settings=nonorthogonal_settings,
-    )
+    # Call __new__() first in case there is an exception in __init__(), we can still
+    # return a partially-initialised TokamakEquilibrium object
+    result = TokamakEquilibrium.__new__(TokamakEquilibrium)
 
     # Store geqdsk input as a string in the TokamakEquilibrium object so we can save it
     # in BoutMesh.writeGridFile
@@ -1776,5 +1771,23 @@ def read_geqdsk(
     # also save filename, if it exists
     if hasattr(filehandle, "name"):
         result.geqdsk_filename = filehandle.name
+
+    try:
+        result.__init__(
+            R1D,
+            Z1D,
+            psi2D,
+            psi1D,
+            fpol,
+            psi_bdry_gfile=psi_bdry_gfile,
+            psi_axis_gfile=psi_axis_gfile,
+            pressure=pressure,
+            wall=wall,
+            make_regions=make_regions,
+            settings=settings,
+            nonorthogonal_settings=nonorthogonal_settings,
+        )
+    except Exception as e:
+        return result, e
 
     return result

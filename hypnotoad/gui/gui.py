@@ -555,9 +555,17 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     settings=copy.deepcopy(self.options),
                     nonorthogonal_settings=copy.deepcopy(self.options),
                 )
+            try:
+                # If there was an error in tokamak.read_geqdsk(), it may return both
+                # the TokamakEquilibrium and an error, otherwise it would return
+                # just a TokamakEquilibrium.
+                self.eq, e = self.eq
+                self._popup_error_message(e)
+            except TypeError:
+                # No error, so self.eq is already the TokamakEquilibrium object.
+                pass
         except (ValueError, RuntimeError, func_timeout.FunctionTimedOut) as e:
             self._popup_error_message(e)
-            return
 
         self.update_options_form()
 

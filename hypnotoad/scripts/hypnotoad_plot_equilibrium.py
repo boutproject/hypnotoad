@@ -102,6 +102,18 @@ def main():
     try:
         with open(args.equilibrium_file, "rt") as fh:
             eq = tokamak.read_geqdsk(fh)
+        try:
+            # If there was an error in tokamak.read_geqdsk(), it may return both
+            # the TokamakEquilibrium and an error, otherwise it would return
+            # just a TokamakEquilibrium.
+            eq, e = eq
+            print(
+                f'Warning: got an error "{e}" while creating TokamakEquilibrium.',
+                "Continuing anyway",
+            )
+        except TypeError:
+            # No error, so self.eq is already the TokamakEquilibrium object.
+            pass
     except ValueError:
         # Maybe it was a disconnected double null? Need to tell hypnotoad
         # nx_inter_sep>0 for disconnected case

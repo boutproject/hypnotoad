@@ -2,6 +2,8 @@ Release history
 ===============
 
 ### Bug fixes
+- When using the GUI, if there is an error in `TokamakEquilibrium` object
+  creation, still plot the equilibrium data (#186).
 
 
 ### New features

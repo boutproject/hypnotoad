@@ -1383,7 +1383,7 @@ class MeshRegion:
             )
             hy.centre[i, :] = d[2::2] - d[:-2:2]
             hy.ylow[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
-            if self.connections["lower"] is not None:
+            if self.connections["lower"] not in (None, "fake"):
                 cbelow = self.getNeighbour("lower").contours[2 * i + 1]
                 dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
                 hy.ylow[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
@@ -1391,7 +1391,7 @@ class MeshRegion:
                 # no region below, so estimate distance to point before '0' as the same
                 # as from '0' to '1'
                 hy.ylow[i, 0] = 2.0 * (d[1] - d[0])
-            if self.connections["upper"] is not None:
+            if self.connections["upper"] not in (None, "fake"):
                 cabove = self.getNeighbour("upper").contours[2 * i + 1]
                 dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
                 hy.ylow[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
@@ -1411,7 +1411,7 @@ class MeshRegion:
             )
             hy.xlow[i, :] = d[2::2] - d[:-2:2]
             hy.corners[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
-            if self.connections["lower"] is not None:
+            if self.connections["lower"] not in (None, "fake"):
                 cbelow = self.getNeighbour("lower").contours[2 * i]
                 dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
                 hy.corners[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
@@ -1419,7 +1419,7 @@ class MeshRegion:
                 # no region below, so estimate distance to point before '0' as the same
                 # as from '0' to '1'
                 hy.corners[i, 0] = 2.0 * (d[1] - d[0])
-            if self.connections["upper"] is not None:
+            if self.connections["upper"] not in (None, "fake"):
                 cabove = self.getNeighbour("upper").contours[2 * i]
                 dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
                 hy.corners[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
@@ -2456,7 +2456,7 @@ def _find_intersection(
 
     if upper_wall:
         if lower_wall:
-            starti = len(contour // 2)
+            starti = len(contour) // 2
         else:
             starti = 0
 
@@ -2692,7 +2692,9 @@ class Mesh:
             region = equilibrium.regions[eq_reg]
             c = region.connections[i]
             for key, val in c.items():
-                if val is not None:
+                if val is not None and val[0] == "fake":
+                    self.connections[region_id][key] = "fake"
+                elif val is not None:
                     self.connections[region_id][key] = self.region_lookup[val]
                 else:
                     self.connections[region_id][key] = None

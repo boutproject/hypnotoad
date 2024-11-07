@@ -782,9 +782,6 @@ class TokamakEquilibrium(Equilibrium):
                 )
             # Select just the single region `this_region_name`
             all_regions = {this_region_name: leg_regions[this_region_name]}
-
-            # Delete any connections, because we only have a single region
-            connections = []
         else:
             # Create a new dictionary, which will contain all regions
             # including core and legs
@@ -795,8 +792,13 @@ class TokamakEquilibrium(Equilibrium):
         self.regions = self.createRegionObjects(all_regions, segments)
 
         # Make the connections between regions
-        for connection in connections:
-            self.makeConnection(*connection)
+        if self.user_options.single_region is not None:
+            print("making connections for single_region")
+            for connection in connections:
+                self.makeSingleRegionConnection(*connection)
+        else:
+            for connection in connections:
+                self.makeConnection(*connection)
 
     def describeSingleNull(self):
         """

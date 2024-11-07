@@ -930,7 +930,11 @@ class MeshRegion:
         self.dphidy = self.hy * self.Btxy / (self.Bpxy * self.Rxy)
 
     def capBpYlowXpoint(self):
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None:
+        if (
+            self.equilibriumRegion.xPointsAtStart[self.radialIndex] is not None
+            and self.equilibriumRegion.connections[self.radialIndex]["lower"]
+            is not None
+        ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
             Bp_min = min(
@@ -941,7 +945,11 @@ class MeshRegion:
                     self.Bpxy.ylow[i, 0] = Bp_min
                 else:
                     break
-        if self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None:
+        if (
+            self.equilibriumRegion.xPointsAtStart[self.radialIndex + 1] is not None
+            and self.equilibriumRegion.connections[self.radialIndex + 1]["lower"]
+            is not None
+        ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
             Bp_min = min(
@@ -952,7 +960,11 @@ class MeshRegion:
                     self.Bpxy.ylow[-i - 1, 0] = Bp_min
                 else:
                     break
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None:
+        if (
+            self.equilibriumRegion.xPointsAtEnd[self.radialIndex] is not None
+            and self.equilibriumRegion.connections[self.radialIndex]["upper"]
+            is not None
+        ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
             Bp_min = min(
@@ -963,7 +975,11 @@ class MeshRegion:
                     self.Bpxy.ylow[i, -1] = Bp_min
                 else:
                     break
-        if self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None:
+        if (
+            self.equilibriumRegion.xPointsAtEnd[self.radialIndex + 1] is not None
+            and self.equilibriumRegion.connections[self.radialIndex + 1]["upper"]
+            is not None
+        ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
             Bp_min = min(

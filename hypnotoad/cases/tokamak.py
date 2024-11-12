@@ -427,7 +427,6 @@ class TokamakEquilibrium(Equilibrium):
                     # p_SOL = p_lcfs * exp( (psi - psi_lcfs) * dpdpsi / p_lcfs)
                     p_SOL = p_lcfs * np.exp((psiSOL - psi_lcfs) * dpdpsi / p_lcfs)
                     pressure = np.concatenate([pressure, p_SOL])
-
                     if pprime is not None:
                         pprime = np.concatenate([pprime, dpdpsi * p_SOL / p_lcfs])
 
@@ -470,6 +469,7 @@ class TokamakEquilibrium(Equilibrium):
             self.p_spl = interpolate.InterpolatedUnivariateSpline(
                 xcoord, pressure, ext=3
             )
+
             if pprime is not None:
                 self.pprime_spl = interpolate.InterpolatedUnivariateSpline(
                     xcoord, pprime, ext=1

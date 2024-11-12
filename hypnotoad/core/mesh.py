@@ -77,9 +77,7 @@ class MeshRegion:
             "NETCDF4",
             doc="format of grid file",
             value_type=str,
-            allowed=[
-                "NETCDF4",
-                "NETCDF3_64BIT"],
+            allowed=["NETCDF4", "NETCDF3_64BIT"],
         ),
         shiftedmetric=WithMeta(
             True,
@@ -847,7 +845,6 @@ class MeshRegion:
         """
         self.psixy = self.meshParent.equilibrium.psi(self.Rxy, self.Zxy)
 
-
         if self.psi_vals[0] > self.psi_vals[-1]:
             # x-coordinate is -psixy so x always increases radially across grid
             self.bpsign = -1.0
@@ -858,8 +855,12 @@ class MeshRegion:
 
         # dx must be positive definite
         self.dx = MultiLocationArray(self.nx, self.ny)
-        self.dx.centre = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
-        self.dx.ylow = self.bpsign*(self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        self.dx.centre = (
+            self.bpsign * (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        )
+        self.dx.ylow = (
+            self.bpsign * (self.psi_vals[2::2] - self.psi_vals[:-2:2])[:, numpy.newaxis]
+        )
 
         self.dy = MultiLocationArray(self.nx, self.ny)
         self.dy.centre = self.meshParent.dy_scalar
@@ -889,7 +890,7 @@ class MeshRegion:
             print("minimum pressure is too small, add vacuum pressure")
             vacuum_pressure = numpy.max(self.pressure)*1.e-3
             self.pressure += vacuum_pressure
-        """ 
+        """
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = self.Brxy.centre[-1, self.ny // 2] * (
@@ -965,7 +966,7 @@ class MeshRegion:
             self.capBpYlowXpoint()
 
         self.hy = self.calcHy()
-        
+
         if not self.user_options.orthogonal:
             # Calculate beta (angle between e_x and Grad(x), also the angle between e_y
             # and Grad(y)), used for non-orthogonal grid
@@ -1066,8 +1067,8 @@ class MeshRegion:
         # Haven't checked this is exactly the quantity needed by BOUT++...
         # ShiftTorsion is only used in Curl operator - Curl is rarely used.
         self.ShiftTorsion = self.DDX("#dphidy")
-        self.hthe = self.hy/1.0
-        
+        self.hthe = self.hy / 1.0
+
         if self.user_options.orthogonal:
 
             self.g11 = (self.Rxy * self.Bpxy) ** 2
@@ -1407,11 +1408,10 @@ class MeshRegion:
             self.bxcvy = bxcvv
             self.bxcvz = bxcvw - self.I * bxcvu
 
-
         elif self.user_options.curvature_type == "bxkappa2":
 
             # b0 x kappa terms for cocos1-extension by H. Seto (QST)
-            
+
             curlxb0u = -self.Btxy * self.Rxy / (self.J * self.Bxy**2) * self.DDY("#Bxy")
             curlxb0w = self.DDX(
                 "#Bxy*#hy/#Bpxy"
@@ -1432,7 +1432,7 @@ class MeshRegion:
 
             # b0 x kappa terms with pprime for cocos1-extension
             # by H. Seto (QST)
-            
+
             pprime = self.meshParent.equilibrium.regions[
                 self.equilibriumRegion.name
             ].pprime(self.psixy)
@@ -3721,8 +3721,8 @@ class BoutMesh(Mesh):
         addFromRegions("psixy")
         addFromRegions("dx")
         addFromRegions("dy")
-        #addFromRegions("poloidal_distance")
-        #addFromRegionsXArray("total_poloidal_distance")
+        # addFromRegions("poloidal_distance")
+        # addFromRegionsXArray("total_poloidal_distance")
         addFromRegions("Brxy")
         addFromRegions("Bzxy")
         addFromRegions("Bpxy")
@@ -3824,9 +3824,10 @@ class BoutMesh(Mesh):
         from boututils.datafile import DataFile
         from netCDF4 import stringtochar
 
-        
         # with DataFile(filename, create=True, format="NETCDF4") as f:
-        with DataFile(filename, create=True, format=self.user_options.output_format) as f:
+        with DataFile(
+            filename, create=True, format=self.user_options.output_format
+        ) as f:
             # Save unique ID for grid file
             import uuid
 
@@ -3838,7 +3839,7 @@ class BoutMesh(Mesh):
 
             if self.user_options.output_format == "NETCDF4":
                 f.write("curvature_type", self.user_options.curvature_type)
-            
+
             f.write("Bt_axis", self.equilibrium.Bt_axis)
 
             if hasattr(self.equilibrium, "psi_axis"):
@@ -3865,7 +3866,7 @@ class BoutMesh(Mesh):
             for name in ["Rxy", "Zxy"]:
                 self.writeCorners(name, self.__dict__[name], f)
 
-            #if self.user_options.orthogonal:
+            # if self.user_options.orthogonal:
             #    # Also write hy as "hthe" for backward compatibility
             #    self.writeArray("hthe", self.hy, f)
 
@@ -4053,7 +4054,7 @@ class BoutMesh(Mesh):
                 if hasattr(self.equilibrium, "geqdsk_filename"):
                     # If grid was created from a geqdsk file, save the file name
                     f.write_file_attribute(
-                    "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
+                        "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
                     )
 
                 if hasattr(self.equilibrium, "geqdsk_input"):

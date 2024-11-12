@@ -3950,7 +3950,7 @@ class Equilibrium:
 
             @Equilibrium.handleMultiLocationArray
             def psi(self, R, Z):
-                "Return the poloidal flux at the given (R,Z) location"
+                """Return the poloidal flux at the given (R,Z) location"""
                 return self.psi_func(R, Z, grid=False)
 
             # The __get__(self) call converts the function to a 'bound

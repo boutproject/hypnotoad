@@ -73,6 +73,14 @@ class MeshRegion:
 
     user_options_factory = OptionsFactory(
         EquilibriumRegion.user_options_factory,
+        output_format=WithMeta(
+            "NETCDF4",
+            doc="format of grid file",
+            value_type=str,
+            allowed=[
+                "NETCDF4",
+                "NETCDF3_64BIT"],
+        ),
         shiftedmetric=WithMeta(
             True,
             doc="Is grid generated for paralleltransform=ShiftedMetric?",
@@ -871,7 +879,17 @@ class MeshRegion:
             self.pressure = self.meshParent.equilibrium.regions[
                 self.equilibriumRegion.name
             ].pressure(self.psixy)
+        """
+        if numpy.min(self.pressure) < 0.0:
+            print("minimum pressure is negative, add vacuum pressure")
+            vacuum_pressure = -numpy.min(self.pressure)
+            self.pressure += vacuum_pressure
 
+        if numpy.min(self.pressure) < numpy.max(self.pressure)*1.e-3:
+            print("minimum pressure is too small, add vacuum pressure")
+            vacuum_pressure = numpy.max(self.pressure)*1.e-3
+            self.pressure += vacuum_pressure
+        """ 
         # determine direction - dot Bp with Grad(y) vector
         # evaluate in 'sol' at outer radial boundary
         Bp_dot_grady = self.Brxy.centre[-1, self.ny // 2] * (
@@ -947,7 +965,7 @@ class MeshRegion:
             self.capBpYlowXpoint()
 
         self.hy = self.calcHy()
-
+        
         if not self.user_options.orthogonal:
             # Calculate beta (angle between e_x and Grad(x), also the angle between e_y
             # and Grad(y)), used for non-orthogonal grid
@@ -1048,8 +1066,10 @@ class MeshRegion:
         # Haven't checked this is exactly the quantity needed by BOUT++...
         # ShiftTorsion is only used in Curl operator - Curl is rarely used.
         self.ShiftTorsion = self.DDX("#dphidy")
-
+        self.hthe = self.hy/1.0
+        
         if self.user_options.orthogonal:
+
             self.g11 = (self.Rxy * self.Bpxy) ** 2
             self.g22 = 1.0 / self.hy**2
             self.g33 = (
@@ -3701,14 +3721,15 @@ class BoutMesh(Mesh):
         addFromRegions("psixy")
         addFromRegions("dx")
         addFromRegions("dy")
-        addFromRegions("poloidal_distance")
-        addFromRegionsXArray("total_poloidal_distance")
+        #addFromRegions("poloidal_distance")
+        #addFromRegionsXArray("total_poloidal_distance")
         addFromRegions("Brxy")
         addFromRegions("Bzxy")
         addFromRegions("Bpxy")
         addFromRegions("Btxy")
         addFromRegions("Bxy")
         addFromRegions("hy")
+        addFromRegions("hthe")
         # if not self.user_options.orthogonal:
         #    addFromRegions('beta')
         #    addFromRegions('eta')
@@ -3723,19 +3744,20 @@ class BoutMesh(Mesh):
         # if not self.user_options.shiftedmetric:
         #    addFromRegions("sinty")
         addFromRegions("sinty")
-        addFromRegions("g11")
-        addFromRegions("g22")
-        addFromRegions("g33")
-        addFromRegions("g12")
-        addFromRegions("g13")
-        addFromRegions("g23")
-        addFromRegions("J")
-        addFromRegions("g_11")
-        addFromRegions("g_22")
-        addFromRegions("g_33")
-        addFromRegions("g_12")
-        addFromRegions("g_13")
-        addFromRegions("g_23")
+        if self.user_options.output_format == "NETCDF4":
+            addFromRegions("g11")
+            addFromRegions("g22")
+            addFromRegions("g33")
+            addFromRegions("g12")
+            addFromRegions("g13")
+            addFromRegions("g23")
+            addFromRegions("J")
+            addFromRegions("g_11")
+            addFromRegions("g_22")
+            addFromRegions("g_33")
+            addFromRegions("g_12")
+            addFromRegions("g_13")
+            addFromRegions("g_23")
         if self.user_options.curvature_type in (
             "curl(b/B) with x-y derivatives",
             "curl(b/B)",
@@ -3746,13 +3768,15 @@ class BoutMesh(Mesh):
         addFromRegions("bxcvx")
         addFromRegions("bxcvy")
         addFromRegions("bxcvz")
-
+        """
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
 
         if hasattr(next(iter(self.regions.values())), "Jpar0"):
             addFromRegions("Jpar0")
-
+        """
+        addFromRegions("pressure")
+        addFromRegions("Jpar0")
         # Penalty mask
         self.penalty_mask = BoutArray(
             numpy.zeros((self.nx, self.ny)),
@@ -3798,8 +3822,11 @@ class BoutMesh(Mesh):
 
     def writeGridfile(self, filename):
         from boututils.datafile import DataFile
+        from netCDF4 import stringtochar
 
-        with DataFile(filename, create=True, format="NETCDF4") as f:
+        
+        # with DataFile(filename, create=True, format="NETCDF4") as f:
+        with DataFile(filename, create=True, format=self.user_options.output_format) as f:
             # Save unique ID for grid file
             import uuid
 
@@ -3808,7 +3835,10 @@ class BoutMesh(Mesh):
             # ny for BOUT++ excludes boundary guard cells
             f.write("ny", self.ny_noguards)
             f.write("y_boundary_guards", self.user_options.y_boundary_guards)
-            f.write("curvature_type", self.user_options.curvature_type)
+
+            if self.user_options.output_format == "NETCDF4":
+                f.write("curvature_type", self.user_options.curvature_type)
+            
             f.write("Bt_axis", self.equilibrium.Bt_axis)
 
             if hasattr(self.equilibrium, "psi_axis"):
@@ -3835,9 +3865,9 @@ class BoutMesh(Mesh):
             for name in ["Rxy", "Zxy"]:
                 self.writeCorners(name, self.__dict__[name], f)
 
-            if self.user_options.orthogonal:
-                # Also write hy as "hthe" for backward compatibility
-                self.writeArray("hthe", self.hy, f)
+            #if self.user_options.orthogonal:
+            #    # Also write hy as "hthe" for backward compatibility
+            #    self.writeArray("hthe", self.hy, f)
 
             # write the 1d fields
             for name in self.arrayXDirection_to_output:
@@ -4004,42 +4034,44 @@ class BoutMesh(Mesh):
                 + "\nMesh options:\n"
                 + self.user_options.as_table()
             )
-            f.write("hypnotoad_inputs", inputs_string)
-            options_dict = dict(self.equilibrium.user_options)
-            options_dict.update(self.equilibrium.nonorthogonal_options)
-            options_dict.update(self.user_options)
-            f.write("hypnotoad_inputs_yaml", yaml.dump(options_dict))
 
-            f.write_file_attribute("hypnotoad_version", self.version)
-            if self.git_hash is not None:
-                f.write_file_attribute("hypnotoad_git_hash", self.git_hash)
-                f.write_file_attribute(
-                    "hypnotoad_git_diff",
-                    self.git_diff if self.git_diff is not None else "",
-                )
+            if self.user_options.output_format == "NETCDF4":
+                f.write("hypnotoad_inputs", inputs_string)
+                options_dict = dict(self.equilibrium.user_options)
+                options_dict.update(self.equilibrium.nonorthogonal_options)
+                options_dict.update(self.user_options)
+                f.write("hypnotoad_inputs_yaml", yaml.dump(options_dict))
 
-            if hasattr(self.equilibrium, "geqdsk_filename"):
-                # If grid was created from a geqdsk file, save the file name
-                f.write_file_attribute(
+                f.write_file_attribute("hypnotoad_version", self.version)
+                if self.git_hash is not None:
+                    f.write_file_attribute("hypnotoad_git_hash", self.git_hash)
+                    f.write_file_attribute(
+                        "hypnotoad_git_diff",
+                        self.git_diff if self.git_diff is not None else "",
+                    )
+
+                if hasattr(self.equilibrium, "geqdsk_filename"):
+                    # If grid was created from a geqdsk file, save the file name
+                    f.write_file_attribute(
                     "hypnotoad_geqdsk_filename", self.equilibrium.geqdsk_filename
-                )
+                    )
 
-            if hasattr(self.equilibrium, "geqdsk_input"):
-                # If grid was created from a geqdsk file, save the file contents
-                #
-                # Write as string variable and not attribute because the string will be
-                # long and attributes are printed by 'ncdump -h' or by ncdump when
-                # looking at a different variable, which would be inconvenient. It is
-                # not likely that we need to load the geqdsk file contents in BOUT++, so
-                # no reason to save as an attribute.
-                f.write(
-                    "hypnotoad_input_geqdsk_file_contents",
-                    self.equilibrium.geqdsk_input,
-                )
+                if hasattr(self.equilibrium, "geqdsk_input"):
+                    # If grid was created from a geqdsk file, save the file contents
+                    #
+                    # Write as string variable and not attribute because the string will be
+                    # long and attributes are printed by 'ncdump -h' or by ncdump when
+                    # looking at a different variable, which would be inconvenient. It is
+                    # not likely that we need to load the geqdsk file contents in BOUT++, so
+                    # no reason to save as an attribute.
+                    f.write(
+                        "hypnotoad_input_geqdsk_file_contents",
+                        self.equilibrium.geqdsk_input,
+                    )
 
-            # save Python and module versions to enable reproducibility
-            f.write("Python_version", sys.version)
-            f.write("module_versions", module_versions_formatted())
+                # save Python and module versions to enable reproducibility
+                f.write("Python_version", sys.version)
+                f.write("module_versions", module_versions_formatted())
 
     def plot2D(self, f, title=None):
         from matplotlib import pyplot

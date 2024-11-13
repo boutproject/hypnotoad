@@ -3861,6 +3861,16 @@ class BoutMesh(Mesh):
                     # separatrices in the same radial location
                     ixseps2 = ixseps1
 
+            if (
+                "single_region" in self.equilibrium.user_options
+                and self.equilibrium.user_options.single_region is not None
+                and "divertor" in self.equilibrium.user_options.single_region
+            ):
+                # Need to hack topology indices to get something sensible for
+                # single_region case.
+                ixseps1 = -1
+                ixseps2 = -1
+
             f.write("ixseps1", ixseps1)
             f.write("ixseps2", ixseps2)
             f.write("jyseps1_1", jyseps1_1)

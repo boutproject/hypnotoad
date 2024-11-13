@@ -937,9 +937,11 @@ class MeshRegion:
         ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = min(
-                self.Bpxy.centre[0, 0], self.getNeighbour("lower").Bpxy.centre[0, -1]
-            )
+            lower_neighbour = self.getNeighbour("lower")
+            if lower_neighbour == "fake":
+                Bp_min = self.Bpxy.centre[0, 0]
+            else:
+                Bp_min = min(self.Bpxy.centre[0, 0], lower_neighbour.Bpxy.centre[0, -1])
             for i in range(self.nx):
                 if self.Bpxy.ylow[i, 0] < Bp_min:
                     self.Bpxy.ylow[i, 0] = Bp_min
@@ -952,9 +954,14 @@ class MeshRegion:
         ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = min(
-                self.Bpxy.centre[-1, 0], self.getNeighbour("lower").Bpxy.centre[-1, -1]
-            )
+            lower_neighbour = self.getNeighbour("lower")
+            if lower_neighbour == "fake":
+                Bp_min = self.Bpxy.centre[-1, 0]
+            else:
+                Bp_min = min(
+                    self.Bpxy.centre[-1, 0],
+                    self.getNeighbour("lower").Bpxy.centre[-1, -1],
+                )
             for i in range(self.nx):
                 if self.Bpxy.ylow[-i - 1, 0] < Bp_min:
                     self.Bpxy.ylow[-i - 1, 0] = Bp_min
@@ -967,9 +974,14 @@ class MeshRegion:
         ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = min(
-                self.Bpxy.centre[0, -1], self.getNeighbour("upper").Bpxy.centre[0, 0]
-            )
+            upper_neighbour = self.getNeighbour("upper")
+            if upper_neighbour == "fake":
+                Bp_min = self.Bpxy.centre[0, -1]
+            else:
+                Bp_min = min(
+                    self.Bpxy.centre[0, -1],
+                    self.getNeighbour("upper").Bpxy.centre[0, 0],
+                )
             for i in range(self.nx):
                 if self.Bpxy.ylow[i, -1] < Bp_min:
                     self.Bpxy.ylow[i, -1] = Bp_min
@@ -982,9 +994,14 @@ class MeshRegion:
         ):
             # Choose a minumum Bp as the average of the two values of Bpxy.centre
             # nearest to the X-point
-            Bp_min = min(
-                self.Bpxy.centre[-1, -1], self.getNeighbour("upper").Bpxy.centre[-1, 0]
-            )
+            upper_neighbour = self.getNeighbour("upper")
+            if upper_neighbour == "fake":
+                Bp_min = self.Bpxy.centre[-1, -1]
+            else:
+                Bp_min = min(
+                    self.Bpxy.centre[-1, -1],
+                    self.getNeighbour("upper").Bpxy.centre[-1, 0],
+                )
             for i in range(self.nx):
                 if self.Bpxy.ylow[-i - 1, -1] < Bp_min:
                     self.Bpxy.ylow[-i - 1, -1] = Bp_min
@@ -1745,6 +1762,8 @@ class MeshRegion:
     def getNeighbour(self, face):
         if self.connections[face] is None:
             return None
+        if self.connections[face] == "fake":
+            return "fake"
         else:
             return self.meshParent.regions[self.connections[face]]
 
@@ -1913,19 +1932,19 @@ class MeshRegion:
 
     def smoothnl_inner1(self, varname):
         f = getattr(self, varname)
-        if self.connections["inner"] is not None:
+        if self.connections["inner"] not in (None, "fake"):
             f_inner = getattr(self.getNeighbour("inner"), varname)
         else:
             f_inner = None
-        if self.connections["outer"] is not None:
+        if self.connections["outer"] not in (None, "fake"):
             f_outer = getattr(self.getNeighbour("outer"), varname)
         else:
             f_outer = None
-        if self.connections["lower"] is not None:
+        if self.connections["lower"] not in (None, "fake"):
             f_lower = getattr(self.getNeighbour("lower"), varname)
         else:
             f_lower = None
-        if self.connections["upper"] is not None:
+        if self.connections["upper"] not in (None, "fake"):
             f_upper = getattr(self.getNeighbour("upper"), varname)
         else:
             f_upper = None
@@ -2042,19 +2061,19 @@ class MeshRegion:
 
     def smoothnl_inner2(self, varname, markx, marky):
         tmp = getattr(self, varname).copy()
-        if self.connections["inner"] is not None:
+        if self.connections["inner"] not in (None, "fake"):
             tmp_inner = getattr(self.getNeighbour("inner"), varname).copy()
         else:
             tmp_inner = None
-        if self.connections["outer"] is not None:
+        if self.connections["outer"] not in (None, "fake"):
             tmp_outer = getattr(self.getNeighbour("outer"), varname).copy()
         else:
             tmp_outer = None
-        if self.connections["lower"] is not None:
+        if self.connections["lower"] not in (None, "fake"):
             tmp_lower = getattr(self.getNeighbour("lower"), varname).copy()
         else:
             tmp_lower = None
-        if self.connections["upper"] is not None:
+        if self.connections["upper"] not in (None, "fake"):
             tmp_upper = getattr(self.getNeighbour("upper"), varname).copy()
         else:
             tmp_upper = None
@@ -2912,28 +2931,28 @@ class Mesh:
                     this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
                     marky[region_name].centre[1:-1, 1:-1] = this_marky
 
-                    if region.connections["inner"] is not None:
+                    if region.connections["inner"] not in (None, "fake"):
                         markx[region.connections["inner"]].centre[-1, 1:-1] = (
                             this_markx[0, :]
                         )
                         marky[region.connections["inner"]].centre[-1, 1:-1] = (
                             this_marky[0, :]
                         )
-                    if region.connections["outer"] is not None:
+                    if region.connections["outer"] not in (None, "fake"):
                         markx[region.connections["outer"]].centre[0, 1:-1] = this_markx[
                             -1, :
                         ]
                         marky[region.connections["outer"]].centre[0, 1:-1] = this_marky[
                             -1, :
                         ]
-                    if region.connections["lower"] is not None:
+                    if region.connections["lower"] not in (None, "fake"):
                         markx[region.connections["lower"]].centre[1:-1, -1] = (
                             this_markx[:, 0]
                         )
                         marky[region.connections["lower"]].centre[1:-1, -1] = (
                             this_marky[:, 0]
                         )
-                    if region.connections["upper"] is not None:
+                    if region.connections["upper"] not in (None, "fake"):
                         markx[region.connections["upper"]].centre[1:-1, 0] = this_markx[
                             :, -1
                         ]
@@ -2957,28 +2976,28 @@ class Mesh:
                     this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
                     marky[region_name].xlow[1:-1, 1:-1] = this_marky
 
-                    if region.connections["inner"] is not None:
+                    if region.connections["inner"] not in (None, "fake"):
                         markx[region.connections["inner"]].xlow[-1, 1:-1] = this_markx[
                             0, :
                         ]
                         marky[region.connections["inner"]].xlow[-1, 1:-1] = this_marky[
                             0, :
                         ]
-                    if region.connections["outer"] is not None:
+                    if region.connections["outer"] not in (None, "fake"):
                         markx[region.connections["outer"]].xlow[0, 1:-1] = this_markx[
                             -1, :
                         ]
                         marky[region.connections["outer"]].xlow[0, 1:-1] = this_marky[
                             -1, :
                         ]
-                    if region.connections["lower"] is not None:
+                    if region.connections["lower"] not in (None, "fake"):
                         markx[region.connections["lower"]].xlow[1:-1, -1] = this_markx[
                             :, 0
                         ]
                         marky[region.connections["lower"]].xlow[1:-1, -1] = this_marky[
                             :, 0
                         ]
-                    if region.connections["upper"] is not None:
+                    if region.connections["upper"] not in (None, "fake"):
                         markx[region.connections["upper"]].xlow[1:-1, 0] = this_markx[
                             :, -1
                         ]
@@ -2998,28 +3017,28 @@ class Mesh:
                     this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
                     marky[region_name].ylow[1:-1, 1:-1] = this_marky
 
-                    if region.connections["inner"] is not None:
+                    if region.connections["inner"] not in (None, "fake"):
                         markx[region.connections["inner"]].ylow[-1, 1:-1] = this_markx[
                             0, :
                         ]
                         marky[region.connections["inner"]].ylow[-1, 1:-1] = this_marky[
                             0, :
                         ]
-                    if region.connections["outer"] is not None:
+                    if region.connections["outer"] not in (None, "fake"):
                         markx[region.connections["outer"]].ylow[0, 1:-1] = this_markx[
                             -1, :
                         ]
                         marky[region.connections["outer"]].ylow[0, 1:-1] = this_marky[
                             -1, :
                         ]
-                    if region.connections["lower"] is not None:
+                    if region.connections["lower"] not in (None, "fake"):
                         markx[region.connections["lower"]].ylow[1:-1, -1] = this_markx[
                             :, 0
                         ]
                         marky[region.connections["lower"]].ylow[1:-1, -1] = this_marky[
                             :, 0
                         ]
-                    if region.connections["upper"] is not None:
+                    if region.connections["upper"] not in (None, "fake"):
                         markx[region.connections["upper"]].ylow[1:-1, 0] = this_markx[
                             :, -1
                         ]
@@ -3039,28 +3058,28 @@ class Mesh:
                     this_marky = numpy.where(this_marky < 1.0, this_marky, 1.0)
                     marky[region_name].corners[1:-1, 1:-1] = this_marky
 
-                    if region.connections["inner"] is not None:
+                    if region.connections["inner"] not in (None, "fake"):
                         markx[region.connections["inner"]].corners[-1, 1:-1] = (
                             this_markx[0, :]
                         )
                         marky[region.connections["inner"]].corners[-1, 1:-1] = (
                             this_marky[0, :]
                         )
-                    if region.connections["outer"] is not None:
+                    if region.connections["outer"] not in (None, "fake"):
                         markx[region.connections["outer"]].corners[0, 1:-1] = (
                             this_markx[-1, :]
                         )
                         marky[region.connections["outer"]].corners[0, 1:-1] = (
                             this_marky[-1, :]
                         )
-                    if region.connections["lower"] is not None:
+                    if region.connections["lower"] not in (None, "fake"):
                         markx[region.connections["lower"]].corners[1:-1, -1] = (
                             this_markx[:, 0]
                         )
                         marky[region.connections["lower"]].corners[1:-1, -1] = (
                             this_marky[:, 0]
                         )
-                    if region.connections["upper"] is not None:
+                    if region.connections["upper"] not in (None, "fake"):
                         markx[region.connections["upper"]].corners[1:-1, 0] = (
                             this_markx[:, -1]
                         )

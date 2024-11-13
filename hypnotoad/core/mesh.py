@@ -3764,10 +3764,6 @@ class BoutMesh(Mesh):
             if hasattr(self.equilibrium, "psi_bdry_gfile"):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
 
-            if hasattr(self.equilibrium, "closed_wallarray"):
-                f.write("closed_wall_R", self.equilibrium.closed_wallarray[:, 0])
-                f.write("closed_wall_Z", self.equilibrium.closed_wallarray[:, 1])
-
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
@@ -3930,6 +3926,24 @@ class BoutMesh(Mesh):
             else:
                 # Field-aligned coordinates
                 f.write_file_attribute("parallel_transform", "identity")
+
+            if hasattr(self.equilibrium, "closed_wallarray"):
+                # Hack the "bout_type" for these variables to avoid creating a 't'
+                # dimension in the grid file.
+                f.write(
+                    "closed_wall_R",
+                    BoutArray(
+                        self.equilibrium.closed_wallarray[:, 0],
+                        attributes={"bout_type": "ArrayX"},
+                    ),
+                )
+                f.write(
+                    "closed_wall_Z",
+                    BoutArray(
+                        self.equilibrium.closed_wallarray[:, 1],
+                        attributes={"bout_type": "ArrayX"},
+                    ),
+                )
 
             # Save hypnotoad_inputs as a variable rather than an attribute because they
             # are long and attributes are printed by 'ncdump -h' or by ncdump when

@@ -263,6 +263,12 @@ class TokamakEquilibrium(Equilibrium):
             doc="Reverse the sign of toroidal magnetic field Bt.",
             value_type=bool,
         ),
+        single_region=WithMeta(
+            None,
+            doc="Select only a single region of the equilibrium to mesh. Currently "
+            "this must be a divertor leg region.",
+            value_type=[NoneType, str],
+        ),
         start_at_upper_outer=WithMeta(
             False,
             doc=(
@@ -767,17 +773,32 @@ class TokamakEquilibrium(Equilibrium):
             # Specifications for a double null (connected or disconnected)
             leg_regions, core_regions, segments, connections = self.describeDoubleNull()
 
-        # Create a new dictionary, which will contain all regions
-        # including core and legs
-        all_regions = leg_regions.copy()
-        all_regions.update(self.coreRegionToRegion(core_regions))
+        if self.user_options.single_region is not None:
+            this_region_name = self.user_options.single_region
+            if this_region_name not in leg_regions:
+                raise ValueError(
+                    f"single_region option only supports leg regions so far. Region "
+                    f"{this_region_name} not found in leg_regions {leg_regions.keys()}."
+                )
+            # Select just the single region `this_region_name`
+            all_regions = {this_region_name: leg_regions[this_region_name]}
+        else:
+            # Create a new dictionary, which will contain all regions
+            # including core and legs
+            all_regions = leg_regions.copy()
+            all_regions.update(self.coreRegionToRegion(core_regions))
 
         # Create the regions in an OrderedDict, assign to self.regions
         self.regions = self.createRegionObjects(all_regions, segments)
 
         # Make the connections between regions
-        for connection in connections:
-            self.makeConnection(*connection)
+        if self.user_options.single_region is not None:
+            print("making connections for single_region")
+            for connection in connections:
+                self.makeSingleRegionConnection(*connection)
+        else:
+            for connection in connections:
+                self.makeConnection(*connection)
 
     def describeSingleNull(self):
         """
@@ -1635,7 +1656,10 @@ class TokamakEquilibrium(Equilibrium):
         # The region objects need to be sorted, so that the
         # BoutMesh generator can use jyseps indices to introduce branch cuts
 
-        if "inner_lower_divertor" in region_objects:
+        if self.user_options.single_region is not None:
+            # Only a single region present
+            ordering = [self.user_options.single_region]
+        elif "inner_lower_divertor" in region_objects:
             if not self.user_options.start_at_upper_outer:
                 ordering = [
                     "inner_lower_divertor",

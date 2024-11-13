@@ -3910,6 +3910,32 @@ class Equilibrium:
         lRegion.connections[lowerSegment]["upper"] = (upperRegion, upperSegment)
         uRegion.connections[upperSegment]["lower"] = (lowerRegion, lowerSegment)
 
+    def makeSingleRegionConnection(
+        self, lowerRegion, lowerSegment, upperRegion, upperSegment
+    ):
+        """
+        Make fake connections for a `single_region` grid, if an edge of the region
+        should be connected in a full grid.
+        """
+        # Needs to be OrderedDict so that Mesh can iterate through it in consistent order
+        if not isinstance(self.regions, OrderedDict):
+            raise ValueError("self.regions should be OrderedDict")
+
+        single_region_name = [*self.regions.keys()][0]
+        single_region = self.regions[single_region_name]
+        if lowerRegion == single_region_name:
+            if single_region.connections[lowerSegment]["upper"] is not None:
+                raise ValueError(
+                    "single_region.connections['upper'] should not have been set already"
+                )
+            single_region.connections[lowerSegment]["upper"] = ("fake", upperSegment)
+        elif upperRegion == single_region_name:
+            if single_region.connections[upperSegment]["lower"] is not None:
+                raise ValueError(
+                    "single_region.connections['lower'] should not have been set already"
+                )
+            single_region.connections[upperSegment]["lower"] = ("fake", lowerSegment)
+
     def handleMultiLocationArray(getResult):
         @functools.wraps(getResult)
         # Define a function which handles MultiLocationArray arguments

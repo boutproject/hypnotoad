@@ -17,6 +17,7 @@ Release history
   of the grid with the wall. This enables immersed boundary conditions.
 - Wall coordinates are written to output grid as `closed_wall_R` and `closed_wall_Z`
   (#176)
+- Build grid for only a divertor leg region (#187).
 
 0.5.2 (13th March 2023)
 -------------------------

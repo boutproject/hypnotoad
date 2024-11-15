@@ -1067,7 +1067,6 @@ class MeshRegion:
         # Haven't checked this is exactly the quantity needed by BOUT++...
         # ShiftTorsion is only used in Curl operator - Curl is rarely used.
         self.ShiftTorsion = self.DDX("#dphidy")
-        self.hthe = self.hy / 1.0
 
         if self.user_options.orthogonal:
 
@@ -3729,7 +3728,7 @@ class BoutMesh(Mesh):
         addFromRegions("Btxy")
         addFromRegions("Bxy")
         addFromRegions("hy")
-        addFromRegions("hthe")
+
         # if not self.user_options.orthogonal:
         #    addFromRegions('beta')
         #    addFromRegions('eta')
@@ -3866,9 +3865,9 @@ class BoutMesh(Mesh):
             for name in ["Rxy", "Zxy"]:
                 self.writeCorners(name, self.__dict__[name], f)
 
-            # if self.user_options.orthogonal:
-            #    # Also write hy as "hthe" for backward compatibility
-            #    self.writeArray("hthe", self.hy, f)
+            if self.user_options.orthogonal:
+                # Also write hy as "hthe" for backward compatibility
+                self.writeArray("hthe", self.hy, f)
 
             # write the 1d fields
             for name in self.arrayXDirection_to_output:

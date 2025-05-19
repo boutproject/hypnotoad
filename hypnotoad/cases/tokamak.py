@@ -856,9 +856,14 @@ class TokamakEquilibrium(Equilibrium):
             dpsidi_pf = (self.psi_sep[0] - self.psi_pf_upper) / self.user_options.nx_pf
 
         # Get the smallest absolute grid spacing for the separatrix
+        # dpsidi_pf_minimum is introduced to avoid very narrow radial grid width
+        # around separatrix in core and SOL region and 0.3 is an emprical factor.
+        
         #dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs) 
         dpsidi_sep = min([dpsidi_sol, dpsidi_core], key=abs) # set dx at separatrix
-        
+        #dpsidi_pf_minimum = max([0.3*dpsidi_sep, 0.3*dpsidi_pf], key=abs)
+        dpsidi_pf_minimum = max([0.3*dpsidi_sep, dpsidi_pf], key=abs) 
+
         # decrease (assuming the factor is <1) the spacing around the separatrix by the
         # factor psi_spacing_separatrix_multiplier
         if self.user_options.psi_spacing_separatrix_multiplier is not None:
@@ -900,6 +905,7 @@ class TokamakEquilibrium(Equilibrium):
                 "psi_start": self.psi_pf_lower,
                 "psi_end": psi_sep,
                 "grad_end": dpsidi_sep,
+                "grad_start": dpsidi_pf_minimum,
             }
 
             leg_regions = {
@@ -950,6 +956,7 @@ class TokamakEquilibrium(Equilibrium):
                 "psi_start": self.psi_pf_upper,
                 "psi_end": psi_sep,
                 "grad_end": dpsidi_sep,
+                "grad_start": dpsidi_pf_minimum,
             }
 
             leg_regions = {

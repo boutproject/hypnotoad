@@ -3767,15 +3767,10 @@ class BoutMesh(Mesh):
         addFromRegions("bxcvx")
         addFromRegions("bxcvy")
         addFromRegions("bxcvz")
-        """
-        if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
-            addFromRegions("pressure")
 
-        if hasattr(next(iter(self.regions.values())), "Jpar0"):
-            addFromRegions("Jpar0")
-        """
         addFromRegions("pressure")
         addFromRegions("Jpar0")
+        
         # Penalty mask
         self.penalty_mask = BoutArray(
             numpy.zeros((self.nx, self.ny)),

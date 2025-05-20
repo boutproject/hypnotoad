@@ -950,6 +950,18 @@ class MeshRegion:
                 self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
             )
 
+
+        # set dummy data for kinetic quantities if kinetic_data is True. H. Seto (QST)
+        # they will be added in the post-script with peqdsk file
+        # since peqdsk file doesn't have uniform file format. 
+        # 
+        # ni0: bulk ion number density 
+        # resistivity: Spitzer resistivity 
+        #
+        if self.user_options.kinetic_data:
+            self.ni0 = MultiLocationArray(self.nx, self.ny).zero()
+            self.resistivity = MultiLocationArray(self.nx, self.ny).zero()
+        
     def geometry2(self):
         """
         Continuation of geometry1(), but needs neighbours to have calculated Bp so called
@@ -3770,7 +3782,11 @@ class BoutMesh(Mesh):
 
         addFromRegions("pressure")
         addFromRegions("Jpar0")
-        
+
+        if self.user_options.kinetic_data:
+            addFromRegions("ni0")
+            addFromRegions("resistivity")
+            
         # Penalty mask
         self.penalty_mask = BoutArray(
             numpy.zeros((self.nx, self.ny)),

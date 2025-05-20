@@ -958,7 +958,7 @@ class MeshRegion:
         # ni0: bulk ion number density 
         # resistivity: Spitzer resistivity 
         #
-        if self.user_options.kinetic_data:
+        if self.user_options.kinetic_profiles:
             self.ni0 = MultiLocationArray(self.nx, self.ny).zero()
             self.resistivity = MultiLocationArray(self.nx, self.ny).zero()
         
@@ -3783,7 +3783,7 @@ class BoutMesh(Mesh):
         addFromRegions("pressure")
         addFromRegions("Jpar0")
 
-        if self.user_options.kinetic_data:
+        if self.user_options.kinetic_profiles:
             addFromRegions("ni0")
             addFromRegions("resistivity")
             

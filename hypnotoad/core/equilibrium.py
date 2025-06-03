@@ -2372,6 +2372,7 @@ class EquilibriumRegion(PsiContour):
                 "poloidal_orthogonal_combined",
                 "perp_orthogonal_combined",
                 "orthogonal",
+                "linear",
             ],
         ),
     )
@@ -2851,6 +2852,14 @@ class EquilibriumRegion(PsiContour):
                     spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
                     spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
+            elif (
+                self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal"
+            ):
+                sfunc = self.getLinearPoloidalDistanceFunc(
+                    distance,
+                    npoints - 1,
+                )
+                self._checkMonotonic([(sfunc, "linear")], total_distance=distance)
             else:
                 sfunc = self.getSfuncFixedSpacing(
                     npoints,

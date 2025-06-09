@@ -4,6 +4,10 @@ Release history
 ### Bug fixes
 - When using the GUI, if there is an error in `TokamakEquilibrium` object
   creation, still plot the equilibrium data (#186).
+  By [John Omotani](https://github.com/johnomotani)
+- Set the dimension for R_closed_wall and Z_closed_wall to 'closed_wall'. Fixes
+  loading of grid files by xBOUT (#190).
+  By [John Omotani](https://github.com/johnomotani)
 
 
 ### New features
@@ -11,12 +15,16 @@ Release history
 - Radial grid line construction can recover from failure and generate
   a rough grid to help visual inspection when option
   `follow_perpendicular_recover` is set to True (#175)
+  By [Ben Dudson](https://github.com/bendudson)
 - A `View` menu enables the grid plot to be customised, with cell edges, corners,
   grid lines and other components (#176).
+  By [Ben Dudson](https://github.com/bendudson)
 - `penalty_mask` is calculated and written to the grid file, based on intersection
   of the grid with the wall. This enables immersed boundary conditions.
+  By [Ben Dudson](https://github.com/bendudson)
 - Wall coordinates are written to output grid as `closed_wall_R` and `closed_wall_Z`
   (#176)
+  By [Ben Dudson](https://github.com/bendudson)
 
 0.5.2 (13th March 2023)
 -------------------------

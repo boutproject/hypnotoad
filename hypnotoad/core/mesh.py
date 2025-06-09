@@ -3728,8 +3728,16 @@ class BoutMesh(Mesh):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
 
             if hasattr(self.equilibrium, "closed_wallarray"):
-                f.write("closed_wall_R", self.equilibrium.closed_wallarray[:, 0])
-                f.write("closed_wall_Z", self.equilibrium.closed_wallarray[:, 1])
+                f.write(
+                    "closed_wall_R",
+                    self.equilibrium.closed_wallarray[:, 0],
+                    dims=("closed_wall",),
+                )
+                f.write(
+                    "closed_wall_Z",
+                    self.equilibrium.closed_wallarray[:, 1],
+                    dims=("closed_wall",),
+                )
 
             # write the 2d fields
             for name in self.fields_to_output:

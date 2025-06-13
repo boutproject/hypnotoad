@@ -8,6 +8,7 @@ Release history
 - Set the dimension for R_closed_wall and Z_closed_wall to 'closed_wall'. Fixes
   loading of grid files by xBOUT (#191).
   By [John Omotani](https://github.com/johnomotani)
+- Calculate the parallel distance along field lines, and save to the output (#193).
 
 
 ### New features

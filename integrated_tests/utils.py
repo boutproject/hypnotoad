@@ -19,9 +19,12 @@ expected_different_vars = [
     "module_versions",
     # Variables that have been added. These entries can be removed if/when the
     # expected output is re-generated.
-    "penalty_mask",
-    "closed_wall_R",
-    "closed_wall_Z",
+]
+
+# Variables that are extra sensitive to rounding errors. Tolerances will be increased by
+# 1e2 for these variables.
+expected_large_error_vars = [
+    "ShiftTorsion_ylow",
 ]
 
 
@@ -111,11 +114,21 @@ def run_case(name, inputfile, expectedfile, *, rtol, atol, diagnose, add_noise=N
         .load()
         .drop(expected_different_vars, errors="ignore")
     )
+    if add_noise is not None:
+        # Increase tolerances for some variables that are sensitive to rounding errors.
+        expected_large_errors = expected[expected_large_error_vars]
+        expected = expected.drop(expected_large_error_vars)
+        actual_large_errors = actual[expected_large_error_vars]
+        actual = actual.drop(expected_large_error_vars)
 
     if diagnose:
         check_errors(expected, actual, rtol=rtol, atol=atol)
 
     xrt.assert_allclose(expected, actual, rtol=rtol, atol=atol)
+    if add_noise is not None:
+        xrt.assert_allclose(
+            expected_large_errors, actual_large_errors, rtol=1e2 * rtol, atol=1e2 * atol
+        )
 
     for attrname in expected_different_attrs:
         del expected.attrs[attrname]

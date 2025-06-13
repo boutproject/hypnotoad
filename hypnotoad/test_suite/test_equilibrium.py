@@ -362,6 +362,24 @@ def test_closest_approach_right():
     assert numpy.isclose(cpa, 0.5)
 
 
+class ThisEquilibrium(Equilibrium):
+    def __init__(self, settings=None, wall=None):
+        if settings is None:
+            settings = {}
+        self.user_options = Equilibrium.user_options_factory.add(
+            refine_width=1.0e-5, refine_atol=2.0e-8
+        ).create(settings)
+
+        if wall is not None:
+            self.wall = wall
+
+        self.fpol = lambda psi: 1.0 + 0.0 * psi
+        self.Bp_R = lambda R, Z: 1.0 + 0.0 * R
+        self.Bp_Z = lambda R, Z: 1.0 + 0.0 * R
+
+        super().__init__({})
+
+
 class TestContour:
     @pytest.fixture
     def testcontour(self):
@@ -394,9 +412,22 @@ class TestContour:
 
         return returnObject()
 
-    def test_distance(self, testcontour):
+    @pytest.fixture
+    def eq(self):
+        wall = [
+            Point2D(-1.0, -1.0),
+            Point2D(1.0, -1.0),
+            Point2D(1.0, 1.0),
+            Point2D(-1.0, 1.0),
+        ]
+        eq = ThisEquilibrium(wall=wall)
+        return eq
+
+    def test_distance(self, testcontour, eq):
         segment_length = testcontour.r * numpy.pi / (testcontour.npoints - 1)
-        assert testcontour.c.get_distance(psi=testcontour.psi) == pytest.approx(
+        assert testcontour.c.get_distance(
+            psi=testcontour.psi, equilibrium=eq
+        ) == pytest.approx(
             segment_length * numpy.arange(testcontour.npoints), abs=1.0e-4
         )
 
@@ -412,29 +443,29 @@ class TestContour:
         assert p.R == tight_approx(testcontour.R[5])
         assert p.Z == tight_approx(testcontour.Z[5])
 
-    def test_append(self, testcontour):
+    def test_append(self, testcontour, eq):
         c = testcontour.c
         point_to_add = c[-2]
-        expected_distance = c.get_distance(psi=testcontour.psi)[-2]
+        expected_distance = c.get_distance(psi=testcontour.psi, equilibrium=eq)[-2]
         del c.points[-1]
         del c.points[-1]
         c.endInd = -1
         c.append(point_to_add)
-        assert c.get_distance(psi=testcontour.psi)[-1] == pytest.approx(
+        assert c.get_distance(psi=testcontour.psi, equilibrium=eq)[-1] == pytest.approx(
             expected_distance, abs=4.0e-5
         )
 
-    def test_prepend(self, testcontour):
+    def test_prepend(self, testcontour, eq):
         c = testcontour.c
         c.startInd = 3
         c.endInd = -1
         point_to_add = c[1]
-        expected_distance = c.get_distance(psi=testcontour.psi)[1]
+        expected_distance = c.get_distance(psi=testcontour.psi, equilibrium=eq)[1]
         del c.points[0]
         del c.points[0]
         c.startInd = 1
         c.prepend(point_to_add)
-        assert c.get_distance(psi=testcontour.psi)[1] == pytest.approx(
+        assert c.get_distance(psi=testcontour.psi, equilibrium=eq)[1] == pytest.approx(
             expected_distance, abs=6.0e-4
         )
         assert c.startInd == 1
@@ -455,20 +486,20 @@ class TestContour:
         assert c[5] == point_to_add
         assert c.endInd == 22
 
-    def test_reverse(self, testcontour):
+    def test_reverse(self, testcontour, eq):
         c = testcontour.c
         orig = deepcopy(c)
 
         c.reverse()
 
         n = len(orig)
-        total_d = orig.get_distance(psi=testcontour.psi)[-1]
+        total_d = orig.get_distance(psi=testcontour.psi, equilibrium=eq)[-1]
         for i in range(n):
             assert orig[n - 1 - i].R == tight_approx(c[i].R)
             assert orig[n - 1 - i].Z == tight_approx(c[i].Z)
-            assert total_d - orig.get_distance(psi=testcontour.psi)[
+            assert total_d - orig.get_distance(psi=testcontour.psi, equilibrium=eq)[
                 n - 1 - i
-            ] == tight_approx(c.get_distance(psi=testcontour.psi)[i])
+            ] == tight_approx(c.get_distance(psi=testcontour.psi, equilibrium=eq)[i])
 
     def test_insertFindPosition(self, testcontour):
         c = testcontour.c
@@ -500,8 +531,8 @@ class TestContour:
         assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-9)
         assert pend.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
 
-    def test_interpFunction(self, testcontour):
-        f = testcontour.c.interpFunction(psi=testcontour.psi)
+    def test_interpFunction(self, testcontour, eq):
+        f = testcontour.c.interpFunction(psi=testcontour.psi, equilibrium=eq)
         pstart = f(0.0)
         pend = f(numpy.pi * testcontour.r)
         assert pstart.R == pytest.approx(testcontour.R0 + testcontour.r, abs=1.0e-9)
@@ -509,7 +540,7 @@ class TestContour:
         assert pend.R == pytest.approx(testcontour.R0 - testcontour.r, abs=1.0e-8)
         assert pend.Z == pytest.approx(testcontour.Z0, abs=1.0e-5)
 
-    def test_getRegridded(self, testcontour):
+    def test_getRegridded(self, testcontour, eq):
         orig = testcontour.c
         r = testcontour.r
 
@@ -521,7 +552,7 @@ class TestContour:
         def sfunc(i):
             return (
                 numpy.sqrt(i / (newNpoints - 1))
-                * orig.get_distance(psi=testcontour.psi)[-1]
+                * orig.get_distance(psi=testcontour.psi, equilibrium=eq)[-1]
             )
 
         newTheta = sfunc_true(numpy.arange(newNpoints)) / r
@@ -529,19 +560,20 @@ class TestContour:
         newZ = testcontour.Z0 + r * numpy.sin(newTheta)
 
         new = orig.getRegridded(
-            newNpoints, psi=testcontour.psi, sfunc=sfunc, width=1.0e-3
+            newNpoints, psi=testcontour.psi, equilibrium=eq, sfunc=sfunc, width=1.0e-3
         )
 
         assert [p.R for p in new] == pytest.approx(newR, abs=4.0e-4)
         assert [p.Z for p in new] == pytest.approx(newZ, abs=4.0e-4)
 
-    def test_getRegridded_extend(self, testcontour):
+    def test_getRegridded_extend(self, testcontour, eq):
         c = testcontour.c
         orig = c.newContourFromSelf()
 
         new = c.getRegridded(
             testcontour.npoints,
             psi=testcontour.psi,
+            equilibrium=eq,
             width=0.1,
             extend_lower=1,
             extend_upper=2,
@@ -564,7 +596,7 @@ class TestContour:
             [orig[-3].R, 2.0 * testcontour.Z0 - orig[-3].Z], abs=1.0e-7
         )
 
-    def test_contourSfunc(self, testcontour):
+    def test_contourSfunc(self, testcontour, eq):
         c = testcontour.c
         c.startInd = 2
         c.endInd = len(c) - 2
@@ -572,22 +604,24 @@ class TestContour:
         c.extend_lower = 2
         c.extend_upper = 2
 
-        f = c.contourSfunc(psi=testcontour.psi)
+        f = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
 
         indices = numpy.arange(n, dtype=float)
         assert f(indices) == tight_approx(
             [
-                d - c.get_distance(psi=testcontour.psi)[c.startInd]
-                for d in c.get_distance(psi=testcontour.psi)[c.startInd : c.endInd + 1]
+                d - c.get_distance(psi=testcontour.psi, equilibrium=eq)[c.startInd]
+                for d in c.get_distance(psi=testcontour.psi, equilibrium=eq)[
+                    c.startInd : c.endInd + 1
+                ]
             ]
         )
         assert f(-1.0) == tight_approx(0.0)
         assert f(n + 1.0) == tight_approx(
-            c.get_distance(psi=testcontour.psi)[c.endInd]
-            - c.get_distance(psi=testcontour.psi)[c.startInd]
+            c.get_distance(psi=testcontour.psi, equilibrium=eq)[c.endInd]
+            - c.get_distance(psi=testcontour.psi, equilibrium=eq)[c.startInd]
         )
 
-    def test_contourSfunc_list(self, testcontour):
+    def test_contourSfunc_list(self, testcontour, eq):
         c1 = testcontour.c
         c1.startInd = 2
         c1.endInd = len(c1) - 2
@@ -626,7 +660,7 @@ class TestContour:
         # the last value from the loop instead of the value when 'sfunc' was added to
         # 'sfunc_list'
         for c in c_list:
-            sfunc_orig = c.contourSfunc(psi=testcontour.psi)
+            sfunc_orig = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
 
             sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
@@ -643,7 +677,7 @@ class TestContour:
         # This version does work, because when the lambda is evaluated it uses
         # 'sfunc_orig' from the scope of 'shift_sfunc' in which it was created.
         def shift_sfunc(c):
-            sfunc_orig = c.contourSfunc(psi=testcontour.psi)
+            sfunc_orig = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
             return lambda i: sfunc_orig(i) - 3.0
 
         for c in c_list:
@@ -656,24 +690,29 @@ class TestContour:
             n2 / (npoints2 - 1.0) * 1.5 * numpy.pi * r - 3.0, abs=4.0e-6
         )
 
-    def test_interpSSperp(self, testcontour):
+    def test_interpSSperp(self, testcontour, eq):
         c = testcontour.c
 
         # Make c.startInd > 0
         c.insert(0, Point2D(c[1].R, 2.0 * c[0].Z - c[1].Z))
 
         # 'vec' argument is in Z-direction, so 's_perp' is displacement in R-direction
-        sfunc, s_perp_total = c.interpSSperp([0.0, 1.0], psi=testcontour.psi)
+        sfunc, s_perp_total = c.interpSSperp(
+            [0.0, 1.0], psi=testcontour.psi, equilibrium=eq
+        )
         assert sfunc(0.0) == tight_approx(0.0)
         assert sfunc(1.0) == pytest.approx(numpy.pi / 2.0, abs=1.0e-6)
         assert sfunc(2.0) == pytest.approx(numpy.pi, abs=2.0e-6)
         assert s_perp_total == tight_approx(2.0)
 
-    def test_FineContour(self, testcontour):
+    def test_FineContour(self, testcontour, eq):
         testcontour.c.refine_width = 1.0e-2
 
         fc = FineContour(
-            testcontour.c, dict(testcontour.c.user_options), psi=testcontour.psi
+            testcontour.c,
+            dict(testcontour.c.user_options),
+            psi=testcontour.psi,
+            equilibrium=eq,
         )
 
         assert fc.totalDistance() == pytest.approx(numpy.pi, abs=1.0e-5)
@@ -689,7 +728,7 @@ class TestContour:
                 testcontour.Z0 + r * numpy.sin(theta), abs=1.0e-4
             )
 
-    def test_finecontour_extent_lower(self, testcontour):
+    def test_finecontour_extent_lower(self, testcontour, eq):
         contour = testcontour.c
 
         contour_initial = contour[0]
@@ -698,15 +737,15 @@ class TestContour:
 
         # This will create contour._fine_contour and check that contour._distance
         # is monotonic at this point
-        contour.get_distance(psi=testcontour.psi)
+        contour.get_distance(psi=testcontour.psi, equilibrium=eq)
 
         contour.prepend(contour_initial)
 
         # Check that after modifying contour, contour._fine_contour still extends far
         # enough to give a monotonic contour._distance
-        contour.get_distance(psi=testcontour.psi)
+        contour.get_distance(psi=testcontour.psi, equilibrium=eq)
 
-    def test_finecontour_extent_upper(self, testcontour):
+    def test_finecontour_extent_upper(self, testcontour, eq):
         contour = testcontour.c
 
         contour_final = contour[-1]
@@ -715,26 +754,12 @@ class TestContour:
 
         # This will create contour._fine_contour and check that contour._distance
         # is monotonic at this point
-        contour.get_distance(psi=testcontour.psi)
+        contour.get_distance(psi=testcontour.psi, equilibrium=eq)
 
         contour.append(contour_final)
         # Check that after modifying contour, contour._fine_contour still extends far
         # enough to give a monotonic contour._distance
-        contour.get_distance(psi=testcontour.psi)
-
-
-class ThisEquilibrium(Equilibrium):
-    def __init__(self, settings=None, wall=None):
-        if settings is None:
-            settings = {}
-        self.user_options = Equilibrium.user_options_factory.add(
-            refine_width=1.0e-5, refine_atol=2.0e-8
-        ).create(settings)
-
-        if wall is not None:
-            self.wall = wall
-
-        super().__init__({})
+        contour.get_distance(psi=testcontour.psi, equilibrium=eq)
 
 
 class TestEquilibrium:
@@ -1281,7 +1306,7 @@ class TestEquilibriumRegion:
 
     def test_combineSfuncsPoloidalSpacing(self, eqReg):
         n = len(eqReg)
-        L = eqReg.totalDistance(psi=eqReg.psi)
+        L = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         eqReg.resetNonorthogonalOptions(
             {"nonorthogonal_target_all_poloidal_spacing_length": L}
@@ -1300,7 +1325,7 @@ class TestEquilibriumRegion:
 
     def test_combineSfuncsPoloidalSpacingRangeLower(self, eqReg):
         n = len(eqReg)
-        L = eqReg.totalDistance(psi=eqReg.psi)
+        L = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         new_settings = {
             "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
@@ -1327,7 +1352,7 @@ class TestEquilibriumRegion:
 
     def test_combineSfuncsPoloidalSpacingRangeUpper(self, eqReg):
         n = len(eqReg)
-        L = eqReg.totalDistance(psi=eqReg.psi)
+        L = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         new_settings = {
             "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
@@ -1354,7 +1379,7 @@ class TestEquilibriumRegion:
 
     def test_combineSfuncsPoloidalSpacingRangeBoth(self, eqReg):
         n = len(eqReg)
-        L = eqReg.totalDistance(psi=eqReg.psi)
+        L = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         new_settings = {
             "nonorthogonal_target_all_poloidal_spacing_length": L * 40.0 / (n - 1),
@@ -1397,12 +1422,16 @@ class TestEquilibriumRegion:
         eqReg.sin_angle_at_end = 1.0
         eqReg.name = "inner_lower"
 
-        sfunc_orthogonal_original = eqReg.contourSfunc(psi=eqReg.psi)
+        sfunc_orthogonal_original = eqReg.contourSfunc(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )
 
         # as if lower_wall
         intersect_index = 2
         original_start = eqReg.startInd
-        distance_at_original_start = eqReg.get_distance(psi=eqReg.psi)[original_start]
+        distance_at_original_start = eqReg.get_distance(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )[original_start]
 
         d = 1.5 * 3.0 / (n - 1.0)
         eqReg.points.insert(intersect_index, Point2D(d, d))
@@ -1410,7 +1439,9 @@ class TestEquilibriumRegion:
         if original_start >= intersect_index:
             original_start += 1
 
-        distance_at_wall = eqReg.get_distance(psi=eqReg.psi)[intersect_index]
+        distance_at_wall = eqReg.get_distance(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )[intersect_index]
 
         sfunc_orthogonal = (
             lambda i: sfunc_orthogonal_original(i)
@@ -1422,12 +1453,14 @@ class TestEquilibriumRegion:
         eqReg.extend_lower = intersect_index
         eqReg.extend_upper = 1
 
-        d = eqReg.totalDistance(psi=eqReg.psi)
+        d = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal, [0.0, 1.0], [1.0, 0.0])
 
         assert sfunc(0.0) == tight_approx(0.0)
-        assert sfunc(n - 1.0) == tight_approx(eqReg.totalDistance(psi=eqReg.psi))
+        assert sfunc(n - 1.0) == tight_approx(
+            eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
+        )
 
     def test_combineSfuncsPoloidalSpacingIntegrated(self, eqReg):
         # This test follows roughly the operations in
@@ -1443,7 +1476,9 @@ class TestEquilibriumRegion:
         eqReg.ny_total = 40
         eqReg.name = "outer_lower"
 
-        sfunc_orthogonal_original = eqReg.contourSfunc(psi=eqReg.psi)
+        sfunc_orthogonal_original = eqReg.contourSfunc(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )
 
         # as if lower_wall
         intersect_index = 2
@@ -1454,9 +1489,13 @@ class TestEquilibriumRegion:
 
         if original_start >= intersect_index:
             original_start += 1
-        distance_at_original_start = eqReg.get_distance(psi=eqReg.psi)[original_start]
+        distance_at_original_start = eqReg.get_distance(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )[original_start]
 
-        distance_at_wall = eqReg.get_distance(psi=eqReg.psi)[intersect_index]
+        distance_at_wall = eqReg.get_distance(
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+        )[intersect_index]
 
         sfunc_orthogonal = (
             lambda i: sfunc_orthogonal_original(i)
@@ -1468,9 +1507,11 @@ class TestEquilibriumRegion:
         eqReg.extend_lower = intersect_index
         eqReg.extend_upper = 1
 
-        d = eqReg.totalDistance(psi=eqReg.psi)
+        d = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
 
         sfunc = eqReg.combineSfuncs(eqReg, sfunc_orthogonal)
 
         assert sfunc(0.0) == tight_approx(0.0)
-        assert sfunc(n - 1.0) == tight_approx(eqReg.totalDistance(psi=eqReg.psi))
+        assert sfunc(n - 1.0) == tight_approx(
+            eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)
+        )

@@ -289,7 +289,8 @@ class MeshRegion:
         # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
         # because then the vector will not change when the grid resolution changes
         fine_contour = self.equilibriumRegion.get_fine_contour(
-            psi=self.equilibriumRegion.psi
+            psi=self.equilibriumRegion.psi,
+            equilibrium=self.meshParent.equilibrium,
         )
         if self.equilibriumRegion.wallSurfaceAtStart is None:
             # lower end
@@ -385,7 +386,9 @@ class MeshRegion:
         # point makes the spacing of points on the contour not-smooth) and adjusted for
         # the change in distance after redefining startInd to be at the wall
         self.sfunc_orthogonal_list = [
-            contour.contourSfunc(psi=self.equilibriumRegion.psi)
+            contour.contourSfunc(
+                psi=self.equilibriumRegion.psi, equilibrium=self.meshParent.equilibrium
+            )
             for contour in self.contours
         ]
 
@@ -447,7 +450,8 @@ class MeshRegion:
                     # Calculate total distance using a new FineContour, created at this
                     # point
                     new_total_distance = contour.totalDistance(
-                        psi=self.equilibriumRegion.psi
+                        psi=self.equilibriumRegion.psi,
+                        equilibrium=self.meshParent.equilibrium,
                     )
 
                     return (
@@ -647,6 +651,7 @@ class MeshRegion:
             c.regrid(
                 2 * self.ny_noguards + 1,
                 psi=self.equilibriumRegion.psi,
+                equilibrium=self.meshParent.equilibrium,
                 sfunc=get_sfunc(i, c, sfunc_orth),
                 extend_lower=self.equilibriumRegion.extend_lower,
                 extend_upper=self.equilibriumRegion.extend_upper,
@@ -856,6 +861,7 @@ class MeshRegion:
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
         self.calcPoloidalDistance()
+        self.calcParallelDistance()
 
         if hasattr(
             self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pressure"
@@ -1363,13 +1369,19 @@ class MeshRegion:
         for i in range(self.nx):
             print(f"{self.name} calcHy {i} / {2 * self.nx + 1}", end="\r", flush=True)
             d = numpy.array(
-                self.contours[2 * i + 1].get_distance(psi=self.equilibriumRegion.psi)
+                self.contours[2 * i + 1].get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
             )
             hy.centre[i, :] = d[2::2] - d[:-2:2]
             hy.ylow[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
             if self.connections["lower"] is not None:
                 cbelow = self.getNeighbour("lower").contours[2 * i + 1]
-                dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
+                dbelow = cbelow.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.ylow[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1377,7 +1389,10 @@ class MeshRegion:
                 hy.ylow[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i + 1]
-                dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
+                dabove = cabove.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.ylow[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1391,13 +1406,19 @@ class MeshRegion:
                 flush=True,
             )
             d = numpy.array(
-                self.contours[2 * i].get_distance(psi=self.equilibriumRegion.psi)
+                self.contours[2 * i].get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
             )
             hy.xlow[i, :] = d[2::2] - d[:-2:2]
             hy.corners[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
             if self.connections["lower"] is not None:
                 cbelow = self.getNeighbour("lower").contours[2 * i]
-                dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
+                dbelow = cbelow.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.corners[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1405,7 +1426,10 @@ class MeshRegion:
                 hy.corners[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i]
-                dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
+                dabove = cabove.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.corners[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1548,7 +1572,10 @@ class MeshRegion:
         while True:
             print("calcZShift", region.name, end="\r", flush=True)
             for i, contour in enumerate(region.contours):
-                fine_contour = contour.get_fine_contour(psi=self.equilibriumRegion.psi)
+                fine_contour = contour.get_fine_contour(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 fine_distance = fine_contour.distance
 
                 def integrand_func(R, Z):
@@ -1581,7 +1608,10 @@ class MeshRegion:
                     fine_distance, zShift_fine, kind="linear", assume_sorted=True
                 )
                 zShift_contour = zShift_interpolator(
-                    contour.get_distance(psi=self.equilibriumRegion.psi)
+                    contour.get_distance(
+                        psi=self.equilibriumRegion.psi,
+                        equilibrium=self.meshParent.equilibrium,
+                    )
                 )
 
                 if i % 2 == 0:
@@ -1650,21 +1680,25 @@ class MeshRegion:
             c = region.contours[2 * i + 1]
             # Cell-centre points
             region.poloidal_distance.centre[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
             # ylow points
             region.poloidal_distance.ylow[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
         for i in range(self.nx + 1):
             c = region.contours[2 * i]
             # Cell-centre points
             region.poloidal_distance.xlow[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
             # ylow points
             region.poloidal_distance.corners[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
 
         # Get distances from contours
@@ -1673,21 +1707,25 @@ class MeshRegion:
                 c = region.contours[2 * i + 1]
                 # Cell-centre points
                 region.poloidal_distance.centre[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[1::2]
                 # ylow points
                 region.poloidal_distance.ylow[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[::2]
             for i in range(self.nx + 1):
                 c = region.contours[2 * i]
                 # Cell-centre points
                 region.poloidal_distance.xlow[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[1::2]
                 # ylow points
                 region.poloidal_distance.corners[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[::2]
 
             next_region = region.getNeighbour("upper")
@@ -1723,6 +1761,115 @@ class MeshRegion:
                 :, -1
             ]
             self.total_poloidal_distance.xlow[:, 0] = region.poloidal_distance.corners[
+                :, -1
+            ]
+
+    def calcParallelDistance(self):
+        """
+        Calculate parallel distance by following contours between regions.
+        """
+        # Cannot just test 'connections['lower'] is not None' because periodic regions
+        # always have a lower connection - requires us to give a yGroupIndex to each
+        # region when creating the groups.
+        if self.yGroupIndex != 0:
+            return None
+
+        region = self
+        region.parallel_distance = MultiLocationArray(region.nx, region.ny)
+        region.parallel_distance.centre = 0.0
+        region.parallel_distance.ylow = 0.0
+        region.parallel_distance.xlow = 0.0
+        region.parallel_distance.corners = 0.0
+
+        # Initialise so that distance counts from the lower wall (for SOL/PFR) or wall
+        # (for core)
+        for i in range(self.nx):
+            c = region.contours[2 * i + 1]
+            # Cell-centre points
+            region.parallel_distance.centre[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+            # ylow points
+            region.parallel_distance.ylow[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+        for i in range(self.nx + 1):
+            c = region.contours[2 * i]
+            # Cell-centre points
+            region.parallel_distance.xlow[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+            # ylow points
+            region.parallel_distance.corners[i, :] -= (
+                c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[c.startInd],
+            )
+
+        # Get distances from contours
+        while True:
+            for i in range(self.nx):
+                c = region.contours[2 * i + 1]
+                # Cell-centre points
+                region.parallel_distance.centre[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[1::2]
+                # ylow points
+                region.parallel_distance.ylow[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[::2]
+            for i in range(self.nx + 1):
+                c = region.contours[2 * i]
+                # Cell-centre points
+                region.parallel_distance.xlow[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[1::2]
+                # ylow points
+                region.parallel_distance.corners[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[::2]
+
+            next_region = region.getNeighbour("upper")
+            if (next_region is None) or (next_region is self):
+                # Note: If periodic, next_region is self (back to start)
+                break
+            else:
+                # Initialise with values at the lower y-boundary of next_region
+                next_region.parallel_distance = MultiLocationArray(
+                    next_region.nx, next_region.ny
+                )
+                next_region.parallel_distance.centre[:, :] = (
+                    region.parallel_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.ylow[:, :] = (
+                    region.parallel_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.xlow[:, :] = (
+                    region.parallel_distance.corners[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.corners[:, :] = (
+                    region.parallel_distance.corners[:, -1, numpy.newaxis]
+                )
+                region = next_region
+
+        # Save total parallel distance in core
+        self.total_parallel_distance = MultiLocationArray(region.nx, 1)
+        if self.connections["lower"] is not None:
+            # This is a periodic region (we already checked that the self.yGroupIndex is
+            # 0).
+            # 'region' is the last region in the y-group
+            self.total_parallel_distance.centre[:, 0] = region.parallel_distance.ylow[
+                :, -1
+            ]
+            self.total_parallel_distance.xlow[:, 0] = region.parallel_distance.corners[
                 :, -1
             ]
 
@@ -2306,13 +2453,13 @@ class MeshRegion:
         setattr(self, varname, tmp)
 
 
-def _calc_contour_distance(i, c, *, psi, **kwargs):
+def _calc_contour_distance(i, c, *, psi, equilibrium, **kwargs):
     print(
         f"Calculating contour distances: {i + 1}",
         end="\r",
         flush=True,
     )
-    c.get_distance(psi=psi)
+    c.get_distance(psi=psi, equilibrium=equilibrium)
     return c
 
 
@@ -2369,7 +2516,7 @@ def _find_intersection(
                 break
 
         count = 0
-        distance = contour.get_distance(psi=psi)
+        distance = contour.get_distance(psi=psi, equilibrium=equilibrium)
         ds_extend = distance[1] - distance[0]
         while coarse_lower_intersect is None:
             # contour has not yet intersected with wall, so make it longer and
@@ -2401,8 +2548,8 @@ def _find_intersection(
         # points
         #
         # first find nearest FineContour points
-        fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_lower_intersect)
+        fine_contour = contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
+        d, _ = fine_contour.getDistance(coarse_lower_intersect)
         i_fine = numpy.searchsorted(fine_contour.distance, d)
         # Intersection should be between i_fine-1 and i_fine, but check
         # intervals on either side if necessary
@@ -2455,7 +2602,7 @@ def _find_intersection(
                 break
 
         count = 0
-        distance = contour.get_distance(psi=psi)
+        distance = contour.get_distance(psi=psi, equilibrium=equilibrium)
         ds_extend = distance[-1] - distance[-2]
         while coarse_upper_intersect is None:
             # contour has not yet intersected with wall, so make it longer and
@@ -2487,8 +2634,8 @@ def _find_intersection(
         # points
         #
         # first find nearest FineContour points
-        fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_upper_intersect)
+        fine_contour = contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
+        d, _ = fine_contour.getDistance(coarse_upper_intersect)
         i_fine = numpy.searchsorted(fine_contour.distance, d)
         # Intersection should be between i_fine-1 and i_fine, but check
         # intervals on either side if necessary
@@ -2525,7 +2672,7 @@ def _find_intersection(
         )
 
     # Create FineContour for result, so that this is done in parallel
-    contour.get_fine_contour(psi=psi)
+    contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
 
     return (
         contour,
@@ -2536,7 +2683,7 @@ def _find_intersection(
     )
 
 
-def _refine_extend(i, contour, *, psi, **kwargs):
+def _refine_extend(i, contour, *, psi, equilibrium, **kwargs):
     print(
         "refine and extend",
         i,
@@ -2544,7 +2691,7 @@ def _refine_extend(i, contour, *, psi, **kwargs):
         flush=True,
     )
     contour.refine(psi=psi)
-    contour.checkFineContourExtend(psi=psi)
+    contour.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
     return contour
 
 
@@ -2695,6 +2842,7 @@ class Mesh:
                 eq_region_with_boundaries = eq_region.getRegridded(
                     radialIndex=i,
                     psi=self.equilibrium.psi,
+                    equilibrium=self.equilibrium,
                     width=self.user_options.refine_width,
                 )
                 self.regions[region_id] = MeshRegion(
@@ -3614,6 +3762,8 @@ class BoutMesh(Mesh):
         addFromRegions("dy")
         addFromRegions("poloidal_distance")
         addFromRegionsXArray("total_poloidal_distance")
+        addFromRegions("parallel_distance")
+        addFromRegionsXArray("total_parallel_distance")
         addFromRegions("Brxy")
         addFromRegions("Bzxy")
         addFromRegions("Bpxy")

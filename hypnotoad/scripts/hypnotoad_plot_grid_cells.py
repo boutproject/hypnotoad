@@ -136,16 +136,17 @@ def main():
         # Note: have to use `s` to set marker size, because xarray has used a `size`
         # kwarg for something else.
         ds_region.isel(
-            x=slice(xin, xout_centre), theta=slice(ylow, yup_centre)
+            x=slice(xin, xout_centre),
+            y=slice(ylow, yup_centre),
         ).plot.scatter(x="R", y="Z", marker=".", color="k", s=1)
 
         # plot radial grid lines
         plt.plot(
             ds_region["Rxy_lower_left_corners"].isel(
-                x=slice(xin, xout_corner_rad), theta=slice(ylow, yup_corner)
+                x=slice(xin, xout_corner_rad), y=slice(ylow, yup_corner)
             ),
             ds_region["Zxy_lower_left_corners"].isel(
-                x=slice(xin, xout_corner_rad), theta=slice(ylow, yup_corner)
+                x=slice(xin, xout_corner_rad), y=slice(ylow, yup_corner)
             ),
             color="k",
         )
@@ -153,10 +154,10 @@ def main():
         # plot poloidal grid lines
         plt.plot(
             ds_region["Rxy_lower_left_corners"]
-            .isel(x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner))
+            .isel(x=slice(xin_pol, xout_corner_pol), y=slice(ylow, yup_corner))
             .T,
             ds_region["Zxy_lower_left_corners"]
-            .isel(x=slice(xin_pol, xout_corner_pol), theta=slice(ylow, yup_corner))
+            .isel(x=slice(xin_pol, xout_corner_pol), y=slice(ylow, yup_corner))
             .T,
             color="k",
         )
@@ -176,10 +177,10 @@ def main():
             # regions is not (or 'not really') a branch cut.
             plt.plot(
                 ds_region["Rxy_lower_left_corners"].isel(
-                    x=slice(xin, xout_corner_rad), theta=-1
+                    x=slice(xin, xout_corner_rad), y=-1
                 ),
                 ds_region["Zxy_lower_left_corners"].isel(
-                    x=slice(xin, xout_corner_rad), theta=-1
+                    x=slice(xin, xout_corner_rad), y=-1
                 ),
                 color="r",
                 linewidth=3,
@@ -192,10 +193,10 @@ def main():
             # highlight the outer edge.
             plt.plot(
                 ds_region["Rxy_lower_left_corners"].isel(
-                    x=-1, theta=slice(ylow, yup_corner)
+                    x=-1, y=slice(ylow, yup_corner)
                 ),
                 ds_region["Zxy_lower_left_corners"].isel(
-                    x=-1, theta=slice(ylow, yup_corner)
+                    x=-1, y=slice(ylow, yup_corner)
                 ),
                 color="b",
                 linewidth=3,
@@ -206,10 +207,10 @@ def main():
             if ds_region.regions[r].connection_lower_y is None:
                 plt.plot(
                     ds_region["Rxy_lower_left_corners"].isel(
-                        x=slice(xin, xout_corner_rad), theta=ylow
+                        x=slice(xin, xout_corner_rad), y=ylow
                     ),
                     ds_region["Zxy_lower_left_corners"].isel(
-                        x=slice(xin, xout_corner_rad), theta=ylow
+                        x=slice(xin, xout_corner_rad), y=ylow
                     ),
                     color="k",
                     linewidth=3,
@@ -219,10 +220,10 @@ def main():
                 yval = -1 if yup_corner is None else yup_corner
                 plt.plot(
                     ds_region["Rxy_lower_left_corners"].isel(
-                        x=slice(xin, xout_corner_rad), theta=yval
+                        x=slice(xin, xout_corner_rad), y=yval
                     ),
                     ds_region["Zxy_lower_left_corners"].isel(
-                        x=slice(xin, xout_corner_rad), theta=yval
+                        x=slice(xin, xout_corner_rad), y=yval
                     ),
                     color="k",
                     linewidth=3,

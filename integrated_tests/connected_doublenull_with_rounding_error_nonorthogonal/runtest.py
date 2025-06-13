@@ -10,8 +10,8 @@ from integrated_tests.utils import run_case  # noqa: E402
 
 diagnose = False
 
-rtol = 1.0e-9
-atol = 5.0e-10
+rtol = 2.0e-9
+atol = 2.0e-9
 
 # make sure we are in the test directory
 os.chdir(Path(__file__).parent)

@@ -24,17 +24,17 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "boututils~=0.1.7",
     "dill~=0.3,!=0.3.5,!=0.3.5.1",
     "func_timeout~=4.3",
-    "matplotlib~=3.2",
+    "matplotlib~=3.7",
     "netCDF4~=1.5",
-    "numpy~=1.18",
+    "numpy~=1.24",
     "optionsfactory~=1.0.11",
     "PyYAML>=5.1",
-    "scipy~=1.6",
+    "scipy~=1.10",
     "Qt.py~=1.2",
 ]
 
@@ -50,6 +50,7 @@ docs = [
 ]
 tests = [
     "pytest >= 3.3.0",
+    "xarray >= 2022.9.0",
 ]
 
 [project.scripts]

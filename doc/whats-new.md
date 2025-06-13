@@ -6,7 +6,7 @@ Release history
   creation, still plot the equilibrium data (#186).
   By [John Omotani](https://github.com/johnomotani)
 - Set the dimension for R_closed_wall and Z_closed_wall to 'closed_wall'. Fixes
-  loading of grid files by xBOUT (#190).
+  loading of grid files by xBOUT (#191).
   By [John Omotani](https://github.com/johnomotani)
 
 

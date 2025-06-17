@@ -78,6 +78,36 @@ class TokamakEquilibrium(Equilibrium):
             value_type=float,
             check_all=is_positive,
         ),
+        leg_extend=WithMeta(
+            0.0,
+            doc="Extend divertor legs by this length [m]",
+            value_type=float,
+            check_all=is_positive,
+        ),
+        leg_extend_lower_inner=WithMeta(
+            "leg_extend",
+            doc="Extend lower inner divertor leg",
+            value_type=float,
+            check_all=is_positive,
+        ),
+        leg_extend_lower_outer=WithMeta(
+            "leg_extend",
+            doc="Extend lower outer divertor leg",
+            value_type=float,
+            check_all=is_positive,
+        ),
+        leg_extend_upper_inner=WithMeta(
+            "leg_extend",
+            doc="Extend upper inner divertor leg",
+            value_type=float,
+            check_all=is_positive,
+        ),
+        leg_extend_upper_outer=WithMeta(
+            "leg_extend",
+            doc="Extend upper outer divertor leg",
+            value_type=float,
+            check_all=is_positive,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -616,6 +646,20 @@ class TokamakEquilibrium(Equilibrium):
             # The sign is used to tell which way to integrate
             sign = np.sign((leg[0] - xpoint.R) * Br + (leg[1] - xpoint.Z) * Bz)
 
+            # Get the length that the leg should be extended by
+            if leg[1] > xpoint.Z:
+                # Upper
+                if leg[0] > xpoint.R:
+                    leg_extend = self.user_options.leg_extend_upper_outer
+                else:
+                    leg_extend = self.user_options.leg_extend_upper_inner
+            else:
+                # Lower
+                if leg[0] > xpoint.R:
+                    leg_extend = self.user_options.leg_extend_lower_outer
+                else:
+                    leg_extend = self.user_options.leg_extend_lower_inner
+
             # Integrate in this direction until the wall is intersected
             # This is affected by sign, which determines which way to integrate
             def dpos_dl(distance, pos):
@@ -644,6 +688,20 @@ class TokamakEquilibrium(Equilibrium):
                 intersect = self.wallIntersection(Point2D(*pos), Point2D(*newpos))
                 if intersect is not None:
                     line.append(intersect)  # Put the intersection in the line
+                    if leg_extend > 0.0:
+                        nsteps = int(leg_extend / step + 0.5)
+                        extend_step = leg_extend / nsteps
+                        pos = (intersect.R, intersect.Z)
+                        for i in range(nsteps):
+                            solve_result = solve_ivp(
+                                dpos_dl,
+                                (0.0, extend_step),
+                                pos,
+                                rtol=0.0,
+                                atol=self.user_options.leg_trace_atol,
+                            )
+                            pos = (solve_result.y[0][1], solve_result.y[1][1])
+                            line.append(Point2D(*pos))
                     break
                 pos = newpos
                 line.append(Point2D(*pos))

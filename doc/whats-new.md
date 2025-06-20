@@ -25,6 +25,9 @@ Release history
 - Wall coordinates are written to output grid as `closed_wall_R` and `closed_wall_Z`
   (#176)
   By [Ben Dudson](https://github.com/bendudson)
+- Extend divertor legs with `leg_extend` options. These specify how far each
+  leg should extend beyond the wall intersection (#195).
+  By [Ben Dudson](https://github.com/bendudson)
 
 0.5.2 (13th March 2023)
 -------------------------

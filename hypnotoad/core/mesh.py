@@ -3072,9 +3072,11 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridCellEdges(self, ax=None, **kwargs):
+    def plotGridCellEdges(self, ax=None, exclude_penalty=True, **kwargs):
         """
         Plot lines between cell corners
+
+        exclude_penalty    Exclude regions where penalty mask > 0.99?
         """
         from matplotlib import pyplot
         from cycler import cycle
@@ -3087,20 +3089,60 @@ class Mesh:
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
+            jmin = 0
+            jmax = region.Rxy.corners.shape[1] - 1
+
+            if exclude_penalty:
+                # Calculate penalty mask at the lower corners first by padding all boundaries
+                # and then averaging
+                penalty_corners = numpy.ndarray((region.nx + 2, region.ny + 2))
+                penalty_corners[1:-1, 1:-1] = region.penalty_mask
+                # Pad edges
+                penalty_corners[0, 1:-1] = region.penalty_mask[0, :]
+                penalty_corners[-1, 1:-1] = region.penalty_mask[-1, :]
+                penalty_corners[1:-1, 0] = region.penalty_mask[:, 0]
+                penalty_corners[1:-1, -1] = region.penalty_mask[:, -1]
+                # corners
+                penalty_corners[0, 0] = region.penalty_mask[0, 0]
+                penalty_corners[0, -1] = region.penalty_mask[0, -1]
+                penalty_corners[-1, 0] = region.penalty_mask[-1, 0]
+                penalty_corners[-1, -1] = region.penalty_mask[-1, -1]
+                # Average 4 cells to get corner value
+                penalty_corners = 0.25 * (
+                    penalty_corners[1:, 1:]
+                    + penalty_corners[:-1, 1:]
+                    + penalty_corners[1:, :-1]
+                    + penalty_corners[:-1, :-1]
+                )
+
             for i in range(region.nx + 1):
+                if exclude_penalty:
+                    jwhere = numpy.argwhere(penalty_corners[i, :] < 0.99)
+                    if len(jwhere) == 0:
+                        continue
+                    jmin = jwhere[0][0]
+                    jmax = jwhere[-1][0]
                 ax.plot(
-                    region.Rxy.corners[i, :],
-                    region.Zxy.corners[i, :],
+                    region.Rxy.corners[i, jmin : (jmax + 1)],
+                    region.Zxy.corners[i, jmin : (jmax + 1)],
                     c=c,
                     label=label,
                     **kwargs,
                 )
                 label = None
             label = region.myID
+            imin = 0
+            imax = region.Zxy.corners.shape[0] - 1
             for j in range(region.ny + 1):
+                if exclude_penalty:
+                    iwhere = numpy.argwhere(penalty_corners[:, j] < 0.99)
+                    if len(iwhere) == 0:
+                        continue
+                    imin = iwhere[0][0]
+                    imax = iwhere[-1][0]
                 ax.plot(
-                    region.Rxy.corners[:, j],
-                    region.Zxy.corners[:, j],
+                    region.Rxy.corners[imin : (imax + 1), j],
+                    region.Zxy.corners[imin : (imax + 1), j],
                     c=c,
                     label=None,
                     **kwargs,
@@ -3136,7 +3178,12 @@ class Mesh:
                             alpha=penalty,
                         )
 
-    def plotGridLines(self, ax=None, **kwargs):
+    def plotGridLines(self, ax=None, exclude_penalty=True, **kwargs):
+        """
+        Plot lines through cell centers
+
+        exclude_penalty    Exclude regions where penalty mask > 0.99?
+        """
         from matplotlib import pyplot
         from cycler import cycle
 
@@ -3150,20 +3197,36 @@ class Mesh:
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
+            jmin = 0
+            jmax = region.ny - 1
             for i in range(region.nx):
+                if exclude_penalty:
+                    jwhere = numpy.argwhere(region.penalty_mask[i, :] < 0.5)
+                    if len(jwhere) == 0:
+                        continue
+                    jmin = jwhere[0][0]
+                    jmax = jwhere[-1][0]
                 ax.plot(
-                    region.Rxy.centre[i, :],
-                    region.Zxy.centre[i, :],
+                    region.Rxy.centre[i, jmin : (jmax + 1)],
+                    region.Zxy.centre[i, jmin : (jmax + 1)],
                     c=c,
                     label=label,
                     **kwargs,
                 )
                 label = None
             label = region.myID
+            imin = 0
+            imax = region.nx - 1
             for j in range(region.ny):
+                if exclude_penalty:
+                    iwhere = numpy.argwhere(region.penalty_mask[:, j] < 0.5)
+                    if len(iwhere) == 0:
+                        continue
+                    imin = iwhere[0][0]
+                    imax = iwhere[-1][0]
                 ax.plot(
-                    region.Rxy.centre[:, j],
-                    region.Zxy.centre[:, j],
+                    region.Rxy.centre[imin : (imax + 1), j],
+                    region.Zxy.centre[imin : (imax + 1), j],
                     c=c,
                     label=None,
                     **kwargs,

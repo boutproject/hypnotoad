@@ -3089,65 +3089,31 @@ class Mesh:
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
-            jmin = 0
-            jmax = region.Rxy.corners.shape[1] - 1
 
-            if exclude_penalty:
-                # Calculate penalty mask at the lower corners first by padding all boundaries
-                # and then averaging
-                penalty_corners = numpy.ndarray((region.nx + 2, region.ny + 2))
-                penalty_corners[1:-1, 1:-1] = region.penalty_mask
-                # Pad edges
-                penalty_corners[0, 1:-1] = region.penalty_mask[0, :]
-                penalty_corners[-1, 1:-1] = region.penalty_mask[-1, :]
-                penalty_corners[1:-1, 0] = region.penalty_mask[:, 0]
-                penalty_corners[1:-1, -1] = region.penalty_mask[:, -1]
-                # corners
-                penalty_corners[0, 0] = region.penalty_mask[0, 0]
-                penalty_corners[0, -1] = region.penalty_mask[0, -1]
-                penalty_corners[-1, 0] = region.penalty_mask[-1, 0]
-                penalty_corners[-1, -1] = region.penalty_mask[-1, -1]
-                # Average 4 cells to get corner value
-                penalty_corners = 0.25 * (
-                    penalty_corners[1:, 1:]
-                    + penalty_corners[:-1, 1:]
-                    + penalty_corners[1:, :-1]
-                    + penalty_corners[:-1, :-1]
-                )
-
-            for i in range(region.nx + 1):
-                if exclude_penalty:
-                    jwhere = numpy.argwhere(penalty_corners[i, :] < 0.99)
-                    if len(jwhere) == 0:
+            for i in range(region.nx):
+                for j in range(region.ny):
+                    if exclude_penalty and region.penalty_mask[i, j] > 0.99:
                         continue
-                    jmin = jwhere[0][0]
-                    jmax = jwhere[-1][0]
-                ax.plot(
-                    region.Rxy.corners[i, jmin : (jmax + 1)],
-                    region.Zxy.corners[i, jmin : (jmax + 1)],
-                    c=c,
-                    label=label,
-                    **kwargs,
-                )
-                label = None
-            label = region.myID
-            imin = 0
-            imax = region.Zxy.corners.shape[0] - 1
-            for j in range(region.ny + 1):
-                if exclude_penalty:
-                    iwhere = numpy.argwhere(penalty_corners[:, j] < 0.99)
-                    if len(iwhere) == 0:
-                        continue
-                    imin = iwhere[0][0]
-                    imax = iwhere[-1][0]
-                ax.plot(
-                    region.Rxy.corners[imin : (imax + 1), j],
-                    region.Zxy.corners[imin : (imax + 1), j],
-                    c=c,
-                    label=None,
-                    **kwargs,
-                )
-                label = None
+                    # Plot cell edges around (i,j)
+                    ax.plot(
+                        [
+                            region.Rxy.corners[i, j],
+                            region.Rxy.corners[i, j + 1],
+                            region.Rxy.corners[i + 1, j + 1],
+                            region.Rxy.corners[i + 1, j],
+                        ],
+                        [
+                            region.Zxy.corners[i, j],
+                            region.Zxy.corners[i, j + 1],
+                            region.Zxy.corners[i + 1, j + 1],
+                            region.Zxy.corners[i + 1, j],
+                        ],
+                        c=c,
+                        label=label,
+                        **kwargs,
+                    )
+                    label = None
+        return ax
 
     def plotPenaltyMask(self, ax=None, **kwargs):
         from matplotlib import pyplot
@@ -3177,6 +3143,7 @@ class Mesh:
                             "k",
                             alpha=penalty,
                         )
+        return ax
 
     def plotGridLines(self, ax=None, exclude_penalty=True, **kwargs):
         """
@@ -3234,6 +3201,7 @@ class Mesh:
                 label = None
         l = fig.legend()
         l.set_draggable(True)
+        return ax
 
     def plotPoints(
         self,

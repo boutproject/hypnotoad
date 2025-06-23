@@ -1854,11 +1854,18 @@ class PsiContour:
         minind = numpy.argmin(distances)
         # if minind > 0, or the distance to point 1 is less than the distance between
         # point 0 and point 1 of the fine_contour, then fine_contour extends past p so
-        # does not need to be extended
-        if minind == 0 and distances[1] > numpy.sqrt(
-            numpy.sum(
-                (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
+        # does not need to be extended.
+        # Include some tolerance to allow for rounding errors when the first point on
+        # the FineContour and the first point on the PsiContour are in 'the same place'.
+        if (
+            minind == 0
+            and distances[1]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
+                )
             )
+            > 1.0e-13
         ):
             ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
@@ -1874,10 +1881,17 @@ class PsiContour:
         # if minind < len(distances)-1, or the distance to the last point is less than
         # the distance between the last and second-last of the fine_contour, then
         # fine_contour extends past p so does not need to be extended
-        if minind == len(distances) - 1 and distances[-2] > numpy.sqrt(
-            numpy.sum(
-                (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
+        # Include some tolerance to allow for rounding errors when the last point on
+        # the FineContour and the last point on the PsiContour are in 'the same place'.
+        if (
+            minind == len(distances) - 1
+            and distances[-2]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
+                )
             )
+            > 1.0e-13
         ):
             ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
@@ -4485,12 +4499,12 @@ class Equilibrium:
         """
         if grad_lower is not None and (upper - lower) * grad_lower < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_lower={grad_lower} have "
+                f"(upper-lower)={(upper - lower)} and grad_lower={grad_lower} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
         if grad_upper is not None and (upper - lower) * grad_upper < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_upper={grad_upper} have "
+                f"(upper-lower)={(upper - lower)} and grad_upper={grad_upper} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
 

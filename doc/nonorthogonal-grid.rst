@@ -20,6 +20,19 @@ way that varies smoothly with :math:`\psi`.
    see `feature request #146
    <https://github.com/boutproject/hypnotoad/issues/146>`_.
 
+There are a few options for setting the poloidal spacing, described in 
+detail in the subsections below:
+
+* Default method: can produce good-quality grids for production simulations.
+  Has may input parameters and usually requires extensive manual tweaking. Not
+  very robust.
+* Linear spacing: Robust but inflexible, and produces grids with discontinuous
+  spacing. Not recommended for simulations, but may be useful for
+  exploration/scoping or to provide inputs to other tools.
+
+Default method
+--------------
+
 The default method for nonorthogonal grids combines three properties:
 
 * Close to orthogonal far from X-points and targets
@@ -147,8 +160,7 @@ file.
    moving radially away from the X-point is limited -- far from the X-point the
    poloidal spacing is approximately constant with changes in radius.
 
-Technical details
------------------
+### Technical details
 
 The spacing is implemented by defining three separate :ref:`spacing functions
 <spacing-functions:Spacing functions>` and combining them with certain weights
@@ -179,3 +191,12 @@ is created by :meth:`EquilibriumRegion.getSfuncFixedPerpSpacing()
 .. note:: Other methods for poloidal spacing than the default described on this
    page can be chosen by changing the ``nonorthogonal_spacing_method`` setting,
    but the other methods are intended mostly for debugging.
+
+Linear spacing
+--------------
+
+To use set `nonorthogonal_spacing_method = "linear"` and
+`poloidal_spacing_option = "linear"`.
+
+In each region (target to X-point, or X-point to X-point) distributes the grid
+points poloidally with a uniform spacing in poloidal (not parallel!) distance.

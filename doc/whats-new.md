@@ -29,6 +29,8 @@ Release history
 - Extend divertor legs with `leg_extend` options. These specify how far each
   leg should extend beyond the wall intersection (#195).
   By [Ben Dudson](https://github.com/bendudson)
+- Linear poloidal spacing option for nonorthogonal grids (#190).
+  By [John Omotani](https://github.com/johnomotani)
 
 0.5.2 (13th March 2023)
 -------------------------

@@ -2950,7 +2950,7 @@ class EquilibriumRegion(PsiContour):
                     spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
             elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal"
+                self.nonorthogonal_options.nonorthogonal_spacing_method == "linear"
             ):
                 sfunc = self.getLinearPoloidalDistanceFunc(
                     distance,

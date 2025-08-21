@@ -1721,7 +1721,7 @@ class PsiContour:
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self, *, psi, equilibrium, kind="cubic"):
+    def contourSfunc(self, *, psi, equilibrium, spacings, kind="cubic"):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
@@ -1743,15 +1743,44 @@ class PsiContour:
             thisEndInd += len(self)
         startDistance = distance[thisStartInd]
         endDistance = distance[thisEndInd]
+
+        # When doing nonorthogonal X-point but 'orthogonal' targets, do want to be able
+        # to extrapolate past the end distance, otherwise do not extrapolate.
+        if (
+            (spacings["nonorthogonal_range_lower"] is None)
+            and (spacings["nonorthogonal_range_lower_inner"] is None)
+            and (spacings["nonorthogonal_range_lower_outer"] is None)
+        ):
+
+            def lower_extrap(i):
+                return i * (distance[thisStartInd + 1] - distance[thisStartInd])
+
+        else:
+            lower_extrap = 0.0
+
+        if (
+            (spacings["nonorthogonal_range_upper"] is None)
+            and (spacings["nonorthogonal_range_upper_inner"] is None)
+            and (spacings["nonorthogonal_range_upper_outer"] is None)
+        ):
+
+            def upper_extrap(i):
+                return (
+                    endDistance
+                    - startDistance
+                    + (i - thisEndInd + thisStartInd)
+                    * (distance[thisEndInd] - distance[thisEndInd - 1])
+                )
+
+        else:
+            upper_extrap = endDistance - startDistance
+
         return lambda i: numpy.piecewise(
             i,
             [i <= 0.0, i >= thisEndInd - thisStartInd],
             [
-                lambda i: i * (distance[thisStartInd + 1] - distance[thisStartInd]),
-                lambda i: endDistance
-                - startDistance
-                + (i - thisEndInd + thisStartInd)
-                * (distance[thisEndInd] - distance[thisEndInd - 1]),
+                lower_extrap,
+                upper_extrap,
                 lambda i: interpS(i + thisStartInd) - startDistance,
             ],
         )
@@ -2949,9 +2978,7 @@ class EquilibriumRegion(PsiContour):
                     spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
                     spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
-            elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method == "linear"
-            ):
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "linear":
                 sfunc = self.getLinearPoloidalDistanceFunc(
                     distance,
                     npoints - 1,

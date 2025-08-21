@@ -604,7 +604,17 @@ class TestContour:
         c.extend_lower = 2
         c.extend_upper = 2
 
-        f = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
+        # Put in dummy entry for 'spacings' - doesn't matter what it is as long as it is
+        # not `None`.
+        fake_spacings = {
+            "nonorthogonal_range_lower": 1.0,
+            "nonorthogonal_range_lower_inner": 1.0,
+            "nonorthogonal_range_lower_outer": 1.0,
+            "nonorthogonal_range_upper": 1.0,
+            "nonorthogonal_range_upper_inner": 1.0,
+            "nonorthogonal_range_upper_outer": 1.0,
+        }
+        f = c.contourSfunc(psi=testcontour.psi, equilibrium=eq, spacings=fake_spacings)
 
         indices = numpy.arange(n, dtype=float)
         assert f(indices) == tight_approx(
@@ -659,8 +669,18 @@ class TestContour:
         # evaluated, it takes 'sfunc_orig' from the enclosing scope, which means it uses
         # the last value from the loop instead of the value when 'sfunc' was added to
         # 'sfunc_list'
+        fake_spacings = {
+            "nonorthogonal_range_lower": 1.0,
+            "nonorthogonal_range_lower_inner": 1.0,
+            "nonorthogonal_range_lower_outer": 1.0,
+            "nonorthogonal_range_upper": 1.0,
+            "nonorthogonal_range_upper_inner": 1.0,
+            "nonorthogonal_range_upper_outer": 1.0,
+        }
         for c in c_list:
-            sfunc_orig = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
+            sfunc_orig = c.contourSfunc(
+                psi=testcontour.psi, equilibrium=eq, spacings=fake_spacings
+            )
 
             sfunc_list.append(lambda i: sfunc_orig(i) - 3.0)
 
@@ -677,7 +697,9 @@ class TestContour:
         # This version does work, because when the lambda is evaluated it uses
         # 'sfunc_orig' from the scope of 'shift_sfunc' in which it was created.
         def shift_sfunc(c):
-            sfunc_orig = c.contourSfunc(psi=testcontour.psi, equilibrium=eq)
+            sfunc_orig = c.contourSfunc(
+                psi=testcontour.psi, equilibrium=eq, spacings=fake_spacings
+            )
             return lambda i: sfunc_orig(i) - 3.0
 
         for c in c_list:
@@ -1422,8 +1444,16 @@ class TestEquilibriumRegion:
         eqReg.sin_angle_at_end = 1.0
         eqReg.name = "inner_lower"
 
+        fake_spacings = {
+            "nonorthogonal_range_lower": 1.0,
+            "nonorthogonal_range_lower_inner": 1.0,
+            "nonorthogonal_range_lower_outer": 1.0,
+            "nonorthogonal_range_upper": 1.0,
+            "nonorthogonal_range_upper_inner": 1.0,
+            "nonorthogonal_range_upper_outer": 1.0,
+        }
         sfunc_orthogonal_original = eqReg.contourSfunc(
-            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium, spacings=fake_spacings
         )
 
         # as if lower_wall
@@ -1476,8 +1506,16 @@ class TestEquilibriumRegion:
         eqReg.ny_total = 40
         eqReg.name = "outer_lower"
 
+        fake_spacings = {
+            "nonorthogonal_range_lower": 1.0,
+            "nonorthogonal_range_lower_inner": 1.0,
+            "nonorthogonal_range_lower_outer": 1.0,
+            "nonorthogonal_range_upper": 1.0,
+            "nonorthogonal_range_upper_inner": 1.0,
+            "nonorthogonal_range_upper_outer": 1.0,
+        }
         sfunc_orthogonal_original = eqReg.contourSfunc(
-            psi=eqReg.psi, equilibrium=eqReg.equilibrium
+            psi=eqReg.psi, equilibrium=eqReg.equilibrium, spacings=fake_spacings
         )
 
         # as if lower_wall

@@ -403,7 +403,9 @@ class MeshRegion:
         # the change in distance after redefining startInd to be at the wall
         self.sfunc_orthogonal_list = [
             contour.contourSfunc(
-                psi=self.equilibriumRegion.psi, equilibrium=self.meshParent.equilibrium
+                psi=self.equilibriumRegion.psi,
+                equilibrium=self.meshParent.equilibrium,
+                spacings=self.equilibriumRegion.getSpacings(),
             )
             for contour in self.contours
         ]

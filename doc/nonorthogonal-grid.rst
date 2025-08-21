@@ -29,6 +29,10 @@ detail in the subsections below:
 * Linear spacing: Robust but inflexible, and produces grids with discontinuous
   spacing. Not recommended for simulations, but may be useful for
   exploration/scoping or to provide inputs to other tools.
+* Nonorthogonal X-point: with approximately orthogonal divertor targets. Should
+  result an an almost orthogonal grid, but alleviate the very small poloidal
+  spacing of grid cells on the 'seams' around the X-points that usually results
+  from fully orthogonal grids, and which often limits the timestep size.
 
 Default method
 --------------
@@ -200,3 +204,23 @@ To use set `nonorthogonal_spacing_method = "linear"` and
 
 In each region (target to X-point, or X-point to X-point) distributes the grid
 points poloidally with a uniform spacing in poloidal (not parallel!) distance.
+
+Nonorthogonal X-point
+---------------------
+
+To use set `nonorthogonal_target_all_poloidal_spacing_range = None` and either
+leave `nonorthogonal_target_all_poloidal_spacing_range_inner` and
+`nonorthogonal_target_all_poloidal_spacing_range_outer` unset, or set them to
+`None`.
+
+In most of the grid, uses the orthogonal spacing function so that the grid is
+approximately orthogonal. Near to the X-point uses a fixed perpendicular
+spacing from the region boundaries that start from the X-point and follow the
+directions perpendicular to flux surfaces. This should not make the grid
+strongly nonorthogonal, but reduces the poloidal compression of grid points in
+these areas, which can force timestep reductions (or badly-conditioned matrices
+for implicit solvers, etc.).
+
+Ideally, codes using grids generated with this option should support
+nonorthogonal grids. The sensitivity of results to slight non-orthogonality in
+codes that assume orthogonal grids has not been tested yet...

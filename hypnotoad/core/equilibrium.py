@@ -1721,7 +1721,7 @@ class PsiContour:
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self, *, psi, equilibrium, kind="cubic"):
+    def contourSfunc(self, *, psi, equilibrium, spacings, kind="cubic"):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
@@ -1743,12 +1743,44 @@ class PsiContour:
             thisEndInd += len(self)
         startDistance = distance[thisStartInd]
         endDistance = distance[thisEndInd]
+
+        # When doing nonorthogonal X-point but 'orthogonal' targets, do want to be able
+        # to extrapolate past the end distance, otherwise do not extrapolate.
+        if (
+            (spacings["nonorthogonal_range_lower"] is None)
+            and (spacings["nonorthogonal_range_lower_inner"] is None)
+            and (spacings["nonorthogonal_range_lower_outer"] is None)
+        ):
+
+            def lower_extrap(i):
+                return i * (distance[thisStartInd + 1] - distance[thisStartInd])
+
+        else:
+            lower_extrap = 0.0
+
+        if (
+            (spacings["nonorthogonal_range_upper"] is None)
+            and (spacings["nonorthogonal_range_upper_inner"] is None)
+            and (spacings["nonorthogonal_range_upper_outer"] is None)
+        ):
+
+            def upper_extrap(i):
+                return (
+                    endDistance
+                    - startDistance
+                    + (i - thisEndInd + thisStartInd)
+                    * (distance[thisEndInd] - distance[thisEndInd - 1])
+                )
+
+        else:
+            upper_extrap = endDistance - startDistance
+
         return lambda i: numpy.piecewise(
             i,
             [i <= 0.0, i >= thisEndInd - thisStartInd],
             [
-                0.0,
-                endDistance - startDistance,
+                lower_extrap,
+                upper_extrap,
                 lambda i: interpS(i + thisStartInd) - startDistance,
             ],
         )
@@ -2171,7 +2203,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
-            lambda options: 0.02 * options.nonorthogonal_xpoint_poloidal_spacing_length,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_length is None
+                else 0.02 * options.nonorthogonal_xpoint_poloidal_spacing_length
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at the radial location of separatrices"
@@ -2180,7 +2216,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
-            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_range is None
+                else 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
@@ -2189,7 +2229,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
-            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_range is None
+                else 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'outer' radial boundaries (SOL)"
@@ -2209,8 +2253,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_target_all_poloidal_spacing_range=WithMeta(
-            lambda options: 0.5
-            * options.nonorthogonal_target_all_poloidal_spacing_length,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_length is None
+                else 0.5 * options.nonorthogonal_target_all_poloidal_spacing_length
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"
@@ -2219,8 +2266,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_all_poloidal_spacing_range_inner=WithMeta(
-            lambda options: 2.0
-            * options.nonorthogonal_target_all_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_range is None
+                else 2.0 * options.nonorthogonal_target_all_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'inner' radial boundaries (PFR)"
@@ -2229,8 +2279,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_all_poloidal_spacing_range_outer=WithMeta(
-            lambda options: 2.0
-            * options.nonorthogonal_target_all_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_range is None
+                else 2.0 * options.nonorthogonal_target_all_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'outer' radial boundaries (SOL)"
@@ -2925,9 +2978,7 @@ class EquilibriumRegion(PsiContour):
                     spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
                     spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
-            elif (
-                self.nonorthogonal_options.nonorthogonal_spacing_method == "orthogonal"
-            ):
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "linear":
                 sfunc = self.getLinearPoloidalDistanceFunc(
                     distance,
                     npoints - 1,
@@ -3250,14 +3301,14 @@ class EquilibriumRegion(PsiContour):
                 spacings["nonorthogonal_range_lower_inner"],
                 spacings["nonorthogonal_range_lower"],
                 spacings["nonorthogonal_range_lower_outer"],
-                this_range_lower,
+                # this_range_lower,
             )
             print(
                 "check upper ranges",
                 spacings["nonorthogonal_range_upper_inner"],
                 spacings["nonorthogonal_range_upper"],
                 spacings["nonorthogonal_range_upper_outer"],
-                this_range_upper,
+                # this_range_upper,
             )
             raise
 

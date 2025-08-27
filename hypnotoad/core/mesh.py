@@ -363,10 +363,26 @@ class MeshRegion:
         max_extend = 100
 
         # should the contour intersect a wall at the lower end?
-        lower_wall = self.connections["lower"] is None
+        # if nonorthogonal_target_poloidal_spacing_range_* for this region is `None`,
+        # then ignore the wall intersections.
+        lower_wall = self.connections["lower"] is None and not (
+            not self.user_options.orthogonal
+            and self.equilibriumRegion.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
+            )
+            is None
+        )
 
         # should the contour intersect a wall at the upper end?
-        upper_wall = self.connections["upper"] is None
+        # if nonorthogonal_target_poloidal_spacing_range_* for this region is `None`,
+        # then ignore the wall intersections.
+        upper_wall = self.connections["upper"] is None and not (
+            not self.user_options.orthogonal
+            and self.equilibriumRegion.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
+            )
+            is None
+        )
 
         # Note: parallel_map will pass additional keywords to the function,
         #       including `equilibrium` and `psi`.
@@ -387,7 +403,9 @@ class MeshRegion:
         # the change in distance after redefining startInd to be at the wall
         self.sfunc_orthogonal_list = [
             contour.contourSfunc(
-                psi=self.equilibriumRegion.psi, equilibrium=self.meshParent.equilibrium
+                psi=self.equilibriumRegion.psi,
+                equilibrium=self.meshParent.equilibrium,
+                spacings=self.equilibriumRegion.getSpacings(),
             )
             for contour in self.contours
         ]

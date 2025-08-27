@@ -31,6 +31,8 @@ Release history
   By [Ben Dudson](https://github.com/bendudson)
 - Linear poloidal spacing option for nonorthogonal grids (#190).
   By [John Omotani](https://github.com/johnomotani)
+- Grids that are nonorthogonal only at the X-point (#180).
+  By [John Omotani](https://github.com/johnomotani)
 
 0.5.2 (13th March 2023)
 -------------------------

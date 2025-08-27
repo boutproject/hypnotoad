@@ -8,6 +8,7 @@ Release history
 - Set the dimension for R_closed_wall and Z_closed_wall to 'closed_wall'. Fixes
   loading of grid files by xBOUT (#191).
   By [John Omotani](https://github.com/johnomotani)
+- Calculate the parallel distance along field lines, and save to the output (#193).
 
 
 ### New features
@@ -28,6 +29,8 @@ Release history
 - Extend divertor legs with `leg_extend` options. These specify how far each
   leg should extend beyond the wall intersection (#195).
   By [Ben Dudson](https://github.com/bendudson)
+- Linear poloidal spacing option for nonorthogonal grids (#190).
+  By [John Omotani](https://github.com/johnomotani)
 
 0.5.2 (13th March 2023)
 -------------------------

@@ -119,9 +119,12 @@ def run_case(name, inputfile, expectedfile, *, rtol, atol, diagnose, add_noise=N
     )
     if add_noise is not None:
         # Increase tolerances for some variables that are sensitive to rounding errors.
-        expected_large_errors = expected[expected_large_error_vars]
+        filtered_large_error_vars = [
+            v for v in expected_large_error_vars if v not in expected_different_vars
+        ]
+        expected_large_errors = expected[filtered_large_error_vars]
         expected = expected.drop(expected_large_error_vars)
-        actual_large_errors = actual[expected_large_error_vars]
+        actual_large_errors = actual[filtered_large_error_vars]
         actual = actual.drop(expected_large_error_vars)
 
     if diagnose:

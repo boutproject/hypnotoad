@@ -1783,8 +1783,9 @@ class TokamakEquilibrium(Equilibrium):
         fprime = self.fprime_spl(psi * self.f_psi_sign)
         if self.psi_bdry is not None:
             psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
-            if np.isscalar(psi) and psinorm > 1.0:
-                fprime = 0.0
+            if np.isscalar(psi):
+                if psinorm > 1.0:
+                    fprime = 0.0
             else:
                 fprime[psinorm > 1.0] = 0.0
         return fprime

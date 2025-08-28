@@ -20,7 +20,6 @@ along with FreeGS.  If not, see <http://www.gnu.org/licenses/>.
 
 """
 
-
 from scipy import interpolate
 from numpy.linalg import inv
 from numpy import (

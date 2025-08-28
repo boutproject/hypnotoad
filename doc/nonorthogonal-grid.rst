@@ -20,6 +20,23 @@ way that varies smoothly with :math:`\psi`.
    see `feature request #146
    <https://github.com/boutproject/hypnotoad/issues/146>`_.
 
+There are a few options for setting the poloidal spacing, described in 
+detail in the subsections below:
+
+* Default method: can produce good-quality grids for production simulations.
+  Has may input parameters and usually requires extensive manual tweaking. Not
+  very robust.
+* Linear spacing: Robust but inflexible, and produces grids with discontinuous
+  spacing. Not recommended for simulations, but may be useful for
+  exploration/scoping or to provide inputs to other tools.
+* Nonorthogonal X-point: with approximately orthogonal divertor targets. Should
+  result an an almost orthogonal grid, but alleviate the very small poloidal
+  spacing of grid cells on the 'seams' around the X-points that usually results
+  from fully orthogonal grids, and which often limits the timestep size.
+
+Default method
+--------------
+
 The default method for nonorthogonal grids combines three properties:
 
 * Close to orthogonal far from X-points and targets
@@ -147,8 +164,7 @@ file.
    moving radially away from the X-point is limited -- far from the X-point the
    poloidal spacing is approximately constant with changes in radius.
 
-Technical details
------------------
+### Technical details
 
 The spacing is implemented by defining three separate :ref:`spacing functions
 <spacing-functions:Spacing functions>` and combining them with certain weights
@@ -179,3 +195,32 @@ is created by :meth:`EquilibriumRegion.getSfuncFixedPerpSpacing()
 .. note:: Other methods for poloidal spacing than the default described on this
    page can be chosen by changing the ``nonorthogonal_spacing_method`` setting,
    but the other methods are intended mostly for debugging.
+
+Linear spacing
+--------------
+
+To use set `nonorthogonal_spacing_method = "linear"` and
+`poloidal_spacing_option = "linear"`.
+
+In each region (target to X-point, or X-point to X-point) distributes the grid
+points poloidally with a uniform spacing in poloidal (not parallel!) distance.
+
+Nonorthogonal X-point
+---------------------
+
+To use set `nonorthogonal_target_all_poloidal_spacing_range = None` and either
+leave `nonorthogonal_target_all_poloidal_spacing_range_inner` and
+`nonorthogonal_target_all_poloidal_spacing_range_outer` unset, or set them to
+`None`.
+
+In most of the grid, uses the orthogonal spacing function so that the grid is
+approximately orthogonal. Near to the X-point uses a fixed perpendicular
+spacing from the region boundaries that start from the X-point and follow the
+directions perpendicular to flux surfaces. This should not make the grid
+strongly nonorthogonal, but reduces the poloidal compression of grid points in
+these areas, which can force timestep reductions (or badly-conditioned matrices
+for implicit solvers, etc.).
+
+Ideally, codes using grids generated with this option should support
+nonorthogonal grids. The sensitivity of results to slight non-orthogonality in
+codes that assume orthogonal grids has not been tested yet...

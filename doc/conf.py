@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 import hypnotoad
+from optionsfactory import OptionsFactory
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -84,7 +85,18 @@ def reformat_Texttable(tt_string):
     return result
 
 
-def create_options_rst(filename, title, options_factory):
+def create_options_rst(filename, title, options_factory, *, exclude=None):
+    print("create options for", filename)
+    if exclude is not None:
+        # Exclude entries from `options_factory` that are in some other OptionsFactory
+        # object, so we can avoid duplicating descriptions
+        settings_to_keep = {
+            k: v
+            for k, v in options_factory.defaults.items()
+            if k not in exclude.defaults
+        }
+        options_factory = OptionsFactory(**settings_to_keep)
+
     with open(tempdir.joinpath(filename), "w") as f:
         f.write(":orphan:\n\n")
         f.write(
@@ -92,7 +104,7 @@ def create_options_rst(filename, title, options_factory):
             "OptionsFactory constructors in the hypnotoad source code. To change the "
             "formatting, edit the ``create_options_rst()`` function in ``conf.py``.\n\n"
         )
-        f.write(f"{title}\n{'='*len(title)}\n\n")
+        f.write(f"{title}\n{'=' * len(title)}\n\n")
         tt = options_factory.get_help_table(as_Texttable=True)
         tt.set_cols_width([62, 80, 20])
         f.write(".. table::\n   :widths: 20 75 5\n\n")
@@ -108,6 +120,12 @@ create_options_rst(
     "nonorthogonal-options.rst",
     "Nonorthogonal options",
     hypnotoad.tokamak.TokamakEquilibrium.nonorthogonal_options_factory,
+)
+create_options_rst(
+    "mesh-options.rst",
+    "Mesh options",
+    hypnotoad.core.mesh.BoutMesh.user_options_factory,
+    exclude=hypnotoad.tokamak.TokamakEquilibrium.user_options_factory,
 )
 create_options_rst(
     "circular-options.rst",

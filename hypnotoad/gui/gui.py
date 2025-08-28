@@ -52,10 +52,17 @@ DEFAULT_OPTIONS = {
 
 DEFAULT_GUI_OPTIONS = {
     "grid_file": "bout.grd.nc",
+    "plot_flux": True,
+    "plot_wall": True,
+    "plot_centers": True,
     "plot_xlow": True,
     "plot_ylow": True,
     "plot_corners": True,
     "save_full_yaml": False,
+    "plot_legend": True,
+    "plot_gridlines": False,
+    "plot_celledges": False,
+    "plot_penalty": False,
 }
 
 
@@ -72,6 +79,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     def __init__(self):
         super().__init__(None)
         self.setupUi(self)
+
+        # Used in file dialogs
+        self._current_dir = "."
 
         try:
             self.menu_File.setToolTipsVisible(True)
@@ -118,11 +128,34 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         set_triggered(self.action_About, self.help_about)
         set_triggered(self.action_Preferences, self.open_preferences)
 
+        # View updates trigger a re-plotting
+        def trigger_replot():
+            """
+            Update settings and replot grid
+            """
+            self.updateGuiOptionsFromMenu()
+            # Re-plot, keeping plot limits
+            self.plot_grid(keep_limits=True)
+
+        set_triggered(self.action_Flux, trigger_replot)
+        set_triggered(self.action_Wall, trigger_replot)
+        set_triggered(self.action_Centers, trigger_replot)
+        set_triggered(self.action_Corners, trigger_replot)
+        set_triggered(self.action_Xlow, trigger_replot)
+        set_triggered(self.action_Ylow, trigger_replot)
+        set_triggered(self.action_Lines, trigger_replot)
+        set_triggered(self.action_Edges, trigger_replot)
+        set_triggered(self.action_Legend, trigger_replot)
+        set_triggered(self.action_Penalty, trigger_replot)
+        set_triggered(self.action_Clear, self.clearPlot)
+
         self.action_Quit.triggered.connect(self.close)
 
         self.options = DEFAULT_OPTIONS
         self.gui_options = DEFAULT_GUI_OPTIONS
         self.filename = DEFAULT_OPTIONS_FILENAME
+
+        self.updateMenuFromGuiOptions()
 
         self.search_bar.setPlaceholderText("Search options...")
         self.search_bar.textChanged.connect(self.search_options_form)
@@ -143,6 +176,53 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         self.options_form.cellChanged.connect(self.options_form_changed)
         self.options_form.itemDoubleClicked.connect(_table_item_edit_display)
         self.update_options_form()
+
+    def updateMenuFromGuiOptions(self):
+        """
+        Updates menu items from gui_options
+        """
+        self.action_Flux.setChecked(self.gui_options["plot_flux"])
+        self.action_Wall.setChecked(self.gui_options["plot_wall"])
+        self.action_Centers.setChecked(self.gui_options["plot_centers"])
+        self.action_Xlow.setChecked(self.gui_options["plot_xlow"])
+        self.action_Ylow.setChecked(self.gui_options["plot_ylow"])
+        self.action_Corners.setChecked(self.gui_options["plot_corners"])
+        self.action_Legend.setChecked(self.gui_options["plot_legend"])
+        self.action_Lines.setChecked(self.gui_options["plot_gridlines"])
+        self.action_Edges.setChecked(self.gui_options["plot_celledges"])
+        self.action_Penalty.setChecked(self.gui_options["plot_penalty"])
+
+    def updateGuiOptionsFromMenu(self):
+        """
+        Update gui_options settings from menu
+        """
+        self.gui_options["plot_flux"] = self.action_Flux.isChecked()
+        self.gui_options["plot_wall"] = self.action_Wall.isChecked()
+        self.gui_options["plot_centers"] = self.action_Centers.isChecked()
+        self.gui_options["plot_xlow"] = self.action_Xlow.isChecked()
+        self.gui_options["plot_ylow"] = self.action_Ylow.isChecked()
+        self.gui_options["plot_corners"] = self.action_Corners.isChecked()
+        self.gui_options["plot_legend"] = self.action_Legend.isChecked()
+        self.gui_options["plot_gridlines"] = self.action_Lines.isChecked()
+        self.gui_options["plot_celledges"] = self.action_Edges.isChecked()
+        self.gui_options["plot_penalty"] = self.action_Penalty.isChecked()
+
+    def clearPlot(self):
+        """
+        Clear the grid plot
+        """
+        self.gui_options["plot_flux"] = False
+        self.gui_options["plot_wall"] = False
+        self.gui_options["plot_centers"] = False
+        self.gui_options["plot_xlow"] = False
+        self.gui_options["plot_ylow"] = False
+        self.gui_options["plot_corners"] = False
+        self.gui_options["plot_legend"] = False
+        self.gui_options["plot_gridlines"] = False
+        self.gui_options["plot_celledges"] = False
+        self.gui_options["plot_penalty"] = False
+        self.updateMenuFromGuiOptions()
+        self.plot_grid(keep_limits=True)
 
     def close(self):
         # Delete and garbage-collect hypnotoad objects here so that any ParallelMap
@@ -375,7 +455,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         """Choose a Hypnotoad options file to load"""
 
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open options file", ".", filter=YAML_FILTER
+            self, "Open options file", self._current_dir, filter=YAML_FILTER
         )
 
         if (filename is None) or (filename == ""):
@@ -383,6 +463,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         if not os.path.exists(filename):
             self.write("Could not find " + filename)
             return
+
+        # Record the directory so user doesn't have to navigate again
+        self._current_dir = os.path.dirname(filename)
 
         self.options_file_line_edit.setText(filename)
         self.filename = filename
@@ -429,7 +512,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
     def select_geqdsk_file(self):
         """Choose a "geqdsk" equilibrium file to open"""
 
-        filename, _ = QFileDialog.getOpenFileName(self, "Open geqdsk file", ".")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open geqdsk file", self._current_dir
+        )
 
         if (filename is None) or (filename == ""):
             return  # Cancelled
@@ -439,6 +524,9 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                 f"QLineEdit {{ background-color: {COLOURS['red']} }}"
             )
             return
+
+        # Record the directory so user doesn't have to navigate again
+        self._current_dir = os.path.dirname(filename)
 
         self.geqdsk_file_line_edit.setText(filename)
         self.geqdsk_file_line_edit.setStyleSheet("")
@@ -467,9 +555,17 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     settings=copy.deepcopy(self.options),
                     nonorthogonal_settings=copy.deepcopy(self.options),
                 )
+            try:
+                # If there was an error in tokamak.read_geqdsk(), it may return both
+                # the TokamakEquilibrium and an error, otherwise it would return
+                # just a TokamakEquilibrium.
+                self.eq, e = self.eq
+                self._popup_error_message(e)
+            except TypeError:
+                # No error, so self.eq is already the TokamakEquilibrium object.
+                pass
         except (ValueError, RuntimeError, func_timeout.FunctionTimedOut) as e:
             self._popup_error_message(e)
-            return
 
         self.update_options_form()
 
@@ -566,7 +662,7 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save grid to file",
-            self.gui_options["grid_file"],
+            os.path.join(self._current_dir, self.gui_options["grid_file"]),
             filter=NETCDF_FILTER,
         )
 
@@ -580,21 +676,47 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
 
         self.mesh.writeGridfile(filename)
 
-    def plot_grid(self, *, keep_limits=False):
+    def plot_grid(self, *, keep_limits: bool = False):
+        """
+        Re-plot the grid and equilibrium
+
+        # Arguments
+
+        keep_limits: bool
+            Keep the axis limits of the plot unchanged?
+        """
+
+        if keep_limits:
+            xlim = self.plot_widget.axes.get_xlim()
+            ylim = self.plot_widget.axes.get_ylim()
+
         self.plot_widget.clear(keep_limits=keep_limits)
 
         if hasattr(self, "eq"):
-            self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
-            self.eq.plotWall(axis=self.plot_widget.axes)
+            if self.gui_options["plot_flux"]:
+                self.eq.plotPotential(ncontours=40, axis=self.plot_widget.axes)
+            if self.gui_options["plot_wall"]:
+                self.eq.plotWall(axis=self.plot_widget.axes)
 
         if hasattr(self, "mesh"):
             # mesh exists, so plot the grid points
             self.mesh.plotPoints(
+                centers=self.gui_options["plot_centers"],
                 xlow=self.gui_options["plot_xlow"],
                 ylow=self.gui_options["plot_ylow"],
                 corners=self.gui_options["plot_corners"],
                 ax=self.plot_widget.axes,
             )
+
+            if self.gui_options["plot_gridlines"]:
+                self.mesh.plotGridLines(ax=self.plot_widget.axes)
+
+            if self.gui_options["plot_celledges"]:
+                self.mesh.plotGridCellEdges(ax=self.plot_widget.axes)
+
+            if self.gui_options["plot_penalty"]:
+                self.mesh.plotPenaltyMask(ax=self.plot_widget.axes)
+
         elif hasattr(self, "eq"):
             # no mesh, but do have equilibrium, so plot separatrices
             for region in self.eq.regions.values():
@@ -604,6 +726,13 @@ class HypnotoadGui(QMainWindow, Ui_Hypnotoad):
                     marker="o",
                 )
             self.plot_widget.axes.plot(*self.eq.x_points[0], "rx")
+
+        if keep_limits:
+            self.plot_widget.axes.set_xlim(xlim)
+            self.plot_widget.axes.set_ylim(ylim)
+
+        if not self.gui_options["plot_legend"]:
+            self.plot_widget.axes.legend().set_visible(False)
 
         self.plot_widget.canvas.draw()
 
@@ -632,9 +761,11 @@ class Preferences(QDialog, Ui_Preferences):
         self.parent.gui_options["plot_xlow"] = self.plotXlowCheckBox.isChecked()
         self.parent.gui_options["plot_ylow"] = self.plotYlowCheckBox.isChecked()
         self.parent.gui_options["plot_corners"] = self.plotCornersCheckBox.isChecked()
-        self.parent.gui_options[
-            "save_full_yaml"
-        ] = self.saveFullYamlCheckBox.isChecked()
+        self.parent.gui_options["save_full_yaml"] = (
+            self.saveFullYamlCheckBox.isChecked()
+        )
+
+        self.parent.updateMenuFromGuiOptions()
 
         self.parent.plot_grid()
 

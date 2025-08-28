@@ -54,13 +54,23 @@ Equilibrium parameters
 
    * - ``Bt_axis``
 
+     -
+
    * - ``psi_axis``
+
+     -
 
    * - ``psi_bdry``
 
+     -
+
    * - ``psi_axis_gfile``
 
+     -
+
    * - ``psi_bdry_gfile``
+
+     -
 
 Other options
 +++++++++++++
@@ -69,6 +79,8 @@ Other options
    :widths: 30 70
 
    * - ``curvature_type``
+
+     -
 
 1D arrays
 ---------
@@ -120,11 +132,37 @@ BoutMesh writes three poloidal coordinates to the grid file:
      - The total poloidal distance around a closed flux surface in the core.
        Not calculated on open flux surfaces.
 
+   * - ``total_parallel_distance``
+
+     - The total distance parallel to a magnetic field line around a closed
+       flux surface in the core.  Not calculated on open flux surfaces.
+
    * - ``ShiftAngle``
 
      - The total toroidal angular displacement when following a field line one
        full poloidal turn around a closed flux surface. Not calculated on open
        flux surfaces.
+
+Wall location
++++++++++++++
+
+If a wall is defined in the equilibrium then the coordinates of the
+closed wall is saved:
+
+.. list-table::
+   :widths: 30 70
+
+   * - ``closed_wall_R``
+
+     - Major radius locations [in meters] of points on the wall. This
+       array forms a closed loop so the last element is the same as
+       the first.
+
+   * - ``closed_wall_Z``
+
+     - Height locations [in meters] of points on the wall, the same
+       number of points as ``closed_wall_R``. This array forms a
+       closed loop so the last element is the same as the first.
 
 2D arrays
 ---------
@@ -199,6 +237,21 @@ Magnetic field quantities
 
      - Total magnetic field.
 
+Boundary quantities
++++++++++++++++++++
+
+.. list-table::
+   :widths: 30 70
+
+   * - ``penalty_mask``
+
+     - A 2D mask indicating whether a cell is inside or outside the
+       wall. It's value is 1 for cells entirely outside the wall; 0
+       for cells entirely inside the wall. Cells that cross the wall
+       are given a penalty proportional to the fraction of the cell
+       poloidal length that is inside the wall.
+
+
 Integral quantities
 +++++++++++++++++++
 
@@ -210,6 +263,13 @@ Integral quantities
      - Poloidal distance (in metres) from the lower divertor target of each flux
        surface to the grid point (on open field lines), or from the poloidal
        location of the lower X-point (on closed field lines).
+
+   * - ``parallel_distance``
+
+     - Distance (in metres) parallel to a magnetic field line from the lower
+       divertor target of each flux surface to the grid point (on open field
+       lines), or from the poloidal location of the lower X-point (on closed
+       field lines).
 
    * - ``zShift``
 
@@ -231,7 +291,11 @@ Coordinate related variables
 
    * - ``hy``, ``hthe``
 
+     -
+
    * - ``dphidy``
+
+     -
 
 Metric coefficients
 +++++++++++++++++++
@@ -240,11 +304,17 @@ Metric coefficients
    :widths: 30 70
 
    * - ``g11``, ``g22``, ``g33``, ``g12``, ``g13``, ``g23``
+
+     -  Contravariant components of the metric tensor.
+
         Note ``g12`` and ``g13`` vanish for orthogonal coordinates (although
         ``g13`` would be non-zero for globally field-aligned coordinates, which
         are not supported by hypnotoad).
 
    * - ``g_11``, ``g_22``, ``g_33``, ``g_12``, ``g_13``, ``g_23``
+
+     -  Covariant components of the metric tensor.
+
         Note ``g_12`` and ``g_13`` vanish for orthogonal coordinates (although
         they would both be non-zero for globally field-aligned coordinates,
         which are not supported by hypnotoad).

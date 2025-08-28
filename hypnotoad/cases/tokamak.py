@@ -78,6 +78,36 @@ class TokamakEquilibrium(Equilibrium):
             value_type=float,
             check_all=is_positive,
         ),
+        leg_extend=WithMeta(
+            0.0,
+            doc="Extend divertor legs by this length [m]",
+            value_type=float,
+            check_all=is_non_negative,
+        ),
+        leg_extend_lower_inner=WithMeta(
+            "leg_extend",
+            doc="Extend lower inner divertor leg",
+            value_type=float,
+            check_all=is_non_negative,
+        ),
+        leg_extend_lower_outer=WithMeta(
+            "leg_extend",
+            doc="Extend lower outer divertor leg",
+            value_type=float,
+            check_all=is_non_negative,
+        ),
+        leg_extend_upper_inner=WithMeta(
+            "leg_extend",
+            doc="Extend upper inner divertor leg",
+            value_type=float,
+            check_all=is_non_negative,
+        ),
+        leg_extend_upper_outer=WithMeta(
+            "leg_extend",
+            doc="Extend upper outer divertor leg",
+            value_type=float,
+            check_all=is_non_negative,
+        ),
         nx_core=WithMeta(
             5,
             doc="Number of radial points in the core",
@@ -523,16 +553,22 @@ class TokamakEquilibrium(Equilibrium):
 
         self.equilibOptions = {}
 
-        super().__init__(nonorthogonal_settings)
+        try:
+            super().__init__(nonorthogonal_settings)
 
-        # Print the table of options
-        print(self.user_options.as_table(), flush=True)
-        if not self.user_options.orthogonal:
-            print(self.nonorthogonal_options.as_table(), flush=True)
+            # Print the table of options
+            print(self.user_options.as_table(), flush=True)
+            if not self.user_options.orthogonal:
+                print(self.nonorthogonal_options.as_table(), flush=True)
 
-        if make_regions:
-            # Create self.regions
-            self.makeRegions()
+            if make_regions:
+                # Create self.regions
+                self.makeRegions()
+        except Exception:
+            # Some error occured, but still useful to return partially set up object,
+            # so, for example, the equilibrium data can be plotted
+            self.regions = {}
+            raise
 
     def findLegs(self, xpoint, radius=0.01, step=0.01):
         """Find the divertor legs coming from a given X-point
@@ -610,6 +646,20 @@ class TokamakEquilibrium(Equilibrium):
             # The sign is used to tell which way to integrate
             sign = np.sign((leg[0] - xpoint.R) * Br + (leg[1] - xpoint.Z) * Bz)
 
+            # Get the length that the leg should be extended by
+            if leg[1] > xpoint.Z:
+                # Upper
+                if leg[0] > xpoint.R:
+                    leg_extend = self.user_options.leg_extend_upper_outer
+                else:
+                    leg_extend = self.user_options.leg_extend_upper_inner
+            else:
+                # Lower
+                if leg[0] > xpoint.R:
+                    leg_extend = self.user_options.leg_extend_lower_outer
+                else:
+                    leg_extend = self.user_options.leg_extend_lower_inner
+
             # Integrate in this direction until the wall is intersected
             # This is affected by sign, which determines which way to integrate
             def dpos_dl(distance, pos):
@@ -638,6 +688,20 @@ class TokamakEquilibrium(Equilibrium):
                 intersect = self.wallIntersection(Point2D(*pos), Point2D(*newpos))
                 if intersect is not None:
                     line.append(intersect)  # Put the intersection in the line
+                    if leg_extend > 0.0:
+                        nsteps = int(leg_extend / step + 0.5)
+                        extend_step = leg_extend / nsteps
+                        pos = (intersect.R, intersect.Z)
+                        for i in range(nsteps):
+                            solve_result = solve_ivp(
+                                dpos_dl,
+                                (0.0, extend_step),
+                                pos,
+                                rtol=0.0,
+                                atol=self.user_options.leg_trace_atol,
+                            )
+                            pos = (solve_result.y[0][1], solve_result.y[1][1])
+                            line.append(Point2D(*pos))
                     break
                 pos = newpos
                 line.append(Point2D(*pos))
@@ -721,15 +785,34 @@ class TokamakEquilibrium(Equilibrium):
             np.abs((self.psi_core - self.psi_sol) / 20.0),
         )
 
+        # Separate R and Z arrays for wall location
+        Rws = [p.R for p in self.wall]
+        Zws = [p.Z for p in self.wall]
+        # Point (Rc, Zc) inside the wall. Could use e.g. magnetic axis
+        Rc = 0.5 * (min(Rws) + max(Rws))
+        Zc = 0.5 * (min(Zws) + max(Zws))
+
+        def inside_wall(point: Point2D):
+            # If outside wall then a line from the middle of the
+            # bounding wall to the point will intersect. Note: Complex
+            # walls may cross multiple times.
+            return not polygons.intersect([Rc, point.R], [Zc, point.Z], Rws, Zws)
+
         # Filter out the X-points not in range.
         # Keep only those with normalised psi < psinorm_sol
+        # and where X-points are inside the wall
         self.psi_sep, self.x_points = zip(
             *(
                 (psi, xpoint)
                 for psi, xpoint in zip(self.psi_sep, self.x_points)
-                if self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol)
+                if (self._psi_to_psinorm(psi) < self._psi_to_psinorm(self.psi_sol))
+                and inside_wall(xpoint)
             )
         )
+        for psi in self.psi_sep:
+            print(
+                f"Found X-point at psi = {psi}, psi_norm = {self._psi_to_psinorm(psi)}"
+            )
 
         # Check that there are only one or two left
         if not (0 < len(self.x_points) <= 2):
@@ -1733,20 +1816,9 @@ def read_geqdsk(
     pressure = data["pres"]
     fpol = data["fpol"]
 
-    result = TokamakEquilibrium(
-        R1D,
-        Z1D,
-        psi2D,
-        psi1D,
-        fpol,
-        psi_bdry_gfile=psi_bdry_gfile,
-        psi_axis_gfile=psi_axis_gfile,
-        pressure=pressure,
-        wall=wall,
-        make_regions=make_regions,
-        settings=settings,
-        nonorthogonal_settings=nonorthogonal_settings,
-    )
+    # Call __new__() first in case there is an exception in __init__(), we can still
+    # return a partially-initialised TokamakEquilibrium object
+    result = TokamakEquilibrium.__new__(TokamakEquilibrium)
 
     # Store geqdsk input as a string in the TokamakEquilibrium object so we can save it
     # in BoutMesh.writeGridFile
@@ -1757,5 +1829,23 @@ def read_geqdsk(
     # also save filename, if it exists
     if hasattr(filehandle, "name"):
         result.geqdsk_filename = filehandle.name
+
+    try:
+        result.__init__(
+            R1D,
+            Z1D,
+            psi2D,
+            psi1D,
+            fpol,
+            psi_bdry_gfile=psi_bdry_gfile,
+            psi_axis_gfile=psi_axis_gfile,
+            pressure=pressure,
+            wall=wall,
+            make_regions=make_regions,
+            settings=settings,
+            nonorthogonal_settings=nonorthogonal_settings,
+        )
+    except Exception as e:
+        return result, e
 
     return result

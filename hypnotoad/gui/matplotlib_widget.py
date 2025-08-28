@@ -44,7 +44,7 @@ class MatplotlibWidget:
         if keep_limits:
             # slightly hacky way to clear axes, but prevents axis limits being reset when
             # we redraw
-            for artist in self.axes.lines + self.axes.collections:
+            for artist in self.axes.lines + self.axes.collections + self.axes.patches:
                 artist.remove()
             self.axes.set_prop_cycle(None)
             return

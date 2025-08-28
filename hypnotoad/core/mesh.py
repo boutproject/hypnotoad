@@ -42,6 +42,7 @@ from boututils.run_wrapper import shell_safe
 
 from .equilibrium import (
     calc_distance,
+    find_intersections,
     Equilibrium,
     EquilibriumRegion,
     Point2D,
@@ -104,6 +105,20 @@ class MeshRegion:
             doc="Absolute tolerance for following Grad(psi)",
             value_type=[float, int],
             check_all=is_non_negative,
+        ),
+        follow_perpendicular_maxits=WithMeta(
+            10000,
+            doc="Maximum iterations when following perpendicular gradients",
+            value_type=int,
+            check_all=is_non_negative,
+        ),
+        follow_perpendicular_recover=WithMeta(
+            False,
+            doc=(
+                "Recover from follow_perpendicular failures? "
+                "This will generate points that don't follow flux surfaces"
+            ),
+            value_type=bool,
         ),
         geometry_rtol=WithMeta(
             1.0e-10,
@@ -231,6 +246,8 @@ class MeshRegion:
             psivals=[start_psi, start_psi_sep_plus_delta],
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
+            maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         self.equilibriumRegion.gradPsiSurfaceAtStart = (
             vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
@@ -260,6 +277,8 @@ class MeshRegion:
             psivals=[end_psi, end_psi_sep_plus_delta],
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
+            maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         self.equilibriumRegion.gradPsiSurfaceAtEnd = (
             vec_points[1].as_ndarray() - vec_points[0].as_ndarray()
@@ -270,7 +289,8 @@ class MeshRegion:
         # Use self.equilibriumRegion.fine_contour for the vector along the separatrix
         # because then the vector will not change when the grid resolution changes
         fine_contour = self.equilibriumRegion.get_fine_contour(
-            psi=self.equilibriumRegion.psi
+            psi=self.equilibriumRegion.psi,
+            equilibrium=self.meshParent.equilibrium,
         )
         if self.equilibriumRegion.wallSurfaceAtStart is None:
             # lower end
@@ -309,6 +329,8 @@ class MeshRegion:
             psivals=temp_psi_vals,
             rtol=self.user_options.follow_perpendicular_rtol,
             atol=self.user_options.follow_perpendicular_atol,
+            maxits=self.user_options.follow_perpendicular_maxits,
+            recover=self.user_options.follow_perpendicular_recover,
         )
         if self.radialIndex < self.equilibriumRegion.separatrix_radial_index:
             for perp_points in perp_points_list:
@@ -341,10 +363,26 @@ class MeshRegion:
         max_extend = 100
 
         # should the contour intersect a wall at the lower end?
-        lower_wall = self.connections["lower"] is None
+        # if nonorthogonal_target_poloidal_spacing_range_* for this region is `None`,
+        # then ignore the wall intersections.
+        lower_wall = self.connections["lower"] is None and not (
+            not self.user_options.orthogonal
+            and self.equilibriumRegion.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
+            )
+            is None
+        )
 
         # should the contour intersect a wall at the upper end?
-        upper_wall = self.connections["upper"] is None
+        # if nonorthogonal_target_poloidal_spacing_range_* for this region is `None`,
+        # then ignore the wall intersections.
+        upper_wall = self.connections["upper"] is None and not (
+            not self.user_options.orthogonal
+            and self.equilibriumRegion.getTargetParameter(
+                "nonorthogonal_target_poloidal_spacing_range"
+            )
+            is None
+        )
 
         # Note: parallel_map will pass additional keywords to the function,
         #       including `equilibrium` and `psi`.
@@ -364,7 +402,11 @@ class MeshRegion:
         # point makes the spacing of points on the contour not-smooth) and adjusted for
         # the change in distance after redefining startInd to be at the wall
         self.sfunc_orthogonal_list = [
-            contour.contourSfunc(psi=self.equilibriumRegion.psi)
+            contour.contourSfunc(
+                psi=self.equilibriumRegion.psi,
+                equilibrium=self.meshParent.equilibrium,
+                spacings=self.equilibriumRegion.getSpacings(),
+            )
             for contour in self.contours
         ]
 
@@ -426,7 +468,8 @@ class MeshRegion:
                     # Calculate total distance using a new FineContour, created at this
                     # point
                     new_total_distance = contour.totalDistance(
-                        psi=self.equilibriumRegion.psi
+                        psi=self.equilibriumRegion.psi,
+                        equilibrium=self.meshParent.equilibrium,
                     )
 
                     return (
@@ -439,11 +482,11 @@ class MeshRegion:
                 # along the contour where the grid would be orthogonal need to
                 # correct sfunc_orthogonal for the distance between the point at
                 # the lower wall and the original start-point
-                self.sfunc_orthogonal_list[
-                    i
-                ] = correct_sfunc_orthogonal_and_set_startInd(
-                    contour,
-                    self.sfunc_orthogonal_list[i],
+                self.sfunc_orthogonal_list[i] = (
+                    correct_sfunc_orthogonal_and_set_startInd(
+                        contour,
+                        self.sfunc_orthogonal_list[i],
+                    )
                 )
 
             if upper_wall:
@@ -626,6 +669,7 @@ class MeshRegion:
             c.regrid(
                 2 * self.ny_noguards + 1,
                 psi=self.equilibriumRegion.psi,
+                equilibrium=self.meshParent.equilibrium,
                 sfunc=get_sfunc(i, c, sfunc_orth),
                 extend_lower=self.equilibriumRegion.extend_lower,
                 extend_upper=self.equilibriumRegion.extend_upper,
@@ -728,6 +772,56 @@ class MeshRegion:
             self.Rxy.corners[-1, -1] = xpoint.R
             self.Zxy.corners[-1, -1] = xpoint.Z
 
+    def calcPenaltyMask(self, equilibrium):
+        """
+        Uses self.Rxy and self.Zxy to calculate which cells are outside the wall.
+
+        Assumes that self.Rxy and self.Zxy have already been calculated by
+        self.fillRZ()
+
+        Sets and returns a penalty_mask 2D array.
+        """
+        self.penalty_mask = numpy.zeros((self.nx, self.ny))
+
+        # A point inside the wall.
+        p0 = Point2D(
+            (equilibrium.Rmax + equilibrium.Rmin) / 2,
+            (equilibrium.Zmax + equilibrium.Zmin) / 2,
+        )
+
+        for i in range(self.nx):
+            for j in range(self.ny):
+                # Check if cell Y edges are outside the wall
+                p1 = Point2D(self.Rxy.ylow[i, j], self.Zxy.ylow[i, j])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p1)
+                p1_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                p2 = Point2D(self.Rxy.ylow[i, j + 1], self.Zxy.ylow[i, j + 1])
+                intersects = find_intersections(equilibrium.closed_wallarray, p0, p2)
+                p2_outside = (
+                    False if intersects is None else intersects.shape[0] % 2 == 1
+                )
+
+                if p1_outside and p2_outside:
+                    # Both ends of the cell are outside the wall
+                    self.penalty_mask[i, j] = 1.0
+                elif p1_outside or p2_outside:
+                    # Cell crosses the wall
+                    intersects = find_intersections(
+                        equilibrium.closed_wallarray, p1, p2
+                    )
+                    if intersects is None:
+                        # Something odd going on
+                        continue
+                    pi = Point2D(
+                        intersects[0, 0], intersects[0, 1]
+                    )  # Intersection point
+                    self.penalty_mask[i, j] = calc_distance(
+                        p1 if p1_outside else p2, pi
+                    ) / calc_distance(p1, p2)
+
     def getRZBoundary(self):
         # Upper value of ylow array logically overlaps with the lower value in the upper
         # neighbour. They should be close, but aren't guaranteed to be identical already
@@ -785,6 +879,7 @@ class MeshRegion:
         self.Bpxy = numpy.sqrt(self.Brxy**2 + self.Bzxy**2)
 
         self.calcPoloidalDistance()
+        self.calcParallelDistance()
 
         if hasattr(
             self.meshParent.equilibrium.regions[self.equilibriumRegion.name], "pressure"
@@ -1292,13 +1387,19 @@ class MeshRegion:
         for i in range(self.nx):
             print(f"{self.name} calcHy {i} / {2 * self.nx + 1}", end="\r", flush=True)
             d = numpy.array(
-                self.contours[2 * i + 1].get_distance(psi=self.equilibriumRegion.psi)
+                self.contours[2 * i + 1].get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
             )
             hy.centre[i, :] = d[2::2] - d[:-2:2]
             hy.ylow[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
             if self.connections["lower"] is not None:
                 cbelow = self.getNeighbour("lower").contours[2 * i + 1]
-                dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
+                dbelow = cbelow.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.ylow[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1306,7 +1407,10 @@ class MeshRegion:
                 hy.ylow[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i + 1]
-                dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
+                dabove = cabove.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.ylow[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1320,13 +1424,19 @@ class MeshRegion:
                 flush=True,
             )
             d = numpy.array(
-                self.contours[2 * i].get_distance(psi=self.equilibriumRegion.psi)
+                self.contours[2 * i].get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
             )
             hy.xlow[i, :] = d[2::2] - d[:-2:2]
             hy.corners[i, 1:-1] = d[3:-1:2] - d[1:-3:2]
             if self.connections["lower"] is not None:
                 cbelow = self.getNeighbour("lower").contours[2 * i]
-                dbelow = cbelow.get_distance(psi=self.equilibriumRegion.psi)
+                dbelow = cbelow.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.corners[i, 0] = d[1] - d[0] + dbelow[-1] - dbelow[-2]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1334,7 +1444,10 @@ class MeshRegion:
                 hy.corners[i, 0] = 2.0 * (d[1] - d[0])
             if self.connections["upper"] is not None:
                 cabove = self.getNeighbour("upper").contours[2 * i]
-                dabove = cabove.get_distance(psi=self.equilibriumRegion.psi)
+                dabove = cabove.get_distance(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 hy.corners[i, -1] = d[-1] - d[-2] + dabove[1] - dabove[0]
             else:
                 # no region below, so estimate distance to point before '0' as the same
@@ -1477,7 +1590,10 @@ class MeshRegion:
         while True:
             print("calcZShift", region.name, end="\r", flush=True)
             for i, contour in enumerate(region.contours):
-                fine_contour = contour.get_fine_contour(psi=self.equilibriumRegion.psi)
+                fine_contour = contour.get_fine_contour(
+                    psi=self.equilibriumRegion.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )
                 fine_distance = fine_contour.distance
 
                 def integrand_func(R, Z):
@@ -1510,7 +1626,10 @@ class MeshRegion:
                     fine_distance, zShift_fine, kind="linear", assume_sorted=True
                 )
                 zShift_contour = zShift_interpolator(
-                    contour.get_distance(psi=self.equilibriumRegion.psi)
+                    contour.get_distance(
+                        psi=self.equilibriumRegion.psi,
+                        equilibrium=self.meshParent.equilibrium,
+                    )
                 )
 
                 if i % 2 == 0:
@@ -1579,21 +1698,25 @@ class MeshRegion:
             c = region.contours[2 * i + 1]
             # Cell-centre points
             region.poloidal_distance.centre[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
             # ylow points
             region.poloidal_distance.ylow[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
         for i in range(self.nx + 1):
             c = region.contours[2 * i]
             # Cell-centre points
             region.poloidal_distance.xlow[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
             # ylow points
             region.poloidal_distance.corners[i, :] -= c.get_distance(
-                psi=self.meshParent.equilibrium.psi
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
             )[c.startInd]
 
         # Get distances from contours
@@ -1602,21 +1725,25 @@ class MeshRegion:
                 c = region.contours[2 * i + 1]
                 # Cell-centre points
                 region.poloidal_distance.centre[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[1::2]
                 # ylow points
                 region.poloidal_distance.ylow[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[::2]
             for i in range(self.nx + 1):
                 c = region.contours[2 * i]
                 # Cell-centre points
                 region.poloidal_distance.xlow[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[1::2]
                 # ylow points
                 region.poloidal_distance.corners[i, :] += c.get_distance(
-                    psi=self.meshParent.equilibrium.psi
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
                 )[::2]
 
             next_region = region.getNeighbour("upper")
@@ -1628,18 +1755,18 @@ class MeshRegion:
                 next_region.poloidal_distance = MultiLocationArray(
                     next_region.nx, next_region.ny
                 )
-                next_region.poloidal_distance.centre[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.ylow[
-                    :, :
-                ] = region.poloidal_distance.ylow[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.xlow[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
-                next_region.poloidal_distance.corners[
-                    :, :
-                ] = region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                next_region.poloidal_distance.centre[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.ylow[:, :] = (
+                    region.poloidal_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.xlow[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
+                next_region.poloidal_distance.corners[:, :] = (
+                    region.poloidal_distance.corners[:, -1, numpy.newaxis]
+                )
                 region = next_region
 
         # Save total poloidal distance in core
@@ -1652,6 +1779,115 @@ class MeshRegion:
                 :, -1
             ]
             self.total_poloidal_distance.xlow[:, 0] = region.poloidal_distance.corners[
+                :, -1
+            ]
+
+    def calcParallelDistance(self):
+        """
+        Calculate parallel distance by following contours between regions.
+        """
+        # Cannot just test 'connections['lower'] is not None' because periodic regions
+        # always have a lower connection - requires us to give a yGroupIndex to each
+        # region when creating the groups.
+        if self.yGroupIndex != 0:
+            return None
+
+        region = self
+        region.parallel_distance = MultiLocationArray(region.nx, region.ny)
+        region.parallel_distance.centre = 0.0
+        region.parallel_distance.ylow = 0.0
+        region.parallel_distance.xlow = 0.0
+        region.parallel_distance.corners = 0.0
+
+        # Initialise so that distance counts from the lower wall (for SOL/PFR) or wall
+        # (for core)
+        for i in range(self.nx):
+            c = region.contours[2 * i + 1]
+            # Cell-centre points
+            region.parallel_distance.centre[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+            # ylow points
+            region.parallel_distance.ylow[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+        for i in range(self.nx + 1):
+            c = region.contours[2 * i]
+            # Cell-centre points
+            region.parallel_distance.xlow[i, :] -= c.get_parallel_distance(
+                psi=self.meshParent.equilibrium.psi,
+                equilibrium=self.meshParent.equilibrium,
+            )[c.startInd]
+            # ylow points
+            region.parallel_distance.corners[i, :] -= (
+                c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[c.startInd],
+            )
+
+        # Get distances from contours
+        while True:
+            for i in range(self.nx):
+                c = region.contours[2 * i + 1]
+                # Cell-centre points
+                region.parallel_distance.centre[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[1::2]
+                # ylow points
+                region.parallel_distance.ylow[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[::2]
+            for i in range(self.nx + 1):
+                c = region.contours[2 * i]
+                # Cell-centre points
+                region.parallel_distance.xlow[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[1::2]
+                # ylow points
+                region.parallel_distance.corners[i, :] += c.get_parallel_distance(
+                    psi=self.meshParent.equilibrium.psi,
+                    equilibrium=self.meshParent.equilibrium,
+                )[::2]
+
+            next_region = region.getNeighbour("upper")
+            if (next_region is None) or (next_region is self):
+                # Note: If periodic, next_region is self (back to start)
+                break
+            else:
+                # Initialise with values at the lower y-boundary of next_region
+                next_region.parallel_distance = MultiLocationArray(
+                    next_region.nx, next_region.ny
+                )
+                next_region.parallel_distance.centre[:, :] = (
+                    region.parallel_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.ylow[:, :] = (
+                    region.parallel_distance.ylow[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.xlow[:, :] = (
+                    region.parallel_distance.corners[:, -1, numpy.newaxis]
+                )
+                next_region.parallel_distance.corners[:, :] = (
+                    region.parallel_distance.corners[:, -1, numpy.newaxis]
+                )
+                region = next_region
+
+        # Save total parallel distance in core
+        self.total_parallel_distance = MultiLocationArray(region.nx, 1)
+        if self.connections["lower"] is not None:
+            # This is a periodic region (we already checked that the self.yGroupIndex is
+            # 0).
+            # 'region' is the last region in the y-group
+            self.total_parallel_distance.centre[:, 0] = region.parallel_distance.ylow[
+                :, -1
+            ]
+            self.total_parallel_distance.xlow[:, 0] = region.parallel_distance.corners[
                 :, -1
             ]
 
@@ -2235,13 +2471,13 @@ class MeshRegion:
         setattr(self, varname, tmp)
 
 
-def _calc_contour_distance(i, c, *, psi, **kwargs):
+def _calc_contour_distance(i, c, *, psi, equilibrium, **kwargs):
     print(
         f"Calculating contour distances: {i + 1}",
         end="\r",
         flush=True,
     )
-    c.get_distance(psi=psi)
+    c.get_distance(psi=psi, equilibrium=equilibrium)
     return c
 
 
@@ -2298,7 +2534,7 @@ def _find_intersection(
                 break
 
         count = 0
-        distance = contour.get_distance(psi=psi)
+        distance = contour.get_distance(psi=psi, equilibrium=equilibrium)
         ds_extend = distance[1] - distance[0]
         while coarse_lower_intersect is None:
             # contour has not yet intersected with wall, so make it longer and
@@ -2330,8 +2566,8 @@ def _find_intersection(
         # points
         #
         # first find nearest FineContour points
-        fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_lower_intersect)
+        fine_contour = contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
+        d, _ = fine_contour.getDistance(coarse_lower_intersect)
         i_fine = numpy.searchsorted(fine_contour.distance, d)
         # Intersection should be between i_fine-1 and i_fine, but check
         # intervals on either side if necessary
@@ -2384,7 +2620,7 @@ def _find_intersection(
                 break
 
         count = 0
-        distance = contour.get_distance(psi=psi)
+        distance = contour.get_distance(psi=psi, equilibrium=equilibrium)
         ds_extend = distance[-1] - distance[-2]
         while coarse_upper_intersect is None:
             # contour has not yet intersected with wall, so make it longer and
@@ -2416,8 +2652,8 @@ def _find_intersection(
         # points
         #
         # first find nearest FineContour points
-        fine_contour = contour.get_fine_contour(psi=psi)
-        d = fine_contour.getDistance(coarse_upper_intersect)
+        fine_contour = contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
+        d, _ = fine_contour.getDistance(coarse_upper_intersect)
         i_fine = numpy.searchsorted(fine_contour.distance, d)
         # Intersection should be between i_fine-1 and i_fine, but check
         # intervals on either side if necessary
@@ -2454,7 +2690,7 @@ def _find_intersection(
         )
 
     # Create FineContour for result, so that this is done in parallel
-    contour.get_fine_contour(psi=psi)
+    contour.get_fine_contour(psi=psi, equilibrium=equilibrium)
 
     return (
         contour,
@@ -2465,7 +2701,7 @@ def _find_intersection(
     )
 
 
-def _refine_extend(i, contour, *, psi, **kwargs):
+def _refine_extend(i, contour, *, psi, equilibrium, **kwargs):
     print(
         "refine and extend",
         i,
@@ -2473,7 +2709,7 @@ def _refine_extend(i, contour, *, psi, **kwargs):
         flush=True,
     )
     contour.refine(psi=psi)
-    contour.checkFineContourExtend(psi=psi)
+    contour.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
     return contour
 
 
@@ -2624,6 +2860,7 @@ class Mesh:
                 eq_region_with_boundaries = eq_region.getRegridded(
                     radialIndex=i,
                     psi=self.equilibrium.psi,
+                    equilibrium=self.equilibrium,
                     width=self.user_options.refine_width,
                 )
                 self.regions[region_id] = MeshRegion(
@@ -2718,6 +2955,8 @@ class Mesh:
             region.fillRZ()
         for region in self.regions.values():
             region.getRZBoundary()
+        for region in self.regions.values():
+            region.calcPenaltyMask(self.equilibrium)
 
     def geometry(self):
         """
@@ -2822,12 +3061,12 @@ class Mesh:
                     marky[region_name].centre[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].centre[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].centre[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
                         markx[region.connections["outer"]].centre[0, 1:-1] = this_markx[
                             -1, :
@@ -2836,12 +3075,12 @@ class Mesh:
                             -1, :
                         ]
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].centre[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].centre[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
                         markx[region.connections["upper"]].centre[1:-1, 0] = this_markx[
                             :, -1
@@ -2949,33 +3188,33 @@ class Mesh:
                     marky[region_name].corners[1:-1, 1:-1] = this_marky
 
                     if region.connections["inner"] is not None:
-                        markx[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_markx[0, :]
-                        marky[region.connections["inner"]].corners[
-                            -1, 1:-1
-                        ] = this_marky[0, :]
+                        markx[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_markx[0, :]
+                        )
+                        marky[region.connections["inner"]].corners[-1, 1:-1] = (
+                            this_marky[0, :]
+                        )
                     if region.connections["outer"] is not None:
-                        markx[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_markx[-1, :]
-                        marky[region.connections["outer"]].corners[
-                            0, 1:-1
-                        ] = this_marky[-1, :]
+                        markx[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_markx[-1, :]
+                        )
+                        marky[region.connections["outer"]].corners[0, 1:-1] = (
+                            this_marky[-1, :]
+                        )
                     if region.connections["lower"] is not None:
-                        markx[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_markx[:, 0]
-                        marky[region.connections["lower"]].corners[
-                            1:-1, -1
-                        ] = this_marky[:, 0]
+                        markx[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_markx[:, 0]
+                        )
+                        marky[region.connections["lower"]].corners[1:-1, -1] = (
+                            this_marky[:, 0]
+                        )
                     if region.connections["upper"] is not None:
-                        markx[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_markx[:, -1]
-                        marky[region.connections["upper"]].corners[
-                            1:-1, 0
-                        ] = this_marky[:, -1]
+                        markx[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_markx[:, -1]
+                        )
+                        marky[region.connections["upper"]].corners[1:-1, 0] = (
+                            this_marky[:, -1]
+                        )
 
             changes = []
             tmp = {}
@@ -2999,17 +3238,86 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridLines(self, **kwargs):
+    def plotGridCellEdges(self, ax=None, **kwargs):
+        """
+        Plot lines between cell corners
+        """
         from matplotlib import pyplot
         from cycler import cycle
 
         colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
 
+        if ax is None:
+            _, ax = pyplot.subplots(1)
+
+        for region in self.regions.values():
+            c = next(colors)
+            label = region.myID
+            for i in range(region.nx + 1):
+                ax.plot(
+                    region.Rxy.corners[i, :],
+                    region.Zxy.corners[i, :],
+                    c=c,
+                    label=label,
+                    **kwargs,
+                )
+                label = None
+            label = region.myID
+            for j in range(region.ny + 1):
+                ax.plot(
+                    region.Rxy.corners[:, j],
+                    region.Zxy.corners[:, j],
+                    c=c,
+                    label=None,
+                    **kwargs,
+                )
+                label = None
+
+    def plotPenaltyMask(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+
+        if ax is None:
+            _, ax = pyplot.subplots(1)
+
+        for region in self.regions.values():
+            for i in range(region.nx):
+                for j in range(region.ny):
+                    penalty = region.penalty_mask[i, j]
+                    if penalty > 0.01:
+                        # Add a polygon
+                        ax.fill(
+                            [
+                                region.Rxy.corners[i, j],
+                                region.Rxy.corners[i, j + 1],
+                                region.Rxy.corners[i + 1, j + 1],
+                                region.Rxy.corners[i + 1, j],
+                            ],
+                            [
+                                region.Zxy.corners[i, j],
+                                region.Zxy.corners[i, j + 1],
+                                region.Zxy.corners[i + 1, j + 1],
+                                region.Zxy.corners[i + 1, j],
+                            ],
+                            "k",
+                            alpha=penalty,
+                        )
+
+    def plotGridLines(self, ax=None, **kwargs):
+        from matplotlib import pyplot
+        from cycler import cycle
+
+        colors = cycle(pyplot.rcParams["axes.prop_cycle"].by_key()["color"])
+
+        if ax is None:
+            fig, ax = pyplot.subplots(1)
+        else:
+            fig = ax.figure
+
         for region in self.regions.values():
             c = next(colors)
             label = region.myID
             for i in range(region.nx):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[i, :],
                     region.Zxy.centre[i, :],
                     c=c,
@@ -3019,7 +3327,7 @@ class Mesh:
                 label = None
             label = region.myID
             for j in range(region.ny):
-                pyplot.plot(
+                ax.plot(
                     region.Rxy.centre[:, j],
                     region.Zxy.centre[:, j],
                     c=c,
@@ -3027,11 +3335,12 @@ class Mesh:
                     **kwargs,
                 )
                 label = None
-        l = pyplot.legend()
+        l = fig.legend()
         l.set_draggable(True)
 
     def plotPoints(
         self,
+        centers=True,
         xlow=False,
         ylow=False,
         corners=False,
@@ -3072,14 +3381,15 @@ class Mesh:
 
             if "scatter" in plot_types:
                 m = iter(markers)
-                ax.scatter(
-                    region.Rxy.centre,
-                    region.Zxy.centre,
-                    marker=next(m),
-                    c=c,
-                    label=region.myID,
-                    **kwargs,
-                )
+                if centers:
+                    ax.scatter(
+                        region.Rxy.centre,
+                        region.Zxy.centre,
+                        marker=next(m),
+                        c=c,
+                        label=region.myID,
+                        **kwargs,
+                    )
                 if xlow:
                     ax.scatter(
                         region.Rxy.xlow, region.Zxy.xlow, marker=next(m), c=c, **kwargs
@@ -3145,10 +3455,32 @@ class Mesh:
 
 
 def followPerpendicular(
-    i, p0, psi0, *, f_R, f_Z, psivals, rtol=2.0e-8, atol=1.0e-8, **kwargs
+    i,
+    p0,
+    psi0,
+    *,
+    f_R,
+    f_Z,
+    psivals,
+    rtol=2.0e-8,
+    atol=1.0e-8,
+    maxits: int = 1000,
+    recover: bool = False,
+    **kwargs,
 ):
-    """
-    Follow a line perpendicular to Bp from point p0 until psi_target is reached.
+    """Follow a line perpendicular to Bp from point p0 until psi_target is reached.
+
+    # Arguments
+
+    maxits : int
+        Maximum number of iterations to be taken. If exceeded then the range
+        of psi will be truncated.
+
+    recover : bool
+        Recover from failures by changing the psivals of
+        the grid points.  This will result in an incorrect grid, but
+        is useful when adjusting settings.
+
     """
     if i is not None:
         print(f"Following perpendicular: {i + 1}", end="\r", flush=True)
@@ -3165,9 +3497,27 @@ def followPerpendicular(
             right = [psi for psi in psivals if psi < psi0]
 
         return followPerpendicular(
-            None, p0, psi0, f_R=f_R, f_Z=f_Z, psivals=left[::-1], rtol=rtol, atol=atol
+            None,
+            p0,
+            psi0,
+            f_R=f_R,
+            f_Z=f_Z,
+            psivals=left[::-1],
+            rtol=rtol,
+            atol=atol,
+            maxits=maxits,
+            recover=recover,
         )[::-1] + followPerpendicular(
-            None, p0, psi0, f_R=f_R, f_Z=f_Z, psivals=right, rtol=rtol, atol=atol
+            None,
+            p0,
+            psi0,
+            f_R=f_R,
+            f_Z=f_Z,
+            psivals=right,
+            rtol=rtol,
+            atol=atol,
+            maxits=maxits,
+            recover=recover,
         )
 
     if abs(psivals[-1] - psi0) < abs(psivals[0] - psi0):
@@ -3181,10 +3531,30 @@ def followPerpendicular(
             psivals=psivals[::-1],
             rtol=rtol,
             atol=atol,
+            maxits=maxits,
+            recover=recover,
         )[::-1]
     psivals = psivals.copy()
 
+    class MaxIterException(Exception):
+        def __init__(self, maxits, psi):
+            super().__init__(
+                f"Max iterations {maxits} reached at psi = {psi}\n"
+                "  To recover from this and generate a grid anyway, "
+                "set follow_perpendicular_recover to True.\n"
+                "  The resulting grid will not align to flux surfaces."
+            )
+            self.psi = psi
+
+    call_counter = 0
+
     def f(psi, x):
+        # Implement a maximum number of iterations because this is not provided by
+        # the solve_ivp API.
+        nonlocal call_counter
+        call_counter += 1
+        if call_counter >= maxits:
+            raise MaxIterException(maxits, psi)
         return (f_R(x[0], x[1]), f_Z(x[0], x[1]))
 
     psirange = (psi0, psivals[-1])
@@ -3213,6 +3583,31 @@ def followPerpendicular(
             atol=atol,
             vectorized=True,
         )
+    except MaxIterException as e:
+        print(f"followPerpendicular failed at psi = {e.psi}")
+        if recover:
+            print(
+                "  WARNING: Recovering by changing psi values.\n"
+                "    The resulting grid will not align to flux surfaces."
+            )
+            new_psivals = numpy.linspace(psi0, e.psi, len(psivals) + 1, endpoint=False)[
+                1:
+            ]
+            return followPerpendicular(
+                None,
+                p0,
+                psi0,
+                f_R=f_R,
+                f_Z=f_Z,
+                psivals=new_psivals,
+                rtol=rtol,
+                atol=atol,
+                maxits=maxits,
+                recover=recover,
+            )
+        else:
+            raise e
+
     except ValueError:
         print(psirange, psivals)
         raise
@@ -3293,9 +3688,9 @@ class BoutMesh(Mesh):
         self.region_indices = {}
         for reg_name in self.equilibrium.regions:
             for i in range(len(x_regions)):
-                self.region_indices[
-                    self.region_lookup[(reg_name, i)]
-                ] = numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                self.region_indices[self.region_lookup[(reg_name, i)]] = (
+                    numpy.index_exp[x_regions[i], y_regions[reg_name]]
+                )
 
         # constant spacing in y for now
         if self.ny_core > 0:
@@ -3334,15 +3729,15 @@ class BoutMesh(Mesh):
                     ]
                 if all_corners:
                     if f_region._corners_array is not None:
-                        f.lower_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, :-1]
-                        f.upper_right_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[1:, 1:]
-                        f.upper_left_corners[
-                            self.region_indices[region.myID]
-                        ] = f_region.corners[:-1, 1:]
+                        f.lower_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, :-1]
+                        )
+                        f.upper_right_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[1:, 1:]
+                        )
+                        f.upper_left_corners[self.region_indices[region.myID]] = (
+                            f_region.corners[:-1, 1:]
+                        )
 
             # Set 'bout_type' so it gets saved in the grid file
             f.attributes["bout_type"] = "Field2D"
@@ -3385,6 +3780,8 @@ class BoutMesh(Mesh):
         addFromRegions("dy")
         addFromRegions("poloidal_distance")
         addFromRegionsXArray("total_poloidal_distance")
+        addFromRegions("parallel_distance")
+        addFromRegionsXArray("total_parallel_distance")
         addFromRegions("Brxy")
         addFromRegions("Bzxy")
         addFromRegions("Bpxy")
@@ -3430,6 +3827,19 @@ class BoutMesh(Mesh):
 
         if hasattr(next(iter(self.equilibrium.regions.values())), "pressure"):
             addFromRegions("pressure")
+
+        # Penalty mask
+        self.penalty_mask = BoutArray(
+            numpy.zeros((self.nx, self.ny)),
+            attributes={
+                "bout_type": "Field2D",
+                "description": (
+                    "1 if cell is entirely outside wall, " "0 if entirely inside wall"
+                ),
+            },
+        )
+        for region in self.regions.values():
+            self.penalty_mask[self.region_indices[region.myID]] = region.penalty_mask
 
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
@@ -3485,9 +3895,24 @@ class BoutMesh(Mesh):
             if hasattr(self.equilibrium, "psi_bdry_gfile"):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
 
+            if hasattr(self.equilibrium, "closed_wallarray"):
+                f.write(
+                    "closed_wall_R",
+                    self.equilibrium.closed_wallarray[:, 0],
+                    dims=("closed_wall",),
+                )
+                f.write(
+                    "closed_wall_Z",
+                    self.equilibrium.closed_wallarray[:, 1],
+                    dims=("closed_wall",),
+                )
+
             # write the 2d fields
             for name in self.fields_to_output:
                 self.writeArray(name, self.__dict__[name], f)
+
+            # penalty_mask is defined for each cell
+            f.write("penalty_mask", self.penalty_mask)
 
             # write corner positions, as these may be useful for plotting, etc.
             for name in ["Rxy", "Zxy"]:

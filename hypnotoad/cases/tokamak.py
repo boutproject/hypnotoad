@@ -488,8 +488,8 @@ class TokamakEquilibrium(Equilibrium):
             else:
                 self.fprime_spl = self.f_spl.derivative()
         else:
-            self.f_spl = lambda psi: 0.0
-            self.fprime_spl = lambda psi: 0.0
+            self.f_spl = lambda psi: 0.0 * psi
+            self.fprime_spl = lambda psi: 0.0 * psi
 
         # Optional pressure profile
         if pressure is not None:

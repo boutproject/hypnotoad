@@ -132,6 +132,11 @@ BoutMesh writes three poloidal coordinates to the grid file:
      - The total poloidal distance around a closed flux surface in the core.
        Not calculated on open flux surfaces.
 
+   * - ``total_parallel_distance``
+
+     - The total distance parallel to a magnetic field line around a closed
+       flux surface in the core.  Not calculated on open flux surfaces.
+
    * - ``ShiftAngle``
 
      - The total toroidal angular displacement when following a field line one
@@ -258,6 +263,13 @@ Integral quantities
      - Poloidal distance (in metres) from the lower divertor target of each flux
        surface to the grid point (on open field lines), or from the poloidal
        location of the lower X-point (on closed field lines).
+
+   * - ``parallel_distance``
+
+     - Distance (in metres) parallel to a magnetic field line from the lower
+       divertor target of each flux surface to the grid point (on open field
+       lines), or from the poloidal location of the lower X-point (on closed
+       field lines).
 
    * - ``zShift``
 

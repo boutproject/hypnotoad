@@ -104,7 +104,7 @@ def create_options_rst(filename, title, options_factory, *, exclude=None):
             "OptionsFactory constructors in the hypnotoad source code. To change the "
             "formatting, edit the ``create_options_rst()`` function in ``conf.py``.\n\n"
         )
-        f.write(f"{title}\n{'='*len(title)}\n\n")
+        f.write(f"{title}\n{'=' * len(title)}\n\n")
         tt = options_factory.get_help_table(as_Texttable=True)
         tt.set_cols_width([62, 80, 20])
         f.write(".. table::\n   :widths: 20 75 5\n\n")

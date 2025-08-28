@@ -494,10 +494,11 @@ class FineContour:
         ),
     )
 
-    def __init__(self, parentContour, settings, *, psi):
+    def __init__(self, parentContour, settings, *, psi, equilibrium):
         self.parentContour = parentContour
         self.user_options = self.user_options_factory.create(settings)
         self.distance = None
+        self.parallel_distance = None
         Nfine = self.user_options.finecontour_Nfine
 
         endInd = self.parentContour.endInd
@@ -561,9 +562,9 @@ class FineContour:
             self.parentContour.endInd
         ].as_ndarray()
 
-        self.equaliseSpacing(psi=psi)
+        self.equaliseSpacing(psi=psi, equilibrium=equilibrium)
 
-    def extend(self, *, psi, extend_lower=0, extend_upper=0):
+    def extend(self, *, psi, equilibrium, extend_lower=0, extend_upper=0):
         Nfine = self.user_options.finecontour_Nfine
 
         parentCopy = self.parentContour.newContourFromSelf()
@@ -646,9 +647,9 @@ class FineContour:
         self.startInd = self.extend_lower_fine
         self.endInd = Nfine - 1 + self.extend_lower_fine
 
-        self.equaliseSpacing(psi=psi, reallocate=True)
+        self.equaliseSpacing(psi=psi, equilibrium=equilibrium, reallocate=True)
 
-    def equaliseSpacing(self, *, psi, reallocate=False):
+    def equaliseSpacing(self, *, psi, equilibrium, reallocate=False):
         """
         Adjust the positions of points in this :class:`FineContour
         <hypnotoad.core.equilibrium.FineContour>` so they have a constant distance
@@ -686,7 +687,7 @@ class FineContour:
 
         self.refine(psi=psi, skip_endpoints=True)
 
-        self.calcDistance(reallocate=reallocate)
+        self.calcDistance(reallocate=reallocate, equilibrium=equilibrium)
 
         ds = self.distance[1:] - self.distance[:-1]
         # want constant spacing, so ds has a constant value
@@ -773,7 +774,7 @@ class FineContour:
 
             self.refine(psi=psi, skip_endpoints=True)
 
-            self.calcDistance()
+            self.calcDistance(equilibrium=equilibrium)
 
             ds = self.distance[1:] - self.distance[:-1]
             # want constant spacing, so ds has a constant value
@@ -818,7 +819,7 @@ class FineContour:
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
 
-    def calcDistance(self, *, reallocate=False):
+    def calcDistance(self, *, equilibrium, reallocate=False):
         """
         Calculate poloidal distance from the start of this :class:`FineContour
         <hypnotoad.core.equilibrium.FineContour>`.
@@ -829,8 +830,35 @@ class FineContour:
         """
         if self.distance is None or reallocate:
             self.distance = numpy.zeros(self.positions.shape[0])
+        if self.parallel_distance is None or reallocate:
+            self.parallel_distance = numpy.zeros(self.positions.shape[0])
         deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
-        self.distance[1:] = numpy.cumsum(numpy.sqrt(numpy.sum(deltaSquared, axis=1)))
+        delta_poloidal = numpy.sqrt(numpy.sum(deltaSquared, axis=1))
+        self.distance[1:] = numpy.cumsum(delta_poloidal)
+
+        if self.parentContour.psival is None:
+            # This is an EquilibriumRegion that is not necessarily following a single
+            # flux surface, so does not have a `psival`. We do not need the distance
+            # along this contour, so just set to NaN.
+            self.parallel_distance[:] = numpy.nan
+        else:
+            fine_contour_Bt = (
+                equilibrium.fpol(self.parentContour.psival) / self.positions[:, 0]
+            )
+            fine_contour_Br = equilibrium.Bp_R(
+                self.positions[:, 0], self.positions[:, 1]
+            )
+            fine_contour_Bz = equilibrium.Bp_Z(
+                self.positions[:, 0], self.positions[:, 1]
+            )
+            fine_contour_mod_Bp = numpy.sqrt(fine_contour_Br**2 + fine_contour_Bz**2)
+            fine_contour_B = numpy.sqrt(fine_contour_Bt**2 + fine_contour_mod_Bp**2)
+            midpoints_B = 0.5 * (fine_contour_B[:-1] + fine_contour_B[1:])
+            midpoints_mod_Bp = 0.5 * (
+                fine_contour_mod_Bp[:-1] + fine_contour_mod_Bp[1:]
+            )
+            delta_parallel = midpoints_B / midpoints_mod_Bp * delta_poloidal
+            self.parallel_distance[1:] = numpy.cumsum(delta_parallel)
 
     def interpFunction(self, *, kind="linear"):
         distance = self.distance - self.distance[self.startInd]
@@ -973,17 +1001,18 @@ class FineContour:
 
         return s_of_sperp, s_perp_total
 
-    def getDistance(self, p):
+    def getDistance(self, p, *, parallel=False):
         """
-        Find the poloidal distance from the start of this contour of a point ``p``.
+        Find the poloidal and parallel distances from the start of this contour of a
+        point ``p``.
 
         Assume ``p`` is a point on the contour so has the correct psi-value.
 
-        Result is calculated as the weighted mean of the poloidal distances of the two
-        nearest points on the :class:`FineContour
-        <hypnotoad.core.equilibrium.FineContour>` (weighted by the relative distance
-        from ``p`` to each :class:`FineContour <hypnotoad.core.equilibrium.FineContour>`
-        point).
+        Result is calculated as the weighted mean of the poloidal (or parallel)
+        distances of the two nearest points on the :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` (weighted by the relative poloidal (in
+        both cases) distance from ``p`` to each :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` point).
         """
         p = p.as_ndarray()
 
@@ -1012,7 +1041,15 @@ class FineContour:
         # as their distances from the point
         r = d2 / (d1 + d2)
 
-        return r * self.distance[i1] + (1.0 - r) * self.distance[i2]
+        distance = r * self.distance[i1] + (1.0 - r) * self.distance[i2]
+
+        # Weight by poloidal distances even when calculating parallel distance,
+        # because we cannot get the parallel displacement of `p`, only its position.
+        parallel_distance = (
+            r * self.parallel_distance[i1] + (1.0 - r) * self.parallel_distance[i2]
+        )
+
+        return distance, parallel_distance
 
     def plot(self, *args, psi=None, ax=None, **kwargs):
         """
@@ -1084,6 +1121,7 @@ class PsiContour:
         self._fine_contour = None
 
         self._distance = None
+        self._parallel_distance = None
 
         # Value of vector potential on this contour
         self.psival = psival
@@ -1106,6 +1144,7 @@ class PsiContour:
         # Reset all cached objects/values because the contour has been changed
         self._fine_contour = None
         self._distance = None
+        self._parallel_distance = None
 
     @property
     def startInd(self):
@@ -1153,7 +1192,7 @@ class PsiContour:
             self._reset_cached()
             self._extend_upper = val
 
-    def get_fine_contour(self, *, psi=None):
+    def get_fine_contour(self, *, psi=None, equilibrium=None):
         """
         Get the FineContour associated with this PsiContour
 
@@ -1163,15 +1202,21 @@ class PsiContour:
         if self._fine_contour is None:
             if psi is None:
                 raise ValueError("Poloidal flux psi needed to create FineContour")
-            self._fine_contour = FineContour(self, dict(self.user_options), psi=psi)
+            if equilibrium is None:
+                raise ValueError("equilibrium object needed to create FineContour")
+            self._fine_contour = FineContour(
+                self, dict(self.user_options), psi=psi, equilibrium=equilibrium
+            )
             # Ensure that the fine contour is long enough
-            self.checkFineContourExtend(psi=psi)
+            self.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
         return self._fine_contour
 
-    def get_distance(self, *, psi):
+    def get_distance(self, *, psi, equilibrium):
         if self._distance is None:
-            fine_contour = self.get_fine_contour(psi=psi)
-            self._distance = [fine_contour.getDistance(p) for p in self]
+            fine_contour = self.get_fine_contour(psi=psi, equilibrium=equilibrium)
+            both_distances = [fine_contour.getDistance(p) for p in self]
+            self._distance = [d[0] for d in both_distances]
+            self._parallel_distance = [d[1] for d in both_distances]
             d = numpy.array(self._distance)
             if not numpy.all(d[1:] - d[:-1] > 0.0):
                 print("\nPsiContour distance", self._distance)
@@ -1191,6 +1236,11 @@ class PsiContour:
                     f"distance={self._distance}"
                 )
         return self._distance
+
+    def get_parallel_distance(self, *, psi, equilibrium):
+        if self._parallel_distance is None:
+            self.get_distance(psi=psi, equilibrium=equilibrium)
+        return self._parallel_distance
 
     def __iter__(self):
         return self.points.__iter__()
@@ -1312,8 +1362,8 @@ class PsiContour:
             self.insert(minind, point)
             return minind
 
-    def totalDistance(self, *, psi):
-        distance = self.get_distance(psi=psi)
+    def totalDistance(self, *, psi, equilibrium):
+        distance = self.get_distance(psi=psi, equilibrium=equilibrium)
         return distance[self.endInd] - distance[self.startInd]
 
     def reverse(self):
@@ -1600,8 +1650,8 @@ class PsiContour:
 
         return self.newContourFromSelf(points=newpoints)
 
-    def interpFunction(self, *, psi):
-        return self.get_fine_contour(psi=psi).interpFunction()
+    def interpFunction(self, *, psi, equilibrium):
+        return self.get_fine_contour(psi=psi, equilibrium=equilibrium).interpFunction()
 
     def _coarseInterp(self, *, kind="cubic"):
         distance = [0.0]
@@ -1671,13 +1721,13 @@ class PsiContour:
         )
         return lambda s: Point2D(interpR(s), interpZ(s))
 
-    def contourSfunc(self, *, psi, kind="cubic"):
+    def contourSfunc(self, *, psi, equilibrium, spacings, kind="cubic"):
         """
         Function interpolating distance as a function of index for the current state of
         this contour. When outside [startInd, endInd], set to constant so the results
         aren't affected by extrapolation errors.
         """
-        distance = self.get_distance(psi=psi)
+        distance = self.get_distance(psi=psi, equilibrium=equilibrium)
         interpS = interpolate.interp1d(
             numpy.arange(len(self), dtype=float),
             distance,
@@ -1693,17 +1743,49 @@ class PsiContour:
             thisEndInd += len(self)
         startDistance = distance[thisStartInd]
         endDistance = distance[thisEndInd]
+
+        # When doing nonorthogonal X-point but 'orthogonal' targets, do want to be able
+        # to extrapolate past the end distance, otherwise do not extrapolate.
+        if (
+            (spacings["nonorthogonal_range_lower"] is None)
+            and (spacings["nonorthogonal_range_lower_inner"] is None)
+            and (spacings["nonorthogonal_range_lower_outer"] is None)
+        ):
+
+            def lower_extrap(i):
+                return i * (distance[thisStartInd + 1] - distance[thisStartInd])
+
+        else:
+            lower_extrap = 0.0
+
+        if (
+            (spacings["nonorthogonal_range_upper"] is None)
+            and (spacings["nonorthogonal_range_upper_inner"] is None)
+            and (spacings["nonorthogonal_range_upper_outer"] is None)
+        ):
+
+            def upper_extrap(i):
+                return (
+                    endDistance
+                    - startDistance
+                    + (i - thisEndInd + thisStartInd)
+                    * (distance[thisEndInd] - distance[thisEndInd - 1])
+                )
+
+        else:
+            upper_extrap = endDistance - startDistance
+
         return lambda i: numpy.piecewise(
             i,
             [i <= 0.0, i >= thisEndInd - thisStartInd],
             [
-                0.0,
-                endDistance - startDistance,
+                lower_extrap,
+                upper_extrap,
                 lambda i: interpS(i + thisStartInd) - startDistance,
             ],
         )
 
-    def interpSSperp(self, vec, *, psi):
+    def interpSSperp(self, vec, *, psi, equilibrium):
         """
         Returns
         -------
@@ -1714,7 +1796,7 @@ class PsiContour:
            contour.
         2. the total perpendicular distance between startInd and endInd of the contour.
         """
-        return self.get_fine_contour(psi=psi).interpSSperp(vec)
+        return self.get_fine_contour(psi=psi, equilibrium=equilibrium).interpSSperp(vec)
 
     def regrid(self, *args, **kwargs):
         """
@@ -1728,6 +1810,7 @@ class PsiContour:
         npoints,
         *,
         psi,
+        equilibrium,
         width=None,
         atol=None,
         sfunc=None,
@@ -1777,7 +1860,7 @@ class PsiContour:
             # offset fine_contour.interpFunction in case sfunc(0.)!=0.
             sbegin = sfunc(0.0)
         else:
-            d = self.get_distance(psi=psi)
+            d = self.get_distance(psi=psi, equilibrium=equilibrium)
             s = (d[self.endInd] - d[self.startInd]) / (npoints - 1) * indices
             sbegin = 0.0
 
@@ -1787,7 +1870,7 @@ class PsiContour:
         # re-gridding should be the last change that is made to a PsiContour
 
         # Calling get_fine_contour() ensures that self._fine_contour has been initialised
-        self.get_fine_contour(psi=psi)
+        self.get_fine_contour(psi=psi, equilibrium=equilibrium)
 
         orig_extend_lower = self._fine_contour.extend_lower_fine
         orig_extend_upper = self._fine_contour.extend_upper_fine
@@ -1798,7 +1881,9 @@ class PsiContour:
         while (
             s[0] < -self._fine_contour.distance[self._fine_contour.startInd] - tol_lower
         ):
-            self._fine_contour.extend(extend_lower=max(orig_extend_lower, 1), psi=psi)
+            self._fine_contour.extend(
+                extend_lower=max(orig_extend_lower, 1), psi=psi, equilibrium=equilibrium
+            )
 
         tol_upper = 0.25 * (
             self._fine_contour.distance[-1] - self._fine_contour.distance[-2]
@@ -1809,7 +1894,9 @@ class PsiContour:
             - self._fine_contour.distance[self._fine_contour.startInd]
             + tol_upper
         ):
-            self._fine_contour.extend(extend_upper=max(orig_extend_upper, 1), psi=psi)
+            self._fine_contour.extend(
+                extend_upper=max(orig_extend_upper, 1), psi=psi, equilibrium=equilibrium
+            )
 
         interp_unadjusted = self._fine_contour.interpFunction()
 
@@ -1838,13 +1925,13 @@ class PsiContour:
 
         return new_contour
 
-    def checkFineContourExtend(self, *, psi):
+    def checkFineContourExtend(self, *, psi, equilibrium):
         """
         Ensure that self._fine_contour extends past the first and last points of this
         PsiContour
         """
 
-        fine_contour = self.get_fine_contour(psi=psi)
+        fine_contour = self.get_fine_contour(psi=psi, equilibrium=equilibrium)
 
         # check first point
         p = numpy.array([*self[0]])
@@ -1854,11 +1941,18 @@ class PsiContour:
         minind = numpy.argmin(distances)
         # if minind > 0, or the distance to point 1 is less than the distance between
         # point 0 and point 1 of the fine_contour, then fine_contour extends past p so
-        # does not need to be extended
-        if minind == 0 and distances[1] > numpy.sqrt(
-            numpy.sum(
-                (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
+        # does not need to be extended.
+        # Include some tolerance to allow for rounding errors when the first point on
+        # the FineContour and the first point on the PsiContour are in 'the same place'.
+        if (
+            minind == 0
+            and distances[1]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
+                )
             )
+            > 1.0e-13
         ):
             ds = fine_contour.distance[1] - fine_contour.distance[0]
             n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
@@ -1874,10 +1968,17 @@ class PsiContour:
         # if minind < len(distances)-1, or the distance to the last point is less than
         # the distance between the last and second-last of the fine_contour, then
         # fine_contour extends past p so does not need to be extended
-        if minind == len(distances) - 1 and distances[-2] > numpy.sqrt(
-            numpy.sum(
-                (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
+        # Include some tolerance to allow for rounding errors when the last point on
+        # the FineContour and the last point on the PsiContour are in 'the same place'.
+        if (
+            minind == len(distances) - 1
+            and distances[-2]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
+                )
             )
+            > 1.0e-13
         ):
             ds = fine_contour.distance[-1] - fine_contour.distance[-2]
             n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
@@ -1888,10 +1989,13 @@ class PsiContour:
             return
         else:
             fine_contour.extend(
-                psi=psi, extend_lower=n_extend_lower, extend_upper=n_extend_upper
+                psi=psi,
+                equilibrium=equilibrium,
+                extend_lower=n_extend_lower,
+                extend_upper=n_extend_upper,
             )
             # Call recursively to check extending has gone far enough
-            self.checkFineContourExtend(psi=psi)
+            self.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
 
     def temporaryExtend(
         self, *, psi, extend_lower=0, extend_upper=0, ds_lower=None, ds_upper=None
@@ -2099,7 +2203,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range=WithMeta(
-            lambda options: 0.02 * options.nonorthogonal_xpoint_poloidal_spacing_length,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_length is None
+                else 0.02 * options.nonorthogonal_xpoint_poloidal_spacing_length
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at the radial location of separatrices"
@@ -2108,7 +2216,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_inner=WithMeta(
-            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_range is None
+                else 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'inner' radial boundaries (core and PFR)"
@@ -2117,7 +2229,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_xpoint_poloidal_spacing_range_outer=WithMeta(
-            lambda options: 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_xpoint_poloidal_spacing_range is None
+                else 5.0 * options.nonorthogonal_xpoint_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "X-point. This range is used at 'outer' radial boundaries (SOL)"
@@ -2137,8 +2253,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_positive,
         ),
         nonorthogonal_target_all_poloidal_spacing_range=WithMeta(
-            lambda options: 0.5
-            * options.nonorthogonal_target_all_poloidal_spacing_length,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_length is None
+                else 0.5 * options.nonorthogonal_target_all_poloidal_spacing_length
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at the radial location of separatrices"
@@ -2147,8 +2266,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_all_poloidal_spacing_range_inner=WithMeta(
-            lambda options: 2.0
-            * options.nonorthogonal_target_all_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_range is None
+                else 2.0 * options.nonorthogonal_target_all_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'inner' radial boundaries (PFR)"
@@ -2157,8 +2279,11 @@ class EquilibriumRegion(PsiContour):
             check_all=is_non_negative_or_None,
         ),
         nonorthogonal_target_all_poloidal_spacing_range_outer=WithMeta(
-            lambda options: 2.0
-            * options.nonorthogonal_target_all_poloidal_spacing_range,
+            lambda options: (
+                None
+                if options.nonorthogonal_target_all_poloidal_spacing_range is None
+                else 2.0 * options.nonorthogonal_target_all_poloidal_spacing_range
+            ),
             doc=(
                 "Poloidal range over which to use perpendicular spacing near the "
                 "target. This range is used at 'outer' radial boundaries (SOL)"
@@ -2372,6 +2497,7 @@ class EquilibriumRegion(PsiContour):
                 "poloidal_orthogonal_combined",
                 "perp_orthogonal_combined",
                 "orthogonal",
+                "linear",
             ],
         ),
     )
@@ -2675,7 +2801,7 @@ class EquilibriumRegion(PsiContour):
     def getRefined(self, *args, **kwargs):
         return self.newRegionFromPsiContour(super().getRefined(*args, **kwargs))
 
-    def getRegridded(self, radialIndex, *, psi, **kwargs):
+    def getRegridded(self, radialIndex, *, psi, equilibrium, **kwargs):
         """ """
         for wrong_argument in ["npoints", "extend_lower", "extend_upper", "sfunc"]:
             # these are valid arguments to PsiContour.getRegridded, but not to
@@ -2694,7 +2820,7 @@ class EquilibriumRegion(PsiContour):
             extend_upper = 2 * self.user_options.y_boundary_guards
         else:
             extend_upper = 0
-        distance = self.get_distance(psi=psi)
+        distance = self.get_distance(psi=psi, equilibrium=equilibrium)
         sfunc = self.getSfuncFixedSpacing(
             2 * self.ny_noguards + 1,
             distance[self.endInd] - distance[self.startInd],
@@ -2703,6 +2829,7 @@ class EquilibriumRegion(PsiContour):
             super().getRegridded(
                 2 * self.ny_noguards + 1,
                 psi=psi,
+                equilibrium=equilibrium,
                 extend_lower=extend_lower,
                 extend_upper=extend_upper,
                 sfunc=sfunc,
@@ -2851,6 +2978,12 @@ class EquilibriumRegion(PsiContour):
                     spacing_lower=spacings["nonorthogonal_orthogonal_d_lower"],
                     spacing_upper=spacings["nonorthogonal_orthogonal_d_upper"],
                 )
+            elif self.nonorthogonal_options.nonorthogonal_spacing_method == "linear":
+                sfunc = self.getLinearPoloidalDistanceFunc(
+                    distance,
+                    npoints - 1,
+                )
+                self._checkMonotonic([(sfunc, "linear")], total_distance=distance)
             else:
                 sfunc = self.getSfuncFixedSpacing(
                     npoints,
@@ -2906,7 +3039,7 @@ class EquilibriumRegion(PsiContour):
         if vec_lower is None:
             sfunc_fixed_lower = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,
-                contour.totalDistance(psi=self.psi),
+                contour.totalDistance(psi=self.psi, equilibrium=self.equilibrium),
                 method="monotonic",
                 spacing_lower=spacing_lower,
                 spacing_upper=spacing_upper,
@@ -2924,7 +3057,7 @@ class EquilibriumRegion(PsiContour):
         if vec_upper is None:
             sfunc_fixed_upper = self.getSfuncFixedSpacing(
                 2 * self.ny_noguards + 1,
-                contour.totalDistance(psi=self.psi),
+                contour.totalDistance(psi=self.psi, equilibrium=self.equilibrium),
                 method="monotonic",
                 spacing_lower=spacing_lower,
                 spacing_upper=spacing_upper,
@@ -3157,7 +3290,9 @@ class EquilibriumRegion(PsiContour):
                     (sfunc_fixed_upper, "fixed perp upper"),
                 ],
                 xind=contour.global_xind,
-                total_distance=contour.totalDistance(psi=self.psi),
+                total_distance=contour.totalDistance(
+                    psi=self.psi, equilibrium=self.equilibrium
+                ),
                 prefix="nonorthogonal_",
             )
         except ValueError:
@@ -3166,14 +3301,14 @@ class EquilibriumRegion(PsiContour):
                 spacings["nonorthogonal_range_lower_inner"],
                 spacings["nonorthogonal_range_lower"],
                 spacings["nonorthogonal_range_lower_outer"],
-                this_range_lower,
+                # this_range_lower,
             )
             print(
                 "check upper ranges",
                 spacings["nonorthogonal_range_upper_inner"],
                 spacings["nonorthogonal_range_upper"],
                 spacings["nonorthogonal_range_upper_outer"],
-                this_range_upper,
+                # this_range_upper,
             )
             raise
 
@@ -3212,7 +3347,9 @@ class EquilibriumRegion(PsiContour):
         else:
             d_upper = spacing_upper
 
-        s_of_sperp, s_perp_total = contour.interpSSperp(surface_direction, psi=self.psi)
+        s_of_sperp, s_perp_total = contour.interpSSperp(
+            surface_direction, psi=self.psi, equilibrium=self.equilibrium
+        )
         sperp_func = self.getMonotonicPoloidalDistanceFunc(
             s_perp_total, N - 1, N_norm, d_lower=d_lower, d_upper=d_upper
         )
@@ -4476,12 +4613,12 @@ class Equilibrium:
         """
         if grad_lower is not None and (upper - lower) * grad_lower < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_lower={grad_lower} have "
+                f"(upper-lower)={(upper - lower)} and grad_lower={grad_lower} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
         if grad_upper is not None and (upper - lower) * grad_upper < 0:
             raise ValueError(
-                f"(upper-lower)={(upper-lower)} and grad_upper={grad_upper} have "
+                f"(upper-lower)={(upper - lower)} and grad_upper={grad_upper} have "
                 f"different signs: should both be increasing or both be decreasing."
             )
 

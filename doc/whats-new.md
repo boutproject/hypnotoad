@@ -33,8 +33,6 @@ Release history
   By [John Omotani](https://github.com/johnomotani)
 - Grids that are nonorthogonal only at the X-point (#180).
   By [John Omotani](https://github.com/johnomotani)
-- Script to convert UEDGE grid file to BOUT++ grid file (#136).
-  By [Ben Dudson](https://github.com/bendudson)
 
 0.5.2 (13th March 2023)
 -------------------------

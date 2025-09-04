@@ -858,11 +858,11 @@ class TokamakEquilibrium(Equilibrium):
         # Get the smallest absolute grid spacing for the separatrix
         # dpsidi_pf_minimum is introduced to avoid very narrow radial grid width
         # around separatrix in core and SOL region and 0.3 is an emprical factor.
-        
-        #dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs) 
-        dpsidi_sep = min([dpsidi_sol, dpsidi_core], key=abs) # set dx at separatrix
-        #dpsidi_pf_minimum = max([0.3*dpsidi_sep, 0.3*dpsidi_pf], key=abs)
-        dpsidi_pf_minimum = max([0.3*dpsidi_sep, dpsidi_pf], key=abs) 
+
+        # dpsidi_sep = min([dpsidi_sol, dpsidi_core, dpsidi_pf], key=abs)
+        dpsidi_sep = min([dpsidi_sol, dpsidi_core], key=abs)  # set dx at separatrix
+        # dpsidi_pf_minimum = max([0.3*dpsidi_sep, 0.3*dpsidi_pf], key=abs)
+        dpsidi_pf_minimum = max([0.3 * dpsidi_sep, dpsidi_pf], key=abs)
 
         # decrease (assuming the factor is <1) the spacing around the separatrix by the
         # factor psi_spacing_separatrix_multiplier

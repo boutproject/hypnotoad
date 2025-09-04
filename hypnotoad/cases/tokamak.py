@@ -307,16 +307,6 @@ class TokamakEquilibrium(Equilibrium):
             value_type=int,
             check_all=is_positive,
         ),
-        #
-        # set dummy data of kinetic profile for post-process  
-        # 
-        kinetic_profiles=WithMeta(
-            False,
-            doc=(
-                "Set dummy data (zero-fill) of kinetic profiles for post-process"
-            ),
-            value_type=bool,
-        ),
     )
 
     def __init__(

@@ -950,7 +950,6 @@ class MeshRegion:
                 self.Bxy * fprime / mu0 + self.Rxy * self.Btxy * pprime / self.Bxy
             )
 
-        
     def geometry2(self):
         """
         Continuation of geometry1(), but needs neighbours to have calculated Bp so called

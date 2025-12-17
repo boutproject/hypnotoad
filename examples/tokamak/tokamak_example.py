@@ -87,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--ny", type=int, default=65)
     parser.add_argument("--np", "--number-of-processors", type=int, default=-1)
     parser.add_argument("--no-plot", action="store_true", default=False)
+    parser.add_argument("--reverse-current", action="store_true", default=False)
     args = parser.parse_args()
 
     if "sn" in args.geometry:
@@ -105,6 +106,9 @@ if __name__ == "__main__":
 
     if args.np >= 0:
         options.update(number_of_processors=args.np)
+        
+    if args.reverse_current:
+        options.update(reverse_current=True)
 
     # Generate an artificial poloidal flux function
     r1d, z1d, psi2d, psi1d = create_tokamak(

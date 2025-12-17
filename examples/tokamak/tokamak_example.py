@@ -93,6 +93,12 @@ if __name__ == "__main__":
         default=False,
         help="Do not reverse current direction. WARNING: will cause warnings of negative J on running. Default: False.",
     )
+    parser.add_argument(
+        "--no-guards",
+        action="store_true",
+        default=False,
+        help="Remove Y boundary guards? Default: False.",
+    )
     args = parser.parse_args()
 
     if "sn" in args.geometry:
@@ -115,6 +121,9 @@ if __name__ == "__main__":
     # Reverse current by default, unless --original-cocos=True
     if not args.original_cocos:
         options.update(reverse_current=True)
+
+    if args.no_guards:
+        options.update(y_boundary_guards=0)
 
     # Generate an artificial poloidal flux function
     r1d, z1d, psi2d, psi1d = create_tokamak(

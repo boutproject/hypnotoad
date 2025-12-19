@@ -91,7 +91,9 @@ if __name__ == "__main__":
         "--original-cocos",
         action="store_true",
         default=False,
-        help="Do not reverse current direction. WARNING: will cause warnings of negative J on running in BOUT++. Default: False.",
+        help="""Do not reverse current direction. 
+            WARNING: will cause warnings of negative J on running in BOUT++. 
+            Default: False.""",
     )
     parser.add_argument(
         "--no-guards",

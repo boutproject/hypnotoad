@@ -1524,7 +1524,9 @@ class PsiContour:
             return [dpsidr * norm, dpsidz * norm]
 
         result = solve_ivp(
-            func, (psi(*p), self.psival), [p.R, p.Z]  # Range of psi
+            func,
+            (psi(*p), self.psival),
+            [p.R, p.Z],  # Range of psi
         )  # Starting location
         if not result.success:
             raise SolutionError("refinePointIntegrate failed to converge")
@@ -2100,10 +2102,11 @@ class EquilibriumRegion(PsiContour):
                 "Method to use for poloidal spacing function: 'sqrt' for "
                 "getSqrtPoloidalSpacingFunction; 'monotonic' for "
                 "getMonotonicPoloidalDistanceFunc; 'linear' for "
-                "getLinearPoloidalDistanceFunc"
+                "getLinearPoloidalDistanceFunc; 'sin' for "
+                "getSinPoloidalDistanceFunc"
             ),
             value_type=str,
-            allowed=["sqrt", "monotonic", "linear"],
+            allowed=["sqrt", "monotonic", "linear", "sin"],
         ),
         xpoint_poloidal_spacing_length=WithMeta(
             lambda options: 5.0e-2 if options.orthogonal else 4.0,
@@ -2669,7 +2672,7 @@ class EquilibriumRegion(PsiContour):
                 self.nonorthogonal_options.nonorthogonal_xpoint_poloidal_spacing_range_outer  # noqa: E501
             )
         else:
-            raise ValueError(f"Unrecognized value before '.' in " f"kind={self.kind}")
+            raise ValueError(f"Unrecognized value before '.' in kind={self.kind}")
         if self.kind.split(".")[1] == "wall":
             sqrt_a_upper = None
             sqrt_b_upper = self.getTargetParameter("target_poloidal_spacing_length")
@@ -2913,6 +2916,18 @@ class EquilibriumRegion(PsiContour):
                 npoints - 1,
             )
             self._checkMonotonic([(sfunc, "linear")], total_distance=distance)
+        elif method == "sin":
+            if spacing_lower is None:
+                spacing_lower = spacings["monotonic_d_lower"]
+            if spacing_upper is None:
+                spacing_upper = spacings["monotonic_d_upper"]
+            sfunc = self.getSinPoloidalDistanceFunc(
+                distance,
+                npoints - 1,
+                d_lower=spacing_lower,
+                d_upper=spacing_upper,
+            )
+            self._checkMonotonic([(sfunc, "sin")], total_distance=distance)
         elif method == "nonorthogonal":
             if (
                 self.nonorthogonal_options.nonorthogonal_spacing_method
@@ -3924,6 +3939,34 @@ class EquilibriumRegion(PsiContour):
         """
         return lambda i: i / N * length
 
+    def getSinPoloidalDistanceFunc(self, length, N, d_lower=None, d_upper=None):
+        """
+        Fit to dist = a*i + b*i^2 + c*[i - sin(2pi*i/n) * n/(2pi)]
+        so grid spacing ddist / di = a + 2b * i + c * [1 - cos(2pi * i / n)]
+        i = 0 => 0
+        i = N => length
+
+        This method adapted from the IDL hypnotoad
+        """
+        if d_lower is None:
+            d_lower = length / N
+        else:
+            d_lower = min([d_lower, length / N])
+        if d_upper is None:
+            d_upper = length / N
+        else:
+            d_upper = min([d_upper, length / N])
+
+        a = d_lower
+        b = (d_upper - a) / (2.0 * N)
+        c = length / N - a - b * N
+
+        return (
+            lambda i: a * i
+            + b * i**2
+            + c * (i - numpy.sin(2 * numpy.pi * i / N) * N / (2 * numpy.pi))
+        )
+
 
 class Equilibrium:
     """
@@ -4423,7 +4466,7 @@ class Equilibrium:
             lucky_roots = numpy.where(interval_f == 0.0)
             if len(lucky_roots[0]) > 0:
                 raise NotImplementedError(
-                    "Don't handle interval points that happen to land " "on a root yet!"
+                    "Don't handle interval points that happen to land on a root yet!"
                 )
             intervals_with_roots = numpy.where(
                 numpy.sign(interval_f[:-1]) != numpy.sign(interval_f[1:])

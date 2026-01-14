@@ -2924,6 +2924,7 @@ class EquilibriumRegion(PsiContour):
             sfunc = self.getSinPoloidalDistanceFunc(
                 distance,
                 npoints - 1,
+                self.user_options.N_norm_prefactor * self.ny_total,
                 d_lower=spacing_lower,
                 d_upper=spacing_upper,
             )
@@ -3939,7 +3940,7 @@ class EquilibriumRegion(PsiContour):
         """
         return lambda i: i / N * length
 
-    def getSinPoloidalDistanceFunc(self, length, N, d_lower=None, d_upper=None):
+    def getSinPoloidalDistanceFunc(self, length, N, N_norm, d_lower=None, d_upper=None):
         """
         Fit to dist = a*i + b*i^2 + c*[i - sin(2pi*i/n) * n/(2pi)]
         so grid spacing ddist / di = a + 2b * i + c * [1 - cos(2pi * i / n)]
@@ -3948,17 +3949,21 @@ class EquilibriumRegion(PsiContour):
 
         This method adapted from the IDL hypnotoad
         """
-        if d_lower is None:
-            d_lower = length / N
-        else:
-            d_lower = min([d_lower, length / N])
-        if d_upper is None:
-            d_upper = length / N
-        else:
-            d_upper = min([d_upper, length / N])
+        dl0 = length * N_norm / N
 
-        a = d_lower
-        b = (d_upper - a) / (2.0 * N)
+        if d_lower is None:
+            d_lower = dl0
+        if d_upper is None:
+            d_upper = dl0
+
+        # Modify so that spacing remains monotonic
+        if d_upper + d_lower > 2 * dl0:
+            fact = (d_upper + d_lower) / (2 * dl0)
+            d_upper /= fact
+            d_lower /= fact
+
+        a = d_lower / N_norm
+        b = (d_upper / N_norm - a) / (2.0 * N)
         c = length / N - a - b * N
 
         return (

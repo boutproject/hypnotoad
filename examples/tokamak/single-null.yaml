@@ -29,3 +29,4 @@ target_all_poloidal_spacing_length: 0.3   # Smaller -> pack near targets
 xpoint_poloidal_spacing_length: 0.05   # Smaller -> pack near X-points
 
 y_boundary_guards: 2
+reverse_current: true

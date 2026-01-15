@@ -347,6 +347,8 @@ class TokamakEquilibrium(Equilibrium):
         psi1D,
         fpol1D,
         pressure=None,
+        fprime=None,
+        pprime=None,
         wall=None,
         psi_axis_gfile=None,
         psi_bdry_gfile=None,
@@ -370,6 +372,8 @@ class TokamakEquilibrium(Equilibrium):
         --------
 
         pressure[nf] = 1D array of pressure as a function of psi1D [Pa]
+        fprime[nf] = 1D array of df / dpsi
+        pprime[nf] = 1D array of dp / dpsi . If set then pressure must also be set.
 
         wall = [(R0,Z0), (R1, Z1), ...]
                A list of coordinate pairs, defining the vessel wall.
@@ -391,6 +395,9 @@ class TokamakEquilibrium(Equilibrium):
                options (self.nonorthogonal_options)
 
         """
+
+        if pprime is not None:
+            assert pressure is not None
 
         self.user_options = self.user_options_factory.create(settings)
 
@@ -439,12 +446,22 @@ class TokamakEquilibrium(Equilibrium):
                 # fpol constant in SOL
                 fpol1D = np.concatenate([fpol1D, np.full(psiSOL.shape, fpol1D[-1])])
 
+                if fprime is not None:
+                    fprime = np.concatenate([fprime, np.full(psiSOL.shape, 0.0)])
+
             if pressure is not None:
                 # Use an exponential decay for the pressure, based on
                 # the value and gradient at the plasma edge
                 p0 = pressure[-1]
                 # p = p0 * exp( (psi - psi0) * dpdpsi / p0)
-                pressure = np.concatenate([pressure, p0 * np.exp(psiSOL * dpdpsi / p0)])
+                pressure = np.concatenate(
+                    [pressure, p0 * np.exp((psiSOL - psi1D[-1]) * dpdpsi / p0)]
+                )
+
+                if pprime is not None:
+                    pprime = np.concatenate(
+                        [pprime, dpdpsi * np.exp((psiSOL - psi1D[-1]) * dpdpsi / p0)]
+                    )
 
         self.magneticFunctionsFromGrid(
             R1D, Z1D, psi2D, self.user_options.psi_interpolation_method
@@ -464,19 +481,32 @@ class TokamakEquilibrium(Equilibrium):
             # ext=3 specifies that boundary values are used outside range
 
             # Spline representing the derivative of f
-            self.fprime_spl = self.f_spl.derivative()
+            if fprime is not None:
+                self.fprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    psi1D * self.f_psi_sign, fprime, ext=3
+                )
+            else:
+                self.fprime_spl = self.f_spl.derivative()
         else:
-            self.f_spl = lambda psi: 0.0
-            self.fprime_spl = lambda psi: 0.0
+            self.f_spl = lambda psi: 0.0 * psi
+            self.fprime_spl = lambda psi: 0.0 * psi
 
         # Optional pressure profile
         if pressure is not None:
             self.p_spl = interpolate.InterpolatedUnivariateSpline(
                 psi1D * self.f_psi_sign, pressure, ext=3
             )
+
+            if pprime is not None:
+                self.pprime_spl = interpolate.InterpolatedUnivariateSpline(
+                    psi1D * self.f_psi_sign, pprime, ext=3
+                )
+            else:
+                self.pprime_spl = self.p_spl.derivative()
         else:
             # If no pressure, then not output to grid file
             self.p_spl = None
+            self.pprime_spl = None
 
         # Find critical points (O- and X-points)
         R2D, Z2D = np.meshgrid(R1D, Z1D, indexing="ij")
@@ -506,6 +536,8 @@ class TokamakEquilibrium(Equilibrium):
 
         if len(xpoints) == 0:
             warnings.warn("No X-points found in TokamakEquilibrium input")
+            self.psi_bdry = psi_bdry_gfile
+            self.psi_bdry_gfile = psi_bdry_gfile
         else:
             self.psi_bdry = xpoints[0][2]  # Psi on primary X-point
             self.x_point = Point2D(xpoints[0][0], xpoints[0][1])
@@ -1685,9 +1717,14 @@ class TokamakEquilibrium(Equilibrium):
                     eqreg.pressure = lambda psi: self.pressure(
                         leg_psi + sign * abs(psi - leg_psi)
                     )
+                    # Set pprime and fprime to zero so Jpar0 = 0
+                    eqreg.pprime = lambda psi: 0.0
+                    eqreg.fprime = lambda psi: 0.0
                 else:
-                    # Core region, so use the core pressure
+                    # Core region, so use the core profiles
                     eqreg.pressure = self.pressure
+                    eqreg.pprime = self.pprime
+                    eqreg.fprime = self.fpolprime
 
             region_objects[name] = eqreg
         # The region objects need to be sorted, so that the
@@ -1741,8 +1778,17 @@ class TokamakEquilibrium(Equilibrium):
 
     @Equilibrium.handleMultiLocationArray
     def fpolprime(self, psi):
-        """psi-derivative of fpol"""
-        return self.fprime_spl(psi * self.f_psi_sign)
+        """psi-derivative of fpol
+        Note: Zero outside core."""
+        fprime = self.fprime_spl(psi * self.f_psi_sign)
+        if self.psi_bdry is not None:
+            psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
+            if np.isscalar(psi):
+                if psinorm > 1.0:
+                    fprime = 0.0
+            else:
+                fprime[psinorm > 1.0] = 0.0
+        return fprime
 
     @Equilibrium.handleMultiLocationArray
     def pressure(self, psi):
@@ -1750,6 +1796,21 @@ class TokamakEquilibrium(Equilibrium):
         if self.p_spl is None:
             return None
         return self.p_spl(psi * self.f_psi_sign)
+
+    @Equilibrium.handleMultiLocationArray
+    def pprime(self, psi):
+        """psi-derivative of plasma pressure
+        Note: Zero outside the core"""
+        if self.pprime_spl is None:
+            return None
+        pprime = self.pprime_spl(psi * self.f_psi_sign)
+        if self.psi_bdry is not None:
+            psinorm = (psi - self.psi_axis) / (self.psi_bdry - self.psi_axis)
+            if np.isscalar(psi) and psinorm > 1.0:
+                pprime = 0.0
+            else:
+                pprime[psinorm > 1.0] = 0.0
+        return pprime
 
     @property
     def Bt_axis(self):
@@ -1815,6 +1876,8 @@ def read_geqdsk(
 
     pressure = data["pres"]
     fpol = data["fpol"]
+    fprime = data["ffprime"] / fpol
+    pprime = data["pprime"]
 
     # Call __new__() first in case there is an exception in __init__(), we can still
     # return a partially-initialised TokamakEquilibrium object
@@ -1840,6 +1903,8 @@ def read_geqdsk(
             psi_bdry_gfile=psi_bdry_gfile,
             psi_axis_gfile=psi_axis_gfile,
             pressure=pressure,
+            fprime=fprime,
+            pprime=pprime,
             wall=wall,
             make_regions=make_regions,
             settings=settings,

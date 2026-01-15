@@ -779,9 +779,13 @@ class MeshRegion:
         Assumes that self.Rxy and self.Zxy have already been calculated by
         self.fillRZ()
 
-        Sets and returns a penalty_mask 2D array.
+        Sets and returns a penalty_mask 2D array that is 0 inside the domain and 1 outside.
+
+        Also sets wall_depth to the poloidal distance to the wall
         """
         self.penalty_mask = numpy.zeros((self.nx, self.ny))
+
+        self.wall_depth = numpy.zeros((self.nx, self.ny))
 
         # A point inside the wall.
         p0 = Point2D(
@@ -807,6 +811,9 @@ class MeshRegion:
                 if p1_outside and p2_outside:
                     # Both ends of the cell are outside the wall
                     self.penalty_mask[i, j] = 1.0
+
+                    self.wall_depth[i, j] = numpy.sqrt(numpy.amin( (equilibrium.closed_wallarray[:,0] - self.Rxy.centre[i,j])**2 +
+                                                                   (equilibrium.closed_wallarray[:,1] - self.Zxy.centre[i,j])**2 ))
                 elif p1_outside or p2_outside:
                     # Cell crosses the wall
                     intersects = find_intersections(
@@ -3841,6 +3848,19 @@ class BoutMesh(Mesh):
         for region in self.regions.values():
             self.penalty_mask[self.region_indices[region.myID]] = region.penalty_mask
 
+        # Wall depth
+        self.wall_depth = BoutArray(
+            numpy.zeros((self.nx, self.ny)),
+            attributes={
+                "bout_type": "Field2D",
+                "description": (
+                    "Distance outside the wall"
+                ),
+            },
+        )
+        for region in self.regions.values():
+            self.wall_depth[self.region_indices[region.myID]] = region.wall_depth
+
     def writeArray(self, name, array, f):
         f.write(name, BoutArray(array.centre, attributes=array.attributes))
         f.write(
@@ -3913,6 +3933,9 @@ class BoutMesh(Mesh):
 
             # penalty_mask is defined for each cell
             f.write("penalty_mask", self.penalty_mask)
+
+            # Distance into the wall
+            f.write("wall_depth", self.wall_depth)
 
             # write corner positions, as these may be useful for plotting, etc.
             for name in ["Rxy", "Zxy"]:

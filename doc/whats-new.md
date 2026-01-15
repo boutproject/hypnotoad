@@ -33,8 +33,6 @@ Release history
   By [John Omotani](https://github.com/johnomotani)
 - Grids that are nonorthogonal only at the X-point (#180).
   By [John Omotani](https://github.com/johnomotani)
-- Script to convert UEDGE grid file to BOUT++ grid file (#136).
-  By [Ben Dudson](https://github.com/bendudson)
 - Save Jpar0 to output tokamak grids (#177).
   By [Ben Dudson](https://github.com/bendudson)
 - Add flag for `tokamak_example.py` to generate grids with reversed current. This

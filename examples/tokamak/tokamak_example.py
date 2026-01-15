@@ -87,6 +87,20 @@ if __name__ == "__main__":
     parser.add_argument("--ny", type=int, default=65)
     parser.add_argument("--np", "--number-of-processors", type=int, default=-1)
     parser.add_argument("--no-plot", action="store_true", default=False)
+    parser.add_argument(
+        "--original-cocos",
+        action="store_true",
+        default=False,
+        help="""Do not reverse current direction.
+            WARNING: will cause warnings of negative J on running in BOUT++.
+            Default: False.""",
+    )
+    parser.add_argument(
+        "--no-guards",
+        action="store_true",
+        default=False,
+        help="Remove Y boundary guards? Default: False.",
+    )
     args = parser.parse_args()
 
     if "sn" in args.geometry:
@@ -105,6 +119,13 @@ if __name__ == "__main__":
 
     if args.np >= 0:
         options.update(number_of_processors=args.np)
+
+    # Reverse current by default, unless --original-cocos=True
+    if args.original_cocos:
+        options.update(reverse_current=False)
+
+    if args.no_guards:
+        options.update(y_boundary_guards=0)
 
     # Generate an artificial poloidal flux function
     r1d, z1d, psi2d, psi1d = create_tokamak(

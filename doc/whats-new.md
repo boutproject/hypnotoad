@@ -33,6 +33,8 @@ Release history
   By [John Omotani](https://github.com/johnomotani)
 - Grids that are nonorthogonal only at the X-point (#180).
   By [John Omotani](https://github.com/johnomotani)
+- Save Jpar0 to output tokamak grids (#177).
+  By [Ben Dudson](https://github.com/bendudson)
 - Add flag for `tokamak_example.py` to generate grids with reversed current. This
   prevents negative `dx`/`J` and allows them to be run in BOUT++.
 

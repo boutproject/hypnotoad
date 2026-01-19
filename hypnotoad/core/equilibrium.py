@@ -2097,7 +2097,7 @@ class EquilibriumRegion(PsiContour):
         # Input parameters for poloidal spacing functions
         #################################################
         poloidal_spacing_method=WithMeta(
-            "sqrt",
+            "sin",
             doc=(
                 "Method to use for poloidal spacing function: 'sqrt' for "
                 "getSqrtPoloidalSpacingFunction; 'monotonic' for "

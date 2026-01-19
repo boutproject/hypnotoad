@@ -9,12 +9,10 @@ from pathlib import Path
 
 
 def get_arg_parser():
-    parser = AP(
-        description="""
+    parser = AP(description="""
         Recreate input files that were used to create the grid from a hypnotoad grid
         file
-        """
-    )
+        """)
     parser.add_argument("grid_file", type=str)
     parser.add_argument(
         "-g",

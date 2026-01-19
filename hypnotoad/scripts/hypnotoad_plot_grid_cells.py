@@ -4,16 +4,14 @@
 def get_arg_parser():
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(
-        description="""
+    parser = ArgumentParser(description="""
         Script to plot grid cells for a BOUT++ grid, using the corner positions saved by
         hypnotoad.
 
         The CELL_CENTRE positions are shown in the plot as black dots, the cells are
         shown by joining the corners with black lines. The branch cuts (if shown) are
         thick red lines.
-        """
-    )
+        """)
     parser.add_argument(
         "gridfile", help="Path to the grid file to plot grid cells from"
     )

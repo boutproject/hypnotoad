@@ -4,11 +4,9 @@
 def get_arg_parser():
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(
-        description="""
+    parser = ArgumentParser(description="""
         Plot the equilibrium stored in a geqdsk file
-        """
-    )
+        """)
     parser.add_argument(
         "equilibrium_file", help="Path to equilibrium file in geqdsk format"
     )

@@ -14,11 +14,9 @@ import warnings
 def get_arg_parser():
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(
-        description="""
+    parser = ArgumentParser(description="""
         Create a grid file for a configuration with circular, concentric flux surfaces.
-        """
-    )
+        """)
     parser.add_argument("inputfile", nargs="?", default=None)
     parser.add_argument("--pdb", action="store_true", default=False)
     parser.add_argument("--plot-regions", action="store_true", default=False)

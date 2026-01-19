@@ -33,7 +33,6 @@ from ..core.mesh import BoutMesh
 from ..core.equilibrium import SolutionError
 from ..__init__ import __version__
 
-
 COLOURS = {
     "red": "#aa0000",
 }

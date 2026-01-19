@@ -1326,6 +1326,87 @@ class TestEquilibriumRegion:
             abs=1.0e-5,
         )
 
+    def test_getSinPoloidalDistanceFuncLinear(self, eqReg):
+        L = 2.0
+        N = 10.0
+        N_norm = 1
+        f = eqReg.getSinPoloidalDistanceFunc(L, N, N_norm)
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(10.0) == tight_approx(2.0)
+        # f(i) = i/N*L
+        assert f(3.0) == tight_approx(0.6)
+
+        # test gradients at upper and lower bounds
+        dfdi = L / N
+        # i=0, interior
+        itest = 1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=0, extrapolating
+        itest = -1.0e-3
+        assert (f(itest) - f(0.0)) / itest == tight_approx(dfdi)
+        # i=N, interior
+        itest = N - 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+        # i=N, extrapolating
+        itest = N + 1.0e-3
+        assert (f(N) - f(itest)) / (N - itest) == tight_approx(dfdi)
+
+    def test_getSinPoloidalDistanceFuncLower(self, eqReg):
+        d_lower = 0.1
+        L = 2.0
+        N = 10.0
+        N_norm = 20.0
+        f = eqReg.getSinPoloidalDistanceFunc(L, N, N_norm, d_lower=d_lower)
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ d_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(d_lower * itest / N_norm, abs=1.0e-5)
+
+    def test_getSinPoloidalDistanceFuncUpper(self, eqReg):
+        d_upper = 0.1
+        L = 2.0
+        N = 10.0
+        N_norm = 20.0
+        f = eqReg.getSinPoloidalDistanceFunc(L, N, N_norm, d_upper=d_upper)
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for (N-i)<<1, f ~ L - d_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(L - d_upper * (N - itest) / N_norm, abs=1.0e-5)
+
+    def test_getSinPoloidalDistanceFuncBoth(self, eqReg):
+        d_lower = 0.1
+        d_upper = 0.2
+        L = 2.0
+        N = 10.0
+        N_norm = 40.0
+        f = eqReg.getSinPoloidalDistanceFunc(
+            L, N, N_norm, d_lower=d_lower, d_upper=d_upper
+        )
+        # f(0) = 0
+        assert f(0.0) == tight_approx(0.0)
+        # f(N) = L
+        assert f(N) == tight_approx(L)
+        # for i<<1, f ~ b_lower*i/N_norm
+        itest = 0.01
+        assert f(itest) == pytest.approx(d_lower * itest / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at lower end
+        itest = -0.01
+        assert f(itest) == pytest.approx(d_lower * itest / N_norm, abs=1.0e-5)
+        # for (N-i)<<1, f ~ L - b_upper*(N-i)/N_norm
+        itest = N - 0.01
+        assert f(itest) == pytest.approx(L - d_upper * (N - itest) / N_norm, abs=1.0e-5)
+        # Check we can extrapolate at upper end
+        itest = N + 0.01
+        assert f(itest) == pytest.approx(L - d_upper * (N - itest) / N_norm, abs=1.0e-5)
+
     def test_combineSfuncsPoloidalSpacing(self, eqReg):
         n = len(eqReg)
         L = eqReg.totalDistance(psi=eqReg.psi, equilibrium=eqReg.equilibrium)

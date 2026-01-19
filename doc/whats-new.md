@@ -37,6 +37,9 @@ Release history
   By [Ben Dudson](https://github.com/bendudson)
 - Add flag for `tokamak_example.py` to generate grids with reversed current. This
   prevents negative `dx`/`J` and allows them to be run in BOUT++.
+  By [Mike Kryjak](https://github.com/mikekryjak)
+- Add `sin` poloidal distance function (#207).
+  By [Ben Dudson](https://github.com/bendudson)
 
 0.5.2 (13th March 2023)
 -------------------------

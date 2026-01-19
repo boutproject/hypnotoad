@@ -35,11 +35,9 @@ centre of the cell.
 def get_arg_parser():
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(
-        description="""
+    parser = ArgumentParser(description="""
         Create grid for TORPEX X-point configuration
-        """
-    )
+        """)
     parser.add_argument("filename")
     parser.add_argument("--noplot", action="store_true")
 

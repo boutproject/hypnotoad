@@ -20,11 +20,12 @@
 import sys
 
 
-def with_default(value, default):
+def with_default(value, default, default2=None):
     if value is not None:
         return value
-
-    return default
+    if default is not None:
+        return default
+    return default2
 
 
 def list_loaded_modules():

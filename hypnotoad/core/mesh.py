@@ -3895,7 +3895,7 @@ class BoutMesh(Mesh):
     def writeArrayXDirection(self, name, array, f):
         f.write(name, BoutArray(array.centre[:, 0], attributes=array.attributes))
 
-    def writeGridfile(self, filename):
+    def writeGridfile(self, filename, skip_topology=False):
         from boututils.datafile import DataFile
 
         with DataFile(filename, create=True, format="NETCDF4") as f:
@@ -3952,7 +3952,10 @@ class BoutMesh(Mesh):
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))
-
+            print("self.equilibrium.regions:", self.equilibrium.regions)
+            print("eq_region0",eq_region0)
+            print("eq_region0.separatrix_radial_index",eq_region0.separatrix_radial_index)
+            print("self.x_startinds:",self.x_startinds)
             if len(self.x_startinds) == 2:
                 # No separatrix in grid: self.x_startinds = [0, nx]
                 if eq_region0.separatrix_radial_index == 0:
@@ -3985,7 +3988,7 @@ class BoutMesh(Mesh):
                     )
             else:
                 raise ValueError("More than two separatrices not supported by BoutMesh")
-
+            print("y_regions_noguards:",self.y_regions_noguards)
             if len(self.y_regions_noguards) == 1:
                 # No X-points
                 jyseps1_1 = -1
@@ -4027,14 +4030,14 @@ class BoutMesh(Mesh):
                     # this is a connected-double-null configuration, with two
                     # separatrices in the same radial location
                     ixseps2 = ixseps1
-
-            f.write("ixseps1", ixseps1)
-            f.write("ixseps2", ixseps2)
-            f.write("jyseps1_1", jyseps1_1)
-            f.write("jyseps2_1", jyseps2_1)
-            f.write("ny_inner", ny_inner)
-            f.write("jyseps1_2", jyseps1_2)
-            f.write("jyseps2_2", jyseps2_2)
+            if not skip_topology:
+                f.write("ixseps1", ixseps1)
+                f.write("ixseps2", ixseps2)
+                f.write("jyseps1_1", jyseps1_1)
+                f.write("jyseps2_1", jyseps2_1)
+                f.write("ny_inner", ny_inner)
+                f.write("jyseps1_2", jyseps1_2)
+                f.write("jyseps2_2", jyseps2_2)
 
             # Create poloidal coordinate (single-valued everywhere, includes y-boundary
             # cells)

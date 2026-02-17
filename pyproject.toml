@@ -55,6 +55,7 @@ tests = [
 
 [project.scripts]
 hypnotoad-circular = "hypnotoad.scripts.hypnotoad_circular:main"
+hypnotoad-dipole = "hypnotoad.scripts.hypnotoad_dipole:main"
 hypnotoad-geqdsk = "hypnotoad.scripts.hypnotoad_geqdsk:main"
 hypnotoad-torpex = "hypnotoad.scripts.hypnotoad_torpex:main"
 hypnotoad-plot-equilibrium = "hypnotoad.scripts.hypnotoad_plot_equilibrium:main"

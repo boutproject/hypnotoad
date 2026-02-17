@@ -132,6 +132,13 @@ create_options_rst(
     "Circular options",
     hypnotoad.circular.CircularEquilibrium.user_options_factory,
 )
+
+create_options_rst(
+    "dipole-options.rst",
+    "Dipole options",
+    hypnotoad.cases.dipole.DipoleEquilibrium.user_options_factory,
+)
+
 create_options_rst(
     "torpex-options.rst",
     "TORPEX options",

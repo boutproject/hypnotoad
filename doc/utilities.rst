@@ -1,7 +1,7 @@
 Plotting and other utilities
 ============================
 
-``hypnotoad-plot-equilibrum``
+``hypnotoad-plot-equilibrium``
 -----------------------------
 
 .. argparse::

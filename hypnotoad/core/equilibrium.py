@@ -404,6 +404,873 @@ def closest_approach(point, a, b):
     return norm(point - intersect)
 
 
+
+
+
+
+class FineContourParallel:
+    """
+    High-resolution representation of a contour of constant :math:`\\psi`.
+
+    Each ``FineContour`` belongs to a ``PsiContour`` and provides a high resolution
+    representation of the contour, which does not depend on the grid settings: points in
+    a FineContour are uniformly spaced in poloidal distance along the contour; and the
+    number of points is set by the ``finecontour_Nfine`` setting, which should be
+    significantly higher than the number of points in the y-direction in any region of
+    the grid.
+
+    The ``FineContour`` provides a robust calculation of the poloidal distance along a
+    contour, and provides accurate interpolation functions so that points belonging to
+    the parent ``PsiContour`` can be placed at specified poloidal locations along the
+    contour.
+    """
+
+    user_options_factory = OptionsFactory(
+        finecontour_Nfine=WithMeta(
+            100,
+            doc=(
+                "Number of points on each FineContour. Increase for more accurate "
+                "interpolation or distance calculations"
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
+        finecontour_atol=WithMeta(
+            1.0e-12,
+            doc="Absolute tolerance for refinement of FineContours",
+            value_type=[float, int],
+            check_all=is_positive,
+        ),
+        finecontour_diagnose=WithMeta(
+            False,
+            doc=(
+                "Print and display some information to help diagnose failures in "
+                "FineContour refinement and adjustment"
+            ),
+            value_type=bool,
+        ),
+        finecontour_overdamping_factor=WithMeta(
+            0.8,
+            doc=(
+                "Damping factor 0<f<=1 used to stabilise iterations in "
+                "FineContour.equaliseSpacing. Values towards 0 are most stable but "
+                "make the smallest updates. Values towards 1 are less stable but "
+                "potentially faster."
+            ),
+            value_type=float,
+            check_all=lambda x: x > 0.0 and x <= 1.0,
+        ),
+        finecontour_extend_prefactor=WithMeta(
+            2.0,
+            doc=(
+                "Prefactor to increase estimate for number of points to extend "
+                "FineContour when y_boundary_guards>0. May be useful to decrease in "
+                "case of FineContour creation failures if the target end is very close "
+                "to a region with problematic psi (e.g. coils, centre column). If the "
+                "value is too small, may result in extrapolation using FineContour "
+                "points which is likely to be poorly constrained."
+            ),
+            value_type=float,
+            check_all=is_positive,
+        ),
+        finecontour_maxits=WithMeta(
+            200,
+            doc=(
+                "Maximum number of iterations for refinement and adjustment of a "
+                "FineContour"
+            ),
+            value_type=int,
+            check_all=is_positive,
+        ),
+        refine_timeout=WithMeta(
+            10.0,
+            doc=(
+                "Timeout for refining FineContour objects in seconds. Set to None to "
+                "disable the timeout; can be useful for debugging as exceptions may "
+                "get lost due to a separate thread being used to run the refine() "
+                "method with a timeout. If you get "
+                "func_timeout.exceptions.FunctionTimedOut exceptions and you are sure "
+                "there is no problem with the grid, you could try increasing this "
+                "value."
+            ),
+            value_type=(float, NoneType),
+            check_all=is_positive_or_None,
+        ),
+    )
+
+    def __init__(self, parentContour, settings, *, psi, equilibrium, Nfine):
+        self.parentContour = parentContour
+        self.user_options = self.user_options_factory.create(settings)
+        self.distance = None
+        self.parallel_distance = None
+        # Nfine = self.user_options.finecontour_Nfine
+
+        endInd = self.parentContour.endInd
+        if endInd < 0:
+            # endInd might be negative, which would mean relative to the end of the list,
+            # but we need the actual index below
+            endInd += len(self.parentContour)
+        n_input = endInd - self.parentContour.startInd + 1
+
+        print("finecontour_extend_prefactor = ", self.user_options.finecontour_extend_prefactor)
+        print("parentContour.extend_lower = ", self.parentContour.extend_lower)
+        print("parentContour.extend_upper = ", self.parentContour.extend_upper)
+        # Extend further than will be needed in the final contour, because extrapolation
+        # past the end of the fine contour is very bad.
+        self.extend_lower_fine = int(
+            round(
+                self.user_options.finecontour_extend_prefactor
+                * (self.parentContour.extend_lower * Nfine)
+                / n_input
+            )
+        )
+        self.extend_upper_fine = int(
+            round(
+                self.user_options.finecontour_extend_prefactor
+                * (self.parentContour.extend_upper * Nfine)
+                / n_input
+            )
+        )
+
+        self.indices_fine = numpy.linspace(
+            -self.extend_lower_fine,
+            (Nfine - 1 + self.extend_upper_fine),
+            Nfine + self.extend_lower_fine + self.extend_upper_fine,
+        )
+
+        # Initial guess from interpolation of psiContour, iterate to a more accurate
+        # version below.
+        # Extend a copy of parentContour to make the extrapolation more stable.
+        # This makes parentCopy have twice the extra points as parentContour has.
+        parentCopy = self.parentContour.newContourFromSelf()
+        parentCopy.temporaryExtend(
+            psi=psi,
+            extend_lower=self.parentContour.extend_lower,
+            extend_upper=self.parentContour.extend_upper,
+            ds_lower=calc_distance(parentCopy[0], parentCopy[1]),
+            ds_upper=calc_distance(parentCopy[-1], parentCopy[-2]),
+        )
+        interp_input, distance_estimate = parentCopy._coarseInterp()
+
+        sfine = distance_estimate[parentCopy.endInd] / (Nfine - 1) * self.indices_fine
+
+        # 2d array with size {N,2} giving the (R,Z)-positions of points on the contour
+        self.positions = numpy.array(tuple(interp_input(s).as_ndarray() for s in sfine))
+
+        self.startInd = self.extend_lower_fine
+        self.endInd = Nfine - 1 + self.extend_lower_fine
+
+        # Make startInd and endInd positions exactly the same as the parentContour
+        # positions
+        self.positions[self.startInd] = self.parentContour[
+            self.parentContour.startInd
+        ].as_ndarray()
+        self.positions[self.endInd] = self.parentContour[
+            self.parentContour.endInd
+        ].as_ndarray()
+
+        self.equaliseParallelSpacing(psi=psi, equilibrium=equilibrium, Nfine=Nfine)
+
+    def extend(self, *, psi, equilibrium, extend_lower=0, extend_upper=0):
+        Nfine = self.user_options.finecontour_Nfine
+
+        parentCopy = self.parentContour.newContourFromSelf()
+
+        new_positions = numpy.zeros(
+            [self.positions.shape[0] + extend_lower + extend_upper, 2]
+        )
+
+        if extend_upper == 0:
+            new_positions[extend_lower:] = self.positions
+        else:
+            new_positions[extend_lower:-extend_upper] = self.positions
+
+        if extend_lower != 0:
+            self.extend_lower_fine += extend_lower
+
+            ds_lower = self.distance[1] - self.distance[0]
+
+            # distances from the first point in the FineContour to put initial guesses
+            # for new points
+            new_s_lower = numpy.arange(-extend_lower, 0.0) * ds_lower
+
+            # Extend parentCopy to cover range of new_s_lower.
+            ds_coarse = calc_distance(parentCopy[0], parentCopy[1])
+            coarse_extend = int(extend_lower * ds_lower / ds_coarse)
+            parentCopy.temporaryExtend(
+                psi=psi, extend_lower=coarse_extend, ds_lower=ds_coarse
+            )
+
+            # Make sure parentCopy has point at start of existing FineContour - then
+            # measure distances where initial guesses for new points are inserted
+            # relative to that point, ensures points in new_positions are in the right
+            # order
+            first_point = Point2D(*self.positions[0, :])
+            reference_ind = parentCopy.insertFindPosition(first_point)
+
+            extrap_coarse = parentCopy._coarseExtrapLower(reference_ind)
+
+            new_positions[:extend_lower, :] = [
+                tuple(extrap_coarse(s)) for s in new_s_lower
+            ]
+
+        if extend_upper != 0:
+            self.extend_upper_fine += extend_upper
+
+            ds_upper = self.distance[-1] - self.distance[-2]
+
+            # distances from the last point in the FineContour to put initial guesses for
+            # new points
+            new_s_upper = numpy.arange(1.0, extend_upper + 1) * ds_upper
+
+            # Extend parentCopy to cover range of new_s_upper.
+            ds_coarse = calc_distance(parentCopy[-2], parentCopy[-1])
+            coarse_extend = int(extend_upper * ds_upper / ds_coarse)
+            parentCopy.temporaryExtend(
+                psi=psi, extend_upper=coarse_extend, ds_upper=ds_coarse
+            )
+
+            # Make sure parentCopy has point at end of existing FineContour - then
+            # measure distances where initial guesses for new points are inserted
+            # relative to that point, ensures points in new_positions are in the right
+            # order
+            last_point = Point2D(*self.positions[-1, :])
+            reference_ind = parentCopy.insertFindPosition(last_point)
+
+            extrap_coarse = parentCopy._coarseExtrapUpper(reference_ind)
+
+            new_positions[-extend_upper:, :] = [
+                tuple(extrap_coarse(s)) for s in new_s_upper
+            ]
+
+        self.positions = new_positions
+
+        self.indices_fine = numpy.linspace(
+            -self.extend_lower_fine,
+            (Nfine - 1 + self.extend_upper_fine),
+            Nfine + self.extend_lower_fine + self.extend_upper_fine,
+        )
+
+        self.startInd = self.extend_lower_fine
+        self.endInd = Nfine - 1 + self.extend_lower_fine
+
+        self.equaliseParallelSpacing(psi=psi, equilibrium=equilibrium, reallocate=True, Nfine=Nfine)
+
+    def equaliseSpacing(self, *, psi, equilibrium, reallocate=False):
+        """
+        Adjust the positions of points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` so they have a constant distance
+        between them.
+
+        Algorithm:
+
+        1. Refine all points using :meth:`refine()
+           <hypnotoad.core.equilibrium.FineContour.refine>`.
+        2. Calculate the poloidal distances along the :class:`FineContour
+           <hypnotoad.core.equilibrium.FineContour>`, and the spacings between adjacent
+           points.
+        3. Check if the spacings are constant, with an absolute tolerance given by the
+           ``finecontour_atol`` setting. If so, stop iterating.
+        4. Create an interpolation function for the R and Z positions of this
+           :class:`FineContour <hypnotoad.core.equilibrium.FineContour>` as a function
+           of poloidal distance, using :meth:`interpFunction()
+           <hypnotoad.core.equilibrium.FineContour.interpFunction>`.
+        5. Create a new set of points using the interpolation functions, with a uniform
+           grid of poloidal distances as input.
+        6. If the iteration count is greater than 8 and
+           ``finecontour_overdamping_factor`` is not 1.0, 'overdamp' the iteration by
+           setting the new points as a sum of the new interpolated values (weighted by
+           ``finecontour_overdamping_factor``) and the old values (weighted by
+           ``(1-finecontour_overdamping_factor)``).
+        7. Return to 1.
+
+        As the interpolation is very accurate when the new points are very close to the
+        old points (Taylor expansion around the old points is accurate because the
+        displacement is small), this iteration usually converges fairly quickly.
+
+        If this method produces errors, setting ``finecontour_diagnose = True`` will
+        produce some more output which may help diagnose them.
+        """
+
+        self.refine(psi=psi, skip_endpoints=True)
+
+        self.calcDistance(reallocate=reallocate, equilibrium=equilibrium)
+
+        ds = self.distance[1:] - self.distance[:-1]
+        # want constant spacing, so ds has a constant value
+        ds_mean = numpy.mean(ds)
+        # maximum error
+        ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
+
+        if self.user_options.finecontour_diagnose:
+            from matplotlib import pyplot
+
+            print("diagnosing FineContour.__init__()")
+            print("extend_lower_fine", self.extend_lower_fine)
+            print("extend_upper_fine", self.extend_upper_fine)
+            print("ds_error", ds_error)
+
+            Rpoints = self.positions[:, 0]
+            Zpoints = self.positions[:, 1]
+            R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+            Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+            pyplot.figure()
+
+            pyplot.subplot(131)
+            pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            self.parentContour.plot(color="g", marker="o", psi=psi)
+            pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
+            pyplot.xlabel("R")
+            pyplot.ylabel("Z")
+
+            pyplot.subplot(132)
+            pyplot.plot(ds)
+            pyplot.ylabel("ds")
+
+            pyplot.subplot(133)
+            pyplot.plot(Rpoints, label="R")
+            pyplot.plot(Zpoints, label="Z")
+            pyplot.xlabel("index")
+            pyplot.legend()
+            pyplot.show()
+
+        # Adjust positions of points to equalise spacing. Leave points at startInd and
+        # endInd unchanged - makes iteration more stable.
+        count = 1
+        while ds_error > self.user_options.finecontour_atol:
+            if (
+                self.user_options.finecontour_maxits
+                and count > self.user_options.finecontour_maxits
+            ):
+                warnings.warn(
+                    f"FineContour: maximum iterations "
+                    f"({self.user_options.finecontour_maxits}) exceeded with ds_error "
+                    f"{ds_error}"
+                )
+                break
+
+            sfine = (
+                self.totalDistance()
+                / (self.user_options.finecontour_Nfine - 1)
+                * self.indices_fine
+            )
+
+            interpFunc = self.interpFunction()
+
+            # 2d array with size {N,2} giving the (R,Z)-positions of points on the
+            # contour
+            new_positions = numpy.array(
+                tuple(interpFunc(s).as_ndarray() for s in sfine)
+            )
+
+            # Update positions except for startInd and endInd
+            original_start = self.positions[self.startInd]
+            original_end = self.positions[self.endInd]
+
+            # Combine old values and new values to stabilise iteration
+            if count < 8:
+                r = 1.0
+            else:
+                r = self.user_options.finecontour_overdamping_factor
+            self.positions = r * new_positions + (1.0 - r) * self.positions
+
+            # Re-set start and end positions again to avoid rounding errors
+            self.positions[self.startInd] = original_start
+            self.positions[self.endInd] = original_end
+
+            self.refine(psi=psi, skip_endpoints=True)
+
+            self.calcDistance(equilibrium=equilibrium)
+
+            ds = self.distance[1:] - self.distance[:-1]
+            # want constant spacing, so ds has a constant value
+            ds_mean = numpy.mean(ds)
+            # maximum error
+            ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
+
+            count += 1
+
+            if self.user_options.finecontour_diagnose:
+                print("iteration", count, "  ds_error", ds_error, flush=True)
+
+                Rpoints = self.positions[:, 0]
+                Zpoints = self.positions[:, 1]
+                R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+                Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+                pyplot.figure()
+
+                pyplot.subplot(131)
+                pyplot.contour(
+                    R,
+                    Z,
+                    psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]),
+                )
+                self.parentContour.plot(color="k", marker="o", psi=psi)
+                pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
+                pyplot.xlabel("R")
+                pyplot.ylabel("Z")
+
+                pyplot.subplot(132)
+                pyplot.plot(ds)
+                pyplot.ylabel("ds")
+
+                pyplot.subplot(133)
+                pyplot.plot(Rpoints, label="R")
+                pyplot.plot(Zpoints, label="Z")
+                pyplot.xlabel("index")
+                pyplot.legend()
+                pyplot.show()
+
+    def equaliseParallelSpacing(self, *, psi, equilibrium, reallocate=False, Nfine=None):
+        """
+        Lucas McConnell crappy equalise parallel spacing attempt
+        """
+
+        self.refine(psi=psi, skip_endpoints=True)
+
+        self.calcDistance(reallocate=reallocate, equilibrium=equilibrium)
+
+        # ds = self.distance[1:] - self.distance[:-1]
+        # # want constant spacing, so ds has a constant value
+        # ds_mean = numpy.mean(ds)
+        # # maximum error
+        # ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
+
+        ds_par = self.parallel_distance[1:] - self.parallel_distance[:-1]
+        # ds_par = self.distance[1:] - self.distance[:-1]  # temporary
+        ds_error = numpy.max(numpy.sqrt((ds_par - numpy.mean(ds_par)) ** 2))
+
+        if self.user_options.finecontour_diagnose:
+            from matplotlib import pyplot
+
+            print("diagnosing FineContour.__init__()")
+            print("extend_lower_fine", self.extend_lower_fine)
+            print("extend_upper_fine", self.extend_upper_fine)
+            print("ds_error", ds_error)
+            print("If statement BEFORE the iteration loop")
+
+            Rpoints = self.positions[:, 0]
+            Zpoints = self.positions[:, 1]
+            R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+            Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+            # --- Figure 1: ψ contours + parent contour + current fine points ---
+            fig1, ax1 = pyplot.subplots()
+            ax1.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            # parentContour.plot may create its own Axes if not given; make sure we’re on ax1:
+            pyplot.sca(ax1)
+            self.parentContour.plot(color="g", marker="o", psi=psi)
+            ax1.plot(Rpoints, Zpoints, color="r", marker="x")
+            ax1.set_xlabel("R")
+            ax1.set_ylabel("Z")
+            ax1.set_aspect("equal")
+
+            # --- Figure 2: spacing error series ---
+            fig2, ax2 = pyplot.subplots()
+            try:
+                # In equaliseParallelSpacing blocks
+                ax2.plot(ds_par)
+                ax2.set_ylabel("Δs_parallel")
+            except NameError:
+                # In equaliseSpacing blocks
+                ax2.plot(ds)
+                ax2.set_ylabel("ds")
+            ax2.set_xlabel("index")
+
+            # --- Figure 3: R(i) and Z(i) along the polyline ---
+            fig3, ax3 = pyplot.subplots()
+            ax3.plot(Rpoints, label="R")
+            ax3.plot(Zpoints, label="Z")
+            ax3.set_xlabel("index")
+            ax3.legend()
+
+            pyplot.show()
+
+        # Adjust positions of points to equalise spacing. Leave points at startInd and
+        # endInd unchanged - makes iteration more stable.
+        count = 1
+        while ds_error > self.user_options.finecontour_atol:
+            if (
+                self.user_options.finecontour_maxits
+                and count > self.user_options.finecontour_maxits
+            ):
+                warnings.warn(
+                    f"FineContour: maximum iterations "
+                    f"({self.user_options.finecontour_maxits}) exceeded with ds_error "
+                    f"{ds_error}"
+                )
+                break
+
+            sfine = (
+                self.totalDistance()
+                / (self.user_options.finecontour_Nfine - 1)
+                * self.indices_fine
+            )
+
+            s_pol = self.distance - self.distance[self.startInd]
+            s_par = self.parallel_distance - self.parallel_distance[self.startInd]
+
+            # Nfine = self.user_options.finecontour_Nfine
+
+            total_par = s_par[self.endInd]
+            Δs_par = total_par / (Nfine - 1)
+
+            # uniform in parallel length (with guards)
+            s_par_uniform = numpy.linspace(
+                -self.extend_lower_fine * Δs_par,
+                total_par + self.extend_upper_fine * Δs_par,
+                Nfine + self.extend_lower_fine + self.extend_upper_fine,
+            )
+
+            # map s_parallel → s_poloidal, then feed to interpFunction()
+            s_pol_of_par = interpolate.interp1d(s_par, s_pol, assume_sorted=True, fill_value="extrapolate")
+            sfine = s_pol_of_par(s_par_uniform)  # this is poloidal s to pass to interpFunction()
+
+            interpFunc = self.interpFunction()
+
+            # 2d array with size {N,2} giving the (R,Z)-positions of points on the
+            # contour
+            new_positions = numpy.array(
+                tuple(interpFunc(s).as_ndarray() for s in sfine)
+            )
+
+            # Update positions except for startInd and endInd
+            original_start = self.positions[self.startInd]
+            original_end = self.positions[self.endInd]
+
+            # Combine old values and new values to stabilise iteration
+            if count < 8:
+                r = 1.0
+            else:
+                r = self.user_options.finecontour_overdamping_factor
+            self.positions = r * new_positions + (1.0 - r) * self.positions
+
+            # Re-set start and end positions again to avoid rounding errors
+            self.positions[self.startInd] = original_start
+            self.positions[self.endInd] = original_end
+
+            self.refine(psi=psi, skip_endpoints=True)
+
+            self.calcDistance(equilibrium=equilibrium)
+
+            ds_par = self.parallel_distance[1:] - self.parallel_distance[:-1]
+            # maximum error
+            ds_error = numpy.max(numpy.sqrt((ds_par - numpy.mean(ds_par)) ** 2))
+            
+            count += 1
+
+            if self.user_options.finecontour_diagnose:
+                from matplotlib import pyplot
+
+                print("diagnosing FineContour.__init__()")
+                print("extend_lower_fine", self.extend_lower_fine)
+                print("extend_upper_fine", self.extend_upper_fine)
+                print("ds_error", ds_error)
+
+                Rpoints = self.positions[:, 0]
+                Zpoints = self.positions[:, 1]
+                R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+                Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+                # --- Figure 1: ψ contours + parent contour + current fine points ---
+                fig1, ax1 = pyplot.subplots()
+                ax1.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+                # parentContour.plot may create its own Axes if not given; make sure we’re on ax1:
+                pyplot.sca(ax1)
+                self.parentContour.plot(ax=ax1, color="g", marker="o", psi=psi)
+                ax1.plot(Rpoints, Zpoints, color="r", marker="x")
+                ax1.set_xlabel("R")
+                ax1.set_ylabel("Z")
+                ax1.set_aspect("equal")
+
+                # --- Figure 2: spacing error series ---
+                fig2, ax2 = pyplot.subplots()
+                try:
+                    # In equaliseParallelSpacing blocks
+                    ax2.plot(ds_par)
+                    ax2.set_ylabel("Δs_parallel")
+                except NameError:
+                    # In equaliseSpacing blocks
+                    ax2.plot(ds)
+                    ax2.set_ylabel("ds")
+                ax2.set_xlabel("index")
+
+                # --- Figure 3: R(i) and Z(i) along the polyline ---
+                fig3, ax3 = pyplot.subplots()
+                ax3.plot(Rpoints, label="R")
+                ax3.plot(Zpoints, label="Z")
+                ax3.set_xlabel("index")
+                ax3.legend()
+
+                pyplot.show()
+
+    def totalDistance(self):
+        return self.distance[self.endInd] - self.distance[self.startInd]
+
+    def calcDistance(self, *, equilibrium, reallocate=False):
+        """
+        Calculate poloidal distance from the start of this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>`.
+
+        Distance is calculated as a cumulative sum of the straight-line distances
+        between each point. This calculation has a low order of accuracy, so the number
+        of points ``finecontour_Nfine`` should be chosen to be large.
+        """
+        if self.distance is None or reallocate:
+            self.distance = numpy.zeros(self.positions.shape[0])
+        if self.parallel_distance is None or reallocate:
+            self.parallel_distance = numpy.zeros(self.positions.shape[0])
+        deltaSquared = (self.positions[1:] - self.positions[:-1]) ** 2
+        delta_poloidal = numpy.sqrt(numpy.sum(deltaSquared, axis=1))
+        self.distance[1:] = numpy.cumsum(delta_poloidal)
+
+        if self.parentContour.psival is None:
+            # This is an EquilibriumRegion that is not necessarily following a single
+            # flux surface, so does not have a `psival`. We do not need the distance
+            # along this contour, so just set to NaN.
+            self.parallel_distance[:] = numpy.nan
+        else:
+            fine_contour_Bt = (
+                equilibrium.fpol(self.parentContour.psival) / self.positions[:, 0]
+            )
+            fine_contour_Br = equilibrium.Bp_R(
+                self.positions[:, 0], self.positions[:, 1]
+            )
+            fine_contour_Bz = equilibrium.Bp_Z(
+                self.positions[:, 0], self.positions[:, 1]
+            )
+            fine_contour_mod_Bp = numpy.sqrt(fine_contour_Br**2 + fine_contour_Bz**2)
+            fine_contour_B = numpy.sqrt(fine_contour_Bt**2 + fine_contour_mod_Bp**2)
+            midpoints_B = 0.5 * (fine_contour_B[:-1] + fine_contour_B[1:])
+            midpoints_mod_Bp = 0.5 * (
+                fine_contour_mod_Bp[:-1] + fine_contour_mod_Bp[1:]
+            )
+            delta_parallel = midpoints_B / midpoints_mod_Bp * delta_poloidal
+            self.parallel_distance[1:] = numpy.cumsum(delta_parallel)
+
+    def interpFunction(self, *, kind="linear"):
+        distance = self.distance - self.distance[self.startInd]
+
+        interpR = interpolate.interp1d(
+            distance,
+            self.positions[:, 0],
+            kind=kind,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
+        interpZ = interpolate.interp1d(
+            distance,
+            self.positions[:, 1],
+            kind=kind,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
+        return lambda s: Point2D(float(interpR(s)), float(interpZ(s)))
+
+    def refine(self, *, psi, skip_endpoints=False, **kwargs):
+        """
+        Refine the points in this :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` by calling
+        :meth:`PsiContour.refinePoiint()
+        <hypnotoad.core.equilibrium.PsiContour.refinePoint>` for each of them.
+        """
+        # Includes unused **kwargs so we can pass the method to ParallelMap.__call__()
+
+        # Define inner method so we can pass to func_timeout.func_timeout
+        def refine(self, *, skip_endpoints=False):
+            result = numpy.zeros(self.positions.shape)
+
+            p = self.positions[0, :]
+            tangent = self.positions[1, :] - self.positions[0, :]
+            result[0, :] = self.parentContour.refinePoint(
+                Point2D(*p), Point2D(*tangent), psi=psi
+            ).as_ndarray()
+            for i in range(1, self.positions.shape[0] - 1):
+                p = self.positions[i, :]
+                tangent = self.positions[i + 1, :] - self.positions[i - 1, :]
+                result[i, :] = self.parentContour.refinePoint(
+                    Point2D(*p), Point2D(*tangent), psi=psi
+                ).as_ndarray()
+            p = self.positions[-1, :]
+            tangent = self.positions[-1, :] - self.positions[-2, :]
+            result[-1, :] = self.parentContour.refinePoint(
+                Point2D(*p), Point2D(*tangent), psi=psi
+            ).as_ndarray()
+
+            if skip_endpoints:
+                result[self.startInd] = self.positions[self.startInd]
+                result[self.endInd] = self.positions[self.endInd]
+
+            self.positions = result
+
+        if self.user_options.refine_timeout is not None:
+            # Using func_timeout.func_timeout rather than the
+            # @func_timeout.func_set_timeout decorator on the refine method so that we
+            # can use self.user_options to set the length of the timeout.
+            func_timeout.func_timeout(
+                self.user_options.refine_timeout,
+                refine,
+                [self],
+                kwargs={"skip_endpoints": skip_endpoints},
+            )
+        else:
+            refine(self, skip_endpoints=skip_endpoints)
+
+        return self
+
+    def reverse(self):
+        if self.distance is not None:
+            self.distance = self.distance[-1] - self.distance[::-1]
+        self.positions = self.positions[::-1, :]
+
+        old_start = self.startInd
+        n = self.positions.shape[0]
+        self.startInd = n - 1 - self.endInd
+        self.endInd = n - 1 - old_start
+
+        return self
+
+    def interpSSperp(self, vec, kind="linear"):
+        """
+        Returns
+        -------
+
+        1. a function s(s_perp) for interpolating the poloidal distance along the contour
+           from the distance perpendicular to vec.
+           's_perp' is modified to be a monotonically increasing function along the
+           contour.
+        2. the total perpendicular distance between startInd and endInd of the contour.
+
+        Note: "linear" interpolation is more robust here, because the fix we use for
+        making sperp monotonic can make it non-smooth, so quadratic or cubic
+        interpolation may over-shoot. Accuracy can be increased by increasing
+        finecontour_Nfine. Also this function is only used to place the grid points in
+        the first place, so high accuracy is less important than in the interpolations
+        that get for example poloidal distance along the contour.
+        """
+
+        # vec_perp is a vector in the direction of either increasing or decreasing sperp
+        vec_perp = numpy.zeros(2)
+        vec_perp[0] = -vec[1]
+        vec_perp[1] = vec[0]
+
+        # make vec_perp a unit vector
+        vec_perp = vec_perp / numpy.sqrt(numpy.sum(vec_perp**2))
+        start_position = self.positions[self.startInd, :]
+
+        # s_perp = (vec_perp).(r) where r is the displacement vector of each point from
+        # self[self.startInd]
+        s_perp = numpy.sum(
+            (self.positions - start_position) * vec_perp[numpy.newaxis, :], axis=1
+        )
+
+        # s_perp might not be monotonic in which case s(s_perp) is not well defined.
+        # To get around this, if d(s_perp) between two points is negative, flip its sign
+        # to make a fake 's_perp' that is always increasing.
+        # Note we only need s_perp to be good near one of the ends, the function using it
+        # will be multiplied by a weight that goes to zero far from the end.
+        # This correction means s_perp is always increasing, regardless of sign of
+        # vec_perp, so don't need to check sign of vec_perp when creating it.
+        for i in range(self.startInd + 1, len(s_perp)):
+            ds = s_perp[i] - s_perp[i - 1]
+            if ds < 0.0:
+                s_perp[i:] = 2.0 * s_perp[i - 1] - s_perp[i:]
+        for i in range(self.startInd - 1, -1, -1):
+            ds = s_perp[i + 1] - s_perp[i]
+            if ds < 0.0:
+                s_perp[: i + 1] = 2.0 * s_perp[i + 1] - s_perp[: i + 1]
+
+        s_perp_total = s_perp[self.endInd] - s_perp[self.startInd]
+
+        distance = self.distance - self.distance[self.startInd]
+        s_of_sperp = interpolate.interp1d(
+            s_perp, distance, kind=kind, assume_sorted=True, fill_value="extrapolate"
+        )
+
+        return s_of_sperp, s_perp_total
+
+    def getDistance(self, p, *, parallel=False):
+        """
+        Find the poloidal and parallel distances from the start of this contour of a
+        point ``p``.
+
+        Assume ``p`` is a point on the contour so has the correct psi-value.
+
+        Result is calculated as the weighted mean of the poloidal (or parallel)
+        distances of the two nearest points on the :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` (weighted by the relative poloidal (in
+        both cases) distance from ``p`` to each :class:`FineContour
+        <hypnotoad.core.equilibrium.FineContour>` point).
+        """
+        p = p.as_ndarray()
+
+        distance_from_points = numpy.sqrt(
+            numpy.sum((self.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
+
+        # index of closest point
+        i1 = numpy.argmin(distance_from_points)
+        d1 = distance_from_points[i1]
+
+        # index of next-closest point
+        if i1 + 1 >= len(distance_from_points):
+            i2 = i1 - 1
+        elif i1 - 1 < 0:
+            i2 = 1
+        elif closest_approach(
+            p, self.positions[i1], self.positions[i1 + 1]
+        ) < closest_approach(p, self.positions[i1], self.positions[i1 - 1]):
+            i2 = i1 + 1
+        else:
+            i2 = i1 - 1
+        d2 = distance_from_points[i2]
+
+        # linearly interpolate the distance of the two closest points in the same ratio
+        # as their distances from the point
+        r = d2 / (d1 + d2)
+
+        distance = r * self.distance[i1] + (1.0 - r) * self.distance[i2]
+
+        # Weight by poloidal distances even when calculating parallel distance,
+        # because we cannot get the parallel displacement of `p`, only its position.
+        parallel_distance = (
+            r * self.parallel_distance[i1] + (1.0 - r) * self.parallel_distance[i2]
+        )
+
+        return distance, parallel_distance
+
+    def plot(self, *args, psi=None, ax=None, **kwargs):
+        """
+        Plot this FineContour
+        """
+        from matplotlib import pyplot
+
+        if ax is None:
+            ax = pyplot.axes(aspect="equal")
+
+        Rpoints = self.positions[:, 0]
+        Zpoints = self.positions[:, 1]
+        if psi is not None:
+            R = numpy.linspace(min(Rpoints), max(Rpoints), 100)
+            Z = numpy.linspace(min(Zpoints), max(Zpoints), 100)
+            ax.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+        ax.plot(Rpoints, Zpoints, *args, **kwargs)
+        return ax
+
+
+
+
+
+
+
+
+
+
+
+
+
 class FineContour:
     """
     High-resolution representation of a contour of constant :math:`\\psi`.
@@ -816,6 +1683,168 @@ class FineContour:
                 pyplot.legend()
                 pyplot.show()
 
+    def equaliseParallelSpacing(self, *, psi, equilibrium, reallocate=False):
+        """
+        Lucas McConnell crappy equalise parallel spacing attempt
+        """
+
+        self.refine(psi=psi, skip_endpoints=True)
+
+        self.calcDistance(reallocate=reallocate, equilibrium=equilibrium)
+
+        # ds = self.distance[1:] - self.distance[:-1]
+        # # want constant spacing, so ds has a constant value
+        # ds_mean = numpy.mean(ds)
+        # # maximum error
+        # ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
+
+        ds_par = self.distance[1:] - self.distance[:-1]
+        ds_error = numpy.max(numpy.sqrt((ds_par - numpy.mean(ds_par)) ** 2))
+
+        if True:#self.user_options.finecontour_diagnose:
+            from matplotlib import pyplot
+
+            print("diagnosing FineContour.__init__()")
+            print("extend_lower_fine", self.extend_lower_fine)
+            print("extend_upper_fine", self.extend_upper_fine)
+            print("ds_error", ds_error)
+
+            Rpoints = self.positions[:, 0]
+            Zpoints = self.positions[:, 1]
+            R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+            Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+            # --- Figure 1: ψ contours + parent contour + current fine points ---
+            fig1, ax1 = pyplot.subplots()
+            ax1.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+            # parentContour.plot may create its own Axes if not given; make sure we’re on ax1:
+            pyplot.sca(ax1)
+            self.parentContour.plot(color="g", marker="o", psi=psi)
+            ax1.plot(Rpoints, Zpoints, color="r", marker="x")
+            ax1.set_xlabel("R")
+            ax1.set_ylabel("Z")
+            ax1.set_aspect("equal")
+
+            # --- Figure 2: spacing error series ---
+            fig2, ax2 = pyplot.subplots()
+            try:
+                # In equaliseParallelSpacing blocks
+                ax2.plot(ds_par)
+                ax2.set_ylabel("Δs_parallel")
+            except NameError:
+                # In equaliseSpacing blocks
+                ax2.plot(ds)
+                ax2.set_ylabel("ds")
+            ax2.set_xlabel("index")
+
+            # --- Figure 3: R(i) and Z(i) along the polyline ---
+            fig3, ax3 = pyplot.subplots()
+            ax3.plot(Rpoints, label="R")
+            ax3.plot(Zpoints, label="Z")
+            ax3.set_xlabel("index")
+            ax3.legend()
+
+            pyplot.show()
+
+        # Adjust positions of points to equalise spacing. Leave points at startInd and
+        # endInd unchanged - makes iteration more stable.
+        count = 1
+        while ds_error > self.user_options.finecontour_atol:
+            if (
+                self.user_options.finecontour_maxits
+                and count > self.user_options.finecontour_maxits
+            ):
+                warnings.warn(
+                    f"FineContour: maximum iterations "
+                    f"({self.user_options.finecontour_maxits}) exceeded with ds_error "
+                    f"{ds_error}"
+                )
+                break
+
+            sfine = (
+                self.totalDistance()
+                / (self.user_options.finecontour_Nfine - 1)
+                * self.indices_fine
+            )
+
+            interpFunc = self.interpFunction()
+
+            # 2d array with size {N,2} giving the (R,Z)-positions of points on the
+            # contour
+            new_positions = numpy.array(
+                tuple(interpFunc(s).as_ndarray() for s in sfine)
+            )
+
+            # Update positions except for startInd and endInd
+            original_start = self.positions[self.startInd]
+            original_end = self.positions[self.endInd]
+
+            # Combine old values and new values to stabilise iteration
+            if count < 8:
+                r = 1.0
+            else:
+                r = self.user_options.finecontour_overdamping_factor
+            self.positions = r * new_positions + (1.0 - r) * self.positions
+
+            # Re-set start and end positions again to avoid rounding errors
+            self.positions[self.startInd] = original_start
+            self.positions[self.endInd] = original_end
+
+            self.refine(psi=psi, skip_endpoints=True)
+
+            self.calcDistance(equilibrium=equilibrium)
+
+            ds_par = self.distance[1:] - self.distance[:-1]
+            # maximum error
+            ds_error = numpy.max(numpy.sqrt((ds_par - numpy.mean(ds_par)) ** 2))
+
+            count += 1
+
+            if True:#self.user_options.finecontour_diagnose:
+                from matplotlib import pyplot
+
+                print("diagnosing FineContour.__init__()")
+                print("extend_lower_fine", self.extend_lower_fine)
+                print("extend_upper_fine", self.extend_upper_fine)
+                print("ds_error", ds_error)
+
+                Rpoints = self.positions[:, 0]
+                Zpoints = self.positions[:, 1]
+                R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
+                Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+
+                # --- Figure 1: ψ contours + parent contour + current fine points ---
+                fig1, ax1 = pyplot.subplots()
+                ax1.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
+                # parentContour.plot may create its own Axes if not given; make sure we’re on ax1:
+                pyplot.sca(ax1)
+                self.parentContour.plot(ax=ax1, color="g", marker="o", psi=psi)
+                ax1.plot(Rpoints, Zpoints, color="r", marker="x")
+                ax1.set_xlabel("R")
+                ax1.set_ylabel("Z")
+                ax1.set_aspect("equal")
+
+                # --- Figure 2: spacing error series ---
+                fig2, ax2 = pyplot.subplots()
+                try:
+                    # In equaliseParallelSpacing blocks
+                    ax2.plot(ds_par)
+                    ax2.set_ylabel("Δs_parallel")
+                except NameError:
+                    # In equaliseSpacing blocks
+                    ax2.plot(ds)
+                    ax2.set_ylabel("ds")
+                ax2.set_xlabel("index")
+
+                # --- Figure 3: R(i) and Z(i) along the polyline ---
+                fig3, ax3 = pyplot.subplots()
+                ax3.plot(Rpoints, label="R")
+                ax3.plot(Zpoints, label="Z")
+                ax3.set_xlabel("index")
+                ax3.legend()
+
+                pyplot.show()
+
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
 
@@ -1209,6 +2238,25 @@ class PsiContour:
             )
             # Ensure that the fine contour is long enough
             self.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
+        return self._fine_contour
+
+    def get_fine_contour_parallel(self, *, psi=None, equilibrium=None, Nfine=None):
+        """
+        Get the FineContour associated with this PsiContour
+
+        If the fine contour has not been created yet then the poloidal
+        flux `psi` is needed. If not provided then a ValueError will be raised.
+        """
+        if self._fine_contour is None:
+            if psi is None:
+                raise ValueError("Poloidal flux psi needed to create FineContour")
+            if equilibrium is None:
+                raise ValueError("equilibrium object needed to create FineContour")
+            self._fine_contour = FineContourParallel(
+                self, dict(self.user_options), psi=psi, equilibrium=equilibrium, Nfine=Nfine
+            )
+            # Ensure that the fine contour is long enough
+            self.checkFineContourExtendParallel(psi=psi, equilibrium=equilibrium)
         return self._fine_contour
 
     def get_distance(self, *, psi, equilibrium):
@@ -1996,6 +3044,78 @@ class PsiContour:
             )
             # Call recursively to check extending has gone far enough
             self.checkFineContourExtend(psi=psi, equilibrium=equilibrium)
+
+    def checkFineContourExtendParallel(self, *, psi, equilibrium):
+        """
+        Ensure that self._fine_contour extends past the first and last points of this
+        PsiContour
+        """
+
+        fine_contour = self.get_fine_contour_parallel(psi=psi, equilibrium=equilibrium)
+
+        # check first point
+        p = numpy.array([*self[0]])
+        distances = numpy.sqrt(
+            numpy.sum((fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
+        minind = numpy.argmin(distances)
+        # if minind > 0, or the distance to point 1 is less than the distance between
+        # point 0 and point 1 of the fine_contour, then fine_contour extends past p so
+        # does not need to be extended.
+        # Include some tolerance to allow for rounding errors when the first point on
+        # the FineContour and the first point on the PsiContour are in 'the same place'.
+        if (
+            minind == 0
+            and distances[1]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[1, :] - fine_contour.positions[0, :]) ** 2
+                )
+            )
+            > 1.0e-13
+        ):
+            ds = fine_contour.distance[1] - fine_contour.distance[0]
+            n_extend_lower = max(int(numpy.ceil(distances[0] / ds)), 1)
+        else:
+            n_extend_lower = 0
+
+        # check last point
+        p = numpy.array([*self[-1]])
+        distances = numpy.sqrt(
+            numpy.sum((fine_contour.positions - p[numpy.newaxis, :]) ** 2, axis=1)
+        )
+        minind = numpy.argmin(distances)
+        # if minind < len(distances)-1, or the distance to the last point is less than
+        # the distance between the last and second-last of the fine_contour, then
+        # fine_contour extends past p so does not need to be extended
+        # Include some tolerance to allow for rounding errors when the last point on
+        # the FineContour and the last point on the PsiContour are in 'the same place'.
+        if (
+            minind == len(distances) - 1
+            and distances[-2]
+            - numpy.sqrt(
+                numpy.sum(
+                    (fine_contour.positions[-1, :] - fine_contour.positions[-2, :]) ** 2
+                )
+            )
+            > 1.0e-13
+        ):
+            ds = fine_contour.distance[-1] - fine_contour.distance[-2]
+            n_extend_upper = max(int(numpy.ceil(distances[-1] / ds)), 1)
+        else:
+            n_extend_upper = 0
+
+        if n_extend_lower == 0 and n_extend_upper == 0:
+            return
+        else:
+            fine_contour.extend(
+                psi=psi,
+                equilibrium=equilibrium,
+                extend_lower=n_extend_lower,
+                extend_upper=n_extend_upper,
+            )
+            # Call recursively to check extending has gone far enough
+            self.checkFineContourExtendParallel(psi=psi, equilibrium=equilibrium)
 
     def temporaryExtend(
         self, *, psi, extend_lower=0, extend_upper=0, ds_lower=None, ds_upper=None
@@ -5038,7 +6158,8 @@ class Equilibrium:
         Z = numpy.linspace(Zmin, Zmax, npoints)
 
         if axis is None:
-            axis = pyplot.axes(aspect="equal")
+            from matplotlib import pyplot
+            axis = pyplot.gca()
 
         contours = axis.contour(
             R,
@@ -5063,15 +6184,7 @@ class Equilibrium:
 
             if axis is None:
                 from matplotlib import pyplot
-
-                axis = pyplot.plot(
-                    wall_R,
-                    wall_Z,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    **kwargs,
-                )
+                axis = pyplot.gca()
             else:
                 axis.plot(
                     wall_R,

@@ -2782,6 +2782,10 @@ class Mesh:
         self.equilibrium = equilibrium
 
         self.user_options = self.user_options_factory.create(settings)
+        # print("user options are: ")
+        # print(self.user_options.as_table(), flush=True)
+        # print("user options for equilibrium are: ")
+        # print(self.equilibrium.user_options.as_table(), flush=True)
         # Check settings didn't change since equilibrium was created
         for key in self.equilibrium.user_options:
             if (key in self.user_options) and (

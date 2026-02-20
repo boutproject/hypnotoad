@@ -7,6 +7,7 @@ from optionsfactory.checks import (
     is_positive,
     NoneType,
 )
+from scipy.ndimage import zoom
 try:
     from dipoleq_reader.read import DPEqFile
 except ImportError:
@@ -85,6 +86,21 @@ class DipoleEquilibrium(Equilibrium):
             ),
             value_type=[float, int, str, NoneType],
         ),
+        initial_point = WithMeta(
+            "imp",
+            doc=(
+                "location of initial point for contour following"
+
+            ),
+            value_type=[str],
+        ),
+        alpha_ref = WithMeta(
+            0.5,
+            doc=(
+                "location of contour for point distribution"
+            ),
+            value_type=[float],
+        ),
     )
 
     def __init__(self, wall=None, settings=None, nonorthogonal_settings=None):
@@ -118,10 +134,10 @@ class DipoleEquilibrium(Equilibrium):
             # load a dpeq-file
 
         dpeq = DPEqFile(settings["dpeqfile"])
-        R = dpeq.get_r(transpose=True)
-        Z = dpeq.get_z(transpose=True)
+        R = dpeq.get_r(transpose=False, zoom_factor=1)
+        Z = dpeq.get_z(transpose=False, zoom_factor=1)
         twopi = 2 * np.pi
-        psirz = dpeq.get_psirz(transpose=True)
+        psirz = dpeq.get_psirz(transpose=True, zoom_factor=1)
         self.dpeq = dpeq
         wall = dpeq.get_outerwall(format='r-z')
         wall = np.array([(r, z) for r, z in zip(wall[0], wall[1])])
@@ -226,14 +242,16 @@ class DipoleEquilibrium(Equilibrium):
             # a y-periodic region -> core region with no limiter
             kind = "X.X"
 
-        n_points = 100
+        n_points = 1000
         #thetas = np.linspace(np.pi, -np.pi, n_points)
         #R0 = self.user_options.R0
         #points = [
         #    Point2D(R0 + r0 * np.cos(theta), r0 * np.sin(theta)) for theta in thetas
         #]
+        alpha_ref = self.user_options.alpha_ref
+        initial_point = self.user_options.initial_point
         # we take the contour of psi at the value corresponding to r0 as the line to build the region around, so that the grid is more aligned with the flux surfaces
-        points = [Point2D(x,y) for (x,y) in self.dpeq.get_psi_contour(self.psi_inner, n_points=n_points)[0]]
+        points = [Point2D(x,y) for (x,y) in self.dpeq.get_psi_contour((self.psi_inner*alpha_ref + (1-alpha_ref)*self.psi_outer), n_points=n_points, rotate=initial_point, closed=False)[0]]
 
 
 

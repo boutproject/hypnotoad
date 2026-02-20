@@ -2498,7 +2498,6 @@ def _calc_contour_distance(i, c, *, psi, equilibrium, **kwargs):
         end="\r",
         flush=True,
     )
-    c.get_distance(psi=psi, equilibrium=equilibrium)
     return c
 
 
@@ -2875,15 +2874,27 @@ class Mesh:
         self.makeRegions(parallel_map)
 
     def makeRegions(self, parallel_map):
+        from matplotlib import pyplot as plt
+
+        print("traceback", flush=True)
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
+                print("region id , i self.user_options.refine_width", region_id, i,self.user_options.refine_width, flush=True)
+                plt.plot([p.R for p in eq_region.points],
+        [p.Z for p in eq_region.points],
+        marker="o", color="c", markersize=10)
                 eq_region_with_boundaries = eq_region.getRegridded(
                     radialIndex=i,
                     psi=self.equilibrium.psi,
                     equilibrium=self.equilibrium,
                     width=self.user_options.refine_width,
                 )
+
+                plt.plot([p.R for p in eq_region_with_boundaries.points],
+        [p.Z for p in eq_region_with_boundaries.points],
+        marker="o", color="r")
+
                 self.regions[region_id] = MeshRegion(
                     self,
                     region_id,

@@ -27,6 +27,7 @@ from collections.abc import Sequence
 from copy import copy, deepcopy
 import func_timeout
 import functools
+from matplotlib import pyplot
 from optionsfactory import OptionsFactory, WithMeta
 from optionsfactory.checks import (
     NoneType,
@@ -42,6 +43,7 @@ from scipy.optimize import minimize_scalar, brentq
 from scipy import interpolate
 from scipy.integrate import solve_ivp
 from scipy.special import erf, sici
+from sympy import refine
 
 from .multilocationarray import MultiLocationArray
 
@@ -431,12 +433,22 @@ class FineContour:
             value_type=int,
             check_all=is_positive,
         ),
+        
+         finecontour_refine=WithMeta(
+            True,
+            doc=(
+                "should refine be used to refine the contour in FineContour"
+            ),
+            value_type=bool,
+        ),
+
         finecontour_atol=WithMeta(
             1.0e-12,
             doc="Absolute tolerance for refinement of FineContours",
             value_type=[float, int],
             check_all=is_positive,
         ),
+
         finecontour_diagnose=WithMeta(
             False,
             doc=(
@@ -500,6 +512,7 @@ class FineContour:
         self.distance = None
         self.parallel_distance = None
         Nfine = self.user_options.finecontour_Nfine
+        refine = self.user_options.finecontour_refine
 
         endInd = self.parentContour.endInd
         if endInd < 0:
@@ -562,7 +575,7 @@ class FineContour:
             self.parentContour.endInd
         ].as_ndarray()
 
-        self.equaliseSpacing(psi=psi, equilibrium=equilibrium)
+        self.equaliseSpacing(psi=psi, equilibrium=equilibrium, refine=refine)
 
     def extend(self, *, psi, equilibrium, extend_lower=0, extend_upper=0):
         Nfine = self.user_options.finecontour_Nfine
@@ -649,7 +662,7 @@ class FineContour:
 
         self.equaliseSpacing(psi=psi, equilibrium=equilibrium, reallocate=True)
 
-    def equaliseSpacing(self, *, psi, equilibrium, reallocate=False):
+    def equaliseSpacing(self, *, psi, equilibrium, reallocate=False, refine=True):
         """
         Adjust the positions of points in this :class:`FineContour
         <hypnotoad.core.equilibrium.FineContour>` so they have a constant distance
@@ -684,8 +697,8 @@ class FineContour:
         If this method produces errors, setting ``finecontour_diagnose = True`` will
         produce some more output which may help diagnose them.
         """
-
-        self.refine(psi=psi, skip_endpoints=True)
+        if refine:
+            self.refine(psi=psi, skip_endpoints=False)
 
         self.calcDistance(reallocate=reallocate, equilibrium=equilibrium)
 
@@ -707,13 +720,15 @@ class FineContour:
             Zpoints = self.positions[:, 1]
             R = numpy.linspace(Rpoints.min(), Rpoints.max(), 100)
             Z = numpy.linspace(Zpoints.min(), Zpoints.max(), 100)
+ 
 
             pyplot.figure()
 
             pyplot.subplot(131)
             pyplot.contour(R, Z, psi(R[numpy.newaxis, :], Z[:, numpy.newaxis]))
             self.parentContour.plot(color="g", marker="o", psi=psi)
-            pyplot.plot(Rpoints, Zpoints, color="r", marker="x")
+            pyplot.plot(Rpoints, Zpoints, color="r", marker="x", label="initial")
+            pyplot.legend()
             pyplot.xlabel("R")
             pyplot.ylabel("Z")
 
@@ -771,8 +786,8 @@ class FineContour:
             # Re-set start and end positions again to avoid rounding errors
             self.positions[self.startInd] = original_start
             self.positions[self.endInd] = original_end
-
-            self.refine(psi=psi, skip_endpoints=True)
+            if refine:
+                self.refine(psi=psi, skip_endpoints=False)
 
             self.calcDistance(equilibrium=equilibrium)
 
@@ -782,9 +797,9 @@ class FineContour:
             # maximum error
             ds_error = numpy.max(numpy.sqrt((ds - ds_mean) ** 2))
 
-            count += 1
+            
 
-            if self.user_options.finecontour_diagnose:
+            if self.user_options.finecontour_diagnose and count<3:
                 print("iteration", count, "  ds_error", ds_error, flush=True)
 
                 Rpoints = self.positions[:, 0]
@@ -815,7 +830,7 @@ class FineContour:
                 pyplot.xlabel("index")
                 pyplot.legend()
                 pyplot.show()
-
+            count += 1
     def totalDistance(self):
         return self.distance[self.endInd] - self.distance[self.startInd]
 
@@ -1058,7 +1073,8 @@ class FineContour:
         from matplotlib import pyplot
 
         if ax is None:
-            ax = pyplot.axes(aspect="equal")
+            ax = pyplot.gca()
+            #ax = pyplot.axes(aspect="equal")
 
         Rpoints = self.positions[:, 0]
         Zpoints = self.positions[:, 1]
@@ -1916,9 +1932,9 @@ class PsiContour:
 
         # re-use the extended fine_contour for new_contour
         new_contour._fine_contour = self._fine_contour
-
-        if refine:
-            new_contour.refine(psi=psi, width=width, atol=atol, skip_endpoints=True)
+        print("NO REFINE ------------------------------")
+        #if refine:
+        #    new_contour.refine(psi=psi, width=width, atol=atol, skip_endpoints=False)
 
         # Pass already converged fine_contour to new_contour
         new_contour._fine_contour = self._fine_contour
@@ -2052,7 +2068,8 @@ class PsiContour:
         from matplotlib import pyplot
 
         if ax is None:
-            ax = pyplot.axes(aspect="equal")
+            ax = pyplot.gca()
+            #ax = pyplot.axes(aspect="equal")
 
         Rpoints = [p.R for p in self]
         Zpoints = [p.Z for p in self]

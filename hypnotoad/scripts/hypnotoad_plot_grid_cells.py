@@ -53,6 +53,13 @@ def get_arg_parser():
         default=False,
         help="Skip showing the plot in a window?",
     )
+    parser.add_argument(
+        "--dipole",
+        action="store_true",
+        default=False,
+        help="Indicate if the grid is for a dipole configuration?",
+    )
+
 
     return parser
 
@@ -66,6 +73,7 @@ def main():
     targets = args.targets
     save_as = args.save_as
     no_show = args.no_show
+    dipole = args.dipole
     if mxg < 1:
         raise ValueError(f"mxg must be at least 1, got {mxg}")
 
@@ -86,7 +94,7 @@ def main():
     )
 
     y_boundary_guards = ds.metadata.get("y_boundary_guards", 0)
-    if y_boundary_guards < 1:
+    if y_boundary_guards < 1 and not dipole:
         raise ValueError(
             "Grid file does not include y-boundary cells. These are required for grid "
             "plotting"

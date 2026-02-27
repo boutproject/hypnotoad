@@ -75,7 +75,7 @@ class DipoleEquilibrium(Equilibrium):
                 "generation. Overrides psinorm_core if this value is given, if the "
                 "option is none, then calculated from psinorm_core"
             ),
-            value_type=[float, int, NoneType],
+            value_type=[float, int, NoneType, str],
         ),
         psi_outer=WithMeta(
             None,
@@ -152,10 +152,25 @@ class DipoleEquilibrium(Equilibrium):
         self.psi_inner = with_default(
             self.user_options.psi_inner, dpeq.get_psi_rmp(self.user_options.r_inner)
         )
-
+        if type(self.psi_inner) is str:
+            if self.psi_inner == "peak":
+                self.psi_inner = dpeq.get_psi_peak()
+            elif self.psi_inner == "fcfs":
+                self.psi_inner = dpeq.get_psi_fcfs(self.user_options.r_inner)
+            else:
+                raise ValueError(f"Invalid value for psi_inner: {self.psi_inner}. Choose 'peak' or 'fcfs' or give a float.")
+        
         self.psi_outer = with_default(
             self.user_options.psi_outer,dpeq.get_psi_rmp(self.user_options.r_outer)
         )
+        if type(self.psi_outer) is str:
+            if self.psi_outer == "peak":
+                self.psi_outer = dpeq.get_psi_peak()
+            elif self.psi_outer == "lcfs":
+                self.psi_outer = dpeq.get_psi_lcfs(self.user_options.r_outer)
+            else:
+                raise ValueError(f"Invalid value for psi_outer: {self.psi_outer}. Choose 'peak' or 'lcfs' or give a float.")
+        
 
         print("-- psi_inner", self.psi_inner)
         print("-- psi_outer", self.psi_outer)

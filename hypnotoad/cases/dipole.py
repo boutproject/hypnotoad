@@ -156,7 +156,7 @@ class DipoleEquilibrium(Equilibrium):
             if self.psi_inner == "peak":
                 self.psi_inner = dpeq.get_psi_peak()
             elif self.psi_inner == "fcfs":
-                self.psi_inner = dpeq.get_psi_fcfs(self.user_options.r_inner)
+                self.psi_inner = dpeq.get_psi_fcfs()
             else:
                 raise ValueError(f"Invalid value for psi_inner: {self.psi_inner}. Choose 'peak' or 'fcfs' or give a float.")
         
@@ -167,7 +167,7 @@ class DipoleEquilibrium(Equilibrium):
             if self.psi_outer == "peak":
                 self.psi_outer = dpeq.get_psi_peak()
             elif self.psi_outer == "lcfs":
-                self.psi_outer = dpeq.get_psi_lcfs(self.user_options.r_outer)
+                self.psi_outer = dpeq.get_psi_lcfs()
             else:
                 raise ValueError(f"Invalid value for psi_outer: {self.psi_outer}. Choose 'peak' or 'lcfs' or give a float.")
         

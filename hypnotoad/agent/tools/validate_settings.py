@@ -8,17 +8,7 @@ import inspect
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-
-from ...cases import tokamak
-from ...core.mesh import BoutMesh
-
-POSSIBLE_OPTIONS = (
-    tokamak.TokamakEquilibrium.user_options_factory.defaults
-    | tokamak.TokamakEquilibrium.nonorthogonal_options_factory.defaults
-    | BoutMesh.user_options_factory.defaults
-)
-
-POSSIBLE_KEYS = [opt for opt in POSSIBLE_OPTIONS]
+from optionsfactory import WithMeta
 
 
 class IssueType(str, Enum):
@@ -125,7 +115,7 @@ def _run_checks(value: Any, meta: WithMeta) -> list[str]:
     return failures
 
 
-def validate_settings(settings: dict = {}) -> dict:
+def validate_settings(possible_options, settings: dict = {}) -> dict:
     """Check settings for common issues before running.
 
     Returns a dictionary with a boolean flag 'valid'
@@ -134,10 +124,31 @@ def validate_settings(settings: dict = {}) -> dict:
     """
     issues = {}
 
+    # Settings that must match due to BOUT++ limitations
+    for key1, key2 in [
+        ("nx_sol_outer", "nx_sol"),
+        ("nx_sol_inner", "nx_sol"),
+        ("nx_pf", "nx_core"),
+    ]:
+        if key1 in settings:
+            if key2 in settings:
+                if settings[key1] != settings[key2]:
+                    issues[key1] = SettingIssue(
+                        issue_type=IssueType.INVALID_VALUE,
+                        message=f"Value of '{key1}' must match '{key2}'. Do not use setting '{key1}'.",
+                    ).to_dict()
+            else:
+                issues[key1] = SettingIssue(
+                    issue_type=IssueType.MISSING,
+                    message=f"Do not use setting '{key1}'. Use setting '{key2}' instead.",
+                ).to_dict()
+
+    possible_keys = [opt for opt in possible_options]
+
     for key, value in settings.items():
         # Unknown keys
-        if key not in POSSIBLE_KEYS:
-            suggestions = difflib.get_close_matches(key, POSSIBLE_KEYS, n=3, cutoff=0.6)
+        if key not in possible_keys:
+            suggestions = difflib.get_close_matches(key, possible_keys, n=3, cutoff=0.6)
             issues[key] = SettingIssue(
                 issue_type=IssueType.UNKNOWN_KEY,
                 message=f"'{key}' is not a recognised Hypnotoad option",
@@ -146,7 +157,7 @@ def validate_settings(settings: dict = {}) -> dict:
             continue
 
         # Validate using WithMeta
-        meta = POSSIBLE_OPTIONS[key]
+        meta = possible_options[key]
         value_type = getattr(meta, "value_type", None)
         allowed = getattr(meta, "allowed", None)
 

@@ -7,6 +7,11 @@ def describe_equilibrium(gridfile) -> dict:
     from ...utils import critical
     import numpy as np
 
+    # Read header line, discard single characters
+    with open(gridfile, "rt") as fh:
+        header = fh.readline()
+    header_tok = [tok for tok in header.split() if len(tok) > 1]
+
     with open(gridfile, "rt") as fh:
         data = _geqdsk.read(fh)
 
@@ -51,6 +56,7 @@ def describe_equilibrium(gridfile) -> dict:
         ]  # Maximum 3
 
     return {
+        "header": header_tok,
         "psi_increasing": psi_bdry_gfile > psi_axis_gfile,
         "magnetic_axis": magnetic_axis,
         "xpoints": xpoints,

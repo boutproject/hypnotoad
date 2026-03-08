@@ -556,8 +556,9 @@ class HypnotoadAgent:
         return self.mesh_history[-1]["settings"]
 
     def plot_last_mesh(self, ax=None):
-        mesh = self.mesh
+        """Plots the most recent successfully generated mesh"""
+        mesh = self.last_mesh
         if mesh is None:
             return
-        ax = mesh.plotPotential(ax=ax)
+        ax = mesh.plotPotential(axis=ax)
         return mesh.plotGridCellEdges(ax=ax)

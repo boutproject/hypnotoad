@@ -2,6 +2,7 @@ import logging
 import json
 import pprint
 from typing import Optional
+from pathlib import Path
 from ..cases import tokamak
 from ..core.mesh import BoutMesh
 from . import tools
@@ -31,6 +32,9 @@ physicist and you can use technical terminology freely.
 
 - search_hypnotoad_options(query, k): Search the Hypnotoad settings options
   reference, returning the k most relevant results. Do not guess settings keys.
+
+- search_experience(query, k): Search past experience, returning the k most
+  relevant results.
 
 ## Workflow
 
@@ -82,9 +86,10 @@ Do not guess at settings changes. Follow this sequence:
      exclude the excess.
    - The suggested psinorm_pf and psinorm_sol values.
 3. Call search_hypnotoad_options to find options relevant to the error.
-4. Construct corrected settings, then call validate_settings.
+4. Before changing more than 2 options, call search_experience for similar cases.
+5. Construct corrected settings, then call validate_settings.
    Fix all reported issues before proceeding.
-5. Call run_hypnotoad with the corrected settings.
+6. Call run_hypnotoad with the corrected settings.
 
 Repeat Step 2a up to 3 times. If the mesh still fails after 3 attempts,
 report the full error history to the user and ask for guidance.
@@ -125,119 +130,181 @@ IF valid=true and no warnings:
 - If uncertain about any step, ask the user before proceeding.
 """
 
-# Anthropic API format
-TOOLS = [
+TOOLS_OPENAI = [
     {
-        "name": "validate_settings",
-        "description": "Validate a settings dict before running Hypnotoad.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"settings": {"type": "object"}},
-            "required": ["settings"],
+        "type": "function",
+        "function": {
+            "name": "get_equilibrium_info",
+            "description": (
+                "Describe the magnetic equilibrium and geometry from the input grid file. "
+                "Call this at the start of a session (before choosing mesh settings) or when you need "
+                "to understand topology (single-null / double-null), X-point locations, and size/shape "
+                "metrics that inform resolution and spacing choices."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
     {
-        "name": "run_hypnotoad",
-        "description": "Run Hypnotoad mesh generator with a settings dict. Returns success/error and mesh metadata.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "settings": {
-                    "type": "object",
-                    "description": "Hypnotoad settings dictionary",
-                }
-            },
-            "required": ["settings"],
-        },
-    },
-    {
-        "name": "inspect_mesh",
-        "description": """Inspect mesh quality after generation. Use detail levels
-progressively:
-- 'summary'  (default): global pass/fail + warning list. Always call this first.
-- 'standard': per-region statistics + connections. Call when summary has warnings.
-- 'full':     worst-cell locations, metric tensors, interface continuity details.
-              Call only to diagnose a specific problem identified at standard level.""",
-        "input_schema": {
-            "type": "object",
-            "properties": {"detail": {"type": "string"}},
-            "required": [],
-        },
-    },
-    {
-        "name": "list_meshes",
-        "description": "List all meshes generated in this session with their "
-        "index, pass/fail status, and settings",
-        "input_schema": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "search_hypnotoad_options",
-        "description": (
-            "Search the Hypnotoad settings options reference. Returns the k most "
-            "relevant options matching the query, each with its name, default value, "
-            "type, allowed values, and description.\n\n"
-            "Use this tool when:\n"
-            "- You need to know the exact name of an option (e.g. 'what option "
-            "controls poloidal spacing near the X-point?')\n"
-            "- You need to know the default, type, or allowed values for a specific "
-            "option before setting it\n"
-            "- validate_settings has returned an unknown_key error and you want to "
-            "find the correct option name\n"
-            "- You are constructing a settings dict and want to check what options "
-            "are available for a particular aspect of the mesh\n\n"
-            "Do not guess option names. Always use this tool if you are unsure."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": (
-                        "Natural language description of the option or behaviour you "
-                        "are looking for. Can be a partial option name, a physical "
-                        "concept, or a description of what you want to control. "
-                        "Examples:\n"
-                        "- 'X-point poloidal spacing'\n"
-                        "- 'number of radial points in SOL'\n"
-                        "- 'target plate resolution'\n"
-                        "- 'nx_inter_sep'\n"
-                        "- 'orthogonal mesh'"
-                    ),
+        "type": "function",
+        "function": {
+            "name": "validate_settings",
+            "description": (
+                "Validate a Hypnotoad settings dict against the OptionsFactory schema (types, allowed values, constraints). "
+                "Call this BEFORE run_hypnotoad when you have changed settings or are unsure about option names/values. "
+                "If validation reports unknown keys, use search_hypnotoad_options to find the correct option names."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "description": "Hypnotoad settings dictionary to validate. Keys must be exact option paths; values must match types/constraints.",
+                    },
                 },
-                "k": {
-                    "type": "integer",
-                    "description": (
-                        "Number of options to return. Default 4. Use a larger value "
-                        "(up to 10) when exploring an unfamiliar area of the settings "
-                        "space, or when the first results do not contain what you need."
-                    ),
-                    "default": 4,
-                    "minimum": 1,
-                    "maximum": 10,
-                },
+                "required": ["settings"],
             },
-            "required": ["query"],
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_hypnotoad",
+            "description": (
+                "Run the Hypnotoad mesh generator with a settings dict. "
+                "Returns success/error and a mesh_index for later inspection. "
+                "Best practice: validate_settings -> run_hypnotoad -> inspect_mesh(detail='summary') "
+                "and only increase detail if needed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "description": "Hypnotoad settings dictionary. Use validate_settings first; do not guess option names.",
+                    },
+                },
+                "required": ["settings"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_mesh",
+            "description": (
+                "Inspect mesh quality after generation.\n"
+                "Use detail levels progressively:\n"
+                "- 'summary'  (default): global pass/fail + warning list. Always call this first.\n"
+                "- 'standard': per-region statistics + connections. Call when summary has warnings.\n"
+                "- 'full':     worst-cell locations, metric tensors, interface continuity details.\n"
+                "             Call only to diagnose a specific problem identified at standard level."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mesh_index": {
+                        "type": "integer",
+                        "description": (
+                            "Index of mesh to inspect, as returned by run_hypnotoad. "
+                            "Use -1 to inspect the most recent mesh."
+                        ),
+                        "default": -1,
+                    },
+                    "detail": {
+                        "type": "string",
+                        "description": "Inspection detail level.",
+                        "enum": ["summary", "standard", "full"],
+                        "default": "summary",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_meshes",
+            "description": (
+                "List all meshes generated in this session with their mesh_index, pass/fail status, warning count, and settings."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_hypnotoad_options",
+            "description": (
+                "Search the Hypnotoad settings options reference (BM25 keyword search over option docs). "
+                "Returns the k most relevant options matching the query, each with its name, default value, type, allowed values, and description.\n\n"
+                "Use this tool when:\n"
+                "- You need the exact name/path of an option\n"
+                "- You need default/type/allowed values before setting it\n"
+                "- validate_settings reports unknown keys\n"
+                "- You are exploring how to control a specific aspect of the mesh\n\n"
+                "Do not guess option names. Always use this tool if you are unsure."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "Natural language description of the option/behaviour. Can be a partial option name or concept. Examples:\n"
+                            "- 'X-point poloidal spacing'\n"
+                            "- 'number of radial points in SOL'\n"
+                            "- 'target plate resolution'\n"
+                            "- 'nx_intersep'\n"
+                            "- 'orthogonal mesh'"
+                        ),
+                    },
+                    "k": {
+                        "type": "integer",
+                        "description": "Number of options to return. Default 4. Use up to 10 when exploring.",
+                        "default": 4,
+                        "minimum": 1,
+                        "maximum": 10,
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_experience",
+            "description": (
+                "Search the saved experience database of prior Hypnotoad runs (successful and failed). "
+                "Use this BEFORE making large settings changes, especially when you see a warning/error or when working with a similar topology.\n\n"
+                "Typical uses:\n"
+                "- 'connected double-null second X-point distortion'\n"
+                "- 'nx_intersep too low warnings'\n"
+                "- 'mesh smoothing interface continuity'\n"
+                "- paste a short error/warning message fragment to find prior fixes\n\n"
+                "Returns the top-k most relevant experience reports with key overrides and lessons."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural-language query, option names, topology keywords, or error/warning fragments.",
+                    },
+                    "k": {
+                        "type": "integer",
+                        "description": "Number of experience records to return. Default 4. Use up to 10 when exploring.",
+                        "default": 4,
+                        "minimum": 1,
+                        "maximum": 10,
+                    },
+                },
+                "required": ["query"],
+            },
         },
     },
 ]
-
-
-def to_openai_tools(anthropic_tools: list[dict]) -> list[dict]:
-    """Convert Anthropic-format tool definitions to OpenAI format."""
-    return [
-        {
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t["input_schema"],
-            },
-        }
-        for t in anthropic_tools
-    ]
-
-
-TOOLS_OPENAI = to_openai_tools(TOOLS)
 
 POSSIBLE_OPTIONS = (
     tokamak.TokamakEquilibrium.user_options_factory.defaults
@@ -281,8 +348,74 @@ def default_handler(title, func, *args, **kwargs):
 
 
 class HypnotoadAgent:
-    def __init__(self, gridfile, base_url: str = None, api_key: str = None, model=None):
+    """
+    LLM-driven controller for the Hypnotoad mesh generator.
 
+    The agent exposes tools that the language model may call (validate_settings,
+    run_hypnotoad, inspect_mesh, list_meshes, search_hypnotoad_options,
+    search_experience, get_equilibrium_info). It maintains an in-memory
+    session (messages + mesh_history) and optional persistent experience
+    storage (ChunkFaissDatabase).
+
+    Parameters
+    ----------
+    gridfile : str or Path
+        Path to the equilibrium/grid file (GEQDSK or compatible format) used
+        to construct meshes.
+
+    base_url : str, optional
+        Optional base URL for the OpenAI-compatible API.
+
+    api_key : str, optional
+        API key for the OpenAI-compatible client.
+
+    model : str, optional
+        Chat/completion model id used for agent reasoning and tools.
+
+    embedding_model : str, optional
+        Embedding model id used to create experience embeddings.
+
+    experience_db : str or Path, optional
+        Directory to restore/save the persistent experience FAISS store.
+
+    Notes
+    -----
+    - The agent is primarily a thin orchestration layer; heavy lifting is
+      delegated to tools in `tools.*` and to the OpenAI client for LLM calls.
+    - Mesh generation results are stored in `self.mesh_history` as entries
+      containing at least {'settings', 'mesh', 'diagnostics'}.
+    """
+
+    def __init__(
+        self,
+        gridfile,
+        base_url: str = None,
+        api_key: str = None,
+        model: str = None,
+        embedding_model: str = None,
+        experience_db: Path | str = None,
+    ):
+        """
+        Initialize the HypnotoadAgent.
+
+        Sets up the OpenAI client, model/tool bindings, BM25 options index,
+        optional FAISS-based experience database, and an empty mesh history.
+
+        Parameters
+        ----------
+        gridfile : str | Path
+            Path to the equilibrium/grid file for mesh generation.
+        base_url : str, optional
+            Base URL for the OpenAI-compatible API.
+        api_key : str, optional
+            API key for the OpenAI-compatible API.
+        model : str, optional
+            Model id for chat completions.
+        embedding_model : str, optional
+            Embedding model id for the experience database.
+        experience_db : str | Path, optional
+            Directory to restore the experience database from.
+        """
         from openai import OpenAI
         from .tools.search import ChunkDatabase, extract_option_chunks
 
@@ -290,13 +423,6 @@ class HypnotoadAgent:
         self.logger = logger.getChild(self.__class__.__name__)
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model = model
-
-        # Check which models are available
-        available_models = [model.id for model in self.client.models.list()]
-        if model not in available_models:
-            raise ValueError(
-                f"Model {model} not available. Available models are {available_models}"
-            )
         self.tools = TOOLS_OPENAI
 
         # Maintain chat history. This is sent to the LLM at each call
@@ -317,7 +443,7 @@ class HypnotoadAgent:
             },
             "run_hypnotoad": {
                 "function": self.run_hypnotoad,
-                "signature": {"settings": dict},
+                "signature": {"settings": dict, "notes": str},
             },
             "inspect_mesh": {
                 "function": self._inspect_mesh,
@@ -328,20 +454,87 @@ class HypnotoadAgent:
                 "function": self.search_hypnotoad_options,
                 "signature": {"query": str, "k": int},
             },
+            "search_experience": {
+                "function": self.search_experience,
+                "signature": {"query": str, "k": int},
+            },
         }
 
         # Index available options so that the LLM can query
         self.options_db = ChunkDatabase(extract_option_chunks(POSSIBLE_OPTIONS))
 
+        # Database of past experience
+        self.experience_db = None
+        self.experience_db_path = experience_db
+        if embedding_model or experience_db:
+            self._init_experience_db(
+                embedding_model=embedding_model, experience_db=experience_db
+            )
+
         # Store generated meshes
         self.mesh_history = []
+
+    def _init_experience_db(
+        self,
+        embedding_model: str = None,
+        experience_db: Path | str = None,
+    ):
+        """Initialise the experience database.
+
+        embedding_model : str, optional
+            Embedding model id for the experience database.
+        experience_db : str | Path, optional
+            Directory to restore the experience database from.
+        """
+        from .tools.search import ChunkFaissDatabase
+
+        if experience_db:
+            experience_db = Path(experience_db)
+            if not experience_db.is_dir():
+                self.logger.warning(
+                    f"Experience DB '{experience_db}' does not exist. Will be created on save."
+                )
+                experience_db = None  # Don't try to restore
+
+        self.experience_db = ChunkFaissDatabase(
+            self.client, model=embedding_model, restore=experience_db
+        )
 
     def chat(
         self, user_input: str, max_iterations: int = 20, task_handler=default_handler
     ) -> str:
         """
-        task_handler(title, func, *args, **kwargs) : function
-            Wrapper that should print the title and then run func(*args, **kwargs)
+        Drive an interactive agent loop with the LLM, handling tool calls.
+
+        This appends the user's input to the internal message history, sends the
+        conversation to the LLM, and executes any tool calls returned by the LLM.
+        Tool executions are wrapped and dispatched through `task_handler` so the
+        caller can capture, display, or redirect output.
+
+        Parameters
+        ----------
+        user_input : str
+            Natural-language instruction or question for the agent.
+        max_iterations : int, default=20
+            Maximum number of LLM iterations (tool-call cycles) to perform.
+        task_handler : callable
+            Signature: task_handler(title: str, func: Callable[[], Any]) -> Any.
+            Used to run tool calls; allows UI integration (e.g., capturing output).
+
+        Returns
+        -------
+        str
+            The assistant's final textual reply (may be empty string).
+
+        Notes
+        -----
+        - Tool call arguments are expected to be JSON strings and will be parsed.
+        - Tool results are appended to the conversation as 'tool' messages so the
+          LLM can continue reasoning with tool outputs.
+        - This method mutates `self.messages`. Consider cloning if you want an
+          ephemeral reasoning call that doesn't alter session history.
+        - The function protects against malformed tool arguments but tool errors
+          are returned as structured error objects to the LLM.
         """
         self.logger.debug(f"User input: {user_input}")
         self.messages.append({"role": "user", "content": user_input})
@@ -363,19 +556,21 @@ class HypnotoadAgent:
                 {
                     "role": "assistant",
                     "content": msg.content,  # may be None
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,  # keep as string
-                            },
-                        }
-                        for tc in msg.tool_calls
-                    ]
-                    if msg.tool_calls
-                    else None,
+                    "tool_calls": (
+                        [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,  # keep as string
+                                },
+                            }
+                            for tc in msg.tool_calls
+                        ]
+                        if msg.tool_calls
+                        else None
+                    ),
                 }
             )
 
@@ -396,14 +591,19 @@ class HypnotoadAgent:
                         # Wrap the tool call in a function to pass to task_handler
                         # This enables output to be captured and redirected in
                         # the user interface.
-                        def run_task():
+
+                        # Use default arguments to avoid potential late-binding
+                        # closure bug if task_handler defers tasks.
+                        tc_name = tc.function.name
+
+                        def run_task(tc_name=tc_name, args=args):
                             print(
-                                f"Calling {tc.function.name}\nInputs: {pprint.pformat(args)}",
+                                f"Calling {tc_name}\nInputs: {pprint.pformat(args)}",
                                 flush=True,
                             )
 
                             try:
-                                tool = self.tool_registry[tc.function.name]
+                                tool = self.tool_registry[tc_name]
                                 # Normalise the arguments to match signature
                                 result = tool["function"](
                                     **normalise_arguments(tool["signature"], args)
@@ -430,7 +630,28 @@ class HypnotoadAgent:
         return "Exceeded maximum iterations. See log for details."
 
     def chat_nb(self, user_input: str, max_iterations: int = 20):
-        """Wrapper that handles model output in a Jupyter notebook"""
+        """
+        Notebook-friendly wrapper around `chat` that captures tool output in
+        collapsible UI widgets (ipywidgets).
+
+        Parameters
+        ----------
+        user_input : str
+            User instruction to pass to the agent.
+        max_iterations : int, default=20
+            Maximum number of LLM iterations.
+
+        Returns
+        -------
+        None
+            Prints the final assistant text and presents interactive UI elements
+            for tool execution logs.
+
+        Notes
+        -----
+        - This method requires Jupyter/IPython (ipywidgets). It is a convenience
+          wrapper and does not change agent semantics.
+        """
 
         import ipywidgets as widgets
         from IPython.display import display
@@ -460,8 +681,45 @@ class HypnotoadAgent:
         )
         print(result)
 
-    def run_hypnotoad(self, settings: dict = {}) -> dict:
-        """Run Hypnotoad with given settings dict"""
+    def run_hypnotoad(
+        self, settings: Optional[dict] = None, notes: Optional[str] = None
+    ) -> dict:
+        """
+        Run the Hypnotoad mesh generator using the provided settings.
+
+        This method:
+        - Loads the equilibrium from self.gridfile with provided settings,
+        - Constructs a BoutMesh, runs the standard processing (calculateRZ,
+            geometry, etc.),
+        - Computes diagnostics via tools.inspect_mesh(detail='summary'),
+        - Appends a dictionary to `self.mesh_history` with keys:
+            {'settings', 'mesh', 'diagnostics'}.
+
+        Parameters
+        ----------
+        settings : dict, optional
+            Hypnotoad settings dictionary. If None, defaults are used.
+
+        Returns
+        -------
+        dict
+            Structured result with at minimum:
+            - status: 'success' or 'error'
+            - mesh_index: integer index into mesh_history (when success)
+            - n_meshes: total number of saved meshes
+            - diagnostics: diagnostics dict (when success)
+            - message: error message (when failure)
+            - hint: optional next-step hint
+
+        Notes
+        -----
+        - Call validate_settings before run_hypnotoad when possible.
+        - Exceptions during reading or mesh generation are caught and returned
+          as structured errors (status='error').
+        """
+        settings = settings or {}
+        if notes:
+            print(notes)
         try:
             # Read the grid file
             with open(self.gridfile, "rt") as fh:
@@ -474,7 +732,9 @@ class HypnotoadAgent:
             mesh.geometry()
             idx = len(self.mesh_history)
             diagnostics = tools.inspect_mesh(mesh, detail="summary")
-            self.mesh_history.append({"settings": settings, "mesh": mesh})
+            self.mesh_history.append(
+                {"settings": settings, "mesh": mesh, "diagnostics": diagnostics}
+            )
             return {
                 "status": "success",
                 "mesh_index": idx,  # <-- LLM uses this for inspect_mesh
@@ -492,8 +752,31 @@ class HypnotoadAgent:
 
     def _inspect_mesh(self, mesh_index: int = -1, detail: str = "summary") -> dict:
         """
-        Inspect a previously generated mesh by index.
-        mesh_index: index from run_hypnotoad result. -1 = most recent (default).
+        Inspect a stored mesh by index and return diagnostics.
+
+        This is a thin wrapper around tools.inspect_mesh that selects the mesh
+        from `self.mesh_history`.
+
+        Parameters
+        ----------
+        mesh_index : int, default=-1
+            Index of the mesh to inspect. -1 selects the most recent mesh.
+        detail : str, default='summary'
+            Level of inspection: 'summary', 'standard', or 'full'.
+
+        Returns
+        -------
+        dict
+            The same structure returned by tools.inspect_mesh, or an error object
+            with keys:
+            - status: 'error'
+            - message: error text
+            - hint: optional usage hint
+
+        Raises
+        ------
+        None
+            All exceptions are captured and returned as structured error dicts.
         """
         if len(self.mesh_history) == 0:
             return {
@@ -511,7 +794,27 @@ class HypnotoadAgent:
         return tools.inspect_mesh(mesh, detail=detail)
 
     def list_meshes(self) -> dict:
-        """Summarise all mesh attempts in this session."""
+        """
+        Return a summary of all meshes generated in this session.
+
+        The returned object contains:
+        - n_meshes: int
+        - meshes: list of dicts, each containing:
+            - mesh_index: int
+            - valid: bool (diagnostics.get('valid', False))
+            - n_warnings: int (diagnostics.get('n_warnings', 0))
+            - settings: dict (the settings used to produce the mesh)
+
+        Returns
+        -------
+        dict
+            Session-level mesh summary.
+
+        Notes
+        -----
+        - This is a lightweight listing intended for quick inspection by the LLM.
+        - For in-depth diagnostics call inspect_mesh on a specific mesh_index.
+        """
         return {
             "n_meshes": len(self.mesh_history),
             "meshes": [
@@ -527,9 +830,24 @@ class HypnotoadAgent:
 
     def get_equilibrium_info(self) -> dict:
         """
-        Describe the magnetic equilibrium and geometry. Call this at the start
-        of a session or when you need to understand the physics before choosing
-        mesh settings. Returns metrics that inform resolution and spacing choices.
+        Describe the magnetic equilibrium and geometry associated with self.gridfile.
+
+        This function returns physics-informed metrics that guide mesh choices,
+        such as topology (single-null/double-null), X-point locations, device
+        extents, and shape proxies. It is intended to be called at session start
+        or before choosing mesh settings.
+
+        Returns
+        -------
+        dict
+            Either a description dict (topology, key coordinates, scalar metrics),
+            or an error object: {'status': 'error', 'message': str}.
+
+        Notes
+        -----
+        - Implementation calls tools.describe_equilibrium(self.gridfile).
+        - The returned structure should be concise (a few scalars + short textual
+          indicators) so that it fits well into the model context.
         """
         try:
             return tools.describe_equilibrium(self.gridfile)
@@ -537,28 +855,182 @@ class HypnotoadAgent:
             return {"status": "error", "message": str(e)}
 
     def search_hypnotoad_options(self, query: str, k: int = 4) -> list[dict]:
-        """ """
+        """
+        Search the options reference for matching Hypnotoad settings.
+
+        This wraps the BM25-based `self.options_db` lookup and returns
+        JSON-serializable option descriptors suitable for LLM consumption.
+
+        Parameters
+        ----------
+        query : str
+            Natural language or partial option name to search for.
+        k : int, default=4
+            Number of results to return.
+
+        Returns
+        -------
+        list[dict]
+            List of option summaries. Each dict should contain at least:
+            - name/path (exact configuration key)
+            - default value
+            - type
+            - allowed values or constraints (if known)
+            - short description or example
+
+        Notes
+        -----
+        - The LLM should call this before guessing option names or setting unknown keys.
+        - This method returns structured dicts (not Chunk objects) to keep tool
+          results easy to parse by the LLM.
+        """
         return self.options_db.retrieve(query, k)
+
+    def search_experience(self, query: str, k: int = 4):
+        if self.experience_db is None:
+            return []
+        chunks, scores = self.experience_db.retrieve(query, k)
+        return [
+            {"text": c.text, "score": s, "source": c.source, "section": c.section}
+            for c, s in zip(chunks, scores)
+        ]
 
     @property
     def last_mesh(self) -> Optional[BoutMesh]:
-        """The last successfully generated mesh. Can be None."""
+        """
+        The most recent successfully generated BoutMesh, or None.
+
+        Returns
+        -------
+        BoutMesh or None
+            The mesh object for programmatic inspection/plotting.
+        """
         if len(self.mesh_history) == 0:
             return None
         return self.mesh_history[-1]["mesh"]
 
     @property
     def last_settings(self) -> Optional[dict]:
-        """Return the settings used to create the most recent successful mesh.
-        Can be None."""
+        """
+        The settings dict used to generate the most recent successful mesh,
+        or None if no successful mesh exists.
+
+        Returns
+        -------
+        dict or None
+            The resolved settings dict (defaults applied) for the last mesh.
+        """
         if len(self.mesh_history) == 0:
             return None
         return self.mesh_history[-1]["settings"]
 
     def plot_last_mesh(self, ax=None):
-        """Plots the most recent successfully generated mesh"""
+        """
+        Plot the most recent successfully generated mesh.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            Optional axis to draw into. If None, the mesh's default plotting
+            behavior will create or return an axis.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            The axis containing the plotted mesh, or None if no mesh exists.
+
+        Notes
+        -----
+        - This convenience method delegates to the BoutMesh plotting helpers:
+          mesh.plotPotential() and mesh.plotGridCellEdges().
+        """
         mesh = self.last_mesh
         if mesh is None:
             return
         ax = mesh.plotPotential(axis=ax)
         return mesh.plotGridCellEdges(ax=ax)
+
+    def add_experience_report(self, embedding_model: Optional[str] = None):
+        """
+        Summarize the most recent run and add an 'experience' Chunk to the
+        experience database.
+
+        Behavior:
+          - Constructs a compact summary (using an ephemeral LLM call) that
+            includes: topology, goal, overrides (diff from defaults),
+            3-6 lessons (symptom→change→outcome), and diagnostics summary.
+          - Creates a Chunk(section='experience', chunk_type='experience')
+            with the summary text.
+          - Computes embedding(s) and adds them to the experience DB via
+            self.experience_db.add_chunks([chunk]).
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If no experience DB is configured (self.experience_db is None)
+            and no embedding_model is provided.
+
+        Notes
+        -----
+        - Should use a one-shot LLM call (not append to self.messages) to avoid
+          corrupting the ongoing conversational history.
+        - The helper should compute `overrides` as the diff between the last
+          settings and OptionsFactory defaults for compactness and reproducibility.
+        """
+        from .tools import experience
+        from .tools.search import Chunk
+
+        if self.experience_db is None:
+            if embedding_model is None:
+                raise ValueError(
+                    "No experience DB configured and no embedding_model provided."
+                )
+            from .tools.search import ChunkFaissDatabase
+
+            self.experience_db = ChunkFaissDatabase(self.client, model=embedding_model)
+
+        # Generate a summary including key lessons learned
+        summary = self.chat(experience.SUMMARY_PROMPT)
+
+        ch = Chunk(
+            text=summary,
+            section="experience",
+            source="experience",
+            chunk_type="experience",
+        )
+        # Add chunk to the database
+        self.experience_db.add_chunks([ch])
+
+    def save_experience(self, path: Path | str = None):
+        """
+        Persist the experience database to disk.
+
+        Parameters
+        ----------
+        path : str or Path, optional
+            Destination directory. If None, uses the path provided at
+            initialization (self.experience_db_path). If that is also None,
+            a ValueError is raised.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If no destination path is provided and no experience DB path was
+            configured during initialization.
+        """
+        if self.experience_db is None:
+            return
+        if path is None:
+            # Use the path given to init (may be None)
+            path = self.experience_db_path
+        if path is None:
+            raise ValueError("No path given to save_experience()")
+        self.experience_db.save(path)

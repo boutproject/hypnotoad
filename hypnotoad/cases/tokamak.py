@@ -1083,12 +1083,12 @@ class TokamakEquilibrium(Equilibrium):
         if not np.isclose(lower_psi, self.psi(*lower_x_point)):
             raise ValueError(
                 f"psi-value for lower separatrix {lower_psi} does not match value at "
-                "lower X-point {self.psi(*lower_x_point)}"
+                f"lower X-point {self.psi(*lower_x_point)}"
             )
         if not np.isclose(upper_psi, self.psi(*upper_x_point)):
             raise ValueError(
                 f"psi-value for upper separatrix {upper_psi} does not match value at "
-                "upper X-point {self.psi(*upper_x_point)}"
+                f"upper X-point {self.psi(*upper_x_point)}"
             )
 
         # Find lines along the legs from X-point to target

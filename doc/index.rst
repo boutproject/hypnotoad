@@ -21,6 +21,7 @@ Welcome to hypnotoad's documentation!
    tips-and-tricks
    nonorthogonal-tips
    utilities
+   agent
    provenance-tracking
    _apidoc/modules
    other-configurations

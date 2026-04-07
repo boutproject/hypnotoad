@@ -2881,9 +2881,9 @@ class Mesh:
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
                 print("region id , i self.user_options.refine_width", region_id, i,self.user_options.refine_width, flush=True)
-                plt.plot([p.R for p in eq_region.points],
-        [p.Z for p in eq_region.points],
-        marker="o", color="c", markersize=10)
+        #         plt.plot([p.R for p in eq_region.points],
+        # [p.Z for p in eq_region.points],
+        # marker="o", color="c", markersize=10)
                 eq_region_with_boundaries = eq_region.getRegridded(
                     radialIndex=i,
                     psi=self.equilibrium.psi,
@@ -2891,9 +2891,9 @@ class Mesh:
                     width=self.user_options.refine_width,
                 )
 
-                plt.plot([p.R for p in eq_region_with_boundaries.points],
-        [p.Z for p in eq_region_with_boundaries.points],
-        marker="o", color="r")
+        #         plt.plot([p.R for p in eq_region_with_boundaries.points],
+        # [p.Z for p in eq_region_with_boundaries.points],
+        # marker="o", color="r")
 
                 self.regions[region_id] = MeshRegion(
                     self,
@@ -3270,7 +3270,7 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridCellEdges(self, ax=None, **kwargs):
+    def plotGridCellEdges(self, ax=None,  c= None, **kwargs):
         """
         Plot lines between cell corners
         """
@@ -3283,7 +3283,8 @@ class Mesh:
             _, ax = pyplot.subplots(1)
 
         for region in self.regions.values():
-            c = next(colors)
+            if c is None:
+                c = next(colors)
             label = region.myID
             for i in range(region.nx + 1):
                 ax.plot(

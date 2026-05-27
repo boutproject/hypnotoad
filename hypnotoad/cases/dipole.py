@@ -101,6 +101,11 @@ class DipoleEquilibrium(Equilibrium):
             ),
             value_type=[float],
         ),
+        psi_divide_twopi=WithMeta(
+            False,
+            doc="Divide poloidal flux, and so poloidal field, by 2pi",
+            value_type=bool,
+        ),
     )
 
     def __init__(self, wall=None, settings=None, nonorthogonal_settings=None):
@@ -137,7 +142,10 @@ class DipoleEquilibrium(Equilibrium):
         R = dpeq.get_r(transpose=False, zoom_factor=1)
         Z = dpeq.get_z(transpose=False, zoom_factor=1)
         twopi = 2 * np.pi
-        psirz = dpeq.get_psirz(transpose=True, zoom_factor=1)
+
+        psirz = dpeq.get_psirz(transpose=True, zoom_factor=1, divide_by_twopi=self.user_options.psi_divide_twopi)
+
+        self.dVdpsi = dpeq.get_dvdpsi_2d(transpose=True)
         self.dpeq = dpeq
         wall = dpeq.get_outerwall(format='r-z')
         wall = np.array([(r, z) for r, z in zip(wall[0], wall[1])])
@@ -152,6 +160,7 @@ class DipoleEquilibrium(Equilibrium):
         self.psi_inner = with_default(
             self.user_options.psi_inner, dpeq.get_psi_rmp(self.user_options.r_inner)
         )
+
         if type(self.psi_inner) is str:
             if self.psi_inner == "peak":
                 self.psi_inner = dpeq.get_psi_peak()
@@ -171,7 +180,9 @@ class DipoleEquilibrium(Equilibrium):
             else:
                 raise ValueError(f"Invalid value for psi_outer: {self.psi_outer}. Choose 'peak' or 'lcfs' or give a float.")
         
-
+        if self.user_options.psi_divide_twopi:
+            self.psi_inner = self.psi_inner/twopi
+            self.psi_outer = self.psi_outer/twopi
         print("-- psi_inner", self.psi_inner)
         print("-- psi_outer", self.psi_outer)
 
@@ -187,7 +198,7 @@ class DipoleEquilibrium(Equilibrium):
                         self.psi_inner
                         - self.psi_outer
                 )
-                / 20.0
+                / 40.0
             ),
         )
         self.Bt_axis = 0.0
@@ -198,6 +209,7 @@ class DipoleEquilibrium(Equilibrium):
 
             # Core-only geometry: add connection so domain is periodic in y
             self.makeConnection("dipole", 0, "dipole", 0)
+        
 
     # psi values
     def _psinorm_to_psi(self, psinorm):
@@ -266,7 +278,7 @@ class DipoleEquilibrium(Equilibrium):
         alpha_ref = self.user_options.alpha_ref
         initial_point = self.user_options.initial_point
         # we take the contour of psi at the value corresponding to r0 as the line to build the region around, so that the grid is more aligned with the flux surfaces
-        points = [Point2D(x,y) for (x,y) in self.dpeq.get_psi_contour((self.psi_inner*alpha_ref + (1-alpha_ref)*self.psi_outer), n_points=n_points, rotate=initial_point, closed=False)[0]]
+        points = [Point2D(x,y) for (x,y) in self.dpeq.get_psi_contour((self.psi_inner*alpha_ref + (1-alpha_ref)*self.psi_outer), n_points=n_points, rotate=initial_point, closed=False, divide_by_twopi=self.user_options.psi_divide_twopi)[0]]
 
 
 

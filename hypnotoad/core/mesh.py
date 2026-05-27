@@ -3930,6 +3930,12 @@ class BoutMesh(Mesh):
                 f.write("psi_axis_gfile", self.equilibrium.psi_axis_gfile)
             if hasattr(self.equilibrium, "psi_bdry_gfile"):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
+            if hasattr(self.equilibrium, "dpeq"):
+                f.write("dVdpsi", self.equilibrium.dpeq.get_dvdpsi_interp(divide_by_twopi=self.equilibrium.user_options.psi_divide_twopi)(self.psixy.centre))
+                B_edge = numpy.deepcopy(self.Bxy.centre[:,:])
+                nx, ny = self.Bxy.centre.shape
+                B_edge[:,:] = numpy.tile(self.Bxy.centre[-3,:], (nx, 1))
+                f.write("B_edge", B_edge)
 
             if hasattr(self.equilibrium, "closed_wallarray"):
                 f.write(

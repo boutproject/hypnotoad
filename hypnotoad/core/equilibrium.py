@@ -1230,6 +1230,7 @@ class PsiContour:
     def get_distance(self, *, psi, equilibrium):
         if self._distance is None:
             fine_contour = self.get_fine_contour(psi=psi, equilibrium=equilibrium)
+            print("Calculating distance along fine contour...")
             both_distances = [fine_contour.getDistance(p) for p in self]
             self._distance = [d[0] for d in both_distances]
             self._parallel_distance = [d[1] for d in both_distances]

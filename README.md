@@ -128,6 +128,8 @@ Hypnotoad provides several executables for working with equilibria and grid file
   equilibria from geqdsk equilibrium files
 - `hypnotoad-circular` is a command line interface for creating grid files for
   concentric, circular flux surfaces
+  - `hypnotoad-dipole` is a command line interface for creating grid files for
+  dipole flux surfaces
 - `hypnotoad-torpex` is a command line interface for creating grid files for
   TORPEX X-point configurations
 - `hypnotoad-plot-equilibrium` is a command line tool for creating plots of the

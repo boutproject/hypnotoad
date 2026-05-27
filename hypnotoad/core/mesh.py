@@ -2498,7 +2498,6 @@ def _calc_contour_distance(i, c, *, psi, equilibrium, **kwargs):
         end="\r",
         flush=True,
     )
-    c.get_distance(psi=psi, equilibrium=equilibrium)
     return c
 
 
@@ -2875,15 +2874,27 @@ class Mesh:
         self.makeRegions(parallel_map)
 
     def makeRegions(self, parallel_map):
+        from matplotlib import pyplot as plt
+
+        print("traceback", flush=True)
         for eq_region in self.equilibrium.regions.values():
             for i in range(eq_region.nSegments):
                 region_id = self.region_lookup[(eq_region.name, i)]
+                print("region id , i self.user_options.refine_width", region_id, i,self.user_options.refine_width, flush=True)
+        #         plt.plot([p.R for p in eq_region.points],
+        # [p.Z for p in eq_region.points],
+        # marker="o", color="c", markersize=10)
                 eq_region_with_boundaries = eq_region.getRegridded(
                     radialIndex=i,
                     psi=self.equilibrium.psi,
                     equilibrium=self.equilibrium,
                     width=self.user_options.refine_width,
                 )
+
+        #         plt.plot([p.R for p in eq_region_with_boundaries.points],
+        # [p.Z for p in eq_region_with_boundaries.points],
+        # marker="o", color="r")
+
                 self.regions[region_id] = MeshRegion(
                     self,
                     region_id,
@@ -3259,7 +3270,7 @@ class Mesh:
             if change < 1.0e-3:
                 break
 
-    def plotGridCellEdges(self, ax=None, **kwargs):
+    def plotGridCellEdges(self, ax=None,  c= None, **kwargs):
         """
         Plot lines between cell corners
         """
@@ -3272,7 +3283,8 @@ class Mesh:
             _, ax = pyplot.subplots(1)
 
         for region in self.regions.values():
-            c = next(colors)
+            if c is None:
+                c = next(colors)
             label = region.myID
             for i in range(region.nx + 1):
                 ax.plot(
@@ -3895,7 +3907,7 @@ class BoutMesh(Mesh):
     def writeArrayXDirection(self, name, array, f):
         f.write(name, BoutArray(array.centre[:, 0], attributes=array.attributes))
 
-    def writeGridfile(self, filename):
+    def writeGridfile(self, filename, skip_topology=False):
         from boututils.datafile import DataFile
 
         with DataFile(filename, create=True, format="NETCDF4") as f:
@@ -3918,6 +3930,12 @@ class BoutMesh(Mesh):
                 f.write("psi_axis_gfile", self.equilibrium.psi_axis_gfile)
             if hasattr(self.equilibrium, "psi_bdry_gfile"):
                 f.write("psi_bdry_gfile", self.equilibrium.psi_bdry_gfile)
+            if hasattr(self.equilibrium, "dpeq"):
+                f.write("dVdpsi", self.equilibrium.dpeq.get_dvdpsi_interp(divide_by_twopi=self.equilibrium.user_options.psi_divide_twopi)(self.psixy.centre))
+                B_edge = numpy.deepcopy(self.Bxy.centre[:,:])
+                nx, ny = self.Bxy.centre.shape
+                B_edge[:,:] = numpy.tile(self.Bxy.centre[-3,:], (nx, 1))
+                f.write("B_edge", B_edge)
 
             if hasattr(self.equilibrium, "closed_wallarray"):
                 f.write(
@@ -3952,7 +3970,10 @@ class BoutMesh(Mesh):
 
             # Write topology-setting indices for BoutMesh
             eq_region0 = next(iter(self.equilibrium.regions.values()))
-
+            print("self.equilibrium.regions:", self.equilibrium.regions)
+            print("eq_region0",eq_region0)
+            print("eq_region0.separatrix_radial_index",eq_region0.separatrix_radial_index)
+            print("self.x_startinds:",self.x_startinds)
             if len(self.x_startinds) == 2:
                 # No separatrix in grid: self.x_startinds = [0, nx]
                 if eq_region0.separatrix_radial_index == 0:
@@ -3985,7 +4006,7 @@ class BoutMesh(Mesh):
                     )
             else:
                 raise ValueError("More than two separatrices not supported by BoutMesh")
-
+            print("y_regions_noguards:",self.y_regions_noguards)
             if len(self.y_regions_noguards) == 1:
                 # No X-points
                 jyseps1_1 = -1
@@ -4027,14 +4048,14 @@ class BoutMesh(Mesh):
                     # this is a connected-double-null configuration, with two
                     # separatrices in the same radial location
                     ixseps2 = ixseps1
-
-            f.write("ixseps1", ixseps1)
-            f.write("ixseps2", ixseps2)
-            f.write("jyseps1_1", jyseps1_1)
-            f.write("jyseps2_1", jyseps2_1)
-            f.write("ny_inner", ny_inner)
-            f.write("jyseps1_2", jyseps1_2)
-            f.write("jyseps2_2", jyseps2_2)
+            if not skip_topology:
+                f.write("ixseps1", ixseps1)
+                f.write("ixseps2", ixseps2)
+                f.write("jyseps1_1", jyseps1_1)
+                f.write("jyseps2_1", jyseps2_1)
+                f.write("ny_inner", ny_inner)
+                f.write("jyseps1_2", jyseps1_2)
+                f.write("jyseps2_2", jyseps2_2)
 
             # Create poloidal coordinate (single-valued everywhere, includes y-boundary
             # cells)

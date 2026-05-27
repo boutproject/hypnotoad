@@ -126,3 +126,5 @@ dmypy.json
 .DS_Store
 .idea/
 *.sw[po]
+examples/dipole/bout.dipole.grd.nc
+examples/dipole/dipole_eq.h5
